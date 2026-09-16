@@ -1,8 +1,6 @@
 # kenon
 
-The modding suite for the native port of Pokémon Black and White. Kenon is
-the void: the empty form that takes either truth or ideals, which is what a
-mod is before it is filled.
+The modding suite for the native port of Pokémon Black and White.
 
 ## Status
 
