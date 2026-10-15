@@ -1,16 +1,20 @@
 # The `.bw` container
 
-A `.bw` is the packed form of one mod. It is what a player drops in a folder
-and the loader turns on. A mod is a directory laid out like the data root
-today, so the `.bw` is a distribution format that packs that directory and
-unpacks back to it. The loose directory is the development form; the `.bw`
-is the form a player receives.
+A `.bw` is the packed form of one mod. The port owns mod management: it
+unpacks a `.bw` at startup, or reads it directly, and reads a mod directory as
+it does today (`docs/mods.md`, "The layering model"). kenon owns the authoring
+side: it packs a mod directory into a `.bw`, and its involvement ends when the
+`.bw` exists. A mod is a directory laid out like the data root today, so the
+`.bw` is a distribution format that packs that directory and unpacks back to
+it. The loose directory is the development form; the `.bw` is the form a
+player receives. The port runs with no mods at all, and its headless tests and
+its demo do so.
 
-This document specifies the container as far as the port side fixes it, and
-marks the rest as undecided. The port side is `docs/mods.md` (the data
-surface that exists), `docs/mod-interface.md` (the interface contract, its
-section 3 is the manifest and pack schema) and `README.md`, "The file layer".
-Every claim about the port below is attributed to the file it comes from.
+This document specifies the container, which kenon writes. The port side is
+`docs/mods.md` (the data surface that exists), `docs/mod-interface.md` (the
+interface contract, its section 3 is the manifest and pack schema) and
+`README.md`, "The file layer". Every claim about the port below is attributed
+to the file it comes from.
 
 ## The loose directory, the form the port reads
 
@@ -50,7 +54,8 @@ the port reads:
 | `api` | integer | 1 | the interface version the mod is built against |
 | `code` | relative path | none | the mod's native library for this host |
 | `state` | identifier | derived from `name` | the per-mod state namespace |
-| `override` | a grammar line, repeatable | none | one address override |
+| `override` | a grammar line, repeatable | none | one (region, address) override |
+| `rule` | a grammar line, repeatable | none | one rule bound to one event |
 | `subscribe` | an event name, repeatable | none | a bound event, declarative only |
 | `settings` | relative path | none | the mod's settings declaration |
 
@@ -67,8 +72,10 @@ The current layer reads a directory root: `bw_data_path` joins a root and a
 relative path, so the root is a directory (`sdk/vfs.c`, `bw_data_path`).
 `docs/mod-interface.md`, section 3, states the consequence: "A packed
 single-file mod (one archive with the same tree and manifest inside) is not a
-thing the current layer reads", and item 13 makes a reader for it work still
-to build. No `.bw` reader exists in the port.
+thing the current layer reads". The port owns the reader: it unpacks a `.bw`
+at startup into its own cache, or reads the container directly, and reads a
+mod directory as it does today. No `.bw` reader exists in the port yet, and
+the choice between unpacking to a cache and reading directly is still open.
 
 A `.bw` therefore holds the same tree the loose form holds, so that the two
 forms differ only by packaging:
@@ -84,8 +91,8 @@ forms differ only by packaging:
 
 ### The container format is not decided
 
-The `.bw` is most likely a zip. No eidos document fixes a container, so the
-choice is open.
+The `.bw` is most likely a zip. The container is kenon's to fix, because kenon
+writes it; the port only reads or unpacks one.
 
 Evidence for a zip:
 
@@ -94,8 +101,8 @@ Evidence for a zip:
 - the port's own first-run extractor already recognises zip as an archive
   kind when a player drops a ROM file (`docs/installer.md`, the archive
   cases), so the tooling's environment already treats zip as ordinary;
-- the file layer needs no change if the launcher unpacks a zip to a
-  directory.
+- the file layer needs no change if the port unpacks a zip into its own
+  cache.
 
 Evidence against a fixed zip:
 
@@ -109,31 +116,72 @@ Evidence against a fixed zip:
 
 The format, the compression policy and the file extension are not decided.
 
-### How a packed mod reaches the port is not decided
+### How a packed mod reaches the port
 
-Two shapes reconcile the packed form with the directory root the port reads.
+The port owns the packed form. It unpacks a `.bw` at startup into its own
+cache, or reads the container directly, and reads a mod directory as it does
+today. Whether it unpacks to a cache or reads directly is still open. Either
+way the unpacking is the port's, not kenon's. kenon produces the `.bw` and
+stops.
 
-1. **The launcher unpacks a `.bw` to a directory and points a mod root at
-   it.** The file layer needs no change: `bw_add_mod_root` appends one root
-   and re-sorts, and `bw_set_mod_root` replaces the list (`sdk/vfs.h`,
-   `docs/mods.md`, "Setting the roots"). The unpack is the tooling's job and
-   the unpacked directory is the loose form.
+The two shapes, with the evidence on each side:
 
-2. **The port gains a reader for the packed form.** `docs/mod-interface.md`,
-   item 13, is this work. It needs a reader that resolves a NitroFS path
-   inside the container and serves whole files and member directories the
-   way the directory root does, so `bw_vfs_file_layer` and `bw_data_path`
-   answer for a packed root too.
+- **The port unpacks the container into its own cache.** The file layer needs
+  no change: `bw_data_path` joins a root and a relative path, and the roots
+  are directories (`sdk/vfs.c`, `bw_data_path`; `sdk/vfs.h`, `bw_add_mod_root`,
+  `bw_set_mod_root`). The unpack is the port's, at startup or at the point the
+  mod roots are set.
+- **The port reads the container directly.** The port gains a reader that
+  resolves a NitroFS path inside the container and serves whole files and
+  member directories the way a directory root does, so `bw_vfs_file_layer`
+  and `bw_data_path` answer for a packed root too. The port's memory handle
+  serves a merged NARC today, so this shape adds a memory form for whole
+  files to `bw_data_path` and the readers that use it (`docs/mod-rules.md`,
+  section 2).
 
-Evidence for shape 1: the API and the flush exist, every change to the roots
-drops the cached merged archives so the new view applies at the next open
-(`sdk/vfs.c`, `bw_vfs_flush`; `docs/mods.md`, "The layering model"), and no
-port work is needed. Evidence for shape 2: it keeps the mod a single file the
-player drops in, which is the goal the run-time seam has
-(`docs/modding.md`, "A player-side mod should not require recompiling the
-port"), and it avoids an unpack step and a second copy on disk.
+The player drops a `.bw` in the mods folder and the port makes it work.
 
-The choice is not decided.
+The container format, its compression policy and its extension are kenon's to
+fix, because kenon writes the container. The port fixes only that it reads or
+unpacks one.
+
+## The port owns mod management
+
+The port manages mods in the game's own menu, and a mod can be enabled without
+restarting the game. The port owns the mod list, enable and disable, the load
+order and conflict reporting. The port also owns display, controls and sound.
+There is one place a player changes things, the game's own menu.
+
+kenon owns the authoring side: the assembler and disassembler, the table
+editors, and the packager that produces a `.bw`. Its involvement ends when
+the `.bw` exists. kenon does not own the player's mod list, enable and
+disable, the load order or conflict reporting.
+
+The in-game management implies four constraints the tooling must know.
+
+1. **The mod roots and the override registry are rebuildable at the menu.**
+   The port sets the mod roots with `bw_set_mod_root`, `bw_add_mod_root` and
+   `bw_clear_mods`, and every change drops the cached merged archives so the
+   new view applies at the next open (`sdk/vfs.h`; `docs/mods.md`, "Setting
+   the roots"). Enabling or disabling a mod at the menu rebuilds the roots
+   and the override registry rather than installing them once at startup.
+2. **Disabling a code mod reverts its slots before its library is unloaded.**
+   The game holds pointers into a loaded mod, so the port restores each slot
+   to its original before the library is unloaded.
+3. **A mod's effects persist after it is disabled.** State a mod wrote, and
+   anything it changed through an override's return, stays until the game
+   writes over it or the port restarts. Disabling a mod stops its future
+   effects; it does not undo past ones.
+4. **The port starts with no mods at all.** A build with no mods defines
+   every address the way a build without the override machinery does, and the
+   resolver answers from the data root alone (`docs/mod-interface.md`, section
+   5; `docs/mods.md`, "The layering model").
+
+The escape hatch is the port's. The port runs with no mods, and its headless
+tests and its demo do so (`docs/mods.md`, "The layering model"; `README.md`,
+"Running the game's boot"). A `--no-mods` switch, and an enable list the port
+reads before it loads anything, let a player turn off a mod that breaks
+startup without the game.
 
 ## Metadata the port does not read
 
@@ -153,17 +201,18 @@ Two fields a loader usually needs are not in the port schema.
 `priority` is the tooling's word for the port's `order`. They are one value.
 A higher `order` loads later and wins more (`sdk/vfs.h`, `docs/mods.md`).
 
-## Changing priority and load order from the settings screen
+## Changing priority and load order from the game's menu
 
-The port reads the list from `bw_set_mod_root`, `bw_add_mod_root`,
-`bw_clear_mods`, or the `BW_MOD_ROOT` environment variable, and re-sorts it
-by each mod's manifest `order` (`sdk/vfs.h`, "The mod list"; `docs/mods.md`,
-"Setting the roots"). `BW_MOD_ROOT` is read once, the first time the list is
-consulted, unless a call set the list first (`sdk/vfs.c`, `mods_init`), so a
-screen that changes the order must make an explicit call.
+The port manages mods in the game's own menu. The port reads the list from
+`bw_set_mod_root`, `bw_add_mod_root`, `bw_clear_mods`, or the `BW_MOD_ROOT`
+environment variable, and re-sorts it by each mod's manifest `order`
+(`sdk/vfs.h`, "The mod list"; `docs/mods.md`, "Setting the roots").
+`BW_MOD_ROOT` is read once, the first time the list is consulted, unless a
+call set the list first (`sdk/vfs.c`, `mods_init`), so a menu that changes
+the order makes an explicit call.
 
-The screen that would change it is not built. The settings screen exists and
-the title menu reaches it (`engine/platform/settings_ui.c`,
+The menu that changes it is not built. The settings screen exists and the
+title menu reaches it (`engine/platform/settings_ui.c`,
 `engine/platform/mod_options_proc.c`, `sdk/mod_title.c`; `docs/settings-design.md`),
 but `docs/modding.md`, "Settings and UI: partial", states that the
 mod-facing part is missing: the row table and the UI text are still eidos's
@@ -171,36 +220,39 @@ own, and there is no mod-supplied screen or menu. `docs/mod-interface.md`,
 item 11, states the port must fix whether the `settings` key names a file, a
 row table, or nothing.
 
-So changing a mod's priority from the settings screen is not decided. Two
-candidate shapes, with the evidence on each side:
+The port owns the mod list and the order. Two shapes for the menu, with the
+evidence on each side:
 
-- **A settings row per mod that re-sorts at run time.** The row changes a
-  mod's order and calls `bw_add_mod_root` or `bw_set_mod_root`, and the
-  cached merged archives drop so the new view applies at the next open
-  (`sdk/vfs.h`, `bw_vfs_flush`). Evidence for: the API exists and the flush
-  exists. Evidence against: the mod-facing row table does not exist
+- **A menu row per mod that re-sorts at run time.** The row changes a mod's
+  order and calls `bw_add_mod_root` or `bw_set_mod_root`, and the cached
+  merged archives drop so the new view applies at the next open (`sdk/vfs.h`,
+  `bw_vfs_flush`). Evidence for: the API exists and the flush exists, and the
+  port owns mod management, so a mod can be enabled without restarting the
+  game. Evidence against: the mod-facing row table does not exist
   (`docs/modding.md`, "Settings and UI: partial"), so the row has nowhere to
   live yet.
-- **The screen writes the order to a file the launcher reads.** The screen
-  persists a player-chosen order, and the launcher passes it to
-  `bw_set_mod_root` before the game runs. The port's own settings file lives
-  in the eidos home next to the extraction (`engine/platform/settings.c`,
-  `eidos_settings_path`; `install/setup.c`, `bw_setup_home`;
-  `docs/modding.md`, "Per-mod state persistence: partial"), which is a place
-  such a file could live. Evidence for: it needs no run-time re-sort. Evidence
-  against: no port or tooling file of that shape exists, and the settings
-  file the port owns holds eidos's own options, not a mod order.
+- **The menu writes the order to the port's own settings file.** The menu
+  persists a player-chosen order, and the port reads it before it loads
+  anything. The port's own settings file lives in the eidos home next to the
+  extraction (`engine/platform/settings.c`, `eidos_settings_path`;
+  `install/setup.c`, `bw_setup_home`; `docs/modding.md`, "Per-mod state
+  persistence: partial"), which is a place such a file could live. Evidence
+  for: it needs no run-time re-sort, and the port owns the settings. Evidence
+  against: no file of that shape exists, and the settings file the port owns
+  holds eidos's own options, not a mod order.
 
-Neither shape is decided. Writing `order` back into a mod's own manifest from
-the screen is a third option, but it edits the mod rather than the player's
+Neither shape is decided. The port owns both the menu and the settings, so
+nothing is split across programs. Writing `order` back into a mod's own
+manifest is a third option, but it edits the mod rather than the player's
 choice, and nothing in the port writes a manifest.
 
 ## Pack and unpack, the tooling contract
 
-The tooling packs a loose directory to a `.bw` and unpacks a `.bw` to a loose
-directory. Both directions are lossless, and a round trip reproduces the
-input bytes. `README.md` of this repository fixes the packaging goal: a folder
-is a mod, a zip is its distribution, conflicts are reported per file.
+The tooling packs a loose directory to a `.bw`. The port unpacks it, or reads
+it directly. The tooling also unpacks a `.bw` for a round-trip check, and both
+directions are lossless: a round trip reproduces the input bytes. `README.md`
+of this repository fixes the packaging goal: a folder is a mod, a `.bw` is its
+distribution.
 
 A pack must preserve:
 
@@ -218,7 +270,7 @@ holds the game's own bytes and the port serves them unchanged (`docs/mods.md`,
 
 ## What is decided and what is not
 
-Decided, on the port side:
+Decided:
 
 - the loose directory is the mod root the port reads, and a path resolves to
   the latest layer holding a regular file there (`sdk/vfs.c`);
@@ -231,17 +283,27 @@ Decided, on the port side:
 - the `code` key names the mod's native library for this host; the loader is
   not built (`docs/mod-interface.md`, item 4);
 - member overrides are directories of `<index>` files (`sdk/vfs_narc.c`;
-  `docs/mods.md`, "Member overrides").
+  `docs/mods.md`, "Member overrides");
+- the port owns mod management, in the game's own menu, and owns the mod
+  list, enable and disable, the load order and conflict reporting, plus
+  display, controls and sound;
+- the port unpacks a `.bw` into its own cache or reads it directly, and reads
+  a mod directory as it does today;
+- the port runs with no mods, and a `--no-mods` switch and an enable list it
+  reads before anything loads turn off a mod that breaks startup
+  (`docs/mods.md`, "The layering model");
+- kenon owns the authoring side and produces the `.bw`; its involvement ends
+  when the `.bw` exists.
 
 Not decided:
 
+- whether the port unpacks a `.bw` to its own cache or reads the container
+  directly;
 - the container format, the compression policy and the file extension of a
-  `.bw`;
-- whether the port reads a `.bw` directly or the launcher unpacks it
-  (`docs/mod-interface.md`, item 13);
+  `.bw`, which are kenon's to fix;
 - the `version` and `dependencies` keys, which the port does not read;
-- the settings screen that changes a mod's priority (`docs/mod-interface.md`,
-  item 11; `docs/modding.md`, "Settings and UI: partial");
+- the menu that changes a mod's priority (`docs/mod-interface.md`, item 11;
+  `docs/modding.md`, "Settings and UI: partial");
 - the layout of a mod's state under the save directory (`docs/mod-interface.md`,
   item 10).
 
@@ -251,6 +313,7 @@ Not decided:
   the manifest keys and the override grammar.
 - `docs/events-and-rules.md`: the event catalogue and the rule surface.
 - eidos `docs/mod-interface.md`, section 3: the manifest and pack schema.
+- eidos `docs/mod-rules.md`, section 2: where a packed mod is read.
 - eidos `docs/mods.md`: the data surface that exists today.
 - eidos `README.md`, "The file layer": the design account of the data
   surface.

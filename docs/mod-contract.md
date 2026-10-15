@@ -1,20 +1,22 @@
 # The mod contract, from the tooling side
 
 This document is the tooling side of the contract the port defines. The port
-side is four documents in eidos: `docs/mod-interface.md` (the interface
-contract), `docs/mod-overrides.md` (the function override keyed on a DS
-address), `docs/mods.md` (the data surface that exists) and `docs/modding.md`
-(what the four example mods need and what is missing). This document says
-what a mod may declare and do from the tooling's point of view, and where the
-two sides must agree. It points at the port documents rather than restating
-them.
+side is six documents in eidos: `docs/mod-interface.md` (the interface
+contract), `docs/mod-events.md` (the 18-event catalogue and the state API),
+`docs/mod-rules.md` (the rule substrate and the container decision),
+`docs/mod-overrides.md` (the function override keyed on a DS address),
+`docs/mods.md` (the data surface that exists) and `docs/modding.md` (what the
+four example mods need and what is missing). This document says what a mod may
+declare and do from the tooling's point of view, and where the two sides must
+agree. It points at the port documents rather than restating them.
 
-The tooling is the modding suite this repository plans: a script assembler
-and disassembler for the field and battle effect VMs, editors for the JSON
-tables and sprite sheets with validation, and mod packaging where a folder is
-a mod and a zip is its distribution with conflicts reported per file
-(`README.md`). Later a Lua binding over the engine's events
-(`README.md`, "Planned scope").
+The tooling is the authoring side of the modding suite this repository plans:
+a script assembler and disassembler for the field and battle effect VMs,
+editors for the JSON tables and sprite sheets with validation, and a packager
+that writes a mod folder to a `.bw`. The port manages mods in the game's own
+menu, so kenon's involvement ends when the `.bw` exists (`README.md`). Later a
+rule surface over the engine's events for gameplay mods without recompiling
+(`README.md`, "Planned scope"; `docs/mod-rules.md`, section 1).
 
 ## The key is the DS address
 
@@ -44,17 +46,22 @@ it generates an indirection, a slot. An address outside the set is called
 directly, as the build calls it today, and no mod can reach it
 (`docs/mod-interface.md`, section 1).
 
-The candidate set is derived from aletheia's `function:` and `address:`
-headers and the SDK symbol table `layout/symbols_sdk.txt`. The table in
-`docs/mod-interface.md`, section 1, is a superset, and the port fixes which
-rows it declares (item 1). The cost of a set that is too large is one rename
+The port declares the set. It publishes 44 rows in `mod/declared_set.txt`,
+one per address, with the address, the aletheia function name, the region
+(`arm9` or the overlay id) and the example mods that need it
+(`docs/mod-interface.md`, section 1). The table in section 1 is the prose
+account of the same set. The cost of a set that is too large is one rename
 site and one maintenance item per address at every aletheia wave
 (`docs/hooks.md`, "Limits").
 
-The tooling must treat only the declared addresses as hookable. An editor
-that offers an address the port does not declare promises something the port
-does not do. Once the port fixes the set (item 1), the tooling reads it from
-the port rather than carrying a second copy that can drift.
+The tooling must treat only the declared addresses as hookable, and it reads
+the set from the port's `mod/declared_set.txt` rather than carrying a second
+copy that can drift. An editor that offers an address the port does not
+declare promises something the port does not do.
+
+The set is the hookable set, not the event set. `docs/mod-events.md`,
+"Declared addresses with no event", names the declared addresses that bind to
+no event and the concepts that span more than one address.
 
 ## What a mod declares
 
@@ -71,7 +78,8 @@ same file.
 | interface version | `api` | integer; default 1 |
 | native library | `code` | relative path; the loader is not built (`docs/mod-interface.md`, item 4) |
 | state namespace | `state` | identifier; default derived from `name` |
-| one address override | `override` | a grammar line, repeatable |
+| one (region, address) override | `override` | a grammar line, repeatable |
+| one rule bound to one event | `rule` | a grammar line, repeatable |
 | one bound event | `subscribe` | an event name, repeatable, declarative only |
 | settings declaration | `settings` | relative path; the surface is not built (`docs/mod-interface.md`, item 11) |
 
@@ -80,11 +88,15 @@ same file.
 The `override` value grammar (`docs/mod-interface.md`, section 3):
 
 ```
-<address> <mode> <symbol> [sig="<prototype>"] [switch=<name>]
+<region>:<address> <mode> <symbol> [sig="<prototype>"] [switch=<name>]
 ```
 
-- `<address>` is a `0x` prefixed DS address. Both the even start and the
-  Thumb-bit value are accepted (`docs/mod-interface.md`, item 2).
+- `<region>:<address>` is the pair `(region, address)`. `<region>` is `arm9`
+  or an overlay id, the spelling `mod/declared_set.txt` uses, and `<address>`
+  is a `0x` prefixed DS address. Both the even start and the Thumb-bit value
+  are accepted (`docs/mod-interface.md`, sections 2 and 1, item 2). The bare
+  address is not a key: two overlays share one RAM window, so `0x021C5200`
+  alone names two functions (`docs/mod-interface.md`, section 1).
 - `<mode>` is `replace` or `wrap`. `wrap` calls the original, which the slot
   keeps callable (`docs/mod-overrides.md`, "What an override declares";
   `docs/mod-interface.md`, section 2).
@@ -115,8 +127,14 @@ A mod can register a handler in its code, and a `subscribe` line lets the
 port report a conflict before the mod runs. The work is to fix which form the
 port reads (`docs/mod-interface.md`, item 7). The event name is the permanent
 binding key: renaming one later breaks every mod bound to it
-(`docs/mod-interface.md`, section 4). The tooling must use the names in
-`docs/events-and-rules.md` and must not rename them.
+(`docs/mod-interface.md`, section 4). The catalogue is the port's, 18 events
+in `docs/mod-events.md`, section 1, and the tooling uses those names and does
+not rename them. `docs/events-and-rules.md` follows the same catalogue.
+
+A mod that does not write C declares a rule under the `rule` key instead. The
+port decided the rule substrate: a small interpreter in the port runs the
+rule, and the tooling owns the language (`docs/mod-rules.md`, section 1;
+`docs/mod-events.md`, section 5).
 
 ## What a mod may do
 
@@ -125,6 +143,10 @@ binding key: renaming one later breaks every mod bound to it
 - **Subscribe to an event.** The port fires an event when a declared slot is
   entered, calls the mod's handler with a fixed struct, and then calls the
   original unless the handler blocks (`docs/mod-interface.md`, section 4).
+- **Declare a rule.** A rule is code in a small language the tooling owns,
+  run by a small interpreter in the port at the event slot
+  (`docs/mod-rules.md`, section 1; `docs/mod-interface.md`, "The rule
+  surface").
 - **Read game state.** Party and box records, species, level and HP, the
   current map, and the save flags. A mod reaches them through the DS address
   registry (`bw_ds_ptr`, `sdk/dsmem.h`) or through the matched accessors the
@@ -199,12 +221,14 @@ other.
 |---|---|---|
 | the key | the DS address (`docs/mod-overrides.md`) | the tooling keys on the address, never the name |
 | the address form | even start and Thumb-bit value accepted, or one fixed and converted (`docs/mod-interface.md`, item 2) | the tooling accepts both and states which one a manifest uses |
-| the hookable set | the declared set, a superset fixed by the port (`docs/mod-interface.md`, section 1, item 1) | the tooling treats only declared addresses as hookable |
+| the hookable set | the declared set, published at `mod/declared_set.txt` (`docs/mod-interface.md`, section 1) | the tooling reads the set from the port and treats only declared addresses as hookable |
 | the manifest | `eidos_mod.txt`, `key = value`, unknown key ignored (`sdk/vfs.c`, `read_manifest`) | the tooling writes the same file and the same keys |
-| the override grammar | `<address> <mode> <symbol> [sig=] [switch=]` (`docs/mod-interface.md`, section 3) | the tooling emits this grammar and one object per address |
-| the event names | the permanent binding key (`docs/mod-interface.md`, section 4) | the tooling uses the names in `docs/events-and-rules.md` and never renames one |
+| the override grammar | `<region>:<address> <mode> <symbol> [sig=] [switch=]` (`docs/mod-interface.md`, section 3) | the tooling emits this grammar and one object per address |
+| the event names | the permanent binding key, 18 events (`docs/mod-events.md`, section 1) | the tooling uses those names and never renames one |
+| the rule substrate | a small interpreter in the port runs a rule (`docs/mod-rules.md`, section 1) | the tooling owns the language and compiles to the interpreter (`docs/events-and-rules.md`) |
 | the interface version | `api`, and the port fixes what a mismatch does (`docs/mod-interface.md`, item 5) | the tooling records the `api` the mod was built against |
-| the conflict rule | later in the load order wins, the earlier is reported as shadowed (`docs/mod-overrides.md`) | the tooling reports the same conflict per address and per file |
+| the conflict rule | later in the load order wins, the earlier is reported as shadowed at run time (`docs/mod-overrides.md`) | the tooling reports a conflict it can see at pack time; the port owns the run-time report |
+| the mod list | the port owns mod management in the game's own menu, and enable and disable without a restart | kenon produces the `.bw` and stops; it does not own the list or the order |
 | the state namespace | `state`, one file or folder under the save directory (`docs/mod-interface.md`, section 3, item 10) | the tooling names the namespace and does not share it between mods |
 
 Two open points the tooling must watch, because a tool that assumes an answer
@@ -213,19 +237,22 @@ will be wrong when the port fixes it:
 - **`whiteout.begin` spans two addresses.** One concept, two functions, the
   battle-screen half and the field-recover half. The port must fix whether
   one event name binds both or two events exist
-  (`docs/mod-interface.md`, section 4, item 8). The tooling must not assume
-  one binding.
+  (`docs/mod-events.md`, section 1, still-to-build item 1). The tooling must
+  not assume one binding.
 - **Block composition.** The port must fix whether any handler blocks or
   every handler must allow. The conservative rule is any-blocks, and the port
-  reports both (`docs/mod-interface.md`, section 4, item 9). The tooling must
+  reports both (`docs/mod-events.md`, still-to-build item 8). The tooling must
   not assume one rule.
 
 ## What the tooling does not do
 
 The tooling does not add a port capability. It assembles and disassembles
-scripts, edits the JSON tables and sprite sheets with validation, packages
-mods, and later binds Lua over the engine's events (`README.md`). It must not
-claim a port capability the eidos documents do not describe.
+scripts, edits the JSON tables and sprite sheets with validation, packages a
+mod folder to a `.bw`, and compiles a rule for the port's interpreter
+(`README.md`; `docs/mod-rules.md`, section 1). It does not manage the player's
+mods: the port owns the mod list, enable and disable, the load order and the
+run-time conflict report (`docs/bw-format.md`). It must not claim a port
+capability the eidos documents do not describe.
 
 Where a mod needs something the port does not expose, the gap is on the port
 side. `docs/modding.md`, "The gap list, in priority order", and
@@ -240,6 +267,10 @@ the packed single-file mod.
 - `docs/events-and-rules.md`: the event catalogue and the rule surface.
 - eidos `docs/mod-interface.md`: the hookable set, the slot, the manifest
   schema, the event and state API, and the trust model.
+- eidos `docs/mod-events.md`: the 18-event catalogue, the state API and the
+  ABI surface.
+- eidos `docs/mod-rules.md`: the rule substrate decision and the container
+  decision.
 - eidos `docs/mod-overrides.md`: the function override keyed on a DS address.
 - eidos `docs/modding.md`: what the four example mods need and what is
   missing.

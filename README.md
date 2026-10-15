@@ -16,10 +16,14 @@ documented C API for the engine's loaders.
   (the opcode tables already exist in aletheia's tools).
 - Editors for the JSON tables (species, moves, items, encounters, zones)
   and for sprite sheets and rigs, with validation against the engine.
-- Mod packaging: a folder is a mod, a zip is its distribution, conflicts are
-  reported per file.
-- Later: a Lua binding over the engine's events for gameplay mods without
-  recompiling.
+- Mod packaging: a folder is a mod, a `.bw` is its distribution. The port
+  manages mods in the game's own menu and unpacks or reads the `.bw`; the
+  port owns the mod list, enable and disable, the load order, conflict
+  reporting, display, controls and sound, and runs with no mods
+  (`docs/bw-format.md`).
+- Later: a rule surface over the engine's events for gameplay mods without
+  recompiling. A rule is a small language this repository owns, run by a
+  small interpreter in eidos (`docs/events-and-rules.md`).
 
 ## Relationship to the other repositories
 

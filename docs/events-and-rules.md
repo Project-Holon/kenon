@@ -14,45 +14,98 @@ state, and performs named actions; it is not a table of key and value lines.
 
 The rule surface is a projection of the code API. Anything a rule cannot
 express needs a code mod. The events, their meaning and the accepted writes
-are the port's, and this document attributes each to `docs/mod-interface.md`.
-The four eidos documents do not mention rules, so the language and the
-compiler or interpreter are this repository's work over the port's API.
+are the port's, and this document attributes each to `docs/mod-events.md` and
+`docs/mod-interface.md`. The port now fixes the rule surface:
+`docs/mod-interface.md`, section 3, carries the `rule` manifest key, and
+`docs/mod-rules.md`, section 1, decides that a small interpreter in the port
+runs a rule. The rule language and its field names are the tooling's work,
+which the port's ABI excludes (`docs/mod-events.md`, section 5).
 
 ## The events
 
-The event catalogue is `docs/mod-interface.md`, section 4. An event is a
-semantic concept that maps onto one or more addresses in the hookable set
-plus a typed wrapper. The event name is the permanent binding key: renaming
-one later breaks every mod bound to it.
+The event catalogue is `docs/mod-events.md`, section 1. It holds 18 events:
+the 16 of `docs/mod-interface.md`, section 4, plus `overlay.load` and
+`overlay.start`. An event is a semantic concept that maps onto one or more
+addresses in the hookable set plus a typed wrapper. The event name is the
+permanent binding key: renaming one later breaks every mod bound to it.
 
-| Event name | Source address(es) | When it fires | Mods |
-|---|---|---|---|
-| `encounter.start` | 0x0216E818 | a wild or scripted battle task is created | N S NS |
-| `encounter.trainer` | 0x021AA5CC | a trainer battle is set up | N S NS |
-| `battle.start` | 0x02013090 | the battle setup is created | N S NS MP |
-| `catch.attempt` | 0x021CBA40 | a ball is thrown | N S NS |
-| `catch.result` | the return of 0x021CBA40 | the throw returns | N S NS |
-| `battle.faint` | 0x021C5200 | a faint is processed | N S NS |
-| `heal.party` | 0x0215B5A8 | a script heals the party | N S NS |
-| `whiteout.begin` | 0x021D1960, 0x02158A20 | the player blacks out | N S NS |
-| `route.change` | 0x021643E8 | the field loads a new zone | N S NS |
-| `save.begin` | 0x02007150 | a save starts | N S NS MP |
-| `save.done` | 0x02007168 | the save completes | N S NS MP |
-| `save.load` | 0x02012C18 | a save loads | N S NS MP |
-| `link.up` | 0x0215CD24 | the link becomes on | S NS MP |
-| `link.down` | 0x0215CD24 | the link becomes off | S NS MP |
-| `net.send` | the Wm and DWC send points | bytes leave the process | MP |
-| `net.receive` | the Wm and DWC receive points | bytes arrive | MP |
+| Event | Declared-set address(es) | Region | Fires | Block | Mods |
+|---|---|---|---|---|---|
+| `encounter.start` | 0x0216E818 | ov010 | a wild or scripted battle task is created | yes | N S NS |
+| `encounter.trainer` | 0x021AA5CC | ov021 | a trainer battle is set up | no | N S NS |
+| `battle.start` | 0x02013090 | arm9 | the battle setup is created | yes | N S NS MP |
+| `catch.attempt` | 0x021CBA40 | ov093 | a ball is thrown | yes | N S NS |
+| `catch.result` | the return of 0x021CBA40 | ov093 | the throw returns | no | N S NS |
+| `battle.faint` | 0x021C5200 | ov093 | a faint is processed | yes | N S NS |
+| `heal.party` | 0x0215B5A8 | ov010 | a script heals the party | yes | N S NS |
+| `whiteout.begin` | 0x021D1960, 0x02158A20 | ov093, ov010 | the player blacks out | yes | N S NS |
+| `route.change` | 0x021643E8 | ov010 | the field loads a new zone | no | N S NS |
+| `save.begin` | 0x02007150 | arm9 | a save starts | no | N S NS MP |
+| `save.done` | 0x02007168 | arm9 | the save completes | no | N S NS MP |
+| `save.load` | 0x02012C18 | arm9 | a save loads | no | N S NS MP |
+| `link.up` | 0x0215CD24 | ov009 | the link becomes on | no | S NS MP |
+| `link.down` | 0x0215CD24 | ov009 | the link becomes off | no | S NS MP |
+| `net.send` | the Wm and DWC send points | not built | bytes leave the process | no | MP |
+| `net.receive` | the Wm and DWC receive points | not built | bytes arrive | no | MP |
+| `overlay.load` | 0x02078EB0 | arm9 | an overlay's data is loaded | no | N S NS MP |
+| `overlay.start` | 0x0207902C | arm9 | an overlay's static initialisers run | no | N S NS MP |
+
+The address column is the even function start, the form aletheia's `address:`
+line records (`mod/declared_set.txt`; `docs/mod-events.md`, section 1). The
+overlay tables key on the value a code pointer holds, which carries the Thumb
+low bit, so a manifest that names an address must state which form it uses and
+accept both (`docs/mod-interface.md`, still-to-build item 2).
 
 Nuzlocke abbreviates to N, Soullink to S, Nuzlocke plus Soullink to NS, and
 Multiplayer to MP. A mod in the S or NS column needs every N event too,
 because both are Nuzlocke supersets (`docs/modding.md`, "What the four
 example mods need").
 
+The first sixteen rows are the catalogue of `docs/mod-interface.md`, section
+4. `overlay.load` and `overlay.start` are the port's addition
+(`docs/mod-events.md`, section 1): `docs/mod-interface.md`, section 1, names
+`FS_LoadOverlayImage` and `FS_StartOverlay` as lifecycle rows a mod that
+writes overlay data needs, and section 4 makes the overlay lifecycle the load
+and unload point of a mod. Whether they are events or a separate lifecycle
+callback is not decided (`docs/mod-events.md`, still-to-build item 10).
+
+### Declared addresses with no event
+
+The declared set is the hookable set, not the event set (`docs/mod-events.md`,
+"Declared addresses with no event"). Several declared addresses are a concept
+a mod reaches by a function override or a state read rather than an event, and
+several are part of a concept above whose binding is not decided. The port
+names them:
+
+| Address | Function | Region | Bound to |
+|---|---|---|---|
+| 0x0216EAB0 | EVENT_BATTLE_CreateEncounterTaskWithMon | ov010 | `encounter.start` (undecided) |
+| 0x0201347C | BTL_SETUP_SetupWild | arm9 | `battle.start` (undecided) |
+| 0x0216EE20 | EVENT_BATTLE_DispatchBattleKindNotify | ov010 | none |
+| 0x02188CE8 | FIELDMAP_GetEncount | ov021 | none |
+| 0x021CBD48 | BTL_SERVER_FLOW_GetBallCatchRate | ov093 | `catch.attempt` override point |
+| 0x021D5B68 | BTL_POKEPARAM_IsFainted | ov093 | none (a predicate) |
+| 0x02158AD4 | SCRIPT_SYS_RunFieldRecoverScript | ov010 | `whiteout.begin` (undecided) |
+| 0x02018198 | POKE_TOOL_RecoverAllPP | arm9 | `heal.party` (undecided) |
+| 0x021643AC | FIELD_MAP_CHANGE_ApplyZoneHeader | ov010 | `route.change` (undecided) |
+| 0x021841C0 | EVENT_MAPCHANGE_ChangeFieldEvent | ov020 | `route.change` (undecided) |
+| 0x021666C8 | WCM_GetLinkLevel | ov009 | none |
+| 0x02166710 | WCM_CalcLinkLevel | ov009 | none |
+| 0x02012BF8 | GAME_DATA_CheckSaveFlag | arm9 | the save-flag state read |
+
+Two concepts span more than one declared address. `whiteout.begin` spans the
+battle-screen half (0x021D1960) and the field-recover half (0x02158A20), and
+whether one event name binds both or two events exist is not decided
+(`docs/mod-events.md`, still-to-build item 1). `link.up` and `link.down` are
+one address (0x0215CD24) and two events, distinguished by the predicate's
+return. `route.change` and `heal.party` each have a declared address the four
+mods name that the catalogue does not bind (`docs/mod-events.md`, section 1).
+
 ### What each event means, and what a rule may do
 
-The port's exact semantics are `docs/mod-interface.md`, section 4. Each
-entry below adds what a rule may do at that event.
+The port's exact semantics are `docs/mod-events.md`, section 1, and
+`docs/mod-interface.md`, section 4. Each entry below adds what a rule may do
+at that event.
 
 - **`encounter.start`.** Fires once when `EVENT_BATTLE_CreateEncounterTask`
   is entered. The payload names the battle kind and the task. A handler may
@@ -85,7 +138,7 @@ entry below adds what a rule may do at that event.
   events"). A block suppresses the return to the last heal point, which
   Nuzlocke uses to continue after a whiteout. A rule may block the return.
   Whether one event name binds both addresses or two events exist is not
-  decided (`docs/mod-interface.md`, item 8).
+  decided (`docs/mod-events.md`, still-to-build item 1).
 - **`route.change`.** Fires when the field loads a new zone. The payload
   names the map. Read-only. Nuzlocke keys the used-route set on it. A rule
   may read the map.
@@ -101,6 +154,14 @@ entry below adds what a rule may do at that event.
   (`docs/modding.md`, "Networking seam: missing"). The names are fixed so a
   mod does not rebind when the transport lands. A rule may not use them
   today.
+- **`overlay.load`.** Fires when `FS_LoadOverlayImage` (0x02078EB0, arm9)
+  runs. The overlay's data is reset on every load, so a mod that writes
+  overlay data needs this event and `overlay.start` (`docs/mod-events.md`,
+  section 1). Whether the handler runs before or after the port's own load
+  work is not decided (still-to-build item 10).
+- **`overlay.start`.** Fires when `FS_StartOverlay` (0x0207902C, arm9) runs
+  the overlay's static initialisers. Whether the handler runs before or after
+  the initialisers is not decided (`docs/mod-events.md`, section 1).
 
 ## What a rule may do
 
@@ -111,8 +172,8 @@ allows at that event.
   `BW_EVENT_BLOCK` from a handler (`docs/mod-interface.md`, section 4). A
   block is the return of a block on a slot that defines one, not a state
   write. Blocks compose, and the port must fix whether any handler blocks or
-  every handler must allow (`docs/mod-interface.md`, item 9). A rule may
-  block at the events that define a block: `encounter.start`,
+  every handler must allow (`docs/mod-events.md`, still-to-build item 8). A
+  rule may block at the events that define a block: `encounter.start`,
   `catch.attempt`, `battle.faint`, `heal.party`, `whiteout.begin`.
 - **Read state.** Party and box records, species, level and HP, the current
   map, and the save flags, through `bw_ds_ptr` or the matched accessors
@@ -135,100 +196,71 @@ allows at that event.
 ### The example, worked
 
 "On faint, subtract 1000 from the player money" is a rule at
-`battle.faint`. The rule reads the player money field, subtracts 1000, and
-writes the new value. The port does not arbitrate the write, so the game's
-later write wins (`docs/mod-interface.md`, section 4). The rule must write at
-the event the game derives the money from if the change must stick.
+`battle.faint`. The port names the field. Player money is `money`, the save
+block with id 0x34 at offset +0x00, a u32 capped at 9,999,999, read by
+`BEACON_GetPoints` (0x0200C274) and written by `BEACON_AddPoints`
+(0x0200C278) or `BEACON_SubPoints` (0x0200C29C) (`docs/mod-events.md`,
+section 4; `docs/mod-interface.md`, section 4). The block is at a run-time
+address, not a fixed DS address, reached through `SAVE_CONTROL_GetBlock`
+(0x020071CC) and `GAME_DATA_GetMiscSave` (0x02012F08). The money accessors
+are state accessors, not override points, so they are not in the declared set
+(`docs/mod-interface.md`, section 4). A rule names `money` and the port makes
+the same call. The port does not arbitrate the write, so the game's later
+write wins; a change that must stick is made at the event the game derives
+the money from (`docs/mod-events.md`, section 4).
 
-Player money is not named in the four eidos documents and is not in the
-declared hookable set (`docs/mod-interface.md`, section 1). The field name
-and its address are not decided. The rule language needs a table of named
-state fields, each mapped to an address or an accessor the port exposes.
-That table does not exist. Until it does, the example names a field the
-tooling cannot resolve.
+## The rule substrate
 
-## The game's own script VMs as a candidate substrate
+The port decided the substrate. A small interpreter in the port runs a rule,
+not the game's bytecode VM (`docs/mod-rules.md`, section 1, "Decision"). The
+rule is not native code and not the game's script bytecode.
 
-The game already contains field and battle script VMs. Aletheia has decoded
-both, and they are the substrate the planned assembler and disassembler in
-this repository would serve.
+The reasons the port gives: the VM cannot bind to a port event, cannot reach
+the per-mod state namespace, and cannot express block and allow as a value,
+and the port has not wired the VM at all (`docs/mod-rules.md`, section 1,
+"What the VM cannot express"). The port's ABI excludes the rule language and
+its field names, which are the tooling's work (`docs/mod-events.md`, section
+5).
 
-- **The field script VM.** The interpreter is `vm.c` at
-  `src/matched/unit_0201126C.c` and `src/matched/unit_02011330.c`. It
-  dispatches through a 609-entry handler table at 0x0217062C in overlay 10.
-  A bytecode is one little-endian `u16` opcode, then its operand bytes. The
-  field-script archive is `a/0/5/7` (899 sub-files). The stop opcodes are
-  {2, 29, 140, 342, 359, 378}, opcode 4 is a call, and the flow-end opcodes
-  are {5, 30, 31} (aletheia's `tools/assets/scripts.py`, its header).
-- **The battle effect VM.** It is the same engine as the field script VM,
-  with its own handler set. Every one of its 78 opcodes takes 4-byte `u32`
-  operands only. Opcode 77 is a stop, opcode 70 is a call, opcode 71 is a
-  return, and opcodes 60, 61, 72 and 74 are branches. Its data archive is
-  `a/0/6/6` (601 sub-files), and its object constructor is
-  `func_021F94F8` (`btlv_effvm.c`, overlay 94) (aletheia's
-  `tools/assets/btleff.py`, its header).
+What a rule compiles to: the input the port's interpreter runs, a small
+bytecode over the port's field table and the event payload
+(`docs/mod-rules.md`, section 1; `docs/mod-interface.md`, sections 3 and 4).
+The port runs a compiled rule at the event slot that fires the event, in the
+same place it runs a mod's C handlers (`docs/mod-interface.md`, "The rule
+surface"). The rule stays out of host code. The exact encoding is part of the
+grammar still to be fixed (`docs/mod-rules.md`, still-to-build item 1).
 
-`README.md` of this repository plans "a script assembler and disassembler
-for the field and battle effect VMs (the opcode tables already exist in
-aletheia's tools)". So the VM is the substrate the assembler and
-disassembler serve, and it is a candidate substrate for rules.
+Who owns the language: the tooling. The port owns the interpreter, the field
+table it exposes, and the substrate decision. The rule grammar, the state
+field names and the actions are the tooling's (`docs/mod-events.md`, section
+5, which excludes the rule language from the port ABI). The grammar is still
+to be fixed (`docs/mod-rules.md`, still-to-build item 1).
 
-Two facts limit it as a rule substrate today. The port has not wired the
-script VM: eidos Milestone 7 lists "script VM" as matched but not wired into
-the port (`README.md`, "Planned Milestones"; `docs/status.md`, "Milestone 7,
-gameplay"). And the VM is the game's own object, with handlers that act on
-game state, not on the port's event and state API
-(`docs/mod-interface.md`, section 4).
-
-## How a rule compiles or interprets
-
-The choice is not decided. Three shapes are open, with the evidence on each
-side.
-
-1. **A rule compiles to the game's script VM bytecode, and the VM runs it.**
-   Evidence for: the VM and its opcode tables exist, and the assembler this
-   repository plans targets exactly this bytecode (`README.md`). Evidence
-   against: the port has not run the script VM (`docs/status.md`, Milestone
-   7); the VM's handlers act on game state and know nothing of the port's
-   events, so a rule bound to `battle.faint` has no bytecode that reaches
-   it; and the VM has no access to the mod state namespace (`sdk/save.h`).
-
-2. **A rule compiles to a native shared library, the same as a code mod,
-   with the rule language as a front end.** Evidence for: the code loader is
-   the seam the port needs anyway, a dropped-in mod is a native library
-   loaded at run time (`docs/mod-interface.md`, item 4); the rule then uses
-   the same event and state API a code mod uses (`docs/mod-interface.md`,
-   section 4); and the assembler and disassembler are not needed for it.
-   Evidence against: a native library is trusted to the same degree as any
-   mod, so the small language is a constraint on the author, not a safety
-   boundary (`docs/mod-interface.md`, section 5).
-
-3. **A small interpreter in the port runs the rule over a fixed opcode
-   set.** Evidence for: the rule stays out of host code and the surface
-   stays small. Evidence against: the port promises no sandboxing and no
-   bounded resource use (`docs/mod-interface.md`, section 5); no interpreter
-   seam exists in the port; and this is new port work the four eidos
-   documents do not list.
-
-The port side of the rule surface is not in the manifest schema or the
-still-to-build list. `docs/mod-interface.md`, section 3, has a `settings`
-key and no rule key, and item 11 is the settings surface. So a rule that runs
-inside the port needs a port-side entry point that does not exist, or it
-compiles to a native library (shape 2) and uses the loader item 4.
+The game's own field and battle effect VMs still exist, and kenon still plans
+an assembler and disassembler for them (`README.md`). The port decision is
+about the rule substrate only, not about the VM tools.
 
 ## What is not decided
 
-- The rule language: its grammar, its state field names, and its actions.
-- The compiler or interpreter, and whether it is a tool in this repository,
-  a port component, or both.
-- Whether a rule runs as generated native code or through an interpreter.
-- The table of named state fields, and how each maps to an address or an
-  accessor. Player money is an example with no field and no address.
+- The rule language: its grammar, its state field names, and its actions
+  (`docs/mod-rules.md`, still-to-build item 1). The tooling owns it, and the
+  port does not fix it.
+- The interpreter seam: where the port runs a rule at a slot, and how it
+  reads and writes the field table (`docs/mod-rules.md`, still-to-build item
+  2).
+- The full table of named state fields. The port names `money` and the other
+  fields of `docs/mod-events.md`, section 4, but the port's mod-facing wrapper
+  name and signature for each are still to be fixed (`docs/mod-events.md`,
+  still-to-build item 4).
 - The message surface a rule may use (`docs/mod-interface.md`, item 11).
-- Whether `whiteout.begin` is one event on two addresses or two events
-  (`docs/mod-interface.md`, item 8).
+- Whether `overlay.load` and `overlay.start` are events or a separate
+  lifecycle callback, and whether the handler runs before or after the port's
+  own load work (`docs/mod-events.md`, still-to-build item 10).
+- Whether `whiteout.begin` is one event on two addresses or two events, and
+  which declared address each multi-address concept binds (`docs/mod-events.md`,
+  still-to-build item 1).
 - Block composition, whether any handler blocks or every handler must allow
-  (`docs/mod-interface.md`, item 9).
+  (`docs/mod-events.md`, still-to-build item 8).
 - The authority model for Soullink: which instance decides a shared outcome,
   how two conflicting events are ordered, and what happens when one instance
   is ahead (`docs/modding.md`, "What is still to build", item 3).
@@ -239,6 +271,10 @@ compiles to a native library (shape 2) and uses the loader item 4.
 
 - `docs/bw-format.md`: the `.bw` container and the manifest.
 - `docs/mod-contract.md`: the tooling side of the port contract.
+- eidos `docs/mod-events.md`: the 18-event catalogue, the state API and the
+  ABI surface.
+- eidos `docs/mod-rules.md`: the rule substrate decision and the container
+  decision.
 - eidos `docs/mod-interface.md`, section 4: the event and state API, and the
   typed wrapper.
 - eidos `docs/mod-interface.md`, section 5: the trust model.
