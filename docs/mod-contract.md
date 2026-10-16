@@ -2,7 +2,7 @@
 
 This document is the tooling side of the contract the port defines. The port
 side is six documents in eidos: `docs/mod-interface.md` (the interface
-contract), `docs/mod-events.md` (the 18-event catalogue and the state API),
+contract), `docs/mod-events.md` (the 359-entry catalogue and the state API),
 `docs/mod-rules.md` (the rule substrate and the container decision),
 `docs/mod-overrides.md` (the function override keyed on a DS address),
 `docs/mods.md` (the data surface that exists) and `docs/modding.md` (what the
@@ -46,7 +46,7 @@ it generates an indirection, a slot. An address outside the set is called
 directly, as the build calls it today, and no mod can reach it
 (`docs/mod-interface.md`, section 1).
 
-The port declares the set. It publishes 44 rows in `mod/declared_set.txt`,
+The port declares the set. It publishes 193 rows in `mod/declared_set.txt`,
 one per address, with the address, the aletheia function name, the region
 (`arm9` or the overlay id) and the example mods that need it
 (`docs/mod-interface.md`, section 1). The table in section 1 is the prose
@@ -127,14 +127,15 @@ A mod can register a handler in its code, and a `subscribe` line lets the
 port report a conflict before the mod runs. The work is to fix which form the
 port reads (`docs/mod-interface.md`, item 7). The event name is the permanent
 binding key: renaming one later breaks every mod bound to it
-(`docs/mod-interface.md`, section 4). The catalogue is the port's, 18 events
-in `docs/mod-events.md`, section 1, and the tooling uses those names and does
+(`docs/mod-interface.md`, section 4). The catalogue is the port's, 359 entries
+(160 events, 27 override points, 81 state entries and 91 data tables) in
+`docs/mod-events.md`, section 1, and the tooling uses those names and does
 not rename them. `docs/events-and-rules.md` follows the same catalogue.
 
 A mod that does not write C declares a rule under the `rule` key instead. The
 port decided the rule substrate: a small interpreter in the port runs the
-rule, and the tooling owns the language (`docs/mod-rules.md`, section 1;
-`docs/mod-events.md`, section 5).
+rule, and the port fixes the rule grammar and its field names
+(`docs/mod-rules.md`, section 1; `docs/mod-interface.md`, item 14).
 
 ## What a mod may do
 
@@ -143,7 +144,7 @@ rule, and the tooling owns the language (`docs/mod-rules.md`, section 1;
 - **Subscribe to an event.** The port fires an event when a declared slot is
   entered, calls the mod's handler with a fixed struct, and then calls the
   original unless the handler blocks (`docs/mod-interface.md`, section 4).
-- **Declare a rule.** A rule is code in a small language the tooling owns,
+- **Declare a rule.** A rule is code in a small language the port fixes,
   run by a small interpreter in the port at the event slot
   (`docs/mod-rules.md`, section 1; `docs/mod-interface.md`, "The rule
   surface").
@@ -224,8 +225,8 @@ other.
 | the hookable set | the declared set, published at `mod/declared_set.txt` (`docs/mod-interface.md`, section 1) | the tooling reads the set from the port and treats only declared addresses as hookable |
 | the manifest | `eidos_mod.txt`, `key = value`, unknown key ignored (`sdk/vfs.c`, `read_manifest`) | the tooling writes the same file and the same keys |
 | the override grammar | `<region>:<address> <mode> <symbol> [sig=] [switch=]` (`docs/mod-interface.md`, section 3) | the tooling emits this grammar and one object per address |
-| the event names | the permanent binding key, 18 events (`docs/mod-events.md`, section 1) | the tooling uses those names and never renames one |
-| the rule substrate | a small interpreter in the port runs a rule (`docs/mod-rules.md`, section 1) | the tooling owns the language and compiles to the interpreter (`docs/events-and-rules.md`) |
+| the event names | the permanent binding key, 359 entries (`docs/mod-events.md`, section 1) | the tooling uses those names and never renames one |
+| the rule substrate | a small interpreter in the port runs a rule, and the port fixes the grammar (`docs/mod-rules.md`, section 1; `docs/mod-interface.md`, item 14) | the tooling writes rules in the port's grammar and packages them (`docs/events-and-rules.md`) |
 | the interface version | `api`, and the port fixes what a mismatch does (`docs/mod-interface.md`, item 5) | the tooling records the `api` the mod was built against |
 | the conflict rule | later in the load order wins, the earlier is reported as shadowed at run time (`docs/mod-overrides.md`) | the tooling reports a conflict it can see at pack time; the port owns the run-time report |
 | the mod list | the port owns mod management in the game's own menu, and enable and disable without a restart | kenon produces the `.bw` and stops; it does not own the list or the order |
@@ -235,10 +236,10 @@ Two open points the tooling must watch, because a tool that assumes an answer
 will be wrong when the port fixes it:
 
 - **`whiteout.begin` spans two addresses.** One concept, two functions, the
-  battle-screen half and the field-recover half. The port must fix whether
-  one event name binds both or two events exist
-  (`docs/mod-events.md`, section 1, still-to-build item 1). The tooling must
-  not assume one binding.
+  battle-screen half and the field-recover half. The catalogue carries two
+  events, `whiteout.begin.battle` and `whiteout.begin.field`; how the port
+  binds the two names is still to build (`docs/mod-events.md`, section 1,
+  still-to-build item 1). The tooling must not assume one binding.
 - **Block composition.** The port must fix whether any handler blocks or
   every handler must allow. The conservative rule is any-blocks, and the port
   reports both (`docs/mod-events.md`, still-to-build item 8). The tooling must
@@ -267,7 +268,7 @@ the packed single-file mod.
 - `docs/events-and-rules.md`: the event catalogue and the rule surface.
 - eidos `docs/mod-interface.md`: the hookable set, the slot, the manifest
   schema, the event and state API, and the trust model.
-- eidos `docs/mod-events.md`: the 18-event catalogue, the state API and the
+- eidos `docs/mod-events.md`: the 359-entry catalogue, the state API and the
   ABI surface.
 - eidos `docs/mod-rules.md`: the rule substrate decision and the container
   decision.

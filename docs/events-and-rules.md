@@ -18,27 +18,35 @@ are the port's, and this document attributes each to `docs/mod-events.md` and
 `docs/mod-interface.md`. The port now fixes the rule surface:
 `docs/mod-interface.md`, section 3, carries the `rule` manifest key, and
 `docs/mod-rules.md`, section 1, decides that a small interpreter in the port
-runs a rule. The rule language and its field names are the tooling's work,
-which the port's ABI excludes (`docs/mod-events.md`, section 5).
+runs a rule. The rule grammar and its field names are the port's to fix,
+which the port's ABI excludes (`docs/mod-events.md`, section 5;
+`docs/mod-interface.md`, item 14).
 
 ## The events
 
-The event catalogue is `docs/mod-events.md`, section 1. It holds 18 events:
-the 16 of `docs/mod-interface.md`, section 4, plus `overlay.load` and
+The event catalogue is `docs/mod-events.md`, section 1. It holds 359 entries
+in four kinds: 160 events, 27 override points, 81 state entries and 91 data
+tables. The seventeen events of `docs/mod-interface.md`, section 4, are the
+subset the four example mods name; this document adds `overlay.load` and
 `overlay.start`. An event is a semantic concept that maps onto one or more
 addresses in the hookable set plus a typed wrapper. The event name is the
-permanent binding key: renaming one later breaks every mod bound to it.
+permanent binding key: renaming one later breaks every mod bound to it. An
+override point is a function a mod replaces or wraps; a state entry is a value
+a mod reads and writes through an accessor; a data table is a table or asset
+replaced as a whole file or a NARC member, keyed on the data layer rather than
+an address (`docs/mod-events.md`, "The four kinds").
 
 | Event | Declared-set address(es) | Region | Fires | Block | Mods |
 |---|---|---|---|---|---|
-| `encounter.start` | 0x0216E818 | ov010 | a wild or scripted battle task is created | yes | N S NS |
+| `encounter.start` | 0x0216E7C8 | ov010 | a wild or scripted battle task is created | yes | N S NS |
 | `encounter.trainer` | 0x021AA5CC | ov021 | a trainer battle is set up | no | N S NS |
 | `battle.start` | 0x02013090 | arm9 | the battle setup is created | yes | N S NS MP |
 | `catch.attempt` | 0x021CBA40 | ov093 | a ball is thrown | yes | N S NS |
 | `catch.result` | the return of 0x021CBA40 | ov093 | the throw returns | no | N S NS |
 | `battle.faint` | 0x021C5200 | ov093 | a faint is processed | yes | N S NS |
 | `heal.party` | 0x0215B5A8 | ov010 | a script heals the party | yes | N S NS |
-| `whiteout.begin` | 0x021D1960, 0x02158A20 | ov093, ov010 | the player blacks out | yes | N S NS |
+| `whiteout.begin.battle` | 0x021D1960 | ov093 | the player blacks out, the battle-screen half | yes | N S NS |
+| `whiteout.begin.field` | 0x02158A20 | ov010 | the player blacks out, the field-recover half | yes | N S NS |
 | `route.change` | 0x021643E8 | ov010 | the field loads a new zone | no | N S NS |
 | `save.begin` | 0x02007150 | arm9 | a save starts | no | N S NS MP |
 | `save.done` | 0x02007168 | arm9 | the save completes | no | N S NS MP |
@@ -61,8 +69,9 @@ Multiplayer to MP. A mod in the S or NS column needs every N event too,
 because both are Nuzlocke supersets (`docs/modding.md`, "What the four
 example mods need").
 
-The first sixteen rows are the catalogue of `docs/mod-interface.md`, section
-4. `overlay.load` and `overlay.start` are the port's addition
+The seventeen rows for the four example mods are the catalogue of
+`docs/mod-interface.md`, section 4, with `whiteout.begin` split into its two
+halves. `overlay.load` and `overlay.start` are the port's addition
 (`docs/mod-events.md`, section 1): `docs/mod-interface.md`, section 1, names
 `FS_LoadOverlayImage` and `FS_StartOverlay` as lifecycle rows a mod that
 writes overlay data needs, and section 4 makes the overlay lifecycle the load
@@ -79,27 +88,42 @@ names them:
 
 | Address | Function | Region | Bound to |
 |---|---|---|---|
-| 0x0216EAB0 | EVENT_BATTLE_CreateEncounterTaskWithMon | ov010 | `encounter.start` (undecided) |
-| 0x0201347C | BTL_SETUP_SetupWild | arm9 | `battle.start` (undecided) |
-| 0x0216EE20 | EVENT_BATTLE_DispatchBattleKindNotify | ov010 | none |
-| 0x02188CE8 | FIELDMAP_GetEncount | ov021 | none |
-| 0x021CBD48 | BTL_SERVER_FLOW_GetBallCatchRate | ov093 | `catch.attempt` override point |
-| 0x021D5B68 | BTL_POKEPARAM_IsFainted | ov093 | none (a predicate) |
-| 0x02158AD4 | SCRIPT_SYS_RunFieldRecoverScript | ov010 | `whiteout.begin` (undecided) |
+| 0x0216EAB0 | EVENT_BATTLE_CreateEncounterTaskWithMon | ov010 | `encounter.start.mon` |
+| 0x0201347C | BTL_SETUP_SetupWild | arm9 | `battle.setup.wild` |
+| 0x0216EE20 | EVENT_BATTLE_DispatchBattleKindNotify | ov010 | `battle.kind.notify` |
+| 0x02188CE8 | FIELDMAP_GetEncount | ov021 | `encounter.rate` (state) |
+| 0x021CBD48 | BTL_SERVER_FLOW_GetBallCatchRate | ov093 | `catch.rate` (override) |
+| 0x021D5B68 | BTL_POKEPARAM_IsFainted | ov093 | `battle.fainted` (state) |
+| 0x02158AD4 | SCRIPT_SYS_RunFieldRecoverScript | ov010 | `whiteout.fieldrecover` |
 | 0x02018198 | POKE_TOOL_RecoverAllPP | arm9 | `heal.party` (undecided) |
-| 0x021643AC | FIELD_MAP_CHANGE_ApplyZoneHeader | ov010 | `route.change` (undecided) |
-| 0x021841C0 | EVENT_MAPCHANGE_ChangeFieldEvent | ov020 | `route.change` (undecided) |
-| 0x021666C8 | WCM_GetLinkLevel | ov009 | none |
-| 0x02166710 | WCM_CalcLinkLevel | ov009 | none |
-| 0x02012BF8 | GAME_DATA_CheckSaveFlag | arm9 | the save-flag state read |
+| 0x0201BA34 | POKE_TOOL_HealParty | arm9 | `item.heal.party` |
+| 0x021643AC | FIELD_MAP_CHANGE_ApplyZoneHeader | ov010 | `route.header` (override) |
+| 0x021841C0 | EVENT_MAPCHANGE_ChangeFieldEvent | ov020 | `field.map.event` (override) |
+| 0x021666C8 | WCM_GetLinkLevel | ov009 | `link.level` (state) |
+| 0x02166710 | WCM_CalcLinkLevel | ov009 | `link.level` (state) |
+| 0x02012BF8 | GAME_DATA_CheckSaveFlag | arm9 | `save.flag` (state; tests the recent-id list in save block 0x36, not a flag) |
+| 0x0200C234 | BEACON_GetFlag | arm9 | `badge.state` (state) |
+| 0x0200C248 | BEACON_SetFlag | arm9 | `badge.write` (override) |
+| 0x0200C258 | BEACON_CountFlags | arm9 | `badge.count` (state) |
+| 0x02008A7C | TRCARD_SIGN_SetBadgeDate | arm9 | `badge.date` |
+| 0x0216F40C | TRCARD_SYS_BuildProfile | ov010 | `badge.profile` (state) |
+| 0x020071CC | SAVE_CONTROL_GetBlock | arm9 | `save.block` (override) |
+| 0x02012F08 | GAME_DATA_GetMiscSave | arm9 | `save.misc` (override) |
+| 0x0200CDE0 | ZUKAN_SAVE_RegisterCaught | arm9 | `zukan.caught` |
+| 0x0200CFA0 | ZUKAN_SAVE_RegisterSeen | arm9 | `zukan.seen` |
+| 0x020180F4 | POKE_TOOL_PushMove | arm9 | `move.push` (override) |
+| 0x020181F4 | POKE_TOOL_SetMoveSlot | arm9 | `move.slot` (override) |
+| 0x02014314 | ZONEDATA_SetEventFlag | arm9 | `flag.write` (override) |
 
 Two concepts span more than one declared address. `whiteout.begin` spans the
-battle-screen half (0x021D1960) and the field-recover half (0x02158A20), and
-whether one event name binds both or two events exist is not decided
-(`docs/mod-events.md`, still-to-build item 1). `link.up` and `link.down` are
-one address (0x0215CD24) and two events, distinguished by the predicate's
-return. `route.change` and `heal.party` each have a declared address the four
-mods name that the catalogue does not bind (`docs/mod-events.md`, section 1).
+battle-screen half (0x021D1960) and the field-recover half (0x02158A20); the
+catalogue carries two events, `whiteout.begin.battle` and
+`whiteout.begin.field`, and how the port binds the two names is still to
+build (`docs/mod-events.md`, still-to-build item 1). `link.up` and `link.down`
+are one address (0x0215CD24) and two events, distinguished by the predicate's
+return. `route.change` and `heal.party` each have a second declared address the
+four mods name, bound to an override point or left undecided
+(`docs/mod-events.md`, section 1b).
 
 ### What each event means, and what a rule may do
 
@@ -107,11 +131,12 @@ The port's exact semantics are `docs/mod-events.md`, section 1, and
 `docs/mod-interface.md`, section 4. Each entry below adds what a rule may do
 at that event.
 
-- **`encounter.start`.** Fires once when `EVENT_BATTLE_CreateEncounterTask`
-  is entered. The payload names the battle kind and the task. A handler may
-  block, which suppresses the encounter; a `replace` changes the species the
-  task builds. This is Nuzlocke's "first encounter of a route" point. A rule
-  may block the encounter, or read the current map to key the used-route set.
+- **`encounter.start`.** Fires once when `EVENT_BATTLE_CreateScriptedBattle`
+  (0x0216E7C8, ov010) is entered. The payload names the battle kind and the
+  task. A handler may block, which suppresses the encounter; a `replace`
+  changes the species the task builds. This is Nuzlocke's "first encounter of
+  a route" point. A rule may block the encounter, or read the current map to
+  key the used-route set.
 - **`encounter.trainer`.** Fires when a trainer battle is set up. The payload
   names the trainer. Read-only; the encounter already exists. A rule may read
   it and record it.
@@ -132,13 +157,14 @@ at that event.
 - **`heal.party`.** Fires when a script heals the party. A block forbids the
   heal, which is Nuzlocke's rule against healing a Pokemon the run has
   declared dead. A rule may block the heal.
-- **`whiteout.begin`.** Fires when the party blacks out. It spans two
-  addresses, the battle-screen half and the field-recover half, because one
-  semantic concept is not one address (`docs/modding.md`, "Name and key the
-  events"). A block suppresses the return to the last heal point, which
-  Nuzlocke uses to continue after a whiteout. A rule may block the return.
-  Whether one event name binds both addresses or two events exist is not
-  decided (`docs/mod-events.md`, still-to-build item 1).
+- **`whiteout.begin.battle`, `whiteout.begin.field`.** Fire when the party
+  blacks out, the battle-screen half (0x021D1960, ov093) and the field-recover
+  half (0x02158A20, ov010). One semantic concept spans two addresses, so the
+  catalogue carries two events (`docs/mod-events.md`, section 0). A block
+  suppresses the return to the last heal point, which Nuzlocke uses to
+  continue after a whiteout. A rule may block the return. How the port binds
+  the two names is still to build (`docs/mod-events.md`, still-to-build item
+  1).
 - **`route.change`.** Fires when the field loads a new zone. The payload
   names the map. Read-only. Nuzlocke keys the used-route set on it. A rule
   may read the map.
@@ -174,7 +200,9 @@ allows at that event.
   write. Blocks compose, and the port must fix whether any handler blocks or
   every handler must allow (`docs/mod-events.md`, still-to-build item 8). A
   rule may block at the events that define a block: `encounter.start`,
-  `catch.attempt`, `battle.faint`, `heal.party`, `whiteout.begin`.
+  `battle.start`, `catch.attempt`, `battle.faint`, `heal.party`,
+  `whiteout.begin.battle` and `whiteout.begin.field` (`docs/mod-events.md`,
+  section 2).
 - **Read state.** Party and box records, species, level and HP, the current
   map, and the save flags, through `bw_ds_ptr` or the matched accessors
   (`docs/mod-interface.md`, section 4).
@@ -219,8 +247,8 @@ The reasons the port gives: the VM cannot bind to a port event, cannot reach
 the per-mod state namespace, and cannot express block and allow as a value,
 and the port has not wired the VM at all (`docs/mod-rules.md`, section 1,
 "What the VM cannot express"). The port's ABI excludes the rule language and
-its field names, which are the tooling's work (`docs/mod-events.md`, section
-5).
+its field names, which are the port's to fix (`docs/mod-events.md`, section
+5; `docs/mod-interface.md`, item 14).
 
 What a rule compiles to: the input the port's interpreter runs, a small
 bytecode over the port's field table and the event payload
@@ -230,11 +258,12 @@ same place it runs a mod's C handlers (`docs/mod-interface.md`, "The rule
 surface"). The rule stays out of host code. The exact encoding is part of the
 grammar still to be fixed (`docs/mod-rules.md`, still-to-build item 1).
 
-Who owns the language: the tooling. The port owns the interpreter, the field
-table it exposes, and the substrate decision. The rule grammar, the state
-field names and the actions are the tooling's (`docs/mod-events.md`, section
+Who owns the language: the port. The port owns the interpreter, the field
+table it exposes, the substrate decision, the rule grammar and the state
+field names (`docs/mod-interface.md`, item 14; `docs/mod-events.md`, section
 5, which excludes the rule language from the port ABI). The grammar is still
-to be fixed (`docs/mod-rules.md`, still-to-build item 1).
+to be fixed (`docs/mod-rules.md`, still-to-build item 1). The tooling writes
+rules in the port's grammar and packages them.
 
 The game's own field and battle effect VMs still exist, and kenon still plans
 an assembler and disassembler for them (`README.md`). The port decision is
@@ -243,8 +272,8 @@ about the rule substrate only, not about the VM tools.
 ## What is not decided
 
 - The rule language: its grammar, its state field names, and its actions
-  (`docs/mod-rules.md`, still-to-build item 1). The tooling owns it, and the
-  port does not fix it.
+  (`docs/mod-rules.md`, still-to-build item 1). The port owns it
+  (`docs/mod-interface.md`, item 14).
 - The interpreter seam: where the port runs a rule at a slot, and how it
   reads and writes the field table (`docs/mod-rules.md`, still-to-build item
   2).
@@ -256,9 +285,9 @@ about the rule substrate only, not about the VM tools.
 - Whether `overlay.load` and `overlay.start` are events or a separate
   lifecycle callback, and whether the handler runs before or after the port's
   own load work (`docs/mod-events.md`, still-to-build item 10).
-- Whether `whiteout.begin` is one event on two addresses or two events, and
-  which declared address each multi-address concept binds (`docs/mod-events.md`,
-  still-to-build item 1).
+- How the port binds the two `whiteout.begin` events, and which declared
+  address each multi-address concept binds (`docs/mod-events.md`, still-to-build
+  item 1).
 - Block composition, whether any handler blocks or every handler must allow
   (`docs/mod-events.md`, still-to-build item 8).
 - The authority model for Soullink: which instance decides a shared outcome,
@@ -271,7 +300,7 @@ about the rule substrate only, not about the VM tools.
 
 - `docs/bw-format.md`: the `.bw` container and the manifest.
 - `docs/mod-contract.md`: the tooling side of the port contract.
-- eidos `docs/mod-events.md`: the 18-event catalogue, the state API and the
+- eidos `docs/mod-events.md`: the 359-entry catalogue, the state API and the
   ABI surface.
 - eidos `docs/mod-rules.md`: the rule substrate decision and the container
   decision.

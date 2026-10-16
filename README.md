@@ -22,8 +22,9 @@ documented C API for the engine's loaders.
   reporting, display, controls and sound, and runs with no mods
   (`docs/bw-format.md`).
 - Later: a rule surface over the engine's events for gameplay mods without
-  recompiling. A rule is a small language this repository owns, run by a
-  small interpreter in eidos (`docs/events-and-rules.md`).
+  recompiling. A rule is a small language the port fixes, run by a small
+  interpreter in eidos; this repository writes rules in that grammar
+  (`docs/events-and-rules.md`).
 
 ## Relationship to the other repositories
 

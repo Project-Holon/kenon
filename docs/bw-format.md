@@ -66,6 +66,17 @@ rather than a guessed value (`sdk/vfs.c`, `read_manifest`; `docs/mods.md`,
 `order` keep the order they were added in, and a later mod wins
 (`sdk/vfs.h`, "The mod list").
 
+The manifest keys cover two of the four kinds of the port's catalogue. The
+catalogue of `docs/mod-events.md`, section 1, holds 359 entries in four kinds:
+160 events, 27 override points, 81 state entries and 91 data tables. The
+`override` key names an override point, and the `subscribe` and `rule` keys
+name an event. A data table is not a manifest key: it is a whole-file or
+member override in the data tree, keyed on the data layer rather than an
+address (`docs/mod-events.md`, "The four kinds"; `docs/mods.md`). A game
+state entry is reached through an accessor, not declared in the manifest; the
+`state` key is the mod's own namespace, not a game state entry
+(`docs/mod-events.md`, section 4).
+
 ## The packed form
 
 The current layer reads a directory root: `bw_data_path` joins a root and a
