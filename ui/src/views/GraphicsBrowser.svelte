@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { archiveLabel } from "../lib/archiveLabels";
   import { onMount } from "svelte";
   import {
     archives,
@@ -247,7 +248,7 @@
           }}
         >
           {#each choices as a}
-            <option value={a.id}>{a.path} ({a.kinds["NCGR"]} sheets)</option>
+            <option value={a.id}>{archiveLabel(a.id)} ({a.kinds["NCGR"]} pictures)</option>
           {/each}
         </select>
       </label>
