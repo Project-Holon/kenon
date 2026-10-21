@@ -5,5 +5,10 @@
 //! app, and the app asks this crate.
 
 pub mod data_root;
+pub mod image;
 pub mod lz;
 pub mod narc;
+pub mod ncgr;
+pub mod nclr;
+pub mod nitro;
+pub mod nscr;

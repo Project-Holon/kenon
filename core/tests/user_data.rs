@@ -61,3 +61,77 @@ fn font_archive_holds_nftr_members() {
         .count();
     assert!(nftr > 0, "no NFTR member in a/0/2/3");
 }
+
+#[test]
+fn every_2d_resource_parses() {
+    use kenon_core::{ncgr::Ncgr, nclr::Palette, nscr::Nscr};
+    let Some(root) = data_root() else {
+        return;
+    };
+    let (mut palettes, mut sheets, mut screens) = (0, 0, 0);
+    let mut odd_screens = Vec::new();
+    for id in 0..1000u16 {
+        let rel = narc::archive_path(id).unwrap();
+        let Ok(archive) = narc::Narc::open(&root.file(&rel)) else {
+            continue;
+        };
+        for (index, raw) in archive.iter_raw().enumerate() {
+            let member = lz::decompress_if_compressed(raw);
+            match member.get(..4) {
+                Some(b"RLCN") => {
+                    Palette::parse(&member).unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+                    palettes += 1;
+                }
+                Some(b"RGCN") => {
+                    Ncgr::parse(&member).unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+                    sheets += 1;
+                }
+                Some(b"RCSN") => {
+                    let screen =
+                        Nscr::parse(&member).unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+                    if screen.entries.len() != screen.tiles_wide() * screen.tiles_high() {
+                        odd_screens.push(format!(
+                            "{rel} #{index}: {}x{} px, {} entries",
+                            screen.width,
+                            screen.height,
+                            screen.entries.len()
+                        ));
+                    }
+                    screens += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    eprintln!("{palettes} NCLR, {sheets} NCGR, {screens} NSCR");
+    eprintln!(
+        "{} NSCR with an entry count other than width x height:",
+        odd_screens.len()
+    );
+    for line in &odd_screens {
+        eprintln!("  {line}");
+    }
+    assert!(palettes > 0 && sheets > 0 && screens > 0);
+}
+
+/// Renders the options screen background (a/0/2/7: #0 NCGR, #1 NCLR, #2
+/// NSCR; inventory 7.6) as raw RGBA to the folder in KENON_RENDER_OUT, for a
+/// look by eye.
+#[test]
+fn render_options_background() {
+    use kenon_core::image::{render_screen, Zero};
+    use kenon_core::{ncgr::Ncgr, nclr::Palette, nscr::Nscr};
+    let (Some(root), Some(out)) = (data_root(), std::env::var_os("KENON_RENDER_OUT")) else {
+        return;
+    };
+    let archive = narc::Narc::open(&root.file("a/0/2/7")).unwrap();
+    let get = |i| lz::decompress_if_compressed(archive.raw(i).unwrap()).into_owned();
+    let tiles = Ncgr::parse(&get(0)).unwrap();
+    let palette = Palette::parse(&get(1)).unwrap();
+    for (name, index) in [("options_2", 2), ("options_9", 9), ("options_14", 14)] {
+        let screen = Nscr::parse(&get(index)).unwrap();
+        let img = render_screen(&screen, &tiles, &palette, Zero::Opaque);
+        let path = PathBuf::from(&out).join(format!("{name}_{}x{}.rgba", img.width, img.height));
+        std::fs::write(path, &img.pixels).unwrap();
+    }
+}
