@@ -1,4 +1,4 @@
-# kenon
+<h1><img src="docs/banner.png" alt="kenon"></h1>
 
 The modding suite for the native port of Pokémon Black and White.
 
