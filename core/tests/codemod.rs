@@ -313,15 +313,20 @@ fn header_names() {
     let f = |n: &str| api.functions.iter().find(|f| f.name == n).unwrap();
     assert_eq!(
         f("eidos_log").signature,
-        "void eidos_log(const char *text, uint32_t length)"
+        "void eidos_log(const char *text, uint32_t len)"
     );
-    assert!(f("eidos_log").doc.contains("mod log"));
+    assert!(f("eidos_log").doc.contains("core imports"));
+    // A declaration the header wraps is whole.
+    assert_eq!(
+        f("eidos_override").signature,
+        "int32_t eidos_override(uint32_t region, uint32_t addr, uint32_t handler_index)"
+    );
     assert!(api.functions.iter().any(|f| f.name == "eidos_on"));
-    assert!(api.functions.iter().any(|f| f.name == "eidos_mod_start"));
+    assert!(api.functions.iter().any(|f| f.name == "eidos_species_base"));
     let c = |n: &str| api.constants.iter().find(|c| c.name == n).unwrap();
     assert_eq!(c("EIDOS_EVENT_BATTLE_START").value, "70");
-    assert_eq!(c("EIDOS_EVENT_BATTLE_START").group, "battle");
-    assert_eq!(c("EIDOS_CONTINUE").value, "0");
+    assert_eq!(c("EIDOS_EVENT_CONTINUE").value, "0");
+    assert_eq!(c("EIDOS_EVENT_MON_REVIVE").value, "96");
 
     // Every event the rule language names has an id in the header.
     let ids: Vec<_> = api.constants.iter().map(|c| c.name.as_str()).collect();
@@ -444,6 +449,45 @@ fn real_build() {
             "src/mod.c"
         ]
     );
+}
+
+/// Every C recipe of the docs builds against the published header.
+#[test]
+fn doc_recipes_build() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ui/src/lib/moddocs/api.json");
+    let api: serde_json::Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let recipes: Vec<(String, String)> = api["recipes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|r| {
+            Some((
+                r["slug"].as_str()?.to_string(),
+                r["c"].as_str()?.to_string(),
+            ))
+        })
+        .collect();
+    assert!(recipes.len() >= 6, "{} C recipes", recipes.len());
+    let Some(zig) = find_zig() else {
+        eprintln!("skipped: no Zig (set KENON_ZIG or put zig on PATH)");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("cache");
+    for (slug, text) in recipes {
+        let project = Project::create(&dir.path().join(&slug), "Recipe", None).unwrap();
+        new_code_mod(&project).unwrap();
+        fs::write(project.root.join("src/mod.c"), &text).unwrap();
+        let r = build_code_mod(&project, &zig, Some(&cache));
+        assert!(
+            r.ok,
+            "{slug}: {:?}
+{}",
+            r.diagnostics, r.log
+        );
+        let bytes = fs::read(project.root.join("mod.wasm")).unwrap();
+        check_module(&bytes, &contract()).unwrap_or_else(|e| panic!("{slug}: {e}"));
+    }
 }
 
 #[test]

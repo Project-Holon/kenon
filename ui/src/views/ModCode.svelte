@@ -335,7 +335,6 @@
         {#if zig.chosen}<button class="quiet" onclick={useDownloaded}>Reset</button>{/if}
       </div>
     {/if}
-    <p class="muted draft">The interface is a draft until eidos publishes version 4.</p>
   </aside>
 
   <section class="work">
@@ -467,10 +466,6 @@
   }
   .zig span {
     flex: 1;
-  }
-  .draft {
-    margin: 0;
-    font-size: 0.8rem;
   }
   .work {
     display: flex;

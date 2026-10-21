@@ -18,11 +18,68 @@ fn errors(text: &str, ev: Option<&str>) -> Vec<String> {
 #[test]
 fn tables_have_the_ports_counts() {
     let n = rule_names();
-    assert_eq!(n.events.len(), 53);
-    assert_eq!(n.states.len(), 59);
+    assert_eq!(n.events.len(), 55);
+    assert_eq!(n.states.len(), 62);
     let wild = n.event("encounter.wild").unwrap();
     assert!(wild.fields.iter().any(|f| f.name == "double"));
     assert!(n.event("battle.faint").unwrap().fields.len() == 6);
+}
+
+#[test]
+fn revive_and_species_base() {
+    let ok = |text: &str, ev: &str| {
+        let e = errors(text, Some(ev));
+        assert!(e.is_empty(), "{text}: {e:?}");
+    };
+    ok(
+        "language 1
+rule r on mon.revive
+    when event.source == 1
+    do refuse
+",
+        "mon.revive",
+    );
+    ok(
+        "language 1
+rule r on mon.revive
+    do set event.hp event.max_hp / 2
+",
+        "mon.revive",
+    );
+    ok(
+        "language 1
+rule r on encounter.wild
+    when species_base[species[0]] == species_base[event.species]
+    do set event.reroll 1
+",
+        "encounter.wild",
+    );
+    assert!(rule_names().event("mon.revive").unwrap().refusable);
+    // Only the HP is writable.
+    let e = errors(
+        "language 1
+rule r on mon.revive
+    do set event.source 0
+",
+        Some("mon.revive"),
+    );
+    assert!(!e.is_empty());
+    // A whole party heal and the battle EXP hand-out can be refused.
+    ok(
+        "language 1
+rule r on heal
+    do refuse
+",
+        "heal",
+    );
+    ok(
+        "language 1
+rule r on battle.exp
+    when event.wild == 1
+    do refuse
+",
+        "battle.exp",
+    );
 }
 
 #[test]

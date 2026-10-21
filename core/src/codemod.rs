@@ -2,8 +2,9 @@
 //!
 //! The design is eidos's `docs/mod-code-wasm.md`. Everything that encodes
 //! the contract (the header, the template, the compiler flags, the exports
-//! the module must have) is in `modsdk/v4-draft/`. When eidos publishes
-//! `sdk/api/v4`, those files are replaced and nothing else here changes.
+//! the module must have) is in `modsdk/v4/`. The header is eidos's
+//! published `sdk/api/v4/eidos_wasm.h`, copied unchanged; when eidos changes
+//! the API, replace it and nothing else here changes.
 //!
 //! - [`new_code_mod`] writes the template into a project.
 //! - [`zig_path`], [`fetch_zig`]: finding or downloading the compiler.
@@ -28,10 +29,10 @@ use crate::project::Project;
 pub const ZIG_VERSION: &str = "0.15.2";
 
 const HEADER_NAME: &str = "eidos_wasm.h";
-const HEADER: &str = include_str!("modsdk/v4-draft/eidos_wasm.h");
-const TEMPLATE_MOD: &str = include_str!("modsdk/v4-draft/mod.c");
-const TEMPLATE_ALLOC: &str = include_str!("modsdk/v4-draft/alloc.c");
-const CONTRACT: &str = include_str!("modsdk/v4-draft/contract.txt");
+const HEADER: &str = include_str!("modsdk/v4/eidos_wasm.h");
+const TEMPLATE_MOD: &str = include_str!("modsdk/v4/mod.c");
+const TEMPLATE_ALLOC: &str = include_str!("modsdk/v4/alloc.c");
+const CONTRACT: &str = include_str!("modsdk/v4/contract.txt");
 
 /// Where the sources live in a mod folder.
 pub const SRC_DIR: &str = "src";
@@ -45,7 +46,7 @@ fn bad(msg: impl Into<String>) -> io::Error {
 // The contract
 // ---------------------------------------------------------------------
 
-/// `modsdk/v4-draft/contract.txt`, read.
+/// `modsdk/v4/contract.txt`, read.
 #[derive(Debug, Clone, Default)]
 pub struct Contract {
     pub api: u32,
@@ -298,8 +299,26 @@ pub fn parse_header(text: &str) -> CodeApi {
     let mut doc: Vec<String> = Vec::new();
     let mut in_comment = false;
     let mut group = String::new();
+    // A declaration that wraps onto more lines is joined into one.
+    let mut joined = String::new();
     for raw in text.lines() {
-        let line = raw.trim();
+        let trimmed = raw.trim();
+        let whole;
+        let line: &str = if !joined.is_empty()
+            || (trimmed.starts_with("EIDOS_IMPORT(") && !trimmed.ends_with(';'))
+        {
+            if !joined.is_empty() {
+                joined.push(' ');
+            }
+            joined.push_str(trimmed);
+            if !trimmed.ends_with(';') {
+                continue;
+            }
+            whole = std::mem::take(&mut joined);
+            &whole
+        } else {
+            trimmed
+        };
         if in_comment || line.starts_with("/*") {
             let body = line
                 .trim_start_matches("/*")

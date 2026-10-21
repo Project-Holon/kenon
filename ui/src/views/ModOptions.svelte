@@ -13,7 +13,7 @@
 
   let { modName, onSaved }: { modName: string; onSaved: (path: string | null) => void } = $props();
 
-  const LIMIT = 16;
+  const LIMIT = 4096;
   const kinds = [
     { id: "bool", label: "On or off" },
     { id: "choice", label: "Choice" },
@@ -200,7 +200,7 @@
                     <button class="step" onclick={() => o.values.splice(j, 1)} aria-label="Remove value">-</button>
                   </div>
                 {/each}
-                <button class="quiet add" disabled={o.values.length >= 8} onclick={() => o.values.push("")}>Add value</button>
+                <button class="quiet add" disabled={o.values.length >= 1024} onclick={() => o.values.push("")}>Add value</button>
               </div>
             {:else}
               <div class="ints">

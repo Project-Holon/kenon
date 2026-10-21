@@ -8,7 +8,7 @@
 //! the name tables). Where `docs/mod-rules-language.md` differs from that
 //! code, the code wins:
 //!
-//! - the port knows 53 events (`modnames/rules.txt`), not the 359 entries of
+//! - the port knows 55 events (`modnames/rules.txt`), not the 359 entries of
 //!   `docs/mod-events.md`, which count raw hooks too;
 //! - a rule file holds exactly one rule;
 //! - an operator is read as two characters at most, and a pair that is not
@@ -733,8 +733,22 @@ impl<'a> Parser<'a> {
             if self.tok.kind != Tk::Ident {
                 return self.fail("a setting's key was expected");
             }
+            // A key may hold dots (`setting.nuzlocke.dupes`): the words are
+            // joined back with them.
+            let mut at = self.tok.clone();
+            let mut key = at.text.clone();
+            self.advance()?;
+            while self.tok.kind == Tk::Dot {
+                self.advance()?;
+                if self.tok.kind != Tk::Ident {
+                    return self.fail("a word was expected after '.' in the setting's key");
+                }
+                key.push('.');
+                key.push_str(&self.tok.text);
+                at.end = self.tok.end;
+                self.advance()?;
+            }
             if let Some(s) = self.ctx.settings {
-                let at = self.tok.clone();
                 let err = |msg: String| PErr {
                     start: at.start,
                     end: at.end,
@@ -745,14 +759,12 @@ impl<'a> Parser<'a> {
                         "the rule has no namespace, so it has no settings".to_string()
                     ));
                 }
-                if !s.keys.contains(&at.text) {
+                if !s.keys.contains(&key) {
                     self.warns.push(err(format!(
-                        "the mod declares no option '{}' (an `option` line in its options file); it reads -1",
-                        at.text
+                        "the mod declares no option '{key}' (an `option` line in its options file); it reads -1"
                     )));
                 }
             }
-            self.advance()?;
             return Ok(Ty::Int);
         }
         if self.is_ident("table") {

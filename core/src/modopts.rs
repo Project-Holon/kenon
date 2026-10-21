@@ -2,7 +2,7 @@
 //! `settings` key points at.
 //!
 //! The grammar follows eidos's `sdk/mod_menu.c` (`parse_option`,
-//! `read_declaration`, `bw_mod_menu_setting_get`) at 7524fd1:
+//! `read_declaration`, `bw_mod_menu_setting_get`) at 64aad0d:
 //!
 //! ```text
 //! option <key> bool   "<label>" on|off
@@ -10,22 +10,28 @@
 //! option <key> int    "<label>" <min> <max> <default>
 //! ```
 //!
-//! - a line is cut at the first `#`, quotes or not; a line that does not
-//!   start with `option` is skipped; a line is read up to 511 bytes;
+//! - a line is cut at the first `#` outside quotes (a quote toggles, so a
+//!   `#` inside a quoted label is text); a line that does not start with
+//!   `option` is skipped; a line is read up to 4095 bytes;
 //! - the key and the kind are words, the label is a quoted text (or a word),
 //!   and the value is the rest of the line;
-//! - a bool is on for `on`, `true` and `1`, and off for any other text;
-//! - a choice lists up to 8 names of up to 31 characters, split on `|`; empty
-//!   names are dropped and the first name is the default;
+//! - a key is one word under 64 characters with no space, `=`, `#` or `"`;
+//!   dots are allowed;
+//! - a bool is `on`, `off`, `true`, `false`, `1` or `0`; any other text is
+//!   reported and the line is ignored;
+//! - a choice lists names of up to 31 characters, split on `|`; empty names
+//!   are dropped and the first name is the default;
 //! - an int has three whole numbers within a billion of zero, with
 //!   `min <= default <= max`;
-//! - a mod has up to 16 options, keys and labels are cut at 63 characters,
-//!   and the first option of a key answers `setting_get`.
+//! - a key declared twice is reported and the second line is ignored;
+//! - there is no fixed number of options or names; the port stops at 4096
+//!   options and 1024 names of a choice, only to guard against a broken
+//!   file; labels are cut at 63 characters.
 //!
-//! The port skips a line it refuses. The player's choices are stored as
+//! The port ignores a line it refuses. The player's choices are stored as
 //! `key = number` lines, so a key has no `=`. A rule reads a key with
-//! `setting.<key>`, and the rule language has no dot in a name, so a key with
-//! one is for code only.
+//! `setting.<key>`, and a dotted key is read as written
+//! (`setting.nuzlocke.dupes`).
 //!
 //! [`parse_options`] and [`render_options`] round-trip a file: comments, blank
 //! lines, the order and the text of an unchanged line stay as they are.
@@ -40,18 +46,19 @@ use serde::{Deserialize, Serialize};
 use crate::modcode::{Diagnostic, Severity};
 use crate::project::Project;
 
-/// The most options one mod has; the port ignores the rest.
-pub const OPTIONS_MAX: usize = 16;
+/// The most options one mod has (a guard against a broken file); the port
+/// ignores the rest.
+pub const OPTIONS_MAX: usize = 4096;
 /// The longest key and label, in bytes (the port keeps 63).
 pub const KEY_MAX: usize = 63;
 pub const LABEL_MAX: usize = 63;
-/// The most names of a choice, and the longest name, in bytes.
-pub const CHOICES_MAX: usize = 8;
+/// The most names of a choice (a guard), and the longest name, in bytes.
+pub const CHOICES_MAX: usize = 1024;
 pub const CHOICE_LEN_MAX: usize = 31;
 /// The widest an int bound goes.
 pub const INT_LIMIT: i32 = 1_000_000_000;
 /// The bytes of a line the port reads.
-const LINE_MAX: usize = 511;
+const LINE_MAX: usize = 4095;
 /// The file a new options list goes in.
 pub const OPTIONS_FILE: &str = "options.txt";
 
@@ -135,22 +142,41 @@ fn next_token(s: &str, mut at: usize) -> Option<(&str, usize)> {
     Some((&s[at..end], end))
 }
 
-/// The line the port reads: cut at 511 bytes (on a character boundary), then
-/// at the first `#`. Returns the body and the comment (with its `#`).
+/// The line the port reads: cut at 4095 bytes (on a character boundary),
+/// then at the first `#` outside quotes. Returns the body and the comment
+/// (with its `#`).
 fn split_comment(line: &str) -> (&str, &str) {
     let mut cut = line.len().min(LINE_MAX);
     while !line.is_char_boundary(cut) {
         cut -= 1;
     }
     let read = &line[..cut];
-    match read.find('#') {
-        Some(i) => (&read[..i], line[i..].trim_end()),
-        None => (read, ""),
+    let mut quoted = false;
+    for (i, b) in read.bytes().enumerate() {
+        match b {
+            b'"' => quoted = !quoted,
+            b'#' if !quoted => return (&read[..i], line[i..].trim_end()),
+            _ => {}
+        }
+    }
+    (read, "")
+}
+
+/// A bool's value: `None` for text the port reports and ignores.
+fn bool_value(text: &str) -> Option<bool> {
+    match text {
+        "on" | "true" | "1" => Some(true),
+        "off" | "false" | "0" => Some(false),
+        _ => None,
     }
 }
 
-fn bool_value(text: &str) -> bool {
-    matches!(text, "on" | "true" | "1")
+/// Is `key` a word the port accepts: under 64 bytes, no space, `=`, `#` or
+/// `"`.
+fn key_valid(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= KEY_MAX
+        && !key.contains(|c: char| is_space(c) || matches!(c, '"' | '#' | '='))
 }
 
 /// A whole number the way `strtol` reads it in base 10: an optional sign and
@@ -205,6 +231,15 @@ fn parse_line(line: &str) -> Result<Option<OptionDecl>, (usize, usize, String)> 
     let (key, _, _) = take("key")?;
     let (kind_word, kind_from, kind_to) = take("kind")?;
     let (label, _, _) = take("label")?;
+    if !key_valid(key) {
+        return Err((
+            whole.0,
+            whole.1,
+            format!(
+                "the option key '{key}' is empty, has a space, '=', '#' or a quote, or is over {KEY_MAX} characters; the game ignores it"
+            ),
+        ));
+    }
     let value = body[at..].trim();
     let value_at = body[at..].find(value).map_or(at, |i| at + i);
     let mut o = OptionDecl {
@@ -217,7 +252,16 @@ fn parse_line(line: &str) -> Result<Option<OptionDecl>, (usize, usize, String)> 
     match kind_word {
         "bool" => {
             o.kind = OptionKind::Bool;
-            o.default = i32::from(bool_value(value));
+            let Some(on) = bool_value(value) else {
+                return Err((
+                    value_at,
+                    value_at + value.len().max(1),
+                    format!(
+                        "the bool option '{key}' has the value '{value}'; it takes on or off; the game ignores it"
+                    ),
+                ));
+            };
+            o.default = i32::from(on);
         }
         "choice" => {
             o.kind = OptionKind::Choice;
@@ -338,12 +382,14 @@ pub fn parse_options(text: &str) -> Parsed {
 // Checking
 // ---------------------------------------------------------------------
 
-/// A name a rule can read: letters, digits and `_`, not starting with a
-/// digit.
+/// A key a rule can read: words of letters, digits and `_` (not starting
+/// with a digit) joined with dots.
 pub fn rule_readable(key: &str) -> bool {
-    !key.is_empty()
-        && !key.starts_with(|c: char| c.is_ascii_digit())
-        && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    key.split('.').all(|w| {
+        !w.is_empty()
+            && !w.starts_with(|c: char| c.is_ascii_digit())
+            && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
 }
 
 /// The problems of a list of options. A problem of option `n` (0-based) has
@@ -380,7 +426,9 @@ pub fn check_options(options: &[OptionDecl]) -> Vec<Diagnostic> {
                 at(
                     i,
                     Error,
-                    &format!("a key is {KEY_MAX} characters at most; the game cuts it"),
+                    &format!(
+                        "a key is {KEY_MAX} characters at most; the game ignores a longer one"
+                    ),
                 );
             }
             if !rule_readable(&o.key) {
@@ -393,13 +441,13 @@ pub fn check_options(options: &[OptionDecl]) -> Vec<Diagnostic> {
             if !seen.insert(&o.key) {
                 at(
                     i,
-                    Warning,
-                    "this key is declared before; the game answers with the first",
+                    Error,
+                    "this key is declared before; the game ignores this one",
                 );
             }
         }
-        if o.label.contains(['"', '#']) {
-            at(i, Error, "a label has no quote or '#'");
+        if o.label.contains('"') {
+            at(i, Error, "a label has no quote");
         } else if o.label.trim().is_empty() {
             at(i, Warning, "the option has no label to show");
         } else if o.label.len() > LABEL_MAX {

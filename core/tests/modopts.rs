@@ -1,5 +1,5 @@
 //! Checks for the options file: the grammar of eidos `sdk/mod_menu.c` at
-//! 7524fd1, the round trip, and the `setting.<key>` check of rules.
+//! 64aad0d, the round trip, and the `setting.<key>` check of rules.
 
 use kenon_core::modcode::{check_rule_ctx, RuleContext, Severity};
 use kenon_core::modopts::*;
@@ -12,9 +12,15 @@ option nuzlocke.panel   bool    \"Show run status\"      on
 option nuzlocke.lives   int     \"Lives\"                0 10 3
 ";
 
-/// The file eidos `tests/test_mod_menu.c` writes.
+/// The file eidos `tests/test_mod_menu.c` writes: four good options, a typo
+/// in a bool, a key declared twice and a key with `=`.
 const TEST: &str = "option nuzlocke.dupes bool \"Dupes clause\" on
 option nuzlocke.cap choice \"Level caps\" off|gym|ace
+option nuzlocke.lives int \"Lives\" 0 10 3 # a comment
+option nuzlocke.picks bool \"No #1 picks\" off
+option nuzlocke.typo bool \"Typo\" ture
+option nuzlocke.dupes bool \"Twice\" off
+option bad=key bool \"Bad key\" on
 ";
 
 fn msgs(text: &str) -> Vec<String> {
@@ -27,14 +33,26 @@ fn msgs(text: &str) -> Vec<String> {
 
 #[test]
 fn eidos_examples_parse_and_round_trip() {
-    for text in [DOC, TEST] {
-        let p = parse_options(text);
-        assert!(p
-            .diagnostics
-            .iter()
-            .all(|d| d.severity == Severity::Warning));
-        assert_eq!(render_options(text, &p.options), text);
-    }
+    let p = parse_options(DOC);
+    assert!(p.diagnostics.is_empty());
+    assert_eq!(render_options(DOC, &p.options), DOC);
+    // The port keeps four options of the test file and reports three lines;
+    // the second `dupes` stays in the list, flagged.
+    let t = parse_options(TEST);
+    assert_eq!(render_options(TEST, &t.options), TEST);
+    let errors = t
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .count();
+    assert_eq!(errors, 3, "{:?}", t.diagnostics);
+    assert_eq!(t.options.len(), 5);
+    assert_eq!(t.options[2].comment, "# a comment");
+    assert_eq!(t.options[3].label, "No #1 picks");
+    assert_eq!(
+        (t.options[2].min, t.options[2].max, t.options[2].default),
+        (0, 10, 3)
+    );
     let p = parse_options(DOC);
     assert_eq!(p.options.len(), 4);
     assert_eq!(p.options[0].kind, OptionKind::Bool);
@@ -114,14 +132,41 @@ fn the_ports_refusals() {
     }
     // Another keyword and a comment are skipped without a word.
     assert!(msgs("hello x\n# option a bool \"A\" on\n\n").is_empty());
-    // The line is cut at '#', quotes or not: the label is cut too.
-    let o = parse_options("option a bool \"A # B\" on").options;
-    assert!(o.is_empty() || !o[0].label.contains('#'));
-    // Bool values.
-    for (v, d) in [("on", 1), ("true", 1), ("1", 1), ("off", 0), ("yes", 0)] {
-        let o = parse_options(&format!("option a bool \"A\" {v}")).options;
-        assert_eq!(o[0].default, d, "{v}");
+    // A '#' inside a quoted label is text; outside quotes it starts a comment.
+    let o = parse_options("option a bool \"A # B\" on # note").options;
+    assert_eq!(o[0].label, "A # B");
+    assert_eq!(o[0].comment, "# note");
+    // Bool values: six words, anything else is reported and ignored.
+    for (v, d) in [
+        ("on", 1),
+        ("true", 1),
+        ("1", 1),
+        ("off", 0),
+        ("false", 0),
+        ("0", 0),
+    ] {
+        let p = parse_options(&format!("option a bool \"A\" {v}"));
+        assert_eq!(p.options[0].default, d, "{v}");
+        assert!(p.diagnostics.is_empty());
     }
+    for v in ["yes", "ture", "2", ""] {
+        let p = parse_options(&format!("option a bool \"A\" {v}"));
+        assert!(p.options.is_empty(), "{v}");
+        assert!(p.diagnostics[0].message.contains("takes on or off"), "{v}");
+    }
+    // A key with a space, '=' or a quote, or 64 characters or more.
+    for key in ["\"a b\"", "a=b", "\"\"", &"k".repeat(64)] {
+        let p = parse_options(&format!("option {key} bool \"A\" on"));
+        assert!(p.options.is_empty(), "{key}");
+        assert!(p.diagnostics[0].message.contains("option key"), "{key}");
+    }
+    let p = parse_options(&format!("option {} bool \"A\" on", "k".repeat(63)));
+    assert_eq!(p.options.len(), 1);
+    // A line is read to 4095 bytes: a long choice list is whole.
+    let names: Vec<_> = (0..300).map(|i| format!("n{i}")).collect();
+    let p = parse_options(&format!("option c choice \"C\" {}", names.join("|")));
+    assert!(p.diagnostics.is_empty());
+    assert_eq!(p.options[0].values.len(), 300);
 }
 
 #[test]
@@ -133,26 +178,41 @@ fn list_checks() {
     };
     let d = check_options(&[mk("a"), mk("a")]);
     assert_eq!(d.len(), 1);
-    assert_eq!(d[0].severity, Severity::Warning);
+    assert_eq!(d[0].severity, Severity::Error);
     assert_eq!(d[0].field.as_deref(), Some("option:1"));
     let d = check_options(&[mk("bad key")]);
     assert_eq!(d[0].severity, Severity::Error);
     assert_eq!(check_options(&[mk("a=b")])[0].severity, Severity::Error);
-    // A dotted key works for code but not for rules.
-    let d = check_options(&[mk("nuzlocke.dupes")]);
-    assert_eq!(d.len(), 1);
-    assert_eq!(d[0].severity, Severity::Warning);
-    let many: Vec<_> = (0..17).map(|i| mk(&format!("k{i}"))).collect();
+    // A dotted key is read by rules as written.
+    assert!(check_options(&[mk("nuzlocke.dupes")]).is_empty());
+    assert_eq!(check_options(&[mk("a-b")])[0].severity, Severity::Warning);
+    assert_eq!(check_options(&[mk("a..b")])[0].severity, Severity::Warning);
+    assert_eq!(
+        check_options(&[mk(&"k".repeat(64))])[0].severity,
+        Severity::Error
+    );
+    // No small limit on options or names; the guards are 4096 and 1024.
+    let many: Vec<_> = (0..100).map(|i| mk(&format!("k{i}"))).collect();
+    assert!(check_options(&many).is_empty());
+    let many: Vec<_> = (0..=OPTIONS_MAX).map(|i| mk(&format!("k{i}"))).collect();
     let d = check_options(&many);
     assert_eq!(d.len(), 1);
-    assert_eq!(d[0].field.as_deref(), Some("option:16"));
+    assert_eq!(
+        d[0].field.as_deref(),
+        Some(format!("option:{OPTIONS_MAX}").as_str())
+    );
+    let mut hash = mk("a");
+    hash.label = "No #1".into();
+    assert!(check_options(&[hash]).is_empty());
     let mut long = mk("a");
     long.label = "x".repeat(64);
     assert_eq!(check_options(&[long])[0].severity, Severity::Warning);
     let mut ch = mk("a");
     ch.kind = OptionKind::Choice;
     assert_eq!(check_options(&[ch.clone()])[0].severity, Severity::Error);
-    ch.values = (0..9).map(|i| format!("v{i}")).collect();
+    ch.values = (0..100).map(|i| format!("v{i}")).collect();
+    assert!(check_options(&[ch.clone()]).is_empty());
+    ch.values = (0..=CHOICES_MAX).map(|i| format!("v{i}")).collect();
     assert_eq!(check_options(&[ch.clone()])[0].severity, Severity::Warning);
     ch.values = vec!["a|b".into()];
     assert_eq!(check_options(&[ch])[0].severity, Severity::Error);
@@ -184,10 +244,7 @@ fn the_file_is_made_and_declared() {
     let f = write_options_file(&root, &opts).unwrap();
     assert_eq!(f.path.as_deref(), Some("options.txt"));
     assert_eq!(f.options.len(), 4);
-    assert!(f
-        .diagnostics
-        .iter()
-        .all(|d| d.severity == Severity::Warning));
+    assert!(f.diagnostics.is_empty());
     let manifest = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
     assert!(manifest.contains("settings = options.txt"), "{manifest}");
     // Saved again, the file stays the same.
@@ -197,7 +254,10 @@ fn the_file_is_made_and_declared() {
         std::fs::read_to_string(root.join("options.txt")).unwrap(),
         text
     );
-    // A list the port would skip a line of is refused.
+    // A list the port would skip a line of is refused, a repeated key too.
+    let mut twice = f.options.clone();
+    twice[1].key = twice[0].key.clone();
+    assert!(write_options_file(&root, &twice).is_err());
     let mut bad = f.options.clone();
     bad[3].max = -5;
     assert!(write_options_file(&root, &bad).is_err());
@@ -231,6 +291,20 @@ fn rules_read_declared_settings() {
     let d = check_rule_ctx(&rule("lives"), Some("encounter.wild"), rc);
     assert!(d.iter().all(|d| d.severity == Severity::Error));
     assert!(d[0].message.contains("no namespace"));
+    // A dotted key is read as written.
+    let dotted = SettingsCtx {
+        namespace: true,
+        keys: ["nuzlocke.dupes".to_string()].into_iter().collect(),
+    };
+    let rc = RuleContext {
+        settings: Some(&dotted),
+        ..RuleContext::default()
+    };
+    assert!(check_rule_ctx(&rule("nuzlocke.dupes"), Some("encounter.wild"), rc).is_empty());
+    let d = check_rule_ctx(&rule("nuzlocke.cap"), Some("encounter.wild"), rc);
+    assert!(d[0].message.contains("no option 'nuzlocke.cap'"), "{d:?}");
+    let d = check_rule_ctx(&rule("nuzlocke."), Some("encounter.wild"), rc);
+    assert!(d[0].message.contains("after '.'"), "{d:?}");
     // Unchecked without a context.
     assert!(check_rule_ctx(
         &rule("nope"),

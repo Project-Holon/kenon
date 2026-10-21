@@ -1,10 +1,10 @@
-// Writes core/src/modnames/rules.txt from eidos's sdk/mod_rule.c: the rule
-// events, their payload fields, the state fields and the actions.
+// Writes core/src/modnames/rules.txt from eidos's published API description
+// (sdk/api/v4/events.json and rules.json): the rule events, their payload
+// fields, the state fields and the actions.
 //
 //   node tools/mod-names.mjs [--eidos <folder or worktree>]
 //
-// The eidos folder is --eidos, then $EIDOS, then ../eidos. It reads
-// sdk/mod_rule.c from that folder as it is on disk, so point it at a
+// The eidos folder is --eidos, then $EIDOS, then ../eidos. Point it at a
 // checkout of the commit you want (git worktree add <dir> <commit>).
 
 import { execFileSync } from "node:child_process";
@@ -17,73 +17,54 @@ const root = resolve(here, "..");
 const args = process.argv.slice(2);
 const flag = args.indexOf("--eidos");
 const eidos = resolve(flag >= 0 ? args[flag + 1] : (process.env.EIDOS ?? join(root, "..", "eidos")));
-const src = join(eidos, "sdk", "mod_rule.c");
-if (!existsSync(src)) throw new Error(`missing ${src}`);
-const c = readFileSync(src, "utf8").replace(/\r\n/g, "\n");
+const apiDir = join(eidos, "sdk", "api", "v4");
+const load = (name) => {
+  const p = join(apiDir, name);
+  if (!existsSync(p)) throw new Error(`missing ${p}`);
+  return JSON.parse(readFileSync(p, "utf8"));
+};
 const fail = (m) => {
-  throw new Error(`mod_rule.c: ${m}`);
+  throw new Error(`sdk/api/v4: ${m}`);
 };
 
-// Payload field arrays: g_f_<name>[] = { ... };
-const arrays = new Map();
-for (const m of c.matchAll(/static const BwRuleField (g_f_\w+)\[\] = \{([\s\S]*?)\n\};/g)) {
-  const fields = [];
-  const body = m[2];
-  // BW_RULE_FIELD(STRUCT, FIELD, KIND, FLAGS) and the literal { .name = "x", ... } form.
-  const re = /BW_RULE_FIELD\(\s*\w+,\s*(\w+),\s*BW_RULE_FK_(\w+),\s*([^)]*?)\s*\)|\.name\s*=\s*"(\w*)"[\s\S]*?\.kind\s*=\s*BW_RULE_FK_(\w+),\s*\.flags\s*=\s*([^}]*?)\s*\}/g;
-  for (const f of body.matchAll(re)) {
-    const name = f[1] ?? f[4];
-    const kind = (f[2] ?? f[5]).toLowerCase();
-    const flags = f[3] ?? f[6];
-    if (!name) continue;
-    const mod = /BW_RULE_FF_MOD/.test(flags);
-    const signed = /BW_RULE_FF_SIGNED/.test(flags);
-    fields.push({ name, kind, flags: (mod ? "m" : "") + (signed ? "s" : "") || "-" });
-  }
-  arrays.set(m[1], fields);
-}
+const evJson = load("events.json");
+const ruleJson = load("rules.json");
 
-// Events, in table order.
-const tableAt = c.indexOf("static const BwRuleEvent g_events[] = {");
-if (tableAt < 0) fail("no g_events table");
-const table = c.slice(tableAt, c.indexOf("\n};", tableAt));
+// The rule table lists the events a rule can name; events.json has every
+// event, with its payload layout.
+const byName = new Map(evJson.events.map((e) => [e.name, e]));
 const events = [];
-for (const m of table.matchAll(/\{\s*\.kind\s*=\s*\w+,\s*\.name\s*=\s*"([\w.]+)",\s*\.refusable\s*=\s*(\d),\s*\.fields\s*=\s*(g_f_\w+),\s*\.field_count\s*=\s*(\d+)\s*\}/g)) {
-  const fields = arrays.get(m[3]);
-  if (!fields) fail(`no field array ${m[3]}`);
-  if (fields.length !== Number(m[4])) fail(`${m[1]}: field_count ${m[4]}, parsed ${fields.length}`);
-  events.push({ name: m[1], refusable: m[2], fields });
+for (const name of ruleJson.events) {
+  const e = byName.get(name);
+  if (!e) fail(`rules.json names ${name}, events.json has no such event`);
+  const fields = [];
+  for (const f of e.fields) {
+    const field = {
+      name: f.name,
+      kind: f.count !== null ? "list" : f.type === "BwMonRef" ? "mon" : "int",
+      flags: (f.writable ? "m" : "") + (/^s\d+$/.test(f.type) ? "s" : "") || "-",
+    };
+    fields.push(field);
+    // C spells a field `double_` because `double` is a keyword; a rule may
+    // use either name, and the description lists only the C one.
+    if (f.name.endsWith("_")) fields.push({ ...field, name: f.name.slice(0, -1) });
+  }
+  events.push({ name, refusable: e.refusable ? "1" : "0", fields });
 }
-const declared = (c.match(/\.name\s*=\s*"[\w.]+",\s*\.refusable/g) ?? []).length;
-if (events.length !== declared) fail(`${declared} events in the table, parsed ${events.length}`);
 
-// State fields.
-const stateAt = c.indexOf("static const BwRuleStateField g_state_fields[] = {");
-if (stateAt < 0) fail("no g_state_fields table");
-const stateBody = c.slice(stateAt, c.indexOf("\n};", stateAt));
-const subs = { PLAIN: "plain", MON: "mon", INT: "int" };
-const states = [];
-for (const m of stateBody.matchAll(/\.name\s*=\s*"(\w+)",\s*\.kind\s*=\s*BW_RULE_SK_(\w+),\s*\.writable\s*=\s*(\d),\s*\.readable\s*=\s*(\d),\s*\.writable_ok\s*=\s*(\d)/g)) {
-  states.push({ name: m[1], sub: subs[m[2]], w: m[3], r: m[4], ok: m[5] });
-}
-if (states.length !== (stateBody.match(/\.name\s*=/g) ?? []).length) fail("a state field did not parse");
+// A field that is writable in the description is one the port can write, so
+// the same flag fills both writable columns.
+const subs = { null: "plain", mon: "mon", int: "int" };
+const states = ruleJson.state_fields.map((s) => {
+  const sub = subs[s.subscript];
+  if (!sub) fail(`state ${s.name}: subscript ${s.subscript}`);
+  const w = s.writable ? "1" : "0";
+  return { name: s.name, sub, w, r: s.readable ? "1" : "0", ok: w };
+});
 
-// Actions: the enum comments give the argument shape, parse_action the keywords.
-const actAt = c.indexOf("BW_RULE_ACT_REFUSE");
-const actEnd = c.indexOf("};", actAt);
-const shapes = new Map();
-for (const m of c.slice(actAt, actEnd).matchAll(/BW_RULE_ACT_(\w+)\s*=?\s*\d*,?\s*\/\*\s*(.*?)\s*\*\//g)) {
-  shapes.set(m[1].toLowerCase(), m[2]);
-}
-const parseAt = c.indexOf("static int parse_action(");
-const parseBody = c.slice(parseAt, c.indexOf("\n}\n", parseAt));
-const keywords = new Set([...parseBody.matchAll(/strcmp\(keyword,\s*"(\w+)"\)\s*==\s*0/g)].map((m) => m[1]));
-const actions = [];
-for (const [name, shape] of shapes) {
-  if (!keywords.has(name)) fail(`action ${name} is in the enum, not in parse_action`);
-  actions.push({ name, shape });
-}
-for (const k of keywords) if (!shapes.has(k)) fail(`action ${k} is in parse_action, not in the enum`);
+// The actions list leaves out `refuse`, which any refusable event accepts.
+const actions = [{ name: "refuse", shape: "refuse" }];
+for (const a of ruleJson.actions) actions.push({ name: a.split(" ")[0], shape: a });
 
 let rev = "";
 try {
@@ -93,7 +74,7 @@ try {
 }
 
 const out = [
-  "# Rule events and their payload fields, from eidos sdk/mod_rule.c (g_events and g_f_*).",
+  "# Rule events and their payload fields, from eidos sdk/api/v4 (events.json, rules.json).",
   `# Generated by tools/mod-names.mjs${rev ? ` from eidos ${rev}` : ""}. Do not edit by hand.`,
   "# event <name> <refusable 0|1>, then one 'field <name> <int|mon|list> <flags>' line per payload field.",
   "# flags: m = a rule may write it, s = signed.",
@@ -102,7 +83,7 @@ const out = [
 ];
 for (const e of events) {
   out.push(`event ${e.name} ${e.refusable}`);
-  for (const f of e.fields) out.push(`field ${f.name} ${f.kind === "array" ? "list" : f.kind} ${f.flags}`);
+  for (const f of e.fields) out.push(`field ${f.name} ${f.kind} ${f.flags}`);
 }
 for (const s of states) out.push(`state ${s.name} ${s.sub} ${s.w} ${s.r} ${s.ok}`);
 for (const a of actions) out.push(`action ${a.name} ${a.shape}`);

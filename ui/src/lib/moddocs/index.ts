@@ -19,6 +19,8 @@ export interface ApiEvent {
   binding: string;
   region: string;
   refuse: string | null;
+  /** What a refusal does for each source, when it differs. */
+  outcomes: string[];
   refusable?: boolean;
   modifyText: string | null;
   when: string | null;
@@ -55,6 +57,7 @@ export interface ApiFunction {
   id: string;
   kind: "host" | "state" | "service";
   name: string;
+  cName?: string;
   group: string;
   signature: string;
   params: string[];
@@ -205,27 +208,27 @@ export function ruleSkeleton(e: ApiEvent): string {
   return lines.join("\n") + "\n";
 }
 
-/** A native C mod with one handler for the event. */
+/** A C mod (eidos_wasm.h) with one handler for the event. */
 export function cSkeleton(e: ApiEvent): string {
-  const id = `BW_EVENT_${e.name.toUpperCase().replace(/\./g, "_")}`;
+  const id = `EIDOS_EVENT_${e.name.toUpperCase().replace(/\./g, "_")}`;
   const fn = `on_${slug(e.name)}`;
-  const lines = ['#include "mod_api.h"', '#include "mod_state.h"', "", `static int ${fn}(void *mod, BwEvent *event)`, "{"];
+  const lines = ['#include "eidos_wasm.h"', "", `static int32_t ${fn}(EidosEvent *event)`, "{"];
   if (e.cStruct) {
-    lines.push(`    ${e.cStruct} *e = (${e.cStruct} *)event;`, "    (void)mod;", "    (void)e;");
+    lines.push(`    ${e.cStruct} *e = (${e.cStruct} *)event;`, "    (void)e;");
   } else {
-    lines.push("    (void)mod;", "    (void)event;");
+    lines.push("    (void)event;");
   }
-  lines.push("    return BW_EVENT_CONTINUE;", "}", "");
+  lines.push("    return EIDOS_EVENT_CONTINUE;", "}", "");
   lines.push(
-    "int eidos_mod_start(const BwModHost *host, void **mod_state)",
+    'EIDOS_EXPORT("eidos_mod_start")',
+    "int32_t eidos_mod_start(void)",
     "{",
-    "    *mod_state = 0;",
-    `    return host->on(${id}, ${fn});`,
+    `    return eidos_on(${id}, (uint32_t)(uintptr_t)${fn});`,
     "}",
     "",
-    "void eidos_mod_stop(void *mod_state)",
+    'EIDOS_EXPORT("eidos_mod_stop")',
+    "void eidos_mod_stop(void)",
     "{",
-    "    (void)mod_state;",
     "}",
   );
   return lines.join("\n") + "\n";
@@ -252,7 +255,7 @@ export function hoverFor(api: Api, word: string): string | null {
     const fields = ev.payload.map((f) => `- \`${f.cName ?? f.name}\` ${f.type}${f.writable ? " (writable)" : ""}: ${f.meaning}`).join("\n");
     return `**${ev.name}** (${ev.category}${ev.refusable ? ", can be refused" : ""})\n\n${ev.when ?? ""}\n\n${fields}`;
   }
-  const fn = api.functions.find((f) => f.name === word);
+  const fn = api.functions.find((f) => f.name === word || f.cName === word);
   if (fn) return `**${fn.name}**\n\n\`${fn.signature}\`\n\n${fn.what ?? ""}${fn.result ? `\n\nReturns: ${fn.result}` : ""}`;
   for (const g of api.enums) {
     const m = g.members.find((x) => x.name === word);

@@ -6,21 +6,50 @@
 
 const rule = (s) => s.replace(/^\n/, "").replace(/\n\s*$/, "\n");
 
-// Handler skeleton shared by the C recipes (native tier, api 4).
-const start = (reg) => `int eidos_mod_start(const BwModHost *host, void **mod_state)
+// Entry points shared by the C recipes (eidos_wasm.h, api 4). A handler is
+// registered by its function table index, which is its address.
+const start = (reg) => `EIDOS_EXPORT("eidos_mod_start")
+int32_t eidos_mod_start(void)
 {
-    g_host = host;
-    *mod_state = 0;
 ${reg}
 }
 
-void eidos_mod_stop(void *mod_state)
+EIDOS_EXPORT("eidos_mod_stop")
+void eidos_mod_stop(void)
 {
-    (void)mod_state;
 }
 `;
 
+// The place of a Pokemon reference goes to the state calls as five arguments.
+const mon = (m, arrow = ".") => `${m}${arrow}handle, ${m}${arrow}place, ${m}${arrow}side, ${m}${arrow}box, ${m}${arrow}slot`;
+
 export default {
+  // The titles of the constant groups of sdk/api/v4/enums.json, by the prefix
+  // of the BW_ name. They are the comments of eidos's mod_api.h.
+  enumTitles: {
+    BW_MON_: "Where a Pokemon is.",
+    BW_EVENT_: "What a handler returns.",
+    BW_ENCOUNTER_: "How an encounter was rolled (encounter.wild).",
+    BW_RECEIVE_: "How a Pokemon reached the player (mon.receive).",
+    BW_FORMAT_: "The battle format (battle.start, encounter.trainer).",
+    BW_ACTION_: "What the player chose in battle (battle.action).",
+    BW_OUTCOME_: "How a battle ended (battle.end).",
+    BW_MOVE_SOURCE_: "How a Pokemon learns a move (move.learn).",
+    BW_EVOLVE_: "How a Pokemon evolves (mon.evolve).",
+    BW_HEAL_: "Where a heal came from (heal).",
+    BW_EXP_: "Where experience comes from (mon.exp).",
+    BW_LEVELUP_: "How a level was gained (mon.levelup).",
+    BW_ITEM_FROM_: "Where an item comes from (item.add).",
+    BW_MONEY_: "Where a money change comes from (money.change).",
+    BW_REVIVE_: "What brought a fainted Pokemon back (mon.revive).",
+    BW_HEAL_HP_: "Where an HP restore happens (heal.hp).",
+    BW_SCRIPT_VM_: "The two script machines.",
+    BW_SCRIPT_: "What a script handler answers.",
+    BW_MON_FIELD_: "Pokemon field ids (party_get, party_set, box_get, box_set, battle_get, battle_set)",
+    BW_SESSION_: "What a session handler is told about",
+    BW_RESTART_: "The flags of a run restart",
+  },
+
   events: {
     "game.new": { when: "The player starts a new game, before the first map loads." },
     "save.begin": { when: "A save starts, from the save menu, a script or a link feature." },
@@ -44,7 +73,6 @@ export default {
     "mon.nickname": { when: "The name prompt opens, or the catch screen offers a nickname." },
     "mon.evolve": { when: "The game checks whether a Pokemon evolves, after a level-up, with a stone or on a trade. Refusing stops the evolution." },
     "mon.exp": { when: "Experience from a battle or the Day Care is about to be added. A handler may change the amount." },
-    "mon.levelup": { when: "A Pokemon in battle gains a level. It fires once for the level crossing." },
     "move.learn": { when: "A Pokemon is about to learn a move by level-up, the Day Care, a TM or tutor, the move relearner or a script." },
     "mon.release": { when: "The player releases a Pokemon from the PC box screen." },
     "box.deposit": { when: "The player puts a party Pokemon into a box on the PC screen." },
@@ -63,7 +91,7 @@ export default {
     "battle.faint": {
       when: "A Pokemon faints in battle, from either side. Poison on the field never faints a Pokemon in this game (it stops at 1 HP).",
       facts: [
-        "mon is a battle reference (place BW_MON_BATTLE); side 0 is the player's. cause, cause_move and cause_damage are empty or 0 when the faint came from weather, a hazard or a status.",
+        "mon is a battle reference (place EIDOS_MON_BATTLE); side 0 is the player's. cause, cause_move and cause_damage are empty or 0 when the faint came from weather, a hazard or a status.",
         "A whiteout has its own event, whiteout. It is not the same moment as a single faint.",
       ],
     },
@@ -74,30 +102,53 @@ export default {
     "item.add": { when: "An item is added to the bag, from any source. A handler may change the count." },
     "item.use": { when: "The party screen checks whether an item can be used on a Pokemon. Refusing gives the game's 'no effect' text." },
     "shop.buy": { when: "The player picks an item and a quantity in a shop. A handler may change the price." },
-    "money.change": { when: "Money is added or taken. A handler may change the amount, but only in the direction of the call." },
     "heal.hp": {
       category: "Pokemon",
-      when: "The game is about to add HP to a Pokemon. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore, through BTL_SERVER_FLOW_ApplyHpRecover: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing.",
+      when: "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore, through BTL_SERVER_FLOW_ApplyHpRecover: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
       facts: [
-        "source is 0 (BW_HEAL_HP_FIELD) on the field and 1 (BW_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
+        "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
         "On the field the item is used up even when the restore is refused: refuse item.use to keep it.",
       ],
       functions: ["party_get", "battle_get", "item_count", "message"],
     },
-    heal: { when: "A heal starts, at a Pokemon Centre, from a script or from the HP-restore power. A handler may choose who heals." },
+    "mon.revive": {
+      category: "Pokemon",
+      when: "A fainted Pokemon is about to come back: a Revive, Max Revive, Revival Herb or Sacred Ash, a revive item in battle, or a party heal. A handler may change the HP it comes back with, or refuse and leave it fainted.",
+      facts: [
+        "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command.",
+        "hp is at least 1 and at most max_hp.",
+      ],
+      functions: ["party_get", "battle_get", "species_base", "message"],
+    },
+    "mon.levelup": { when: "A Pokemon gains a level, in a battle or from a Rare Candy. It fires once for the level crossing, and for a Rare Candy after the level-up. To stop the candy, refuse item.use." },
+    "money.change": { when: "Money is added or taken. source says why: a script, a purchase, a sale or a battle. A handler may change the amount, but only in the direction of the call." },
+    heal: { when: "A party heal starts, at a Pokemon Centre, from a script or from the HP-restore power. A handler may choose who heals. Refused, the whole heal does not happen: no member event fires and nobody is healed. To spare one member, see mon.revive and heal.hp." },
+    "battle.exp": {
+      category: "Battle",
+      when: "The battle hands out experience after an opposing Pokemon fainted, as a whole, before mon.exp fires for each member that gains. A handler may scale every share. Refused, nobody gains and mon.exp does not fire.",
+      facts: ["members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."],
+      functions: ["party_get", "battle_get", "battle_wild"],
+    },
     "badge.get": { when: "A badge is set. It fires after the badge is held." },
     "flag.set": { when: "The game sets an event flag." },
     "dex.register": { when: "A species is registered as seen or caught." },
-    "battle.trainer_mon": { when: "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form." },
+    "battle.trainer_mon": { when: "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form. Refused, the member leaves the party before the battle; the last one always stays." },
   },
 
   functions: {
-    on: { group: "Entry points", what: "Binds a handler to an event. Call it from eidos_mod_start.", result: "0 when bound.", tiers: ["c"] },
-    script: { group: "Entry points", what: "Binds a handler to one script command of the field VM or the battle effect VM, by opcode.", tiers: ["c"] },
+    log: { what: "Writes a line to the port's mod log. Pass the text and its length.", tiers: ["c"] },
+    on: { what: "Binds a handler to an event by the event's id. The handler is a function table index: in C, the handler's address cast to uint32_t. Call it from eidos_mod_start.", result: "0 when bound.", tiers: ["c"] },
+    override: { what: "Binds a handler to a game function from the raw hook list, by region and address. The handler is a function table index.", tiers: ["c"] },
+    rd8: { what: "Reads a byte of game memory at a DS address. The access is bounds-checked.", tiers: ["c"] },
+    rd16: { what: "Reads 16 bits of game memory at a DS address.", tiers: ["c"] },
+    rd32: { what: "Reads 32 bits of game memory at a DS address.", tiers: ["c"] },
+    wr8: { what: "Writes a byte of game memory at a DS address. The access is bounds-checked.", tiers: ["c"] },
+    wr16: { what: "Writes 16 bits of game memory at a DS address.", tiers: ["c"] },
+    wr32: { what: "Writes 32 bits of game memory at a DS address.", tiers: ["c"] },
 
     party_count: { what: "How many Pokemon the party holds.", tiers: ["c"], rule: "party_count" },
     party_ref: { what: "A reference to the party Pokemon in a slot.", result: "0 on success.", tiers: ["c"] },
-    party_get: { what: "Reads one field of a party Pokemon. Field ids are the BW_MON_FIELD_* constants.", result: "0 on success; the value goes into out.", tiers: ["c"], rule: "species[m], level[m], hp[m], max_hp[m], type1[m], type2[m], held_item[m]" },
+    party_get: { what: "Reads one field of a party Pokemon. Field ids are the EIDOS_MON_FIELD_* constants.", result: "0 on success; the value goes into out.", tiers: ["c"], rule: "species[m], level[m], hp[m], max_hp[m], type1[m], type2[m], held_item[m]" },
     party_set: { what: "Writes one field of a party Pokemon. During a battle the write does not reach the battle and is lost when the battle writes its results back.", result: "0 on success.", tiers: ["c"], rule: "set hp[m] value" },
     box_count: { what: "How many boxes are usable.", tiers: ["c"] },
     box_ref: { what: "A reference to the Pokemon in a box slot.", result: "0 on success.", tiers: ["c"] },
@@ -107,6 +158,8 @@ export default {
     battle_get: { what: "Reads one field of a Pokemon in battle. Use it, not party_get, while a battle runs.", result: "0 on success.", tiers: ["c"] },
     battle_set: { what: "Writes one field of a Pokemon in battle.", result: "0 on success.", tiers: ["c"] },
     species_value: { what: "Reads a personal parameter of a species: types, stats, catch rate.", result: "0 on success.", tiers: ["c"], rule: "species_type1[s], species_type2[s], species_bst[s]" },
+    battle_trainer: { what: "The trainer id of the first opposing trainer of the battle in progress, 0 for none. battle_trainer2 is the second trainer of a double.", tiers: ["rules", "c"], rule: "battle_trainer, battle_trainer2" },
+    species_base: { what: "The first stage of the evolution line of a species. Two species are in one line when their bases are equal.", result: "The base species, as a number.", tiers: ["rules", "c"], rule: "species_base[s]" },
     species_shiny: { what: "Whether a personality value is shiny for a species.", tiers: ["c"], rule: "shiny[m]" },
     dex_caught: { what: "Whether a species is registered as caught.", tiers: ["c"], rule: "caught[s]" },
     badge_count: { what: "How many badges the player holds.", tiers: ["c"], rule: "badges" },
@@ -206,10 +259,13 @@ export default {
     origin_game: "The id of the game the Pokemon comes from.",
     fateful: "1 when the Pokemon was met in a fateful encounter.",
     ball: "The id of the ball the Pokemon was caught in.",
-    place: "Where a reference points: the BW_MON_* place id (party, box or battle).",
+    place: "Where a reference points: the EIDOS_MON_* place id (party, box or battle).",
     side: "In a battle, the side a reference belongs to: 0 is the player's.",
     species_stage: "The evolution stage of species s: 0 for the first stage of a line.",
     catch_rate: "The catch rate of species s.",
+    battle_trainer: "The trainer id of the first opposing trainer of the battle in progress, 0 for none.",
+    battle_trainer2: "The trainer id of the second opposing trainer, 0 for none.",
+    species_base: "The first stage of the evolution line of species s. Two species are in one line when their bases are equal.",
     gender_ratio: "The gender ratio byte of species s.",
     growth: "The growth rate id of species s.",
     egg_group1: "The first egg group of species s.",
@@ -229,16 +285,17 @@ export default {
   },
 
   functionGroups: [
-    { title: "Entry points", fns: ["on","script"] },
+    { title: "Entry points", fns: ["log","on","override"] },
+    { title: "Game memory", fns: ["rd8","rd16","rd32","wr8","wr16","wr32"] },
     { title: "The party", fns: ["party_count","party_ref","party_get","party_set"] },
     { title: "The boxes", fns: ["box_count","box_ref","box_get","box_set"] },
     { title: "A Pokemon in battle", fns: ["battle_ref","battle_get","battle_set"] },
-    { title: "Species and dex", fns: ["species_value","species_shiny","dex_caught"] },
+    { title: "Species and dex", fns: ["species_value","species_base","species_shiny","dex_caught"] },
     { title: "Badges, money and flags", fns: ["badge_count","badge_has","money","money_set","flag","flag_set"] },
     { title: "The map and the player", fns: ["zone"] },
     { title: "Moves between places", fns: ["mon_to_box","mon_to_box_n","mon_from_box","mon_take_item","mon_release"] },
     { title: "Recalculating a Pokemon", fns: ["mon_recalc"] },
-    { title: "The world, the battle and play time", fns: ["area_of","battle_wild","play_seconds"] },
+    { title: "The world, the battle and play time", fns: ["area_of","battle_wild","battle_trainer","play_seconds"] },
     { title: "Item and move data", fns: ["item_value","move_value"] },
     { title: "Mod data tables", fns: ["table_get"] },
     { title: "Messages", fns: ["message","confirm"] },
@@ -271,9 +328,9 @@ export default {
       section: "functions",
       title: "Code mods at a glance",
       blocks: [
-        { t: "p", text: "A code mod is C. It exports eidos_mod_start and eidos_mod_stop, binds handlers to events with `on`, and reaches the game only through the state calls and services listed here. It cannot call game functions directly; raw hooks replace or wrap them." },
-        { t: "p", text: "A handler gets the event payload and returns CONTINUE or REFUSE. It may write the payload fields marked writable; the port reads them back before the game goes on. A write to any other field has no effect. A refusal at an event that cannot be refused is ignored and logged once." },
-        { t: "list", items: ["The snippets in these docs use the native header (mod_api.h and mod_state.h, api 4), which is what the port loads today. A mod built for api 3 still loads.", "The WebAssembly build (api 4) keeps the same event, payload and service names. Its headers come with eidos's published api, and the build in the Code view uses the current draft header until then.", "No libc and no WASI in the wasm build: a mod reaches nothing outside the game except through the port's imports."] },
+        { t: "p", text: "A code mod is C built to WebAssembly. It exports eidos_mod_start and eidos_mod_stop, binds handlers to events with `eidos_on`, and reaches the game only through the calls of eidos_wasm.h. It cannot call game functions directly; raw hooks replace or wrap them." },
+        { t: "p", text: "A handler gets a copy of the event payload and returns EIDOS_EVENT_CONTINUE or EIDOS_EVENT_REFUSE. It may write the payload fields marked writable; the port reads them back before the game goes on. A write to any other field has no effect. A refusal at an event that cannot be refused is ignored and logged once." },
+        { t: "list", items: ["The snippets in these docs build as they are with the Code view's template: `#include \"eidos_wasm.h\"`, the constants are spelled EIDOS_, and the payload structs are Eidos<Name>.", "A handler is registered by its function table index. In C that is its address: `eidos_on(EIDOS_EVENT_MON_EXP, (uint32_t)(uintptr_t)on_exp)`.", "A Pokemon reference (EidosMonRef) goes to a state call as its five fields: handle, place, side, box and slot.", "No libc and no WASI: a mod reaches nothing outside the game except through the port's imports. The template brings a small allocator and the memory functions."] },
         { t: "p", text: "Several handlers on one event all run, in load order. Writes chain and any refusal refuses. The battle works on a copy of each Pokemon: during a battle read and write the battle record (battle_get, battle_set), not the party record." },
       ],
     },
@@ -329,11 +386,11 @@ export default {
       blocks: [
         { t: "p", text: "A mod can show options on the game's settings screen, under its own name. The player picks a value, the game keeps it beside the mod's saved data, and the mod reads it. Declare the options in a file and name it in the manifest. The Options tab of Mod settings writes both." },
         { t: "code", lang: "manifest", text: "settings = options.txt\n" },
-        { t: "p", text: "The file has one option per line: `option <key> <kind> \"<label>\" <value>`. `#` starts a comment, anywhere on a line. A line that does not start with `option` is skipped." },
+        { t: "p", text: "The file has one option per line: `option <key> <kind> \"<label>\" <value>`. `#` starts a comment, except inside the quoted label. A line that does not start with `option` is skipped." },
         { t: "code", lang: "options", text: "option dupes   bool    \"Dupes clause\"    on\noption cap     choice  \"Level caps\"      off|gym|ace\noption lives   int     \"Lives\"           0 10 3\n" },
-        { t: "table", head: ["Kind", "Value", "Reads as"], rows: [["bool", "`on` or `off`. Any text other than `on`, `true` and `1` is off.", "1 or 0"], ["choice", "Up to 8 names split by `|`, 31 characters each. The first is the default.", "The index of the chosen name"], ["int", "`<min> <max> <default>`, whole numbers within a billion of zero, with min <= default <= max. The screen steps by one.", "The number"]] },
-        { t: "list", items: ["The key is one word. It cannot hold `=` or `#`, and it has at most 63 characters.", "The label is quoted, has no quote or `#`, and has at most 63 characters.", "A mod has up to 16 options. The game ignores the rest.", "A line the game cannot read is skipped. The checker reports it.", "When a key is declared twice, the first answers."] },
-        { t: "p", text: "A rule reads an option with `setting.<key>`. A rule key is letters, digits and `_`, not starting with a digit, so a key with a dot is for code only. A key the mod does not declare reads -1, and the checker warns about it. A mod with no namespace has no settings, and the game refuses a rule that reads one. Code reads an option with `setting_get(key)`." },
+        { t: "table", head: ["Kind", "Value", "Reads as"], rows: [["bool", "`on`, `off`, `true`, `false`, `1` or `0`. Any other text is reported and the option is ignored.", "1 or 0"], ["choice", "Names split by `|`, 31 characters each, as many as you want. The first is the default.", "The index of the chosen name"], ["int", "`<min> <max> <default>`, whole numbers within a billion of zero, with min <= default <= max. The screen steps by one.", "The number"]] },
+        { t: "list", items: ["The key is one word. It cannot hold a space, `=`, `#` or a quote, and it has at most 63 characters. Dots are allowed.", "The label is quoted, has no quote, and has at most 63 characters.", "A mod can declare any number of options.", "A line the game cannot read is reported and ignored. The checker reports it too.", "When a key is declared twice, the game reports it and ignores the second."] },
+        { t: "p", text: "A rule reads an option with `setting.<key>`. A rule reads a dotted key as written: `setting.nuzlocke.dupes`. Each word of a key is letters, digits and `_`, not starting with a digit. A key the mod does not declare reads -1, and the checker warns about it. A mod with no namespace has no settings, and the game refuses a rule that reads one. Code reads an option with `setting_get(key)`." },
         { t: "code", lang: "rule", text: "language 1\nrule lives on catch.attempt\n    when setting.lives == 0\n    do refuse\n" },
       ],
     },
@@ -561,22 +618,18 @@ rule slow_exp on mon.exp
     do set event.amount event.amount / 2
 `),
       settings: `option slow_exp bool "Slow experience" off\n`,
-      c: `#include "mod_api.h"
-#include "mod_state.h"
+      c: `#include "eidos_wasm.h"
 
-static const BwModHost *g_host;
-
-static int on_exp(void *mod, BwEvent *event)
+static int32_t on_exp(EidosEvent *event)
 {
-    BwMonExp *e = (BwMonExp *)event;
-    (void)mod;
-    if (g_host->services->setting_get("slow_exp") == 1) {
+    EidosMonExp *e = (EidosMonExp *)event;
+    if (eidos_setting_get("slow_exp") == 1) {
         e->amount /= 2;
     }
-    return BW_EVENT_CONTINUE;
+    return EIDOS_EVENT_CONTINUE;
 }
 
-${start("    return host->on(BW_EVENT_MON_EXP, on_exp);")}`,
+${start("    return eidos_on(EIDOS_EVENT_MON_EXP, (uint32_t)(uintptr_t)on_exp);")}`,
     },
     {
       slug: "release-on-faint",
@@ -596,22 +649,18 @@ rule nuzlocke on battle.faint
     when event.side == 0
     do release event.mon
 `),
-      c: `#include "mod_api.h"
-#include "mod_state.h"
+      c: `#include "eidos_wasm.h"
 
-static const BwModHost *g_host;
-
-static int on_faint(void *mod, BwEvent *event)
+static int32_t on_faint(EidosEvent *event)
 {
-    BwBattleFaint *e = (BwBattleFaint *)event;
-    (void)mod;
+    EidosBattleFaint *e = (EidosBattleFaint *)event;
     if (e->side == 0) {
-        g_host->state->mon_release(e->mon);
+        eidos_mon_release(${mon("e->mon")});
     }
-    return BW_EVENT_CONTINUE;
+    return EIDOS_EVENT_CONTINUE;
 }
 
-${start("    return host->on(BW_EVENT_BATTLE_FAINT, on_faint);")}`,
+${start("    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);")}`,
       notes: ["Whiteout is a separate event, `whiteout`. Poison on the field does not faint a Pokemon in this game."],
     },
     {
@@ -633,23 +682,20 @@ rule potion_gift on route.change
     do give 17 5
     do set state.gift_given 1
 `),
-      c: `#include "mod_api.h"
-#include "mod_state.h"
+      c: `#include "eidos_wasm.h"
 
-static const BwModHost *g_host;
 static int g_given;
 
-static int on_route(void *mod, BwEvent *event)
+static int32_t on_route(EidosEvent *event)
 {
-    BwRouteChange *e = (BwRouteChange *)event;
-    (void)mod;
-    if (e->zone == 115 && !g_given && g_host->state->item_add(17, 5) == 0) {
+    EidosRouteChange *e = (EidosRouteChange *)event;
+    if (e->zone == 115 && !g_given && eidos_item_add(17, 5) == 0) {
         g_given = 1;
     }
-    return BW_EVENT_CONTINUE;
+    return EIDOS_EVENT_CONTINUE;
 }
 
-${start("    return host->on(BW_EVENT_ROUTE_CHANGE, on_route);")}`,
+${start("    return eidos_on(EIDOS_EVENT_ROUTE_CHANGE, (uint32_t)(uintptr_t)on_route);")}`,
       notes: ["The C version keeps its flag in memory only. Save it with `state_store` to keep it across runs. `item_count[17]` reads the Potions the bag holds, for a rule that gives only when the bag has none."],
     },
     {
@@ -697,21 +743,18 @@ rule no_battle_healing on heal.hp
       events: ["battle.faint"],
       functions: ["panel_set", "on"],
       steps: ["`battle.faint` fires for both sides; `side` 0 is the player's.", "`panel_set` writes one of the 16 panel lines."],
-      c: `#include "mod_api.h"
-#include "mod_state.h"
+      c: `#include "eidos_wasm.h"
 
-static const BwModHost *g_host;
-static u32 g_faints;
+static uint32_t g_faints;
 
-static int on_faint(void *mod, BwEvent *event)
+static int32_t on_faint(EidosEvent *event)
 {
-    BwBattleFaint *e = (BwBattleFaint *)event;
+    EidosBattleFaint *e = (EidosBattleFaint *)event;
     char line[24] = "Faints: ";
     char digits[11];
-    u32 n = 0, v, i;
-    (void)mod;
+    uint32_t n = 0, v, i;
     if (e->side != 0) {
-        return BW_EVENT_CONTINUE;
+        return EIDOS_EVENT_CONTINUE;
     }
     g_faints++;
     v = g_faints;
@@ -723,11 +766,11 @@ static int on_faint(void *mod, BwEvent *event)
         line[8 + i] = digits[n - 1 - i];
     }
     line[8 + n] = 0;
-    g_host->services->panel_set(0, line);
-    return BW_EVENT_CONTINUE;
+    eidos_panel_set(0, line);
+    return EIDOS_EVENT_CONTINUE;
 }
 
-${start("    return host->on(BW_EVENT_BATTLE_FAINT, on_faint);")}`,
+${start("    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);")}`,
     },
     {
       slug: "level-cap-badge",
@@ -748,24 +791,20 @@ rule level_cap on mon.exp
     when level[event.mon] >= table.caps[badges]
     do set event.amount 0
 `),
-      c: `#include "mod_api.h"
-#include "mod_state.h"
+      c: `#include "eidos_wasm.h"
 
-static const BwModHost *g_host;
-
-static int on_exp(void *mod, BwEvent *event)
+static int32_t on_exp(EidosEvent *event)
 {
-    BwMonExp *e = (BwMonExp *)event;
-    s32 cap = 100;
-    (void)mod;
-    g_host->services->table_get("caps", (s32)g_host->state->badge_count(), &cap);
-    if ((s32)e->level >= cap) {
+    EidosMonExp *e = (EidosMonExp *)event;
+    int32_t cap = 100;
+    eidos_table_get("caps", (int32_t)eidos_badge_count(), &cap);
+    if ((int32_t)e->level >= cap) {
         e->amount = 0;
     }
-    return BW_EVENT_CONTINUE;
+    return EIDOS_EVENT_CONTINUE;
 }
 
-${start("    return host->on(BW_EVENT_MON_EXP, on_exp);")}`,
+${start("    return eidos_on(EIDOS_EVENT_MON_EXP, (uint32_t)(uintptr_t)on_exp);")}`,
       notes: ["The cap compares the level before the gain, as `event.level` and `level[event.mon]` both read it."],
     },
     {
@@ -807,7 +846,184 @@ rule dupes on encounter.wild
     when owned[event.species] == 1
     do set event.reroll 1
 `),
-      notes: ["To skip only the first stage of an evolution line, add `species_stage[event.species] == 0` to the guard."],
+      notes: ["To skip only the first stage of an evolution line, add `species_stage[event.species] == 0` to the guard. To count a whole evolution line as one species, see the recipe on evolution lines."],
+    },
+    {
+      slug: "dupes-by-line",
+      title: "Dupes clause by evolution line",
+      goal: "A wild encounter is rolled again when the player already has a Pokemon of the same evolution line in the party, or any stage of it in a box.",
+      tier: ["rules", "c"],
+      events: ["encounter.wild"],
+      functions: ["species_base", "party_ref", "box_ref", "party_get", "box_get"],
+      steps: [
+        "`species_base[s]` is the first stage of the evolution line of species `s`. Two species are in one line when their bases are equal, so Charmander, Charmeleon and Charizard share a base.",
+        "A rule compares the base of the rolled species with the base of each party member. A rule has no loops, so the guard lists the six party positions. `species[k]` with a number `k` reads the Pokemon in party position `k`, and `party_count` keeps the empty positions out.",
+        "A rule cannot read the boxes one by one. The code version below checks the party and every box.",
+        "`event.reroll` rolls the encounter again; the last roll stands.",
+      ],
+      rule: rule(`
+language 1
+rule dupes_by_line on encounter.wild
+    when party_count > 0 && species_base[species[0]] == species_base[event.species] || party_count > 1 && species_base[species[1]] == species_base[event.species] || party_count > 2 && species_base[species[2]] == species_base[event.species] || party_count > 3 && species_base[species[3]] == species_base[event.species] || party_count > 4 && species_base[species[4]] == species_base[event.species] || party_count > 5 && species_base[species[5]] == species_base[event.species]
+    do set event.reroll 1
+`),
+      c: `#include "eidos_wasm.h"
+
+/* 1 when the Pokemon is in the line with this base and is not an egg. */
+static int in_line(const EidosMonRef *ref, int boxed, int32_t base)
+{
+    uint32_t species = 0;
+    uint32_t egg = 0;
+    int32_t (*get)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t *) =
+        boxed ? eidos_box_get : eidos_party_get;
+    if (get(${mon("ref", "->")}, EIDOS_MON_FIELD_SPECIES, &species) != 0) {
+        return 0;
+    }
+    get(${mon("ref", "->")}, EIDOS_MON_FIELD_IS_EGG, &egg);
+    return !egg && eidos_species_base(species) == base;
+}
+
+static int32_t on_wild(EidosEvent *event)
+{
+    EidosEncounterWild *e = (EidosEncounterWild *)event;
+    int32_t base = eidos_species_base(e->species);
+    EidosMonRef ref;
+    uint32_t i, b, s;
+    for (i = 0; i < eidos_party_count(); i++) {
+        if (eidos_party_ref(i, &ref) == 0 && in_line(&ref, 0, base)) {
+            e->reroll = 1;
+            return EIDOS_EVENT_CONTINUE;
+        }
+    }
+    for (b = 0; b < eidos_box_count(); b++) {
+        for (s = 0; s < 30; s++) {
+            if (eidos_box_ref(b, s, &ref) == 0 && in_line(&ref, 1, base)) {
+                e->reroll = 1;
+                return EIDOS_EVENT_CONTINUE;
+            }
+        }
+    }
+    return EIDOS_EVENT_CONTINUE;
+}
+
+${start("    return eidos_on(EIDOS_EVENT_ENCOUNTER_WILD, (uint32_t)(uintptr_t)on_wild);")}`,
+      notes: ["An empty box slot makes box_ref fail, so the loop skips it. A box holds 30 slots."],
+    },
+    {
+      slug: "no-battle-revives",
+      title: "Block revive items in battle only",
+      goal: "Revive items work on the party screen but not from the bag in battle.",
+      tier: ["rules"],
+      events: ["mon.revive"],
+      functions: [],
+      steps: [
+        "`mon.revive` fires when a fainted Pokemon is about to come back. `event.source` tells what brought it: 0 is an item on the party screen, 1 is a revive item in battle, 2 a move or ability, 3 a Centre, 4 the HP-restore power, 5 any other script heal.",
+        "The rule guards on source 1 and refuses. In battle a refused revive item has no effect and the bag keeps the item.",
+        "Every other source goes on as usual.",
+      ],
+      rule: rule(`
+language 1
+rule no_battle_revives on mon.revive
+    when event.source == 1
+    do refuse
+`),
+      notes: ["What a refusal does depends on the source: an item on the party screen says it has no effect and stays in the bag, Sacred Ash is used up and that member stays fainted, and a party heal leaves that member fainted and heals the others."],
+    },
+    {
+      slug: "no-party-heals",
+      title: "No party heals",
+      goal: "Pokemon Centres, scripts and the HP-restore power heal nobody.",
+      tier: ["rules"],
+      events: ["heal"],
+      functions: [],
+      steps: [
+        "`heal` is the whole party heal. A rule that refuses it stops the heal: no member event fires and nobody is healed.",
+        "A script's own text still plays.",
+      ],
+      rule: rule(`
+language 1
+rule no_party_heals on heal
+    do refuse
+`),
+      notes: ["To spare one member and heal the rest, refuse `mon.revive` (a fainted member) or `heal.hp` (a hurt one) for that member."],
+    },
+    {
+      slug: "keep-one-hurt",
+      title: "One Pokemon is not healed by a party heal",
+      goal: "A party heal heals everyone except Pokemon of species 25.",
+      tier: ["rules"],
+      events: ["heal.hp", "mon.revive"],
+      functions: [],
+      steps: [
+        "A party heal fires `heal.hp` once for each member that has lost HP, with source 2, and `mon.revive` once for each fainted member. A refusal affects that member only.",
+        "The two rules are two files, one for each event. Together they leave the species hurt or fainted.",
+      ],
+      rule: rule(`
+language 1
+rule keep_hurt on heal.hp
+    when event.source == 2 && species[event.mon] == 25
+    do refuse
+`),
+      rule2: rule(`
+language 1
+rule keep_fainted on mon.revive
+    when event.source >= 3 && species[event.mon] == 25
+    do refuse
+`),
+      notes: ["The first block is the rule for `heal.hp`; the second is the rule for `mon.revive`. Revive sources 3, 4 and 5 are the party heals: a Centre, the HP-restore power and any other script."],
+    },
+    {
+      slug: "no-battle-exp",
+      title: "No experience from battles",
+      goal: "Nobody gains experience from a battle.",
+      tier: ["rules"],
+      events: ["battle.exp"],
+      functions: [],
+      steps: [
+        "`battle.exp` fires once when the battle hands out experience. Refused, nobody gains and `mon.exp` does not fire.",
+        "Add a guard such as `event.wild == 1` to limit it to wild battles.",
+      ],
+      rule: rule(`
+language 1
+rule no_battle_exp on battle.exp
+    do refuse
+`),
+    },
+    {
+      slug: "no-exp-for-species",
+      title: "One Pokemon gains no experience",
+      goal: "Pokemon of species 25 gain nothing from battles; the rest gain as usual.",
+      tier: ["rules"],
+      events: ["mon.exp"],
+      functions: [],
+      steps: [
+        "`mon.exp` fires once for each member that gains. Setting `event.amount` to 0 gives that member none.",
+        "`battle.exp` is the whole hand-out; use it to stop everyone, and `mon.exp` to pick members.",
+      ],
+      rule: rule(`
+language 1
+rule no_exp_pikachu on mon.exp
+    when species[event.mon] == 25 && event.source == 0
+    do set event.amount 0
+`),
+    },
+    {
+      slug: "no-revives",
+      title: "Nothing comes back from fainting",
+      goal: "A fainted Pokemon stays fainted: no revive item, move, Centre or script heal brings it back.",
+      tier: ["rules"],
+      events: ["mon.revive"],
+      functions: [],
+      steps: [
+        "`mon.revive` fires for every way a fainted Pokemon comes back, and it can be refused. A rule with no guard refuses them all.",
+        "At a party heal the event fires once for each fainted member, and a refusal leaves only that member fainted. The others are healed.",
+      ],
+      rule: rule(`
+language 1
+rule no_revives on mon.revive
+    do refuse
+`),
+      notes: ["The Pokemon Centre's nurse runs the same script command as other script heals, so the port reports both as source 5 and a rule cannot tell them apart."],
     },
     {
       slug: "monotype",

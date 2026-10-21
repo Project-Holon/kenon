@@ -466,6 +466,9 @@
           {#if e.refuse}
             <h3>When refused</h3>
             <p>{e.refuse}</p>
+            {#if e.outcomes.length}
+              <ul class="small">{#each e.outcomes as o}<li>{o}</li>{/each}</ul>
+            {/if}
           {/if}
 
           <h3>Payload</h3>
@@ -595,7 +598,7 @@
           {#if r.rule}{@render snip(r.rule2 ? "Rule 1" : "Rule", r.rule)}{/if}
           {#if r.rule2}{@render snip("Rule 2", r.rule2)}{/if}
           {#if r.c}
-            {@render snip("C (native header, api 3)", r.c)}
+            {@render snip("C", r.c)}
           {/if}
           {#if r.notes?.length}
             <h3>Notes</h3>
