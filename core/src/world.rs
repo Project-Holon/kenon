@@ -41,8 +41,13 @@ const TRAINER_EVENT_PAIR: u16 = 5000;
 pub struct Zone {
     pub id: usize,
     pub place: String,
+    pub place_id: u16,
     pub matrix: u16,
     pub event_data: u16,
+    /// The wild encounter table (a/1/2/6 member), when the zone has one.
+    pub encounters: Option<u16>,
+    /// Music per season (spring, summer, autumn, winter): SDAT sequences.
+    pub music: [u16; 4],
 }
 
 /// One place a trainer stands.
@@ -80,6 +85,7 @@ pub fn zones(bridge: &Bridge) -> Result<Arc<Vec<Zone>>, Error> {
             .enumerate()
             .map(|(id, r)| {
                 let place_id = (rd16(r, 0x1A).unwrap_or(0) & 0x3FF) as usize;
+                let encounters = rd16(r, 0x14).filter(|&e| e != 0xFFFF);
                 Zone {
                     id,
                     place: names
@@ -87,12 +93,101 @@ pub fn zones(bridge: &Bridge) -> Result<Arc<Vec<Zone>>, Error> {
                         .filter(|n| !n.is_empty())
                         .cloned()
                         .unwrap_or_else(|| format!("Zone {id}")),
+                    place_id: place_id as u16,
                     matrix: rd16(r, 0x04).unwrap_or(0),
                     event_data: rd16(r, 0x16).unwrap_or(0),
+                    encounters,
+                    music: [0x0C, 0x0E, 0x10, 0x12].map(|o| rd16(r, o).unwrap_or(0)),
                 }
             })
             .collect())
     })
+}
+
+/// A spot of the town map: the Town Map and Fly screen's own table
+/// (a/0/8/6 member 0, read by TOWNMAP_GRH_LoadTownInfo in ov072): rows of
+/// 27 u16; column 0 the zone, 2-3 the marker position, 11 the kind, 12 set
+/// for a fly point.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Spot {
+    pub zone: usize,
+    pub place: String,
+    /// "city", "route" or "place" (caves, landmarks, buildings).
+    pub kind: &'static str,
+    pub x: i16,
+    pub y: i16,
+    pub fly: bool,
+}
+
+const TOWN_INFO: u16 = 86;
+const TOWN_ROW: usize = 27 * 2;
+
+pub fn spots(bridge: &Bridge) -> Result<Arc<Vec<Spot>>, Error> {
+    bridge.cached("spots", || {
+        let table = bridge.member(Member {
+            arc: TOWN_INFO,
+            index: 0,
+        })?;
+        let zones = zones(bridge)?;
+        Ok(table
+            .chunks(TOWN_ROW)
+            .filter(|r| r.len() == TOWN_ROW)
+            .filter_map(|r| {
+                let zone = rd16(r, 0)? as usize;
+                let kind = match rd16(r, 22)? {
+                    0 => "city",
+                    1 => "route",
+                    _ => "place",
+                };
+                Some(Spot {
+                    zone,
+                    place: zones
+                        .get(zone)
+                        .map_or_else(|| format!("Zone {zone}"), |z| z.place.clone()),
+                    kind,
+                    x: rd16(r, 4)? as i16,
+                    y: rd16(r, 6)? as i16,
+                    fly: rd16(r, 24)? == 1,
+                })
+            })
+            .collect())
+    })
+}
+
+/// A zone with the trainers standing in it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZoneView {
+    #[serde(flatten)]
+    pub zone: Zone,
+    /// (trainer id, tile) of the trainers standing in this zone.
+    pub trainers: Vec<(u16, Option<(u16, u16)>)>,
+}
+
+/// Every zone that shares a place name with `zone` (a town and its
+/// buildings, a cave and its floors), with their trainers.
+pub fn place(bridge: &Bridge, zone: usize) -> Result<Vec<ZoneView>, Error> {
+    let zones = zones(bridge)?;
+    let Some(at) = zones.get(zone) else {
+        return Ok(Vec::new());
+    };
+    let placed = trainer_locations(bridge)?;
+    Ok(zones
+        .iter()
+        .filter(|z| z.place_id == at.place_id)
+        .map(|z| ZoneView {
+            zone: z.clone(),
+            trainers: placed
+                .iter()
+                .flat_map(|(id, locs)| {
+                    locs.iter()
+                        .filter(|l| l.zone == z.id)
+                        .map(move |l| (*id, l.tile))
+                })
+                .collect(),
+        })
+        .collect())
 }
 
 /// Trainer id -> where its NPCs stand, built once per game.

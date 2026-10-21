@@ -34,6 +34,8 @@
 //! riginfo/{sheet}/{pal}/{cer}/{anr}/{mcr}  JSON: a battle rig's animation
 //!                                          (frame count, durations, size)
 //! rigframe/{sheet}/{pal}/{cer}/{anr}/{mcr}/{i}  one frame of it as PNG
+//! townmap                                  the Town Map picture (terrain with
+//!                                          the routes drawn over it)
 //! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
@@ -523,6 +525,36 @@ impl Bridge {
                     .get(number(6)?)
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
                 Ok(png(frame.clone()))
+            }
+            Some("townmap") => {
+                // The Town Map screen's two layers (townmap_grh.c): terrain
+                // (tiles 7, screen 16) under the routes and towns (tiles 5,
+                // screen 17), both with palette 0 of a/0/8/5.
+                let pal = self.nclr(Member { arc: 85, index: 0 })?;
+                let layer = |chr: usize, scr: usize, zero| -> Result<Rgba, Error> {
+                    let tiles = self.ncgr(Member {
+                        arc: 85,
+                        index: chr,
+                    })?;
+                    let screen = Nscr::parse(&self.member(Member {
+                        arc: 85,
+                        index: scr,
+                    })?)
+                    .map_err(|e| Error::Format(e.to_string()))?;
+                    Ok(image::render_screen(&screen, &tiles, &pal, zero))
+                };
+                let mut map = layer(7, 16, Zero::Opaque)?;
+                let top = layer(5, 17, Zero::Transparent)?;
+                for (i, px) in top.pixels.chunks(4).enumerate() {
+                    if px[3] != 0 && i * 4 + 4 <= map.pixels.len() {
+                        map.pixels[i * 4..i * 4 + 4].copy_from_slice(px);
+                    }
+                }
+                // The terrain fills the top 168 lines of the screen.
+                let height = 168.min(map.height);
+                map.pixels.truncate(map.width * height * 4);
+                map.height = height;
+                Ok(png(map))
             }
             Some("cry") if parts.len() == 2 => {
                 // A Pokemon cry: wave archive n holds its one wave

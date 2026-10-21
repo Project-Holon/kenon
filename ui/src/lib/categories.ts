@@ -8,6 +8,7 @@ export type Category =
   | { id: string; label: string; kind: "table"; tables: string[] }
   | { id: string; label: string; kind: "files" }
   | { id: string; label: string; kind: "cries" }
+  | { id: string; label: string; kind: "worldmap" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
 export interface Group {
@@ -36,6 +37,7 @@ export const GROUPS: Group[] = [
   {
     label: "World",
     items: [
+      { id: "world-map", label: "World map", kind: "worldmap" },
       { id: "trainers", label: "Trainers", kind: "table", tables: ["trainers", "trainerParties"] },
       { id: "trainer-sprites", label: "Trainer sprites", kind: "graphics", archive: 72 },
       { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },

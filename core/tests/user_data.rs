@@ -747,6 +747,19 @@ fn trainer_locations() {
         eprintln!("{}: {:?}", names[id as usize].name, all.get(&id));
     }
     assert!(all.len() > 300);
+
+    // The Town Map's spots: 61 rows, Nuvema Town (zone 389) a city.
+    let spots = kenon_core::world::spots(&bridge).unwrap();
+    assert_eq!(spots.len(), 61);
+    eprintln!("{:?}", &spots[..3]);
+    assert!(spots.iter().filter(|s| s.kind == "city").count() >= 10);
+    let place = kenon_core::world::place(&bridge, spots[0].zone).unwrap();
+    eprintln!("{}: {} zones", spots[0].place, place.len());
+    assert!(bridge
+        .serve("townmap")
+        .unwrap()
+        .bytes
+        .starts_with(b"\x89PNG"));
 }
 
 /// 3D textures: the map, building and overworld texture archives decode.

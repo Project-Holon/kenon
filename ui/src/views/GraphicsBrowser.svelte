@@ -197,7 +197,7 @@
       {#if selected.scr !== undefined && arc !== null}
         <div class="screen-view window">
           <img class="px" src={asset(`screen/${arc}:${selected.chr}/${arc}:${pal[1]}/${arc}:${selected.scr}`, version)} alt="Screen {selected.scr}" />
-          <p class="muted">Screen #{selected.scr}, drawn with tiles #{selected.chr}. Edit its tiles below.</p>
+          <p class="muted">Screen #{selected.scr}, tiles #{selected.chr}</p>
         </div>
       {/if}
       {#if selected.rig && arc !== null}
@@ -221,7 +221,7 @@
         />
       {/key}
     {:else if chr}
-      <p class="muted pad">This archive has no palette for this sheet.</p>
+      <p class="muted pad">No palette for this sheet.</p>
     {:else}
       <p class="muted pad">Choose a picture.</p>
     {/if}

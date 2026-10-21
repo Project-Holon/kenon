@@ -77,7 +77,6 @@
   <section class="body">
     <div class="head">
       <input class="search" placeholder="Search {textures.length} textures" bind:value={filter} />
-      <p class="muted small">Viewing only for now; editing 3D textures comes with the map editor.</p>
     </div>
     {#if big}
       <div class="window zoom">
@@ -183,9 +182,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .small {
-    font-size: 0.85rem;
   }
   .pad {
     padding: 1rem;

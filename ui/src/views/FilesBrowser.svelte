@@ -58,7 +58,7 @@
   </aside>
   <section class="members">
     {#if current === null}
-      <p class="muted pad">Every archive in the game, with what each member is. Choose one.</p>
+      <p class="muted pad">Choose an archive.</p>
     {:else}
       <div class="head">
         <h2><code>{list.find((a) => a.id === current)?.path}</code></h2>

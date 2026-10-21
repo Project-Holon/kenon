@@ -12,6 +12,7 @@
   import FilesBrowser from "../views/FilesBrowser.svelte";
   import CryBrowser from "../views/CryBrowser.svelte";
   import TextureBrowser from "../views/TextureBrowser.svelte";
+  import WorldMap from "../views/WorldMap.svelte";
   import TableEditor from "../views/TableEditor.svelte";
 
   let {
@@ -26,9 +27,20 @@
   // Bumped after a save, so views reload what changed.
   let version = $state(0);
 
+  // The entry a view opens on when another view sends the user there.
+  let start = $state<number | undefined>(undefined);
+
   function pick(c: Category) {
     if (c.id === current.id) return;
     play("select");
+    start = undefined;
+    current = c;
+  }
+
+  function openAt(id: string, index: number) {
+    const c = ALL.find((x) => x.id === id);
+    if (!c) return;
+    start = index;
     current = c;
   }
 
@@ -85,7 +97,7 @@
   </nav>
 
   <main class="content">
-    {#key current.id}
+    {#key `${current.id}/${start}`}
       {#if current.kind === "graphics"}
         <GraphicsBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "sound"}
@@ -94,12 +106,14 @@
         <TextBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "textures"}
         <TextureBrowser archive={current.archive} noun={current.noun} />
+      {:else if current.kind === "worldmap"}
+        <WorldMap onOpen={openAt} />
       {:else if current.kind === "cries"}
         <CryBrowser />
       {:else if current.kind === "files"}
         <FilesBrowser {version} />
       {:else}
-        <TableEditor tables={current.tables} {readOnly} {version} onSaved={saved} />
+        <TableEditor tables={current.tables} {readOnly} {version} {start} onSaved={saved} />
       {/if}
     {/key}
   </main>

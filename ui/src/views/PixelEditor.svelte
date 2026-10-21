@@ -366,11 +366,6 @@
         onpointerup={() => (drawing = false)}
         oncontextmenu={(e) => e.preventDefault()}
       ></canvas>
-      {#if view === "grid" && bankFor !== null}
-        <p class="muted note">
-          Tiles view: this sheet is stored piece by piece, so it only makes a picture in the Sprite view.
-        </p>
-      {/if}
     {/if}
   </div>
 
@@ -403,7 +398,7 @@
           <input type="color" value={hex(colors[base + color] ?? 0)} onchange={(e) => setColor((e.currentTarget as HTMLInputElement).value)} />
         </label>
       {/if}
-      <span class="muted hint">Right click picks a colour. Ctrl+Z undoes, Ctrl+S saves.</span>
+      <span class="muted hint">Right click: pick colour. Ctrl+Z: undo. Ctrl+S: save.</span>
     </div>
   {/if}
 </div>
@@ -454,9 +449,6 @@
   .sheet {
     display: block;
     cursor: crosshair;
-  }
-  .note {
-    margin-top: 0.75rem;
   }
   .palette {
     display: flex;

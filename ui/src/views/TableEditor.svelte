@@ -21,8 +21,9 @@
     tables,
     readOnly,
     version,
+    start,
     onSaved,
-  }: { tables: string[]; readOnly: boolean; version: number; onSaved: () => void } = $props();
+  }: { tables: string[]; readOnly: boolean; version: number; start?: number; onSaved: () => void } = $props();
 
   const SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
 
@@ -39,7 +40,9 @@
   onMount(async () => {
     try {
       entries = await tableEntries(tables[0]);
-      const first = entries.find((e) => e.index > 0) ?? entries[0];
+      const first = (start !== undefined ? entries.find((e) => e.index === start) : null) ??
+        entries.find((e) => e.index > 0) ??
+        entries[0];
       if (first) await open(first.index, false);
     } catch (e) {
       error = String(e);
@@ -208,10 +211,10 @@
         {#if tables[0] === "trainers" && locations}
           <p class="muted where">
             {#if locations.length === 0}
-              Not standing on a map: a scripted battle or a battle facility trainer.
+              No map position
             {:else}
               {#each locations as l, i}
-                {i > 0 ? " \u00b7 " : ""}{l.place}{l.tile ? ` (tile ${l.tile[0]}, ${l.tile[1]})` : ""}{l.pair ? ", double battle partner" : ""}
+                {i > 0 ? " \u00b7 " : ""}{l.place}{l.tile ? ` (tile ${l.tile[0]}, ${l.tile[1]})` : ""}{l.pair ? ", double battle" : ""}
               {/each}
             {/if}
           </p>
@@ -296,7 +299,6 @@
           </div>
         {/each}
       {/each}
-      <p class="muted hint">Names come from your ROM. A field marked ? has a meaning inferred, not confirmed in the game's code.</p>
     </div>
   </section>
 </div>
@@ -427,9 +429,6 @@
   td input,
   td select {
     width: 100%;
-  }
-  .hint {
-    font-size: 0.85rem;
   }
   .pad {
     padding: 1rem;

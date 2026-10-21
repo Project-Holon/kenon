@@ -47,7 +47,6 @@
 <div class="cries">
   <div class="head">
     <input class="search" placeholder="Search {list.length} cries" bind:value={filter} />
-    <p class="muted small">Each cry is the Pokemon's own recording in the game's sound archive.</p>
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
@@ -102,9 +101,6 @@
   }
   .icon :global(img) {
     height: 32px;
-  }
-  .small {
-    font-size: 0.85rem;
   }
   .pad {
     padding: 1rem;

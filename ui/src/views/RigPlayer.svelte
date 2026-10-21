@@ -55,7 +55,7 @@
 </script>
 
 {#if error}
-  <p class="muted pad">No battle animation for this picture.</p>
+  <p class="muted pad">No battle animation.</p>
 {:else if info}
   <div class="player">
     <div class="frame window" style="width: {info.width * scale + 16}px; height: {info.height * scale + 16}px">

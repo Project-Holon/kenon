@@ -371,6 +371,25 @@ async fn trainer_locations(
     Ok(all.get(&trainer).cloned().unwrap_or_default())
 }
 
+/// The Town Map's spots: cities, routes and places with their positions.
+#[tauri::command]
+async fn map_spots(
+    state: State<'_, AppState>,
+) -> Result<Arc<Vec<kenon_core::world::Spot>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::world::spots(&bridge).map_err(|e| e.to_string())
+}
+
+/// The zones of a place (a town and its buildings) with their trainers.
+#[tauri::command]
+async fn map_place(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<Vec<kenon_core::world::ZoneView>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::world::place(&bridge, zone).map_err(|e| e.to_string())
+}
+
 fn member([arc, index]: [usize; 2]) -> Member {
     Member {
         arc: arc as u16,
@@ -427,6 +446,8 @@ pub fn run() {
             save_record,
             enum_values,
             trainer_locations,
+            map_spots,
+            map_place,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

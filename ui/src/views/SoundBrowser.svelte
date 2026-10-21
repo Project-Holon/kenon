@@ -58,7 +58,6 @@
 <div class="sounds">
   <div class="head">
     <input class="search" placeholder="Search {list.length} sounds" bind:value={filter} />
-    <p class="muted small">Rendered from the game's own sequences and instruments. Editing sound comes later.</p>
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
@@ -115,9 +114,6 @@
   }
   .row-item[aria-current="true"] .muted {
     color: inherit;
-  }
-  .small {
-    font-size: 0.85rem;
   }
   .pad {
     padding: 1rem;

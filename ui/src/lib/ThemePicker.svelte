@@ -40,7 +40,7 @@
     asset(`anim/7:${7 + 2 * species}/7:0/7:2/7:1/1/${frame}?paloffset=${(palettes?.[species] ?? 0) & 0xf}`);
 </script>
 
-{#if gameOpen && palettes}
+{#if gameOpen}
   <div class="icons" role="radiogroup" aria-label="Theme">
     {#each THEMES as [value, label]}
       <button

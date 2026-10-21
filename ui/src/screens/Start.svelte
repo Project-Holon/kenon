@@ -109,12 +109,6 @@
         <p class:bad={status.check?.state === "problem"} class:muted={status.check?.state !== "problem"}>
           {describe(status.check)}
         </p>
-        {#if !ready}
-          <p class="muted small">
-            kenon reads graphics, text and sound from your own ROM and never changes it. It ships no game
-            data.
-          </p>
-        {/if}
       </div>
       <button class:primary={!ready} onclick={chooseRom}>{ready ? "Change ROM" : "Choose your ROM"}</button>
     </section>
@@ -122,7 +116,7 @@
     <div class="cards">
       <section class="window card">
         <h2>New project</h2>
-        <p class="muted">Start a mod. Your changes go into a mod folder; the ROM is never touched.</p>
+        <p class="muted">A new mod folder.</p>
         {#if creating}
           <label>
             <span class="muted small">Name</span>
@@ -141,13 +135,13 @@
 
       <section class="window card">
         <h2>View game data</h2>
-        <p class="muted">Browse the game's graphics, text, sound and data as they are, read only.</p>
+        <p class="muted">The game as it is, read only.</p>
         <button disabled={!ready} onclick={() => (play("decide"), onView())}>View game data</button>
       </section>
 
       <section class="window card">
         <h2>Open a mod</h2>
-        <p class="muted">Keep working on a mod folder you made before.</p>
+        <p class="muted">An existing mod folder.</p>
         <button disabled={!ready} onclick={() => openMod()}>Open a mod folder</button>
       </section>
     </div>
