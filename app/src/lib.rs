@@ -291,6 +291,49 @@ async fn audio_changes(
     kenon_core::audio_import::changes(&bridge).map_err(|e| e.to_string())
 }
 
+/// Adds a WAV file to the sound archive as a new sound effect, or as a
+/// music loop.
+#[tauri::command]
+async fn add_sound(
+    state: State<'_, AppState>,
+    name: String,
+    path: PathBuf,
+    music: bool,
+) -> Result<kenon_core::sound_add::NewSound, String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    if music {
+        kenon_core::sound_add::add_music(&bridge, &name, &bytes)
+    } else {
+        kenon_core::sound_add::add_sound_effect(&bridge, &name, &bytes)
+    }
+    .map_err(|e| e.to_string())
+}
+
+/// Adds a character that looks like `like`, with its pictures from PNG files.
+#[tauri::command]
+async fn add_character(
+    state: State<'_, AppState>,
+    paths: Vec<PathBuf>,
+    like: u16,
+) -> Result<kenon_core::characters::NewCharacter, String> {
+    let bridge = state.need_bridge()?;
+    let frames = paths
+        .iter()
+        .map(|p| std::fs::read(p).map_err(|e| format!("could not read {}: {e}", p.display())))
+        .collect::<Result<Vec<_>, _>>()?;
+    kenon_core::characters::add_character(&bridge, &frames, like).map_err(|e| e.to_string())
+}
+
+/// The characters added to the project.
+#[tauri::command]
+async fn added_characters(
+    state: State<'_, AppState>,
+) -> Result<Vec<kenon_core::characters::NewCharacter>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::characters::added_characters(&bridge).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn text_bank(
     state: State<'_, AppState>,
@@ -1221,6 +1264,9 @@ pub fn run() {
             revert_cry,
             revert_sound,
             audio_changes,
+            add_sound,
+            add_character,
+            added_characters,
             text_bank,
             save_text_bank,
             sheet_data,

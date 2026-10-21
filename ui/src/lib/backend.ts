@@ -106,6 +106,22 @@ export const importSound = (id: number, path: string) => invoke<AudioSummary>("i
 export const revertCry = (species: number) => invoke<void>("revert_cry", { species });
 export const revertSound = (id: number) => invoke<void>("revert_sound", { id });
 export const audioChanges = () => invoke<AudioChanges>("audio_changes");
+export interface NewSound {
+  id: number;
+  name: string;
+  seconds: number;
+  rate: number;
+  bytes: number;
+  note: string | null;
+}
+export const addSound = (name: string, path: string, music: boolean) => invoke<NewSound>("add_sound", { name, path, music });
+export interface NewCharacter {
+  code: number;
+  tex: number;
+  frames: number;
+}
+export const addCharacter = (paths: string[], like: number) => invoke<NewCharacter>("add_character", { paths, like });
+export const addedCharacters = () => invoke<NewCharacter[]>("added_characters");
 export const textBank = (arc: number, bank: number) => invoke<string[]>("text_bank", { arc, bank });
 export const saveTextBank = (arc: number, bank: number, strings: string[]) =>
   invoke<void>("save_text_bank", { arc, bank, strings });

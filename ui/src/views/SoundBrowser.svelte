@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { asset, audioChanges, importSound, revertSound, sounds, type AudioSummary, type SoundInfo } from "../lib/backend";
+  import { addSound, asset, audioChanges, importSound, revertSound, sounds, type AudioSummary, type NewSound, type SoundInfo } from "../lib/backend";
   import VirtualList from "../lib/VirtualList.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced, forget } from "../lib/cache.svelte";
   import { copyText, guarded, saveWav } from "../lib/exporter";
   import { openMenu, toast } from "../lib/menu.svelte";
 
@@ -22,6 +22,10 @@
   let changed = $state<Set<number>>(new Set());
   let version = $state(0);
   let busy = $state(false);
+  // A WAV chosen to be added, waiting for its name.
+  let adding = $state<{ path: string; name: string } | null>(null);
+  let addDialog = $state<HTMLDialogElement | null>(null);
+  const canAdd = $derived(group === "music" || group === "effect");
 
   const refresh = () =>
     audioChanges()
@@ -96,6 +100,36 @@
     }
   }
 
+  async function chooseNew() {
+    const path = await open({ title: "Choose a WAV", filters: [{ name: "WAV sound", extensions: ["wav"] }] });
+    if (typeof path !== "string") return;
+    const file = path.split(/[\\/]/).pop() ?? "";
+    adding = { path, name: file.replace(/\.wav$/i, "").replaceAll("_", " ") };
+    error = null;
+    // The dialog is in the page once `adding` is set.
+    queueMicrotask(() => addDialog?.showModal());
+  }
+
+  async function addNew() {
+    if (!adding || !adding.name.trim()) return;
+    busy = true;
+    error = null;
+    try {
+      const made = await addSound(adding.name, adding.path, group === "music");
+      addDialog?.close();
+      forget("sounds");
+      list = (await sounds()).filter((x) => x.group === group);
+      selected = list.find((x) => x.index === made.id) ?? null;
+      toast(`Added ${pretty(made.name)} as #${made.id}: ${describeNew(made)}`);
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  const describeNew = (r: NewSound) => `${r.seconds.toFixed(1)} s, ${r.rate} Hz.${r.note ? " " + r.note : ""}`;
+
   async function revert(s: SoundInfo) {
     error = null;
     try {
@@ -142,6 +176,7 @@
   <div class="head">
     <input class="search" placeholder={loaded ? `Search ${list.length} ${noun}` : "Search"} bind:value={filter} />
     {#if group === "music"}<span class="muted">Plays the first minute.</span>{/if}
+    {#if canAdd}<button disabled={busy} onclick={chooseNew}>Add sound from WAV...</button>{/if}
     {#if selected}
       <span class="muted pick">{pretty(selected.name)}</span>
       <button disabled={busy} onclick={() => replace(selected!)}>Replace with WAV...</button>
@@ -175,6 +210,38 @@
     </VirtualList>
   </div>
 </div>
+
+{#if adding}
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+  <dialog
+    bind:this={addDialog}
+    class="add window"
+    onclose={() => (adding = null)}
+    onclick={(e) => {
+      if (e.target === addDialog) addDialog?.close();
+    }}
+    aria-label="Add sound"
+  >
+    <h2>Add {group === "music" ? "a music loop" : "a sound effect"}</h2>
+    <label class="field">
+      <span>Name</span>
+      <input
+        bind:value={adding.name}
+        onkeydown={(e) => e.key === "Enter" && addNew()}
+      />
+    </label>
+    <p class="muted">
+      {group === "music"
+        ? "The WAV plays over and over. It shares the game's sound memory, so a few seconds is the limit. Not yet tried in the game."
+        : "A sound effect can be about a second long."}
+    </p>
+    {#if error}<p class="bad">{error}</p>{/if}
+    <footer>
+      <button onclick={() => addDialog?.close()}>Cancel</button>
+      <button class="primary" disabled={busy || !adding.name.trim()} onclick={addNew}>Add</button>
+    </footer>
+  </dialog>
+{/if}
 
 <style>
   .sounds {
@@ -224,5 +291,33 @@
   }
   .pad {
     padding: 1rem;
+  }
+  .add {
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: inherit;
+  }
+  .add:not([open]) {
+    display: none;
+  }
+  .add::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .add h2,
+  .add p {
+    margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .add footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
   }
 </style>
