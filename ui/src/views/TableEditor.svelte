@@ -299,6 +299,35 @@
                   </label>
                 {/each}
               </div>
+            {:else if single}
+              <!-- Narrow: one small form per row instead of a wide table. -->
+              <div class="rows">
+                {#each s.rows as row, ri}
+                  <div class="row-card">
+                    <div class="row-head">
+                      <strong>{ri + 1}</strong>
+                      {#if !s.fixed && !readOnly}
+                        <button class="quiet" onclick={() => s.rows.splice(ri, 1)} aria-label="Remove row">Remove</button>
+                      {/if}
+                    </div>
+                    <div class="grid">
+                      {#each s.columns as c, ci}
+                        <label class="field">
+                          <span class="name">{c.label}</span>
+                          {#if c.enum && names[c.enum]?.length}
+                            <select bind:value={row[ci]} disabled={readOnly}>
+                              {#each names[c.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
+                              {#if row[ci] >= names[c.enum].length}<option value={row[ci]}>({row[ci]})</option>{/if}
+                            </select>
+                          {:else}
+                            <input type="number" min={c.min} max={c.max} bind:value={row[ci]} readonly={readOnly} />
+                          {/if}
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/each}
+              </div>
             {:else}
               <table>
                 <thead>
@@ -348,6 +377,71 @@
   }
   .tables.single {
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    overflow: hidden;
+  }
+  /* Inside another view's side panel: flows with the panel, no own scroll,
+     narrow fields, nothing wider than the panel. */
+  .single .record {
+    display: block;
+  }
+  .single .head {
+    flex-wrap: wrap;
+    padding: 0 0 0.5rem;
+    gap: 0.5rem;
+  }
+  .single .head h2 {
+    font-size: 1rem;
+  }
+  .single .scroll {
+    overflow: visible;
+  }
+  .single .body {
+    padding: 0.5rem 0 0;
+    gap: 0.6rem;
+  }
+  .single .block {
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: none;
+    gap: 0.4rem;
+  }
+  .single .block h3 {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  .single .grid {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 0.4rem 0.6rem;
+  }
+  .single .field .name {
+    font-size: 0.78rem;
+  }
+  .field select,
+  .field input[type="number"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .row-card {
+    border: 2px solid color-mix(in srgb, var(--outline) 50%, transparent);
+    border-radius: var(--radius-s);
+    padding: 0.4rem 0.5rem;
+  }
+  .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+  }
+  .row-head button {
+    padding: 0.1rem 0.5rem;
   }
   .entries {
     display: flex;

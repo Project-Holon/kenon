@@ -153,6 +153,27 @@ fn get(file: &[u8], base: usize, fields: &[Field], name: &str) -> i64 {
         .unwrap_or(0)
 }
 
+/// The map chunks a zone owns: (cell x, cell z) relative to the zone's
+/// top-left cell, and the chunk member.
+pub fn zone_chunks(bridge: &Bridge, zone_id: usize) -> Result<Vec<(usize, usize, usize)>, Error> {
+    let zones = world::zones(bridge)?;
+    let zone = zones
+        .get(zone_id)
+        .ok_or_else(|| Error::Missing(format!("zone {zone_id}")))?;
+    let m = matrix(bridge, zone.matrix)?;
+    let cells: Vec<(usize, usize, usize)> = (0..m.width * m.height)
+        .filter(|&i| m.chunks[i] != u32::MAX)
+        .filter(|&i| m.mode != 1 || m.zones.get(i) == Some(&(zone_id as u32)))
+        .map(|i| (i % m.width, i / m.width, m.chunks[i] as usize))
+        .collect();
+    let cx0 = cells.iter().map(|c| c.0).min().unwrap_or(0);
+    let cz0 = cells.iter().map(|c| c.1).min().unwrap_or(0);
+    Ok(cells
+        .into_iter()
+        .map(|(x, z, c)| (x - cx0, z - cz0, c))
+        .collect())
+}
+
 /// A zone's map and events.
 pub fn zone_map(bridge: &Bridge, zone_id: usize) -> Result<ZoneMap, Error> {
     let zones = world::zones(bridge)?;

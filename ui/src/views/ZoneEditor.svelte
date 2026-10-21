@@ -1874,11 +1874,9 @@
     padding: 0.2rem 0.6rem;
   }
   .embed {
-    flex: 1 0 30rem;
-    min-height: 30rem;
-    border: 2px solid var(--outline);
-    border-radius: var(--radius-s);
-    overflow: hidden;
+    min-width: 0;
+    border-top: 2px solid var(--outline);
+    padding-top: 0.6rem;
   }
   .grow {
     display: flex;
