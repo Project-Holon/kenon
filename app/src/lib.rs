@@ -504,6 +504,57 @@ async fn zone_scripts(
 }
 
 #[tauri::command]
+async fn props(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<Vec<kenon_core::props::Prop>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::props(&bridge, zone).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn prop_models(state: State<'_, AppState>, zone: usize) -> Result<Vec<u16>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::prop_models(&bridge, zone).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn set_prop(
+    state: State<'_, AppState>,
+    zone: usize,
+    prop: kenon_core::props::Prop,
+    x: f32,
+    z: f32,
+    y: f32,
+    rot: f32,
+) -> Result<(usize, usize), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::set_prop(&bridge, zone, &prop, x, z, y, rot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn add_prop(
+    state: State<'_, AppState>,
+    zone: usize,
+    model: u16,
+    x: f32,
+    z: f32,
+    y: f32,
+    rot: f32,
+) -> Result<(usize, usize), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::add_prop(&bridge, zone, model, x, z, y, rot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn remove_prop(state: State<'_, AppState>, chunk: usize, index: usize) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::remove_prop(&bridge, chunk, index).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -622,6 +673,11 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            props,
+            prop_models,
+            set_prop,
+            add_prop,
+            remove_prop,
             event_scripts,
             zone_scripts,
             object_textures,

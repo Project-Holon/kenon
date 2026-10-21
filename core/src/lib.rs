@@ -25,6 +25,7 @@ pub mod nitro;
 pub mod nsbmd;
 pub mod nscr;
 pub mod project;
+pub mod props;
 pub mod rig;
 pub mod rom;
 pub mod scripts;

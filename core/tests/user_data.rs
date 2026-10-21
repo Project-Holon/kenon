@@ -1052,3 +1052,64 @@ fn object_textures() {
     eprintln!("Route 2: {drawn} of {} people have a sprite", people.len());
     assert!(drawn * 2 > people.len());
 }
+
+/// Placed models read, move, travel between map pieces, and come and go.
+#[test]
+fn props_edit() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::project::Project;
+    use kenon_core::props;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+    // Route 1 (zone 317): trees and more.
+    let list = props::props(&bridge, 317).unwrap();
+    let models = props::prop_models(&bridge, 317).unwrap();
+    eprintln!(
+        "Route 1: {} placed models, {} model kinds",
+        list.len(),
+        models.len()
+    );
+    assert!(!list.is_empty() && !models.is_empty());
+    assert!(list.iter().all(|p| models.contains(&p.model)));
+    let p = &list[0];
+    eprintln!("first: {p:?}");
+    // Nudge it in place.
+    let (c, i) = props::set_prop(&bridge, 317, p, p.x + 1.0, p.z, p.y, 90.0).unwrap();
+    let moved = props::props(&bridge, 317)
+        .unwrap()
+        .into_iter()
+        .find(|q| q.chunk == c && q.index == i)
+        .unwrap();
+    assert!((moved.x - (p.x + 1.0)).abs() < 0.01 && (moved.z - p.z).abs() < 0.01);
+    assert!((moved.rot - 90.0).abs() < 0.01);
+    // Into another map piece: where a model of another piece stands.
+    let other = list.iter().find(|q| q.chunk != c).expect("two pieces");
+    let (c2, i2) = props::set_prop(&bridge, 317, &moved, other.x, other.z, moved.y, 0.0).unwrap();
+    assert_eq!(c2, other.chunk);
+    let all = props::props(&bridge, 317).unwrap();
+    assert_eq!(all.len(), list.len());
+    assert!(all
+        .iter()
+        .any(|q| q.chunk == c2 && q.index == i2 && (q.z - other.z).abs() < 0.01));
+    // Add and remove.
+    let (c3, i3) =
+        props::add_prop(&bridge, 317, models[0], other.x + 1.0, other.z, 0.0, 0.0).unwrap();
+    assert_eq!(props::props(&bridge, 317).unwrap().len(), list.len() + 1);
+    props::remove_prop(&bridge, c3, i3).unwrap();
+    assert_eq!(props::props(&bridge, 317).unwrap().len(), list.len());
+    // The render still reads the edited pieces.
+    kenon_core::maprender::render(
+        &bridge,
+        317,
+        &kenon_core::maprender::Options {
+            px: 2,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+}

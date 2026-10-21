@@ -75,12 +75,23 @@
   type Pt = { x: number; z: number };
   type Rect = { x: number; z: number; w: number; h: number };
   type Tool = "select" | "paint" | "box" | "fill" | "pick";
-  type Add = "npc" | "bg" | "item" | "warp" | "pos";
+  type Add = "npc" | "bg" | "item" | "warp" | "pos" | "prop";
+  // A placed model: building, tree, sign post... Positions in map tiles.
+  interface Prop {
+    chunk: number;
+    index: number;
+    x: number;
+    z: number;
+    y: number;
+    rot: number;
+    model: number;
+  }
   type TileWrite = [number, number, number, number];
   type Step =
     | { t: "tiles"; before: TileWrite[] }
     | { t: "move"; kind: Kind; index: number; x: number; z: number }
-    | { t: "add"; kind: Kind; index: number };
+    | { t: "add"; kind: Kind; index: number }
+    | { t: "prop"; chunk: number; index: number; x: number; z: number; y: number; rot: number };
 
   const TOOLS: [Tool, string, string][] = [
     ["select", "Select", "V"],
@@ -95,6 +106,7 @@
     ["item", "Hidden item"],
     ["warp", "Warp"],
     ["pos", "Trigger"],
+    ["prop", "Object"],
   ];
   const KIND_LABEL: Record<Kind, string> = { npc: "Person", warp: "Warp", pos: "Trigger", bg: "Sign" };
   const HINT: Record<Tool, string> = {
@@ -118,6 +130,14 @@
   let adding = $state<Add | null>(null);
   let brush = $state({ terrain: 0, flags: 0 });
   let picked = $state<MapEvent | null>(null);
+  let placed = $state<Prop[]>([]);
+  let propModels = $state<number[]>([]);
+  let pickedProp = $state<Prop | null>(null);
+  let showProps = $state(false);
+  // The model "Add object" places.
+  let newModel = $state<number | null>(null);
+  // Bumped when placed models change, so the picture is drawn again.
+  let renderStamp = $state(0);
   let sel = $state<Rect | null>(null);
   let moving = $state<Pt | null>(null);
   let boxing = $state<Rect | null>(null);
@@ -157,6 +177,7 @@
   let drag = $state<
     | { t: "pan"; px: number; py: number; x: number; y: number }
     | { t: "event"; ev: MapEvent; x0: number; z0: number; ox: number; oz: number }
+    | { t: "prop"; pr: Prop; before: Prop; ox: number; oz: number }
     | { t: "size"; ev: MapEvent }
     | { t: "marquee"; from: Pt }
     | { t: "tiles"; from: Pt; copy: boolean }
@@ -178,9 +199,123 @@
       edits = {};
       if (!keepView) requestAnimationFrame(fit);
       loadScripts();
+      loadProps();
     } catch (e) {
       error = String(e);
     }
+  }
+
+  async function loadProps() {
+    try {
+      placed = await invoke<Prop[]>("props", { zone: current });
+      propModels = await invoke<number[]>("prop_models", { zone: current });
+      if (newModel === null || !propModels.includes(newModel)) newModel = propModels[0] ?? null;
+    } catch {
+      placed = [];
+    }
+  }
+
+  // Snaps to half tiles: models sit on tile centres or tile corners.
+  const snap = (v: number) => Math.round(v * 2) / 2;
+
+  async function saveProp(pr: Prop, x: number, z: number, y: number, rot: number, before?: Prop) {
+    busy = true;
+    try {
+      const was = before ?? { ...pr };
+      const [chunk, index] = await invoke<[number, number]>("set_prop", { zone: current, prop: was, x, z, y, rot });
+      undo = [...undo.slice(-99), { t: "prop", chunk, index, x: was.x, z: was.z, y: was.y, rot: was.rot }];
+      play("select");
+      onSaved();
+      renderStamp++;
+      await loadProps();
+      pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
+    } catch (err) {
+      error = String(err);
+      await loadProps();
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function addProp(p: Pt) {
+    if (newModel === null) return;
+    busy = true;
+    try {
+      const [chunk, index] = await invoke<[number, number]>("add_prop", {
+        zone: current,
+        model: newModel,
+        x: p.x + 0.5,
+        z: p.z + 0.5,
+        y: 0,
+        rot: 0,
+      });
+      play("decide");
+      adding = null;
+      onSaved();
+      renderStamp++;
+      await loadProps();
+      pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
+      picked = null;
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function copyProp(pr: Prop) {
+    busy = true;
+    try {
+      const [chunk, index] = await invoke<[number, number]>("add_prop", {
+        zone: current,
+        model: pr.model,
+        x: pr.x + 1,
+        z: pr.z,
+        y: pr.y,
+        rot: pr.rot,
+      });
+      play("decide");
+      onSaved();
+      renderStamp++;
+      await loadProps();
+      pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function removeProp(pr: Prop) {
+    busy = true;
+    try {
+      await invoke("remove_prop", { chunk: pr.chunk, index: pr.index });
+      play("cancel");
+      pickedProp = null;
+      undo = undo.filter((s) => s.t !== "prop");
+      onSaved();
+      renderStamp++;
+      await loadProps();
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function onPropDown(pr: Prop, e: PointerEvent) {
+    if (e.button !== 0 || space || adding || tool !== "select") return;
+    e.stopPropagation();
+    pickedProp = pr;
+    picked = null;
+    sel = null;
+    play("select");
+    if (readOnly) return;
+    const r = stage!.getBoundingClientRect();
+    const wx = (e.clientX - r.left - pan.x) / scale;
+    const wz = (e.clientY - r.top - pan.y) / scale;
+    drag = { t: "prop", pr, before: { ...pr }, ox: wx - pr.x, oz: wz - pr.z };
+    stage!.setPointerCapture(e.pointerId);
   }
 
   async function loadScripts() {
@@ -343,13 +478,17 @@
     }
     if (e.button !== 0 || !inside(p)) return;
     if (adding) {
-      if (!readOnly) addEvent(adding, p);
+      if (!readOnly) {
+        if (adding === "prop") addProp(p);
+        else addEvent(adding, p);
+      }
       return;
     }
     const i = p.z * map.width + p.x;
     switch (tool) {
       case "select":
         picked = null;
+        pickedProp = null;
         if (inRect(p, sel) && !readOnly) {
           drag = { t: "tiles", from: p, copy: e.altKey };
           moving = { x: 0, z: 0 };
@@ -399,6 +538,12 @@
         ev.z = Math.max(0, Math.min(map.height - ev.h, p.z - drag.oz));
         break;
       }
+      case "prop": {
+        const r = stage!.getBoundingClientRect();
+        drag.pr.x = snap((e.clientX - r.left - pan.x) / scale - drag.ox);
+        drag.pr.z = snap((e.clientY - r.top - pan.y) / scale - drag.oz);
+        break;
+      }
       case "size":
         drag.ev.w = Math.max(1, p.x - drag.ev.x + 1);
         drag.ev.h = Math.max(1, p.z - drag.ev.z + 1);
@@ -426,6 +571,9 @@
     switch (d.t) {
       case "event":
         if (d.ev.x !== d.x0 || d.ev.z !== d.z0) await moveEvent(d.ev, d.x0, d.z0);
+        break;
+      case "prop":
+        if (d.pr.x !== d.before.x || d.pr.z !== d.before.z) await saveProp(d.pr, d.pr.x, d.pr.z, d.pr.y, d.pr.rot, d.before);
         break;
       case "size":
         await save(d.ev, { sizeX: d.ev.w, sizeZ: d.ev.h }, false);
@@ -640,7 +788,7 @@
 
   async function addEvent(what: Add, p: Pt) {
     busy = true;
-    const kind: Kind = what === "item" ? "bg" : what;
+    const kind: Kind = what === "item" ? "bg" : (what as Kind);
     try {
       const index = await invoke<number>("add_event", { zone: current, kind, x: p.x, z: p.z });
       if (what === "item") await invoke("save_event", { zone: current, kind, index, values: { type: 2, scriptId: 0 } });
@@ -732,6 +880,21 @@
       if (step.t === "tiles") {
         setLocal(step.before);
         await invoke("write_tiles", { zone: current, tiles: step.before });
+      } else if (step.t === "prop") {
+        const pr = placed.find((q) => q.chunk === step.chunk && q.index === step.index);
+        if (pr) {
+          const [chunk, index] = await invoke<[number, number]>("set_prop", {
+            zone: current,
+            prop: pr,
+            x: step.x,
+            z: step.z,
+            y: step.y,
+            rot: step.rot,
+          });
+          renderStamp++;
+          await loadProps();
+          if (pickedProp) pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
+        }
       } else if (step.t === "move") {
         const ev = map.events.find((e) => e.kind === step.kind && e.index === step.index);
         if (ev) {
@@ -855,13 +1018,15 @@
     }
     if (mod) return;
     if (e.key === "Escape") {
+      pickedProp = null;
       picked = null;
       sel = null;
       adding = null;
       return;
     }
     if ((e.key === "Delete" || e.key === "Backspace") && !readOnly) {
-      if (picked) remove(picked);
+      if (pickedProp) removeProp(pickedProp);
+      else if (picked) remove(picked);
       else if (sel) applySelection((_, x, z) => [x, z, brush.terrain, brush.flags]);
       return;
     }
@@ -970,6 +1135,7 @@
       <button class="quiet" onclick={() => stage && zoomAt(scale + Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom in">+</button>
     </div>
     <button class:primary={grid} onclick={() => (grid = !grid)} title="Grid (H)">Grid</button>
+    <button class:primary={showProps} onclick={() => (showProps = !showProps)} title="Show buildings, trees and other objects">Objects</button>
     <button class:primary={preview} onclick={() => (preview = !preview)} title="See the spot as the game shows it">Preview</button>
     <button disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
   </header>
@@ -994,6 +1160,12 @@
             <i class="dot {a}"></i>{label}
           </button>
         {/each}
+      {/if}
+      {#if adding === "prop" && propModels.length}
+        <h3>Object to place</h3>
+        <select bind:value={newModel} aria-label="Object to place">
+          {#each propModels as m}<option value={m}>Object {m}</option>{/each}
+        </select>
       {/if}
       {#if painting}
         <h3>Paint with</h3>
@@ -1036,7 +1208,7 @@
             <img
               class="render"
               class:hidden={look === "tiles"}
-              src={asset(`maprender/${current}?px=16`)}
+              src={asset(`maprender/${current}?px=16${renderStamp ? `&v=${renderStamp}` : ""}`)}
               alt=""
               draggable="false"
               onerror={() => (renderOk = false)}
@@ -1051,6 +1223,19 @@
           ></canvas>
           {#if grid && scale >= 6}
             <div class="grid" style="--s: {scale}px; --c: {scale * 32}px"></div>
+          {/if}
+          {#if showProps || adding === "prop" || pickedProp}
+            {#each placed as pr (`${pr.chunk}:${pr.index}`)}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="prop"
+                class:on={pickedProp === pr}
+                class:passive={tool !== "select" || adding !== null}
+                style="left: {(pr.x - 0.5) * scale}px; top: {(pr.z - 0.5) * scale}px; width: {scale}px; height: {scale}px"
+                title="Object {pr.model}"
+                onpointerdown={(e) => onPropDown(pr, e)}
+              ></div>
+            {/each}
           {/if}
           {#each map.events as ev (ev.kind + ev.index)}
             {#if ev.x >= 0 && ev.z >= 0}
@@ -1119,7 +1304,71 @@
     </div>
 
     <aside class="panel">
-      {#if picked && map}
+      {#if pickedProp && map}
+        {@const pr = pickedProp}
+        <div class="head">
+          <span class="badge prop-badge">O</span>
+          <div class="title">
+            <strong>Object {pr.model}</strong>
+            <span class="muted">at {pr.x}, {pr.z}</span>
+          </div>
+        </div>
+        {#if !readOnly}
+          <div class="row">
+            <button onclick={() => copyProp(pr)} disabled={busy}>Duplicate</button>
+            <button onclick={() => removeProp(pr)} disabled={busy}>Delete</button>
+          </div>
+          <label class="field">
+            <span>Model</span>
+            <select
+              value={pr.model}
+              disabled={busy}
+              onchange={async (e) => {
+                const model = Number((e.currentTarget as HTMLSelectElement).value);
+                busy = true;
+                try {
+                  await invoke("remove_prop", { chunk: pr.chunk, index: pr.index });
+                  const [chunk, index] = await invoke<[number, number]>("add_prop", { zone: current, model, x: pr.x, z: pr.z, y: pr.y, rot: pr.rot });
+                  play("save");
+                  onSaved();
+                  renderStamp++;
+                  await loadProps();
+                  pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
+                } catch (err) {
+                  error = String(err);
+                } finally {
+                  busy = false;
+                }
+              }}
+            >
+              {#each propModels as m}<option value={m}>Object {m}</option>{/each}
+            </select>
+          </label>
+          <div class="field">
+            <span>Turn</span>
+            <div class="row">
+              {#each [0, 90, 180, 270] as deg}
+                <button class:primary={Math.round(pr.rot) % 360 === deg} disabled={busy} onclick={() => saveProp(pr, pr.x, pr.z, pr.y, deg)}>{deg}°</button>
+              {/each}
+            </div>
+          </div>
+          <div class="row">
+            <label class="field">
+              <span>Across</span>
+              <input type="number" step="0.5" value={pr.x} onchange={(e) => saveProp(pr, Number((e.currentTarget as HTMLInputElement).value), pr.z, pr.y, pr.rot)} />
+            </label>
+            <label class="field">
+              <span>Down</span>
+              <input type="number" step="0.5" value={pr.z} onchange={(e) => saveProp(pr, pr.x, Number((e.currentTarget as HTMLInputElement).value), pr.y, pr.rot)} />
+            </label>
+            <label class="field">
+              <span>Height</span>
+              <input type="number" step="0.5" value={pr.y} onchange={(e) => saveProp(pr, pr.x, pr.z, Number((e.currentTarget as HTMLInputElement).value), pr.rot)} />
+            </label>
+          </div>
+          <p class="muted small">Drag it on the map to move it.</p>
+        {/if}
+      {:else if picked && map}
         {@const ev = picked}
         <div class="head">
           {#if sprite(ev)}
@@ -1682,6 +1931,29 @@
     color: var(--accent, inherit);
     text-decoration: underline;
     cursor: pointer;
+  }
+  .prop {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    outline: 2px solid #0009;
+    border-radius: 2px;
+    background: rgba(255, 140, 0, 0.55);
+    transform: rotate(45deg) scale(0.7);
+    cursor: grab;
+    z-index: 1;
+  }
+  .prop.on {
+    background: var(--gold);
+    outline-color: var(--outline);
+    z-index: 4;
+  }
+  .prop.passive {
+    pointer-events: none;
+  }
+  .prop-badge,
+  .dot.prop {
+    background: rgba(255, 140, 0, 0.85);
   }
   .ev.passive {
     pointer-events: none;
