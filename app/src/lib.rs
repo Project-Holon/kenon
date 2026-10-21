@@ -1105,6 +1105,10 @@ pub fn run() {
                     .maximized(p.maximized),
                 None => window.inner_size(1024.0, 720.0).center(),
             };
+            // A window made in code takes the app icon only when given it.
+            if let Some(icon) = app.default_window_icon() {
+                window = window.icon(icon.clone())?;
+            }
             window.build()?;
             Ok(())
         })
