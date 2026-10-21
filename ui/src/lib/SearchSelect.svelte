@@ -29,7 +29,34 @@
   let root = $state<HTMLDivElement | null>(null);
   let input = $state<HTMLInputElement | null>(null);
   let list = $state<HTMLUListElement | null>(null);
-  let above = $state(false);
+  // Where the list floats: fixed to the window, so a scrolling or clipped
+  // parent never cuts it off.
+  let place = $state("");
+
+  function position() {
+    const r = root?.getBoundingClientRect();
+    if (!r) return;
+    const width = Math.max(r.width, 240);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    const below = window.innerHeight - r.bottom;
+    const up = below < 300 && r.top > below;
+    const room = Math.max(160, (up ? r.top : below) - 16);
+    place = `left: ${left}px; width: ${width}px; max-height: ${Math.min(360, room)}px; ${
+      up ? `bottom: ${window.innerHeight - r.top + 4}px` : `top: ${r.bottom + 4}px`
+    }`;
+  }
+
+  // Follows the button while anything scrolls or the window resizes.
+  $effect(() => {
+    if (!open) return;
+    const again = () => position();
+    window.addEventListener("scroll", again, true);
+    window.addEventListener("resize", again);
+    return () => {
+      window.removeEventListener("scroll", again, true);
+      window.removeEventListener("resize", again);
+    };
+  });
 
   const pairs = $derived.by((): [number, string][] =>
     options.length && typeof options[0] === "string"
@@ -56,9 +83,7 @@
     open = true;
     query = "";
     active = Math.max(0, shown.findIndex(([v]) => v === value));
-    // Open upward when there is no room below.
-    const r = root?.getBoundingClientRect();
-    above = !!r && window.innerHeight - r.bottom < 280 && r.top > window.innerHeight - r.bottom;
+    position();
     await tick();
     input?.focus();
     scrollActive();
@@ -103,7 +128,7 @@
     <i class="caret"></i>
   </button>
   {#if open}
-    <div class="pop window" class:above>
+    <div class="pop window" style={place}>
       <input
         bind:this={input}
         bind:value={query}
@@ -171,20 +196,12 @@
     opacity: 0.7;
   }
   .pop {
-    position: absolute;
-    z-index: 50;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    min-width: 12rem;
+    position: fixed;
+    z-index: 1000;
     padding: 0.35rem;
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-  }
-  .pop.above {
-    top: auto;
-    bottom: calc(100% + 4px);
   }
   .pop input {
     width: 100%;
@@ -193,7 +210,8 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 16rem;
+    min-height: 0;
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
   }
