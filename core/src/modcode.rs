@@ -8,7 +8,7 @@
 //! the name tables). Where `docs/mod-rules-language.md` differs from that
 //! code, the code wins:
 //!
-//! - the port knows 55 events (`modnames/rules.txt`), not the 359 entries of
+//! - the port knows 58 events (`modnames/rules.txt`), not the 359 entries of
 //!   `docs/mod-events.md`, which count raw hooks too;
 //! - a rule file holds exactly one rule;
 //! - an operator is read as two characters at most, and a pair that is not

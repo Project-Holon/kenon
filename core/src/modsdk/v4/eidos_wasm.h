@@ -15,6 +15,7 @@
 #ifndef EIDOS_WASM_H
 #define EIDOS_WASM_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define EIDOS_API_VERSION 4
@@ -62,6 +63,9 @@ enum {
     EIDOS_EVENT_MON_HELDITEM = 51,
     EIDOS_EVENT_EGG_HATCH = 52,
     EIDOS_EVENT_TRADE_INGAME = 53,
+    EIDOS_EVENT_MON_CURE = 54,
+    EIDOS_EVENT_MON_PP = 55,
+    EIDOS_EVENT_MON_FORM = 56,
     EIDOS_EVENT_BATTLE_START = 70,
     EIDOS_EVENT_BATTLE_ACTION = 71,
     EIDOS_EVENT_BATTLE_ITEM = 72,
@@ -125,6 +129,13 @@ enum {
     EIDOS_HEAL_POWER = 2,
     EIDOS_EXP_BATTLE = 0,
     EIDOS_EXP_DAYCARE = 1,
+    EIDOS_CURE_FIELD_ITEM = 0,
+    EIDOS_CURE_BATTLE = 1,
+    EIDOS_CURE_PARTY = 2,
+    EIDOS_PP_FIELD_ITEM = 0,
+    EIDOS_PP_BATTLE = 1,
+    EIDOS_FORM_FIELD = 0,
+    EIDOS_FORM_BATTLE = 1,
     EIDOS_LEVELUP_BATTLE = 0,
     EIDOS_LEVELUP_ITEM = 1,
     EIDOS_ITEM_FROM_OTHER = 0,
@@ -192,12 +203,12 @@ enum {
 
 typedef struct EidosEvent {
     uint32_t size;  /* sizeof the concrete payload, as the port built it */
-    uint32_t kind;  /* the BW_EVENT_* id of the event */
+    uint32_t kind;  /* the EIDOS_EVENT_* id of the event */
 } EidosEvent;  /* 8 bytes */
 
 typedef struct EidosMonRef {
     uint32_t handle;  /* opaque; passed back to the state calls, never read */
-    uint8_t place;  /* BW_MON_PARTY, BW_MON_BOX, BW_MON_BATTLE, BW_MON_WILD */
+    uint8_t place;  /* EIDOS_MON_PARTY, EIDOS_MON_BOX, EIDOS_MON_BATTLE, EIDOS_MON_WILD */
     uint8_t side;  /* in battle: 0 the player's side, 1 the opponent's */
     uint8_t box;  /* in a box: the box number */
     uint8_t slot;  /* the position in the party, the box or the battle side */
@@ -256,7 +267,7 @@ typedef struct EidosMapWarp {
     uint16_t zone;  /* where the warp starts */
     uint16_t dest_zone;  /* *mod: where it leads */
     int16_t dest_x;  /* *mod: the arrival cell */
-    int16_t dest_z;  /* *mod */
+    int16_t dest_z;  /* *mod:  */
 } EidosMapWarp;  /* 16 bytes */
 
 typedef struct EidosPlayerStep {
@@ -305,10 +316,10 @@ typedef struct EidosPcOpen {
 typedef struct EidosEncounterWild {
     EidosEvent h;
     uint16_t zone;
-    uint8_t method;  /* BW_ENCOUNTER_* */
+    uint8_t method;  /* EIDOS_ENCOUNTER_* */
     uint8_t slot;  /* the encounter table slot rolled */
-    uint16_t species;  /* *mod */
-    uint8_t level;  /* *mod */
+    uint16_t species;  /* *mod:  */
+    uint8_t level;  /* *mod:  */
     uint8_t shiny;  /* *mod: 1 forces shiny, 0 leaves the roll */
     uint8_t double_;  /* a double wild battle */
     uint8_t reroll;  /* *mod: 1 rolls the encounter again and fires again */
@@ -319,8 +330,8 @@ typedef struct EidosEncounterWild {
 typedef struct EidosEncounterStatic {
     EidosEvent h;
     uint16_t zone;
-    uint16_t species;  /* *mod */
-    uint8_t level;  /* *mod */
+    uint16_t species;  /* *mod:  */
+    uint8_t level;  /* *mod:  */
     uint8_t kind;  /* static, legendary, scripted */
 } EidosEncounterStatic;  /* 16 bytes */
 
@@ -328,14 +339,14 @@ typedef struct EidosEncounterTrainer {
     EidosEvent h;
     uint16_t trainer_id;
     uint16_t partner_id;  /* the second trainer, or 0 */
-    uint8_t format;  /* BW_FORMAT_* */
+    uint8_t format;  /* EIDOS_FORMAT_* */
 } EidosEncounterTrainer;  /* 16 bytes */
 
 typedef struct EidosMonCreate {
     EidosEvent h;
-    uint16_t species;  /* *mod */
-    uint8_t level;  /* *mod */
-    uint8_t shiny;  /* *mod */
+    uint16_t species;  /* *mod:  */
+    uint8_t level;  /* *mod:  */
+    uint8_t shiny;  /* *mod:  */
     uint8_t nature;  /* *mod: the nature, or 0xFF to leave the roll */
     uint32_t personality;  /* the personality value the game rolled */
 } EidosMonCreate;  /* 20 bytes */
@@ -343,7 +354,7 @@ typedef struct EidosMonCreate {
 typedef struct EidosMonReceive {
     EidosEvent h;
     EidosMonRef mon;
-    uint8_t source;  /* BW_RECEIVE_* */
+    uint8_t source;  /* EIDOS_RECEIVE_* */
     uint8_t to_box;  /* it goes to a box because the party is full */
     uint16_t species;
     uint8_t level;
@@ -362,7 +373,7 @@ typedef struct EidosMonEvolve {
     EidosMonRef mon;
     uint16_t from;  /* its species */
     uint16_t to;  /* *mod: the species it evolves into */
-    uint8_t method;  /* BW_EVOLVE_* */
+    uint8_t method;  /* EIDOS_EVOLVE_* */
 } EidosMonEvolve;  /* 24 bytes */
 
 typedef struct EidosMonExp {
@@ -371,7 +382,7 @@ typedef struct EidosMonExp {
     uint32_t amount;  /* *mod: the experience to add */
     uint32_t exp;  /* its experience before */
     uint8_t level;  /* its level before */
-    uint8_t source;  /* BW_EXP_* */
+    uint8_t source;  /* EIDOS_EXP_* */
     uint8_t wild;  /* a battle source: 1 the battle is a wild one */
 } EidosMonExp;  /* 28 bytes */
 
@@ -380,15 +391,15 @@ typedef struct EidosMonLevelup {
     EidosMonRef mon;
     uint8_t from;  /* the level before */
     uint8_t to;  /* the level reached */
-    uint8_t source;  /* BW_LEVELUP_* */
-    uint16_t item;  /* BW_LEVELUP_ITEM: the item (a Rare Candy) */
+    uint8_t source;  /* EIDOS_LEVELUP_* */
+    uint16_t item;  /* EIDOS_LEVELUP_ITEM: the item (a Rare Candy) */
 } EidosMonLevelup;  /* 24 bytes */
 
 typedef struct EidosMoveLearn {
     EidosEvent h;
     EidosMonRef mon;
     uint16_t move;
-    uint8_t source;  /* BW_MOVE_SOURCE_* */
+    uint8_t source;  /* EIDOS_MOVE_SOURCE_* */
     uint8_t slot;  /* the move slot it goes into, or 0xFF for a free one */
     uint16_t replaced;  /* the move it replaces, or 0 */
 } EidosMoveLearn;  /* 24 bytes */
@@ -439,10 +450,36 @@ typedef struct EidosTradeIngame {
     uint16_t received_species;  /* the species offered */
 } EidosTradeIngame;  /* 24 bytes */
 
+typedef struct EidosMonCure {
+    EidosEvent h;
+    EidosMonRef mon;
+    uint8_t status;
+    uint8_t source;  /* EIDOS_CURE_* */
+    uint16_t item;  /* the item, or 0 */
+} EidosMonCure;  /* 20 bytes */
+
+typedef struct EidosMonPp {
+    EidosEvent h;
+    EidosMonRef mon;
+    uint8_t slot;  /* the move slot, 0 to 3 */
+    uint8_t source;  /* EIDOS_PP_* */
+    uint16_t move;  /* the move, or 0 when the port cannot read it */
+    uint16_t amount;  /* *mod:  */
+} EidosMonPp;  /* 24 bytes */
+
+typedef struct EidosMonForm {
+    EidosEvent h;
+    EidosMonRef mon;
+    uint16_t species;
+    uint8_t from;
+    uint8_t to;  /* *mod:  */
+    uint8_t source;  /* EIDOS_FORM_* */
+} EidosMonForm;  /* 24 bytes */
+
 typedef struct EidosBattleStart {
     EidosEvent h;
     uint8_t wild;
-    uint8_t format;  /* *mod: BW_FORMAT_* */
+    uint8_t format;  /* *mod: EIDOS_FORMAT_* */
     uint16_t trainer_id[2];  /* the opposing trainers, or 0 */
     int8_t level_adjust;  /* *mod: added to every opposing Pokemon's level */
     uint32_t opponent_party;  /* a handle to the opposing party */
@@ -452,7 +489,7 @@ typedef struct EidosBattleAction {
     EidosEvent h;
     EidosMonRef mon;  /* the Pokemon choosing */
     uint8_t side;  /* 0 the player's, 1 the opponent's */
-    uint8_t action;  /* BW_ACTION_* */
+    uint8_t action;  /* EIDOS_ACTION_* */
     uint16_t move;  /* for fight: the move checked */
     uint8_t switch_to;  /* for switch: the party position */
 } EidosBattleAction;  /* 24 bytes */
@@ -529,7 +566,7 @@ typedef struct EidosCatchResult {
 
 typedef struct EidosBattleEnd {
     EidosEvent h;
-    uint8_t outcome;  /* BW_OUTCOME_* */
+    uint8_t outcome;  /* EIDOS_OUTCOME_* */
     uint8_t wild;
     uint16_t trainer_id[2];
     uint16_t turns;
@@ -545,14 +582,14 @@ typedef struct EidosBattleTrainerMon {
     EidosEvent h;
     uint16_t trainer_id;  /* the trainer the party belongs to */
     uint8_t index;  /* the position in the party, 0 first */
-    uint8_t level;  /* *mod */
-    uint16_t species;  /* *mod */
+    uint8_t level;  /* *mod:  */
+    uint16_t species;  /* *mod:  */
     uint16_t item;  /* *mod: the held item */
-    uint16_t move1;  /* *mod */
-    uint16_t move2;  /* *mod */
-    uint16_t move3;  /* *mod */
-    uint16_t move4;  /* *mod */
-    uint16_t ability;  /* *mod */
+    uint16_t move1;  /* *mod:  */
+    uint16_t move2;  /* *mod:  */
+    uint16_t move3;  /* *mod:  */
+    uint16_t move4;  /* *mod:  */
+    uint16_t ability;  /* *mod:  */
     uint8_t form;  /* *mod: the form, written when species is written */
 } EidosBattleTrainerMon;  /* 28 bytes */
 
@@ -569,7 +606,7 @@ typedef struct EidosItemAdd {
     uint16_t item;
     uint16_t count;  /* *mod: how many */
     uint8_t pocket;  /* the bag pocket */
-    uint8_t source;  /* BW_ITEM_FROM_* */
+    uint8_t source;  /* EIDOS_ITEM_FROM_* */
 } EidosItemAdd;  /* 16 bytes */
 
 typedef struct EidosItemUse {
@@ -588,12 +625,12 @@ typedef struct EidosMoneyChange {
     EidosEvent h;
     int32_t delta;  /* *mod: the change, positive or negative */
     uint32_t before;  /* the money before */
-    uint8_t source;  /* BW_MONEY_* */
+    uint8_t source;  /* EIDOS_MONEY_* */
 } EidosMoneyChange;  /* 20 bytes */
 
 typedef struct EidosHeal {
     EidosEvent h;
-    uint8_t source;  /* BW_HEAL_* */
+    uint8_t source;  /* EIDOS_HEAL_* */
     uint8_t mask;  /* *mod: one bit per party position to heal */
 } EidosHeal;  /* 12 bytes */
 
@@ -603,7 +640,7 @@ typedef struct EidosHealHp {
     uint16_t hp;  /* the HP before the restore */
     uint16_t max_hp;
     uint16_t amount;  /* *mod: the HP to add */
-    uint8_t source;  /* BW_HEAL_HP_* */
+    uint8_t source;  /* EIDOS_HEAL_HP_* */
 } EidosHealHp;  /* 24 bytes */
 
 typedef struct EidosMonRevive {
@@ -613,7 +650,7 @@ typedef struct EidosMonRevive {
     uint16_t max_hp;
     uint16_t item;  /* the item, or 0 */
     uint16_t move;  /* the move, or 0 */
-    uint8_t source;  /* BW_REVIVE_* */
+    uint8_t source;  /* EIDOS_REVIVE_* */
 } EidosMonRevive;  /* 28 bytes */
 
 typedef struct EidosBadgeGet {
@@ -637,17 +674,20 @@ typedef struct EidosDexRegister {
 /* A handler: return EIDOS_EVENT_CONTINUE or EIDOS_EVENT_REFUSE. */
 typedef int32_t (*EidosHandler)(EidosEvent *event);
 
-/* The core imports. */
-EIDOS_IMPORT("log") void eidos_log(const char *text, uint32_t len);
-EIDOS_IMPORT("on") int32_t eidos_on(uint32_t kind, uint32_t handler_index);
-EIDOS_IMPORT("override") int32_t eidos_override(uint32_t region, uint32_t addr,
-                                                uint32_t handler_index);
-EIDOS_IMPORT("rd8") uint32_t eidos_rd8(uint32_t ds_addr);
-EIDOS_IMPORT("rd16") uint32_t eidos_rd16(uint32_t ds_addr);
-EIDOS_IMPORT("rd32") uint32_t eidos_rd32(uint32_t ds_addr);
-EIDOS_IMPORT("wr8") void eidos_wr8(uint32_t ds_addr, uint32_t value);
-EIDOS_IMPORT("wr16") void eidos_wr16(uint32_t ds_addr, uint32_t value);
-EIDOS_IMPORT("wr32") void eidos_wr32(uint32_t ds_addr, uint32_t value);
+/* The core imports (core.json). */
+EIDOS_IMPORT("log") void eidos_log(const char *text, uint32_t len);  /* a line in the mod log */
+EIDOS_IMPORT("on") int32_t eidos_on(uint32_t kind, uint32_t handler_index);  /* bind a handler to an event; 0 or non-zero */
+EIDOS_IMPORT("script") int32_t eidos_script(uint32_t vm, uint32_t opcode, uint32_t handler_index);  /* bind a handler to a script command (EIDOS_SCRIPT_VM_*) */
+EIDOS_IMPORT("override") int32_t eidos_override(uint32_t region, uint32_t addr, uint32_t handler_index);  /* install a hook on a function of hooks.json */
+EIDOS_IMPORT("original") int64_t eidos_original(const uint32_t *args, uint32_t nargs);  /* inside a hook: call the next link with these arguments */
+EIDOS_IMPORT("rd8") uint32_t eidos_rd8(uint32_t ds_addr);  /* read game memory */
+EIDOS_IMPORT("rd16") uint32_t eidos_rd16(uint32_t ds_addr);  /* read game memory */
+EIDOS_IMPORT("rd32") uint32_t eidos_rd32(uint32_t ds_addr);  /* read game memory */
+EIDOS_IMPORT("wr8") void eidos_wr8(uint32_t ds_addr, uint32_t value);  /* write game memory */
+EIDOS_IMPORT("wr16") void eidos_wr16(uint32_t ds_addr, uint32_t value);  /* write game memory */
+EIDOS_IMPORT("wr32") void eidos_wr32(uint32_t ds_addr, uint32_t value);  /* write game memory */
+EIDOS_IMPORT("read") int32_t eidos_read(uint32_t ds_addr, void *dst, uint32_t len);  /* copy game memory into the mod; 0, or non-zero out of bounds */
+EIDOS_IMPORT("write") int32_t eidos_write(uint32_t ds_addr, const void *src, uint32_t len);  /* copy mod memory into the game; 0, or non-zero out of bounds */
 
 /* The state calls (BwModState). */
 EIDOS_IMPORT("party_count") uint32_t eidos_party_count(void);

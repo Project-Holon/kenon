@@ -18,11 +18,65 @@ fn errors(text: &str, ev: Option<&str>) -> Vec<String> {
 #[test]
 fn tables_have_the_ports_counts() {
     let n = rule_names();
-    assert_eq!(n.events.len(), 55);
+    assert_eq!(n.events.len(), 58);
     assert_eq!(n.states.len(), 62);
     let wild = n.event("encounter.wild").unwrap();
     assert!(wild.fields.iter().any(|f| f.name == "double"));
     assert!(n.event("battle.faint").unwrap().fields.len() == 6);
+}
+
+#[test]
+fn cure_pp_and_form() {
+    let ok = |text: &str, ev: &str| {
+        let e = errors(text, Some(ev));
+        assert!(e.is_empty(), "{text}: {e:?}");
+    };
+    ok(
+        "language 1
+rule r on mon.cure
+    when event.source == 1
+    do refuse
+",
+        "mon.cure",
+    );
+    ok(
+        "language 1
+rule r on mon.pp
+    do set event.amount event.amount / 2
+",
+        "mon.pp",
+    );
+    ok(
+        "language 1
+rule r on mon.form
+    when event.source == 1
+    do set event.to 0
+",
+        "mon.form",
+    );
+    // Only amount is writable on mon.pp.
+    let bad = errors(
+        "language 1
+rule r on mon.pp
+    do set event.slot 0
+",
+        Some("mon.pp"),
+    );
+    assert!(!bad.is_empty());
+    // battle_style is declared writable, but the port cannot write it yet.
+    let style = errors(
+        "language 1
+rule r on battle.start
+    do set battle_style 1
+",
+        Some("battle.start"),
+    );
+    assert!(!style.is_empty());
+    let line = include_str!("../src/modnames/rules.txt")
+        .lines()
+        .find(|l| l.starts_with("state battle_style"))
+        .unwrap();
+    assert_eq!(line, "state battle_style plain 1 1 0");
 }
 
 #[test]

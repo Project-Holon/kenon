@@ -7,7 +7,6 @@
  * a mod that frees often should keep its own pools.
  */
 
-#include <stddef.h>
 #include "eidos_wasm.h"
 
 extern unsigned char __heap_base;

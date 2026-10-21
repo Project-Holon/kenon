@@ -16,16 +16,13 @@ export interface ApiEvent {
   name: string;
   numId: number;
   category: string;
-  binding: string;
-  region: string;
+  /** The game functions the event fires from. */
+  where: string;
   refuse: string | null;
-  /** What a refusal does for each source, when it differs. */
-  outcomes: string[];
   refusable?: boolean;
   modifyText: string | null;
   when: string | null;
   notes: string[];
-  caveats: string[];
   payload: PayloadField[];
   functions: string[];
   recipes: string[];
@@ -76,7 +73,6 @@ export interface Hook {
   key: string;
   events: string[];
   proto?: string;
-  corpusName?: string;
 }
 export type Block =
   | { t: "p"; text: string }

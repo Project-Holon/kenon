@@ -42,12 +42,26 @@ export default {
     BW_ITEM_FROM_: "Where an item comes from (item.add).",
     BW_MONEY_: "Where a money change comes from (money.change).",
     BW_REVIVE_: "What brought a fainted Pokemon back (mon.revive).",
+    BW_CURE_: "Where a status cure comes from (mon.cure).",
+    BW_PP_: "Where a PP restore comes from (mon.pp).",
+    BW_FORM_: "Where a form change comes from (mon.form).",
     BW_HEAL_HP_: "Where an HP restore happens (heal.hp).",
     BW_SCRIPT_VM_: "The two script machines.",
     BW_SCRIPT_: "What a script handler answers.",
     BW_MON_FIELD_: "Pokemon field ids (party_get, party_set, box_get, box_set, battle_get, battle_set)",
     BW_SESSION_: "What a session handler is told about",
     BW_RESTART_: "The flags of a run restart",
+  },
+
+  // The group of each event in the event list, in order. v4 does not carry one.
+  categories: {
+    "Session": ["game.new", "save.begin", "save.done", "save.load", "game.cleared"],
+    "World": ["route.change", "map.warp", "player.step", "trainer.spotted", "npc.talk", "menu.open", "menu.build", "field.move", "pc.open"],
+    "Encounters": ["encounter.wild", "encounter.static", "encounter.trainer"],
+    "Pokemon": ["mon.create", "mon.receive", "mon.nickname", "mon.evolve", "mon.exp", "mon.levelup", "move.learn", "mon.release", "box.deposit", "box.withdraw", "party.swap", "mon.helditem", "egg.hatch", "trade.ingame", "heal.hp", "mon.revive", "mon.cure", "mon.pp", "mon.form"],
+    "Battle": ["battle.start", "battle.action", "battle.item", "battle.switch", "battle.escape", "battle.move", "battle.damage", "battle.faint", "catch.attempt", "catch.result", "battle.end", "whiteout", "battle.trainer_mon", "battle.exp"],
+    "Items and money": ["item.add", "item.use", "shop.buy", "money.change", "heal"],
+    "Progress": ["badge.get", "flag.set", "dex.register"],
   },
 
   events: {
@@ -103,7 +117,6 @@ export default {
     "item.use": { when: "The party screen checks whether an item can be used on a Pokemon. Refusing gives the game's 'no effect' text." },
     "shop.buy": { when: "The player picks an item and a quantity in a shop. A handler may change the price." },
     "heal.hp": {
-      category: "Pokemon",
       when: "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore, through BTL_SERVER_FLOW_ApplyHpRecover: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
       facts: [
         "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
@@ -112,7 +125,6 @@ export default {
       functions: ["party_get", "battle_get", "item_count", "message"],
     },
     "mon.revive": {
-      category: "Pokemon",
       when: "A fainted Pokemon is about to come back: a Revive, Max Revive, Revival Herb or Sacred Ash, a revive item in battle, or a party heal. A handler may change the HP it comes back with, or refuse and leave it fainted.",
       facts: [
         "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command.",
@@ -120,11 +132,28 @@ export default {
       ],
       functions: ["party_get", "battle_get", "species_base", "message"],
     },
+    "mon.cure": {
+      when: "A status is about to be cured: by an item on the party screen, in a battle, or by a party heal. Refusing keeps the status.",
+      facts: [
+        "status is the game's own number: 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison. In a battle, 6 and up are the battle's own conditions, such as confusion.",
+        "Refused on the party screen, the item is not used. Refused in a battle, the game's text may still say the status was cured.",
+        "A party heal fires it only for members that have a status.",
+      ],
+      functions: ["party_get", "battle_get", "message"],
+    },
+    "mon.pp": {
+      when: "A move is about to get PP back, from an item on the party screen or in a battle. A handler may change the amount. Refusing gives none.",
+      facts: ["amount is the PP the move gets, before the cap at its maximum. move is 0 when the port cannot read it."],
+      functions: ["party_get", "battle_get", "message"],
+    },
+    "mon.form": {
+      when: "A Pokemon is about to change form, on the field or in a battle. A handler may change the new form. Refusing keeps the form it has.",
+      functions: ["party_get", "battle_get", "species_base", "message"],
+    },
     "mon.levelup": { when: "A Pokemon gains a level, in a battle or from a Rare Candy. It fires once for the level crossing, and for a Rare Candy after the level-up. To stop the candy, refuse item.use." },
     "money.change": { when: "Money is added or taken. source says why: a script, a purchase, a sale or a battle. A handler may change the amount, but only in the direction of the call." },
     heal: { when: "A party heal starts, at a Pokemon Centre, from a script or from the HP-restore power. A handler may choose who heals. Refused, the whole heal does not happen: no member event fires and nobody is healed. To spare one member, see mon.revive and heal.hp." },
     "battle.exp": {
-      category: "Battle",
       when: "The battle hands out experience after an opposing Pokemon fainted, as a whole, before mon.exp fires for each member that gains. A handler may scale every share. Refused, nobody gains and mon.exp does not fire.",
       facts: ["members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."],
       functions: ["party_get", "battle_get", "battle_wild"],
@@ -138,12 +167,16 @@ export default {
   functions: {
     log: { what: "Writes a line to the port's mod log. Pass the text and its length.", tiers: ["c"] },
     on: { what: "Binds a handler to an event by the event's id. The handler is a function table index: in C, the handler's address cast to uint32_t. Call it from eidos_mod_start.", result: "0 when bound.", tiers: ["c"] },
+    script: { what: "Binds a handler to a script command of one of the two script machines. vm is an EIDOS_SCRIPT_VM_* constant, opcode the command, and the handler a function table index. The handler returns an EIDOS_SCRIPT_* answer.", result: "0 when bound.", tiers: ["c"] },
     override: { what: "Binds a handler to a game function from the raw hook list, by region and address. The handler is a function table index.", tiers: ["c"] },
     rd8: { what: "Reads a byte of game memory at a DS address. The access is bounds-checked.", tiers: ["c"] },
     rd16: { what: "Reads 16 bits of game memory at a DS address.", tiers: ["c"] },
     rd32: { what: "Reads 32 bits of game memory at a DS address.", tiers: ["c"] },
     wr8: { what: "Writes a byte of game memory at a DS address. The access is bounds-checked.", tiers: ["c"] },
     wr16: { what: "Writes 16 bits of game memory at a DS address.", tiers: ["c"] },
+    original: { what: "Inside a hook handler, calls the next link of the chain (the game's own function, or the next wrap) with the arguments in args, and returns its result. Pass the argument count in nargs.", result: "The result of the call, as a 64-bit value.", tiers: ["c"] },
+    read: { what: "Copies len bytes of game memory from a DS address into the mod's memory.", result: "0 on success, non-zero when the range is out of bounds.", tiers: ["c"] },
+    write: { what: "Copies len bytes of the mod's memory into game memory at a DS address.", result: "0 on success, non-zero when the range is out of bounds.", tiers: ["c"] },
     wr32: { what: "Writes 32 bits of game memory at a DS address.", tiers: ["c"] },
 
     party_count: { what: "How many Pokemon the party holds.", tiers: ["c"], rule: "party_count" },
@@ -240,6 +273,26 @@ export default {
   // One plain line for each rule read the port added in version 4. The state
   // page shows it instead of the engine's table row.
   state: {
+    money: "The player's money.",
+    badges: "How many badges the player holds.",
+    badge: "1 when badge n is held.",
+    zone: "The id of the zone the player is in.",
+    party_count: "How many Pokemon the party holds.",
+    species: "The species id of the Pokemon.",
+    level: "The level of the Pokemon.",
+    hp: "The current HP of the Pokemon.",
+    max_hp: "The maximum HP of the Pokemon.",
+    type1: "The first type of the Pokemon.",
+    type2: "The second type of the Pokemon.",
+    shiny: "1 when the Pokemon is shiny.",
+    held_item: "The id of the item the Pokemon holds.",
+    species_type1: "The first type of species s.",
+    species_type2: "The second type of species s.",
+    species_bst: "The base stat total of species s.",
+    caught: "1 when species s is registered as caught.",
+    item_count: "How many of item i the bag holds.",
+    battle_style: "The battle style setting: 0 is shift, 1 is set.",
+    in_battle: "1 when a battle is in progress.",
     personality: "The personality value of the Pokemon.",
     ot_id: "The id of the trainer who first had the Pokemon.",
     exp: "The experience points the Pokemon holds.",
@@ -285,8 +338,8 @@ export default {
   },
 
   functionGroups: [
-    { title: "Entry points", fns: ["log","on","override"] },
-    { title: "Game memory", fns: ["rd8","rd16","rd32","wr8","wr16","wr32"] },
+    { title: "Entry points", fns: ["log","on","script","override","original"] },
+    { title: "Game memory", fns: ["rd8","rd16","rd32","wr8","wr16","wr32","read","write"] },
     { title: "The party", fns: ["party_count","party_ref","party_get","party_set"] },
     { title: "The boxes", fns: ["box_count","box_ref","box_get","box_set"] },
     { title: "A Pokemon in battle", fns: ["battle_ref","battle_get","battle_set"] },
@@ -946,6 +999,52 @@ rule no_party_heals on heal
     do refuse
 `),
       notes: ["To spare one member and heal the rest, refuse `mon.revive` (a fainted member) or `heal.hp` (a hurt one) for that member."],
+    },
+    {
+      slug: "no-battle-cures",
+      title: "Block status cures in battle only",
+      goal: "Status cures work on the party screen but not from the bag in battle.",
+      tier: ["rules"],
+      events: ["mon.cure"],
+      functions: [],
+      steps: [
+        "`mon.cure` fires when a status is about to be cured. `event.source` is 0 for an item on the party screen, 1 in a battle and 2 for a party heal.",
+        "The rule guards on source 1 and refuses. The status stays, and every other source goes on as usual.",
+      ],
+      rule: rule(`
+language 1
+rule no_battle_cures on mon.cure
+    when event.source == 1
+    do refuse
+`),
+      notes: ["A refused cure in a battle can still show the game's text that the status was cured. To stop the item from being used, refuse `battle.item`."],
+    },
+    {
+      slug: "halve-pp-restores",
+      title: "Halve PP restores",
+      goal: "Every PP restore gives half the PP, on the field and in battle.",
+      tier: ["rules", "c"],
+      events: ["mon.pp"],
+      functions: [],
+      steps: [
+        "`mon.pp` fires before PP is added. `event.amount` is the PP the move gets, and is writable.",
+        "The amount is capped at the move's maximum after the rule runs. A refusal gives no PP.",
+      ],
+      rule: rule(`
+language 1
+rule half_pp on mon.pp
+    do set event.amount event.amount / 2
+`),
+      c: `#include "eidos_wasm.h"
+
+static int32_t on_pp(EidosEvent *event)
+{
+    EidosMonPp *e = (EidosMonPp *)event;
+    e->amount /= 2;
+    return EIDOS_EVENT_CONTINUE;
+}
+
+${start("    return eidos_on(EIDOS_EVENT_MON_PP, (uint32_t)(uintptr_t)on_pp);")}`,
     },
     {
       slug: "keep-one-hurt",

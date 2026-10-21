@@ -6,15 +6,13 @@
 // The eidos folder is --eidos, then $EIDOS, then ../eidos. Point it at a
 // checkout of the commit you want (git worktree add <dir> <commit>).
 //
-// The structure comes from sdk/api/v4: events, payload layouts, rule state,
-// services, state calls, constants, hooks, and eidos_wasm.h for the C
-// signatures and the field comments. The v4 files carry no prose, so the
-// words come from two places: eidos's docs (docs/mod-events.md for the game
-// function and the refusal outcome of each event, docs/mod-payloads.md for
-// the meaning of each field and the per-source outcomes, docs/mod-rules-
-// language.md for the state fields) and curated.mjs. Both are checked against
-// v4, and a mismatch is printed as a warning. Hook prototypes are not in v4:
-// they are kept from the last api.json, or read from a build when there is one.
+// Everything comes from sdk/api/v4: events with their game function, refusal
+// outcome, writable fields and field meanings; rule names and state fields;
+// the core imports; services and state calls; constants; hooks with their
+// prototypes. eidos_wasm.h supplies the C signature of each call. curated.mjs
+// holds only what v4 does not carry: the group of each event, the plain
+// sentence of when an event fires where v4 has none or a less clear one, what
+// each call does, rules-language pages, recipes and group names.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -49,38 +47,9 @@ const cType = (t) =>
 // "u32 *" and "out" make "u32 *out"; "u32" and "field" make "u32 field".
 const decl = (t, n) => (t.endsWith("*") ? `${t}${n}` : `${t} ${n}`);
 
-// ---------------------------------------------------------------- markdown
-
-const cells = (line) =>
-  line
-    .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((c) => c.trim());
-const isRow = (l) => l.trimStart().startsWith("|");
-const isRule = (l) => /^\s*\|[\s:|-]+\|\s*$/.test(l);
-const ticks = (s) => [...s.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
-const plain = (s) =>
-  eidosName(
-    s
-      .replace(/`/g, "")
-      .replace(/\*\*/g, "")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .trim(),
-  );
-
-// Bullets of a block: "- text" with indented continuation lines.
-function bullets(lines) {
-  const out = [];
-  for (const l of lines) {
-    if (l.startsWith("- ")) out.push(l.slice(2).trim());
-    else if (out.length && /^\s{2,}\S/.test(l)) out[out.length - 1] += " " + l.trim();
-  }
-  return out;
-}
-
 // ---------------------------------------------------------------- v4 files
 
+const coreJson = v4("core.json");
 const eventsJson = v4("events.json");
 const rulesJson = v4("rules.json");
 const stateJson = v4("state.json");
@@ -89,55 +58,53 @@ const enumsJson = v4("enums.json");
 const hooksJson = v4("hooks.json");
 const header = read("sdk/api/v4/eidos_wasm.h");
 const apiVersion = eventsJson.api;
-for (const [n, j] of [["rules", rulesJson], ["state", stateJson], ["services", servicesJson], ["enums", enumsJson], ["hooks", hooksJson]]) {
+for (const [n, j] of [["core", coreJson], ["rules", rulesJson], ["state", stateJson], ["services", servicesJson], ["enums", enumsJson], ["hooks", hooksJson]]) {
   if (j.api !== apiVersion) warn(`${n}.json is api ${j.api}, events.json is api ${apiVersion}`);
 }
 
 const curated = (await import(pathToFileURL(join(outDir, "curated.mjs")).href)).default;
 
-// Field comments of the header's payload structs: the enum a field takes.
-const headerFields = new Map();
-for (const m of header.matchAll(/typedef struct (Eidos\w+) \{([\s\S]*?)\} \1;/g)) {
-  const fields = new Map();
-  for (const line of m[2].split("\n")) {
-    const f = line.match(/^\s*(?:const )?[\w\s*]+?\s+\*?(\w+)(?:\[\d+\])?;\s*(?:\/\*\s*(.*?)\s*\*\/)?/);
-    if (f) fields.set(f[1], f[2] ?? "");
-  }
-  headerFields.set(m[1], fields);
-}
-
 // ---------------------------------------------------------------- events
 
+// v4 writes the version into some documents ("mon.cure (version 4): ..."); the
+// page already says which API it describes.
+const prose = (t) => eidosName(t.replace(/^[\w.]+ \(version \d+\):\s*/, "").replace(/`/g, "").trim());
+
 const ruleEventNames = new Set(rulesJson.events);
+const categoryOf = new Map();
+const categories = Object.keys(curated.categories);
+for (const [cat, names] of Object.entries(curated.categories)) for (const n of names) categoryOf.set(n, cat);
+
+const enumPrefixes = [];
 const events = new Map();
 for (const e of eventsJson.events) {
   const cStruct = e.struct.replace(/^Bw/, "Eidos");
-  const hf = headerFields.get(cStruct);
-  if (!hf) warn(`no struct ${cStruct} in eidos_wasm.h for ${e.name}`);
   const payload = e.fields.map((f) => {
-    const name = f.name.replace(/_$/, "");
-    const comment = hf?.get(f.name) ?? "";
-    return {
-      name,
+    const field = {
+      name: f.rule_name,
       type: docType(f.type) + (f.count !== null ? `[${f.count}]` : ""),
-      meaning: "",
+      meaning: prose(f.doc ?? ""),
       writable: f.writable,
       cName: f.name,
       cType: cType(f.type) + (f.count !== null ? `[${f.count}]` : ""),
       ruleKind: f.count !== null ? "list" : f.type === "BwMonRef" ? "mon" : "int",
-      comment,
     };
+    // A field that takes a group of constants says so as "BW_FORMAT_*".
+    const en = (f.doc ?? "").match(/\b(BW_[A-Z0-9_]+_)\*/);
+    if (en) {
+      field.enum = eidosName(en[1]);
+      enumPrefixes.push([e.name, field.name, field.enum]);
+    }
+    return field;
   });
   events.set(e.name, {
     name: e.name,
-    category: null,
-    binding: "",
-    region: "",
-    refuse: null,
-    modifyText: null,
+    category: categoryOf.get(e.name) ?? null,
+    where: prose(e.where ?? ""),
+    refuse: e.refuse ? prose(e.refuse) : null,
+    modifyText: e.modify ? prose(e.modify) : null,
+    doc: prose(e.doc ?? ""),
     notes: [],
-    caveats: [],
-    outcomes: [],
     payload,
     cStruct,
     numId: e.id,
@@ -146,183 +113,9 @@ for (const e of eventsJson.events) {
   });
 }
 for (const n of ruleEventNames) if (!events.has(n)) warn(`rules.json names ${n}, events.json has no such event`);
-
-const evDoc = read("docs/mod-events.md").split("\n");
-const sec1 = evDoc.slice(
-  evDoc.findIndex((l) => l.startsWith("## 1.")),
-  evDoc.findIndex((l) => l.startsWith("## 2.")),
-);
-const CATEGORY_NAMES = {
-  Session: "Session",
-  World: "World",
-  Encounters: "Encounters",
-  Pokemon: "Pokemon",
-  Battle: "Battle",
-  "Items, money and healing": "Items and money",
-  Progress: "Progress",
-};
-const categories = [];
-{
-  let cat = null;
-  let block = [];
-  const flush = () => {
-    if (cat) {
-      for (const b of bullets(block)) {
-        const m = b.match(/^\*\*`([a-z.]+)`\*\*/);
-        if (m && events.has(m[1])) events.get(m[1]).notes.push(plain(b.replace(/^\*\*`[a-z.]+`\*\*[:,]?\s*/, "")));
-      }
-    }
-    block = [];
-  };
-  for (const l of sec1) {
-    const h = l.match(/^### (.+)/);
-    if (h) {
-      flush();
-      cat = CATEGORY_NAMES[h[1].trim()] ?? null;
-      if (cat) categories.push(cat);
-      continue;
-    }
-    if (!cat) continue;
-    block.push(l);
-    if (isRow(l) && !isRule(l)) {
-      const c = cells(l);
-      const names = ticks(c[0]);
-      if (c[0] === "Event" || names.length !== 1 || c.length < 5) continue;
-      const ev = events.get(names[0]);
-      if (!ev) {
-        warn(`docs/mod-events.md lists ${names[0]}, sdk/api/v4 does not`);
-        continue;
-      }
-      ev.category = cat;
-      ev.binding = plain(c[1]);
-      ev.region = plain(c[2]);
-      ev.refuse = c[3] === "-" ? null : plain(c[3]);
-      ev.modifyText = c[4] === "-" ? null : plain(c[4]);
-    }
-  }
-  flush();
-}
 for (const ev of events.values()) {
-  if (ev.category === null && !curated.events[ev.name]?.category) warn(`${ev.name} is not in docs/mod-events.md`);
-  if ((ev.refuse !== null) !== ev.refusable && ev.category !== null) {
-    warn(`${ev.name}: docs/mod-events.md and events.json disagree on refusing`);
-  }
-}
-
-// What the builders fill: caveats per event.
-{
-  const i = evDoc.findIndex((l) => l.startsWith("### What the builders fill"));
-  const j = evDoc.findIndex((l, k) => k > i && l.startsWith("### The contexts"));
-  for (const b of bullets(evDoc.slice(i, j))) {
-    const m = b.match(/^((?:`[a-z.]+`(?:'s)?(?:,| and)? ?)+)/);
-    if (!m) continue;
-    for (const n of ticks(m[1])) if (events.has(n)) events.get(n).caveats.push(plain(b));
-  }
-}
-
-// Corpus names of renamed hook rows.
-const renamed = new Map();
-for (const l of evDoc) {
-  if (!isRow(l) || isRule(l)) continue;
-  const c = cells(l);
-  if (c.length === 4 && /^0x[0-9A-Fa-f]{8}$/.test(c[0]) && c[2].startsWith("`") && c[3].startsWith("`")) {
-    renamed.set(`${c[1]}:${parseInt(c[0], 16)}`, ticks(c[3])[0]);
-  }
-}
-
-// Field meanings and the per-source outcomes, from docs/mod-payloads.md.
-{
-  const lines = read("docs/mod-payloads.md").split("\n");
-  const start = lines.findIndex((l) => l.startsWith("## 2."));
-  let names = null;
-  let seenRow = false;
-  let inOutcomes = false;
-  let block = [];
-  const flushOutcomes = () => {
-    if (names) {
-      for (const b of bullets(block)) {
-        const m = b.match(/^\*\*(.+?)\*\*:\s*(.*)$/);
-        const text = plain(m ? `${m[1]}: ${m[2]}` : b);
-        for (const n of names) events.get(n).outcomes.push(text);
-      }
-    }
-    block = [];
-    inOutcomes = false;
-  };
-  for (let i = start + 1; i < lines.length; i++) {
-    const l = lines[i];
-    if (l.startsWith("## ")) break;
-    if (l.startsWith("**`")) {
-      flushOutcomes();
-      names = ticks(l.split(":")[0]).filter((n) => events.has(n));
-      if (!names.length) names = null;
-      seenRow = false;
-      continue;
-    }
-    if (names && /^Where it fires and what a refusal does/.test(l)) {
-      inOutcomes = true;
-      continue;
-    }
-    if (inOutcomes) {
-      if (l.trim() === "" && block.length && !/^- /.test(lines[i + 1] ?? "") && !/^\s{2,}\S/.test(lines[i + 1] ?? "")) {
-        flushOutcomes();
-        continue;
-      }
-      block.push(l);
-      continue;
-    }
-    if (names && isRow(l) && !isRule(l)) {
-      const c = cells(l);
-      if (c[0] === "Field") continue;
-      seenRow = true;
-      let fieldNames = ticks(c[0]);
-      // A row that names a range, `move1` .. `move4`, covers the names between.
-      const range = c[0].match(/`(\w*?)(\d+)` \.\. `\1(\d+)`/);
-      if (range) {
-        fieldNames = [];
-        for (let k = Number(range[2]); k <= Number(range[3]); k++) fieldNames.push(range[1] + k);
-      }
-      const writable = /\*mod\*/.test(c[1]);
-      const only = c[2].match(/^`?([a-z]+.[a-z]+)`? only/);
-      for (const n of names) {
-        if (only && only[1] !== n) continue;
-        for (const f of fieldNames) {
-          const pf = events.get(n).payload.find((p) => p.name === f || p.cName === f);
-          if (!pf) {
-            warn(`docs/mod-payloads.md: ${n}.${f} is not in sdk/api/v4`);
-            continue;
-          }
-          pf.meaning = plain(c[2]);
-          if (pf.writable !== writable) warn(`${n}.${f}: docs/mod-payloads.md and events.json disagree on *mod*`);
-        }
-      }
-    } else if (names && seenRow && l.trim() && !isRow(l)) {
-      names = null;
-    }
-  }
-  flushOutcomes();
-}
-
-// Enum links of payload fields come from the header's field comments.
-const enumPrefixes = [];
-for (const ev of events.values()) {
-  for (const pf of ev.payload) {
-    if (!pf.meaning) {
-      // The header comment is the fallback for a field the docs skip.
-      const text = pf.comment.replace(/^\*mod:?\s*/, "");
-      if (text) {
-        pf.meaning = plain(text);
-      } else if (pf.name !== "h") {
-        warn(`${ev.name}.${pf.name} has no meaning in the docs or the header`);
-      }
-    }
-    const en = pf.comment.match(/\b(BW_[A-Z0-9_]+_)\*/);
-    if (en) {
-      pf.enum = eidosName(en[1]);
-      enumPrefixes.push([ev.name, pf.name, pf.enum]);
-    }
-    delete pf.comment;
-  }
+  if (ev.category === null) warn(`${ev.name} is in no group of curated.categories`);
+  if ((ev.refuse !== null) !== ev.refusable) warn(`${ev.name}: events.json says refusable ${ev.refusable}, refuse is ${ev.refuse}`);
 }
 
 // ---------------------------------------------------------------- enums
@@ -347,44 +140,40 @@ for (const c of enumsJson.constants) {
   g.members.push({ name: eidosName(c.name), value: c.value });
 }
 for (const g of enums) g.prefix = eidosName(g.prefix);
-for (const [ev, f, pre] of enumPrefixes) if (!enums.some((g) => g.prefix === pre)) warn(`${ev}.${f}: no enum group ${pre}`);
+for (const [ev, f, pre] of enumPrefixes) {
+  const g = enums.find((x) => x.prefix === pre);
+  if (!g) {
+    warn(`${ev}.${f}: no enum group ${pre}`);
+    continue;
+  }
+  // A field whose doc is only the pattern, "EIDOS_CURE_*", says what the group is.
+  const pf = events.get(ev).payload.find((p) => p.name === f);
+  if (pf.meaning === `${pre}*`) pf.meaning = g.title;
+}
 for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === eidosName(p))) warn(`enum title for ${p} matches no constant`);
 
 // ---------------------------------------------------------------- rule state
 
-const rulesDoc = read("docs/mod-rules-language.md").split("\n");
-const stateDocs = new Map();
-for (const l of rulesDoc) {
-  if (!isRow(l) || isRule(l)) continue;
-  const c = cells(l);
-  if (c.length !== 3 || c[0] === "Rule name") continue;
-  for (const t of ticks(c[0])) stateDocs.set(t.replace(/\[.*$/, ""), { value: plain(c[1]), direction: c[2] });
-  // A row that names a range, `move1[m]` .. `move4[m]`, covers the names between.
-  const range = c[0].match(/`(\w*?)(\d+)(?:\[[^\]]*\])?` \.\. `\1(\d+)(?:\[[^\]]*\])?`/);
-  if (range) {
-    for (let i = Number(range[2]); i <= Number(range[3]); i++) {
-      stateDocs.set(range[1] + i, { value: plain(c[1]), direction: c[2] });
-    }
-  }
-}
-// events.json says a field is writable when the port can write it; the same
-// flag fills both columns.
+// writable_declared is what the rule language declares; writable is what the
+// port really writes.
 const state = rulesJson.state_fields.map((s) => {
   const sub = s.subscript ?? "plain";
-  const own = curated.state?.[s.name];
-  const d = own ? { value: own } : stateDocs.get(s.name);
-  if (!d) warn(`state ${s.name} has no doc row`);
+  const value = curated.state?.[s.name];
+  if (!value) warn(`state ${s.name} has no text in curated.state`);
   const out = {
     name: s.name,
     sub,
-    writable: s.writable,
+    writable: s.writable_declared,
     readable: s.readable,
     writableOk: s.writable,
     subscript: { plain: null, mon: "a Pokemon, usually event.mon", int: "a number" }[sub],
-    value: d?.value ?? null,
+    value: value ?? null,
     fromC: true,
   };
-  if (!s.readable) out.note = "The port cannot read this yet.";
+  const notes = [];
+  if (!s.readable) notes.push("The port cannot read this yet.");
+  if (s.writable_declared && !s.writable) notes.push("It cannot be changed yet.");
+  if (notes.length) out.note = notes.join(" ");
   return out;
 });
 
@@ -401,6 +190,8 @@ for (const [kind, j] of [["state", stateJson], ["service", servicesJson]]) {
   for (const c of j.calls) jsonCalls.set(c.name, { kind, group: "", call: c });
 }
 const functions = [];
+// A core.json note is a lower-case phrase; the docs show a sentence.
+const sentence = (t) => eidosName(t.charAt(0).toUpperCase() + t.slice(1) + (t.endsWith(".") ? "" : "."));
 const addFn = (name, kind, extra = {}) => {
   const d = decls.get(name);
   if (!d) {
@@ -408,7 +199,6 @@ const addFn = (name, kind, extra = {}) => {
     return;
   }
   const c = curated.functions[name] ?? {};
-  if (!c.what) warn(`no description for ${name}`);
   functions.push({
     id: `fn:${name}`,
     kind,
@@ -417,7 +207,7 @@ const addFn = (name, kind, extra = {}) => {
     group: (curated.functionGroups.find((g) => g.fns.includes(name)) ?? {}).title ?? "",
     signature: `${d.ret} ${d.cName}(${d.params.join(", ") || "void"})`,
     params: extra.params ?? d.params,
-    what: c.what ?? null,
+    what: c.what ?? (coreDoc.get(name) ? sentence(coreDoc.get(name)) : null),
     result: c.result ?? null,
     notes: c.notes ?? [],
     tiers: c.tiers ?? ["c"],
@@ -426,9 +216,9 @@ const addFn = (name, kind, extra = {}) => {
     fromC: true,
   });
 };
-// The core imports are only in the header, ahead of the state calls.
-const hostNames = [...decls.keys()].filter((n) => !jsonCalls.has(n));
-for (const n of hostNames) addFn(n, "host");
+// The core imports come from core.json, ahead of the state calls.
+const coreDoc = new Map(coreJson.imports.map((i) => [i.name, i.doc]));
+for (const i of coreJson.imports) addFn(i.name, "host");
 for (const [name, { kind, call }] of jsonCalls) {
   const params = call.params.map((p) => decl(cType(p.type), p.name));
   addFn(name, kind, { params });
@@ -436,42 +226,18 @@ for (const [name, { kind, call }] of jsonCalls) {
 
 // ---------------------------------------------------------------- hooks
 
-const protos = new Map();
-for (const f of ["build32/boot/gen/boot_link.c", "build32/ovl/boot/ovl_dispatch.c"]) {
-  const p = join(eidos, f);
-  if (!existsSync(p)) continue;
-  const re = /BW_MOD_REGION_(?:ARM9|OVL\((\d+)\)),\s*0x([0-9A-Fa-f]{8})u,\s*"(\w+)",\s*(?:"([^"]*)"|NULL)/g;
-  for (const m of readFileSync(p, "utf8").matchAll(re)) {
-    if (m[4]) protos.set(`${m[1] ? "ov" + m[1].padStart(3, "0") : "arm9"}:${parseInt(m[2], 16)}`, m[4]);
-  }
-}
-// v4 has no prototypes. Keep the ones the last api.json carried, so a run
-// loses none.
-const previous = new Map();
-if (existsSync(join(outDir, "api.json"))) {
-  for (const h of JSON.parse(readFileSync(join(outDir, "api.json"), "utf8")).hooks ?? []) {
-    if (h.proto) previous.set(h.key, h.proto);
-  }
-}
-const hooks = hooksJson.hooks.map((d) => {
-  const n = parseInt(d.address, 16);
-  const h = {
-    id: `hook:${d.region}:${d.address}`,
-    name: d.name,
-    region: d.region,
-    addr: d.address,
-    key: `${d.region}:${d.address}`,
-    events: d.events,
-  };
-  const proto = protos.get(`${d.region}:${n}`) ?? previous.get(h.key);
-  if (proto) {
-    h.proto = proto;
-    h.protoFromC = true;
-  }
-  const alias = renamed.get(`${d.region}:${n}`);
-  if (alias) h.corpusName = alias;
-  return h;
-});
+// v4 gives the prototype as a declaration, "int NAME(void *)"; a hook line
+// states it without the name, "int (void *)".
+const hooks = hooksJson.hooks.map((d) => ({
+  id: `hook:${d.region}:${d.address}`,
+  name: d.name,
+  region: d.region,
+  addr: d.address,
+  key: `${d.region}:${d.address}`,
+  events: d.events,
+  proto: d.prototype.replace(new RegExp(`\\s*${d.name}\\(`), " ("),
+  protoFromC: true,
+}));
 for (const h of hooks) for (const e of h.events) if (!events.has(e)) warn(`hook ${h.name} names the unknown event ${e}`);
 
 // ---------------------------------------------------------------- assemble
@@ -498,16 +264,17 @@ const eventList = [...events.values()]
   .sort((a, b) => a.numId - b.numId)
   .map((e) => {
     const c = curated.events[e.name] ?? {};
-    need(c.when, `no 'when' text for ${e.name}`);
-    const category = c.category ?? e.category ?? "Other";
-    if (!categories.includes(category)) categories.push(category);
+    // The curated sentence says when the event fires in plain words; v4's own
+    // text is the fallback.
+    const when = c.when ?? e.doc;
+    need(when, `no 'when' text for ${e.name}`);
     return {
       ...e,
-      category,
-      notes: [...e.notes, ...(c.facts ?? [])].map(eidosName),
+      doc: undefined,
+      notes: (c.facts ?? []).map(eidosName),
       id: `event:${e.name}`,
-      when: c.when ? eidosName(c.when) : null,
-      functions: c.functions ?? defaultFns({ ...e, category }),
+      when: when ? eidosName(when) : null,
+      functions: c.functions ?? defaultFns(e),
       recipes: [],
     };
   });
@@ -549,12 +316,26 @@ try {
   // not a git checkout
 }
 
+// The "Code mods" page lists the core imports and exports of core.json.
+const pages = curated.pages.map((x) => ({ section: "rules", ...x, id: `page:${x.slug}` }));
+const codePage = pages.find((p) => p.slug === "code-mods");
+if (codePage) {
+  const core = coreJson.imports.map((i) => functions.find((f) => f.name === i.name)).filter(Boolean);
+  codePage.blocks.push(
+    { t: "p", text: `The core imports come from the module \`${coreJson.import_module}\`.` },
+    { t: "table", head: ["Call", "What it does"], rows: core.map((f) => [`\`${f.signature}\``, f.what ?? ""]) },
+    { t: "p", text: "The module exports:" },
+    { t: "list", items: coreJson.exports.map((x) => `\`${x.name}\`${x.doc ? ": " + sentence(x.doc) : ""}`) },
+  );
+}
+
 const out = {
   meta: {
     generatedBy: "tools/mod-docs.mjs",
     eidosRevision: rev,
     apiVersion,
     sources: [
+      "sdk/api/v4/core.json",
       "sdk/api/v4/events.json",
       "sdk/api/v4/rules.json",
       "sdk/api/v4/state.json",
@@ -562,12 +343,9 @@ const out = {
       "sdk/api/v4/enums.json",
       "sdk/api/v4/hooks.json",
       "sdk/api/v4/eidos_wasm.h",
-      "docs/mod-events.md",
-      "docs/mod-payloads.md",
-      "docs/mod-rules-language.md",
       "ui/src/lib/moddocs/curated.mjs",
     ],
-    note: "The structure is eidos's sdk/api/v4. The words are eidos's docs and kenon's curated text. Hook prototypes are kept from earlier builds.",
+    note: "The structure and most of the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry.",
   },
   categories,
   events: eventList,
@@ -579,7 +357,7 @@ const out = {
   hooks,
   hookPage: { ...curated.hookPage, id: "page:hooks" },
   hookFamilies: curated.hookFamilies,
-  pages: curated.pages.map((x) => ({ section: "rules", ...x, id: `page:${x.slug}` })),
+  pages,
   recipes,
 };
 writeFileSync(join(outDir, "api.json"), JSON.stringify(out, null, 1) + "\n");

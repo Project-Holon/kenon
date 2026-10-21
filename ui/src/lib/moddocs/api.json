@@ -1,9 +1,10 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "03152d0",
+  "eidosRevision": "4a03435",
   "apiVersion": 4,
   "sources": [
+   "sdk/api/v4/core.json",
    "sdk/api/v4/events.json",
    "sdk/api/v4/rules.json",
    "sdk/api/v4/state.json",
@@ -11,12 +12,9 @@
    "sdk/api/v4/enums.json",
    "sdk/api/v4/hooks.json",
    "sdk/api/v4/eidos_wasm.h",
-   "docs/mod-events.md",
-   "docs/mod-payloads.md",
-   "docs/mod-rules-language.md",
    "ui/src/lib/moddocs/curated.mjs"
   ],
-  "note": "The structure is eidos's sdk/api/v4. The words are eidos's docs and kenon's curated text. Hook prototypes are kept from earlier builds."
+  "note": "The structure and most of the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry."
  },
  "categories": [
   "Session",
@@ -31,15 +29,10 @@
   {
    "name": "game.new",
    "category": "Session",
-   "binding": "EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
-   "region": "ov020",
+   "where": "EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "game.new and menu.open have no fields at all: the event is the moment itself."
-   ],
-   "outcomes": [],
    "payload": [],
    "cStruct": "EidosGameNew",
    "numId": 1,
@@ -57,13 +50,10 @@
   {
    "name": "save.begin",
    "category": "Session",
-   "binding": "SAVE_CONTROL_StartSave 0x02007150",
-   "region": "arm9",
+   "where": "SAVE_CONTROL_StartSave 0x02007150",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "play_seconds",
@@ -100,18 +90,15 @@
   {
    "name": "save.done",
    "category": "Session",
-   "binding": "the return of SAVE_CONTROL_MainSave 0x02007168",
-   "region": "arm9",
+   "where": "the return of SAVE_CONTROL_MainSave 0x02007168",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "play_seconds",
      "type": "u32",
-     "meaning": "play time",
+     "meaning": "",
      "writable": false,
      "cName": "play_seconds",
      "cType": "uint32_t",
@@ -120,7 +107,7 @@
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "where the player saves",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -129,7 +116,7 @@
     {
      "name": "ok",
      "type": "u8",
-     "meaning": "save.done only: the save was written",
+     "meaning": "the save was written",
      "writable": false,
      "cName": "ok",
      "cType": "uint8_t",
@@ -152,20 +139,15 @@
   {
    "name": "save.load",
    "category": "Session",
-   "binding": "GAME_DATA_LoadFromSave 0x02012C18",
-   "region": "arm9",
+   "where": "GAME_DATA_LoadFromSave 0x02012C18",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "save.load's state_in_step reads 0. Whether the mod's own saved data was written with this save is a per-mod answer, and the payload is built once for every handler of the event, so the byte cannot carry it. The mod asks the services table instead (docs/mod-services.md, \"The mod's own saved data\")."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "play_seconds",
      "type": "u32",
-     "meaning": "play time of the loaded save",
+     "meaning": "",
      "writable": false,
      "cName": "play_seconds",
      "cType": "uint32_t",
@@ -174,7 +156,7 @@
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "where the save resumes",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -183,7 +165,7 @@
     {
      "name": "state_in_step",
      "type": "u8",
-     "meaning": "reads 0: whether the mod's own saved data was written with this save is a per-mod answer, and the payload is built once for every handler of the event, so the mod asks the services table's state_in_step (docs/mod-state.md, section 2)",
+     "meaning": "the port's own saved data; the port does not",
      "writable": false,
      "cName": "state_in_step",
      "cType": "uint8_t",
@@ -206,18 +188,15 @@
   {
    "name": "game.cleared",
    "category": "Session",
-   "binding": "EVENT_GAMECLEAR_Create 0x0215F8A8, the ending: Hall of Fame (ov180), credits (ov181), save screen (ov205)",
-   "region": "ov010",
+   "where": "EVENT_GAMECLEAR_Create 0x0215F8A8, the ending: Hall of Fame (ov180), credits (ov181), save screen (ov205)",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "play_seconds",
      "type": "u32",
-     "meaning": "play time at the Hall of Fame",
+     "meaning": "",
      "writable": false,
      "cName": "play_seconds",
      "cType": "uint32_t",
@@ -226,7 +205,7 @@
     {
      "name": "team_count",
      "type": "u8",
-     "meaning": "Pokemon entered",
+     "meaning": "",
      "writable": false,
      "cName": "team_count",
      "cType": "uint8_t",
@@ -235,7 +214,7 @@
     {
      "name": "team",
      "type": "EidosMonRef[6]",
-     "meaning": "the team",
+     "meaning": "",
      "writable": false,
      "cName": "team",
      "cType": "EidosMonRef[6]",
@@ -258,13 +237,10 @@
   {
    "name": "route.change",
    "category": "World",
-   "binding": "FIELD_MAP_CHANGE_SetupZone 0x021643E8",
-   "region": "ov010",
+   "where": "FIELD_MAP_CHANGE_SetupZone 0x021643E8",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
@@ -287,7 +263,7 @@
     {
      "name": "season",
      "type": "u8",
-     "meaning": "the current season",
+     "meaning": "",
      "writable": false,
      "cName": "season",
      "cType": "uint8_t",
@@ -313,15 +289,10 @@
   {
    "name": "map.warp",
    "category": "World",
-   "binding": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0",
-   "region": "ov020",
+   "where": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0",
    "refuse": null,
    "modifyText": "destination",
    "notes": [],
-   "caveats": [
-    "map.warp's arrival cell reads 0 for a warp to a rail position: the game names the rail cell of the destination in its own way. The event fires once per step of the map change, and the destination a handler changes is the one the game applies at the step that moves the player."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
@@ -353,7 +324,7 @@
     {
      "name": "dest_z",
      "type": "s16",
-     "meaning": "the arrival cell",
+     "meaning": "",
      "writable": true,
      "cName": "dest_z",
      "cType": "int16_t",
@@ -377,18 +348,15 @@
   {
    "name": "player.step",
    "category": "World",
-   "binding": "FIELD_EVENT_CHECK_CheckStepEvents 0x0218A9B0",
-   "region": "ov021",
+   "where": "FIELD_EVENT_CHECK_CheckStepEvents 0x0218A9B0",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "the current zone",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -457,18 +425,15 @@
   {
    "name": "trainer.spotted",
    "category": "World",
-   "binding": "EVENT_TRAINER_EYE_Check 0x021AE0CC",
-   "region": "ov021",
+   "where": "EVENT_TRAINER_EYE_Check 0x021AE0CC",
    "refuse": "the trainer does not see the player (the function returns no event)",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "trainer_id",
      "type": "u16",
-     "meaning": "the trainer who saw the player",
+     "meaning": "",
      "writable": false,
      "cName": "trainer_id",
      "cType": "uint16_t",
@@ -510,20 +475,15 @@
   {
    "name": "npc.talk",
    "category": "World",
-   "binding": "FIELD_EVENT_CHECK_SearchGridFrontMmdl 0x0218B4B0; on rails FIELD_EVENT_CHECK_SearchRailFrontMmdl 0x0218B53C",
-   "region": "ov021",
+   "where": "FIELD_EVENT_CHECK_SearchGridFrontMmdl 0x0218B4B0; on rails FIELD_EVENT_CHECK_SearchRailFrontMmdl 0x0218B53C",
    "refuse": "no person is found ahead; the A press goes on to the sign and tile checks",
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "npc.talk's object and script read 0. The model in front of the player is what the bound search returns, and the port does not run the search a second time to name it; the script the talk runs is the event id of that model, which the game reads when the search has answered."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "the zone",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -565,15 +525,10 @@
   {
    "name": "menu.open",
    "category": "World",
-   "binding": "EVENT_FIELD_MENU_Create 0x0215FC40 (the X-button menu event) and EVENT_FIELD_MENU_CreateForZone 0x0215FCE0",
-   "region": "ov010",
+   "where": "EVENT_FIELD_MENU_Create 0x0215FC40 (the X-button menu event) and EVENT_FIELD_MENU_CreateForZone 0x0215FCE0",
    "refuse": "the menu does not open (no event is returned)",
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "game.new and menu.open have no fields at all: the event is the moment itself."
-   ],
-   "outcomes": [],
    "payload": [],
    "cStruct": "EidosMenuOpen",
    "numId": 15,
@@ -592,15 +547,10 @@
   {
    "name": "menu.build",
    "category": "World",
-   "binding": "the return of FIELD_MENU_Create 0x021A836C",
-   "region": "ov021",
+   "where": "the return of FIELD_MENU_Create 0x021A836C",
    "refuse": null,
    "modifyText": "entries (a cleared entry is hidden; one added is not built)",
    "notes": [],
-   "caveats": [
-    "menu.build can hide an entry but cannot add one. The game prints the label of a slot and draws its icon from the message bank and the archive it opens while it creates the menu, and it closes both again, so the port cannot make a slot the game left empty. The slot keeps the label the game printed for it."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "entries",
@@ -629,15 +579,10 @@
   {
    "name": "field.move",
    "category": "World",
-   "binding": "FIELD_SKILL_CHECK_CallHandler 0x021644C4",
-   "region": "ov010",
+   "where": "FIELD_SKILL_CHECK_CallHandler 0x021644C4",
    "refuse": "the field move shows as unusable",
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "field.move's user reads 0. The Pokemon that uses the move is the one the game's own handler for that move looks for in the party, and the port names neither the move the index stands for nor the member that has it."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "move",
@@ -677,13 +622,10 @@
   {
    "name": "pc.open",
    "category": "World",
-   "binding": "SCRCMD_PROC_FLD_CallOv170Event 0x021B4D60, the script command that opens the box screen (the PC, and the battle box with its kind 4)",
-   "region": "ov021",
+   "where": "SCRCMD_PROC_FLD_CallOv170Event 0x021B4D60, the script command that opens the box screen (the PC, and the battle box with its kind 4)",
    "refuse": "the PC does not open; the script reads a plain exit",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [],
    "cStruct": "EidosPcOpen",
    "numId": 18,
@@ -702,20 +644,15 @@
   {
    "name": "encounter.wild",
    "category": "Encounters",
-   "binding": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
-   "region": "ov021",
+   "where": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
    "refuse": "no battle; the player keeps walking; the payload names the area, the method (grass, surf, fishing, shaking grass) and the slot",
    "modifyText": "species, level, shiny; the second Pokemon of a double; a reroll",
    "notes": [],
-   "caveats": [
-    "encounter.wild's species, level and shiny are the ones the game builds the wild Pokemon from. For a roamer the slot reads 0, because a roamer comes from the save and not from a table of the zone, and the roamer's shiny and double flags read 0 as well: its personality is the save's own and the game sets its battle up alone."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "the zone",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -724,7 +661,7 @@
     {
      "name": "method",
      "type": "u8",
-     "meaning": "grass, dark grass, surf, fishing, shaking grass, rippling water, dust",
+     "meaning": "How an encounter was rolled (encounter.wild).",
      "writable": false,
      "cName": "method",
      "cType": "uint8_t",
@@ -743,7 +680,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": true,
      "cName": "species",
      "cType": "uint16_t",
@@ -752,7 +689,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "the level",
+     "meaning": "",
      "writable": true,
      "cName": "level",
      "cType": "uint8_t",
@@ -779,7 +716,7 @@
     {
      "name": "reroll",
      "type": "u8",
-     "meaning": "version 4: 1 rolls the encounter again with the game's own roll and fires the event again, at most 16 times; the last answer stands",
+     "meaning": "1 rolls the encounter again and fires again",
      "writable": true,
      "cName": "reroll",
      "cType": "uint8_t",
@@ -788,7 +725,7 @@
     {
      "name": "level2",
      "type": "u8",
-     "meaning": "version 4: the second Pokemon of a double (dark grass), 0 when there is none",
+     "meaning": "the second Pokemon of a double (dark grass)",
      "writable": true,
      "cName": "level2",
      "cType": "uint8_t",
@@ -797,7 +734,7 @@
     {
      "name": "species2",
      "type": "u16",
-     "meaning": "version 4: the same",
+     "meaning": "the same; 0 when there is no second",
      "writable": true,
      "cName": "species2",
      "cType": "uint16_t",
@@ -830,20 +767,15 @@
   {
    "name": "encounter.static",
    "category": "Encounters",
-   "binding": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8",
-   "region": "ov010",
+   "where": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8",
    "refuse": null,
    "modifyText": "species, level",
    "notes": [],
-   "caveats": [
-    "encounter.static's legendary kind has no feeder at this call: the game chooses the species in the script that starts the battle, and the setup carries no flag for it. The kind the payload does carry says whether the battle is a wild one or a battle a script started. A species a handler changes is written into the record without the personal data being recalculated, so a mod that wants that uses the state calls."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "the zone",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -852,7 +784,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": true,
      "cName": "species",
      "cType": "uint16_t",
@@ -861,7 +793,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "the level",
+     "meaning": "",
      "writable": true,
      "cName": "level",
      "cType": "uint8_t",
@@ -895,18 +827,15 @@
   {
    "name": "encounter.trainer",
    "category": "Encounters",
-   "binding": "FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC",
-   "region": "ov021",
+   "where": "FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "trainer_id",
      "type": "u16",
-     "meaning": "the trainer",
+     "meaning": "",
      "writable": false,
      "cName": "trainer_id",
      "cType": "uint16_t",
@@ -924,7 +853,7 @@
     {
      "name": "format",
      "type": "u8",
-     "meaning": "single, double, triple, rotation, multi",
+     "meaning": "The battle format (battle.start, encounter.trainer).",
      "writable": false,
      "cName": "format",
      "cType": "uint8_t",
@@ -949,20 +878,15 @@
   {
    "name": "mon.create",
    "category": "Pokemon",
-   "binding": "POKE_TOOL_CreateEx 0x02017430; personality POKE_TOOL_CreatePersonalRnd 0x020186C8",
-   "region": "arm9",
+   "where": "POKE_TOOL_CreateEx 0x02017430; personality POKE_TOOL_CreatePersonalRnd 0x020186C8",
    "refuse": null,
    "modifyText": "species, level, shiny, nature",
    "notes": [],
-   "caveats": [
-    "mon.create's nature reads 0xFF, the sentinel \"leave the roll\", because the nature is rolled inside the creation call. The shiny flag reads 0 on the creation row, because the roll is the caller's there; on the row that rolls the personality it is the caller's own request, and a handler that asks for a shiny Pokemon gets one through the applier. The personality is the argument the caller passes, the low half of the 64-bit value, which is the half the game stores; on the row that rolls the personality it reads 0 instead, because the game rolls it inside that call."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": true,
      "cName": "species",
      "cType": "uint16_t",
@@ -971,7 +895,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "the level",
+     "meaning": "",
      "writable": true,
      "cName": "level",
      "cType": "uint8_t",
@@ -980,7 +904,7 @@
     {
      "name": "shiny",
      "type": "u8",
-     "meaning": "1 forces shiny, 0 leaves the roll",
+     "meaning": "",
      "writable": true,
      "cName": "shiny",
      "cType": "uint8_t",
@@ -1020,22 +944,15 @@
   {
    "name": "mon.receive",
    "category": "Pokemon",
-   "binding": "catch EVENT_BATTLE_RETURN_Main 0x021B9614 (ov092, the store step); gifts SCRCMD_PROC_AddMonToParty 0x0215C510, SCRCMD_PROC_AddMonToBox 0x0215C4C8, SCRCMD_PROC_AddEggToParty 0x0215C2D0 (ov010); SCRCMD_POKEMON_FLD_ReceiveGiftMon 0x021B6F18, daycare egg SODATEYA_ReceiveEgg 0x021C32F4 (ov021); in-game trade FLD_TRADE_CreateEvent 0x021CC500 (ov021)",
-   "region": "-",
+   "where": "catch EVENT_BATTLE_RETURN_Main 0x021B9614 (ov092, the store step); gifts SCRCMD_PROC_AddMonToParty 0x0215C510, SCRCMD_PROC_AddMonToBox 0x0215C4C8, SCRCMD_PROC_AddEggToParty 0x0215C2D0 (ov010); SCRCMD_POKEMON_FLD_ReceiveGiftMon 0x021B6F18, daycare egg SODATEYA_ReceiveEgg 0x021C32F4 (ov021); in-game trade FLD_TRADE_CreateEvent 0x021CC500 (ov021)",
    "refuse": null,
    "modifyText": null,
-   "notes": [
-    "fires after the Pokemon is stored, from the functions that give the player a Pokemon. POKEPARTY_Add is not a binding: it also builds trainer parties, wild battle parties and battle copies. The event is not refusable because each receive path prints its own \"sent to the PC\" or \"received\" text before or after storing; a mod that limits the party moves the Pokemon with a state call and says so with a message."
-   ],
-   "caveats": [
-    "mon.receive's slot reads 0 for a Pokemon that went into a box: the free slot inside that box is not named by the call. A Pokemon given while the party was full has no record left to read at all, so its shiny flag reads 0 as well and the species and level come from the script's own creation request. For an in-game trade the species reads 0: the trade record is the overlay's own data and the call does not name it, so a mod reads the Pokemon it is given through the state calls."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1044,7 +961,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "catch, gift, static, egg, in-game trade",
+     "meaning": "How a Pokemon reached the player (mon.receive).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -1063,7 +980,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -1072,7 +989,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "the level",
+     "meaning": "",
      "writable": false,
      "cName": "level",
      "cType": "uint8_t",
@@ -1081,7 +998,7 @@
     {
      "name": "shiny",
      "type": "u8",
-     "meaning": "shiny",
+     "meaning": "",
      "writable": false,
      "cName": "shiny",
      "cType": "uint8_t",
@@ -1090,7 +1007,7 @@
     {
      "name": "zone",
      "type": "u16",
-     "meaning": "where it was received",
+     "meaning": "",
      "writable": false,
      "cName": "zone",
      "cType": "uint16_t",
@@ -1114,20 +1031,15 @@
   {
    "name": "mon.nickname",
    "category": "Pokemon",
-   "binding": "EVENT_NAMEIN_Create 0x021CD2A4 (ov021); after a catch ZUKAN_NICKNAME_Create 0x0220B55C (ov207)",
-   "region": "-",
+   "where": "EVENT_NAMEIN_Create 0x021CD2A4 (ov021); after a catch ZUKAN_NICKNAME_Create 0x0220B55C (ov207)",
    "refuse": null,
    "modifyText": "force the prompt (marked, but the row carries no applier, so a write to it has no effect)",
    "notes": [],
-   "caveats": [
-    "mon.nickname's Pokemon reads 0 on the prompt's own row: the prompt's work holds it, and that work is the overlay's own block, and the game's own code shows that the prompt never names a Pokemon at all (its three modes edit the player's greeting, the player's thanks message and the beacon message). The row that does name a Pokemon is the catch registration screen's own, and it carries the caught Pokemon; the party position reads 0 there, because the Pokemon is not in the party yet (the battle return stores it after the prompt). The force flag reads 0 as well: the game decides to ask before it gets to the prompt, and the catch screen's decision is not a declared row, so the port has no hook there."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon; empty on the prompt's own row, the caught Pokemon on the catch screen's",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1136,7 +1048,7 @@
     {
      "name": "force",
      "type": "u8",
-     "meaning": "1 opens the prompt even when the game would skip it (reads 0; the row has no applier)",
+     "meaning": "1 opens the prompt even when the game would skip it",
      "writable": true,
      "cName": "force",
      "cType": "uint8_t",
@@ -1159,20 +1071,15 @@
   {
    "name": "mon.evolve",
    "category": "Pokemon",
-   "binding": "the return of SHINKA_CHECK_CheckEvolution 0x0201B2B0",
-   "region": "arm9",
+   "where": "the return of SHINKA_CHECK_CheckEvolution 0x0201B2B0",
    "refuse": "no evolution starts; an evolution stone has no effect",
    "modifyText": "target species",
-   "notes": [
-    "the function is a check; its result 0 means no evolution in all ten callers (level-up, stones, trades)."
-   ],
-   "caveats": [],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1199,7 +1106,7 @@
     {
      "name": "method",
      "type": "u8",
-     "meaning": "level, item, trade, friendship, other",
+     "meaning": "How a Pokemon evolves (mon.evolve).",
      "writable": false,
      "cName": "method",
      "cType": "uint8_t",
@@ -1223,22 +1130,15 @@
   {
    "name": "mon.exp",
    "category": "Pokemon",
-   "binding": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093); daycare SODATEYA_GrantExp 0x021C3530 (ov021)",
-   "region": "-",
+   "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093); daycare SODATEYA_GrantExp 0x021C3530 (ov021)",
    "refuse": null,
    "modifyText": "the amount",
-   "notes": [
-    "changes the amounts before the battle server records them, so the server, the battle display and the saved Pokemon agree. A level cap lowers the amount; refusing mon.levelup itself would leave the display showing a level the Pokemon does not have."
-   ],
-   "caveats": [
-    "mon.exp names one Pokemon: the first member of the party that gains experience, because the payload has room for one. The experience and the level it carries are the party record's own, read through the state calls, because the battle works on a copy and those are the values the battle started from. The day care's payload has no party position: the call carries the Pokemon, not the party."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1274,7 +1174,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "version 4: EIDOS_EXP_BATTLE or EIDOS_EXP_DAYCARE",
+     "meaning": "Where experience comes from (mon.exp).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -1284,7 +1184,7 @@
     {
      "name": "wild",
      "type": "u8",
-     "meaning": "version 4: for a battle, 1 when the battle is a wild one",
+     "meaning": "a battle source: 1 the battle is a wild one",
      "writable": false,
      "cName": "wild",
      "cType": "uint8_t",
@@ -1313,18 +1213,15 @@
   {
    "name": "mon.levelup",
    "category": "Pokemon",
-   "binding": "the return of BTL_POKEPARAM_AddExp 0x021D69B8, inside BTL_SERVER_FLOW_ApplyPartyExp 0x021C5350 (the level crossing)",
-   "region": "ov093",
+   "where": "the return of BTL_POKEPARAM_AddExp 0x021D69B8, inside BTL_SERVER_FLOW_ApplyPartyExp 0x021C5350 (the level crossing)",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1351,7 +1248,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "version 4: EIDOS_LEVELUP_BATTLE, or EIDOS_LEVELUP_ITEM (a Rare Candy on the party screen)",
+     "meaning": "How a level was gained (mon.levelup).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -1361,7 +1258,7 @@
     {
      "name": "item",
      "type": "u16",
-     "meaning": "version 4: the item, for EIDOS_LEVELUP_ITEM",
+     "meaning": "EIDOS_LEVELUP_ITEM: the item (a Rare Candy)",
      "writable": false,
      "cName": "item",
      "cType": "uint16_t",
@@ -1386,23 +1283,15 @@
   {
    "name": "move.learn",
    "category": "Pokemon",
-   "binding": "level-up POKE_TOOL_GetLevelUpMove 0x02018328 (arm9); daycare SODATEYA_LearnMove 0x021C360C (ov021); the party screen's POKELIST_TryLearnMove 0x021BA5B4 and POKELIST_ReplaceMoveSlot 0x021BA5E0 (ov091); the nurse's relearner POKE_SUMMARY_MAIN_ApplyMove 0x021B6B0C (ov173); the script command that writes a move SCRCMD_PROC_SetMonMove 0x0215BD2C (ov010)",
-   "region": "arm9, ov010, ov021, ov091, ov173",
+   "where": "level-up POKE_TOOL_GetLevelUpMove 0x02018328 (arm9); daycare SODATEYA_LearnMove 0x021C360C (ov021); the party screen's POKELIST_TryLearnMove 0x021BA5B4 and POKELIST_ReplaceMoveSlot 0x021BA5E0 (ov091); the nurse's relearner POKE_SUMMARY_MAIN_ApplyMove 0x021B6B0C (ov173); the script command that writes a move SCRCMD_PROC_SetMonMove 0x0215BD2C (ov010)",
    "refuse": "the level-up, the day care and the script: the move is not learned. The party screen's rows and the relearner's cannot be refused; the payload names the move and the source",
    "modifyText": null,
-   "notes": [
-    "at POKE_TOOL_GetLevelUpMove: the function scans the learnset and writes the move into the Pokemon. A refused move is skipped: the refusal advances the scan past the entry and returns the \"already known\" code (0xFFFE), which every caller treats as nothing learned. The day care's row is refused the same way, by writing nothing, and the script command that writes a move is refused by answering 0, which is the answer it gives in every path of its own. The party screen's rows and the nurse's relearner screen print what they are about to do before they write it, so a refusal there would leave the game telling the player something false: they carry no refusal function, and a mod that wants to stop a learn reacts after the fact through the state calls."
-   ],
-   "caveats": [
-    "move.learn's move slot is the first of the Pokemon's four that is empty, or 0xFF when it holds four moves already, on the three rows that name no slot: the level-up check, the day care and the party screen's first row. The other three name the slot they write into, and their replaced move is the move that was in that slot before the write. The three that name no slot read 0 for the replaced move, because the game asks for that later, in the screen that owns the choice.",
-    "move.learn fires from all six rows the area binds: the level-up check (arm9), the day care (ov021), the party screen's two (POKELIST_TryLearnMove 0x021BA5B4 and POKELIST_ReplaceMoveSlot 0x021BA5E0, ov091) and the nurse's relearner screen (POKE_SUMMARY_MAIN_ApplyMove 0x021B6B0C, ov173) are declared rows with the event in their fourth column, and the script command that writes a move (SCRCMD_PROC_SetMonMove 0x0215BD2C, ov010) is one too.  The party screen's rows and the relearner's read the game's own blocks (the screen's argument block, copied member for member from the game's header), so they name the move, the teacher and the slot; the script command's row reads the command's own operands, and its source reads 0 - the command names no teacher, and the tutor's own move table lives in ov021's script command, which the ARM9 builder cannot reach."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1411,7 +1300,7 @@
     {
      "name": "move",
      "type": "u16",
-     "meaning": "the move",
+     "meaning": "",
      "writable": false,
      "cName": "move",
      "cType": "uint16_t",
@@ -1420,7 +1309,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "level, TM, tutor, relearner; 0 also stands for the rows that name no teacher",
+     "meaning": "How a Pokemon learns a move (move.learn).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -1430,7 +1319,7 @@
     {
      "name": "slot",
      "type": "u8",
-     "meaning": "the move slot it goes into, or 0xFF when the row names none",
+     "meaning": "the move slot it goes into, or 0xFF for a free one",
      "writable": false,
      "cName": "slot",
      "cType": "uint8_t",
@@ -1462,18 +1351,15 @@
   {
    "name": "mon.release",
    "category": "Pokemon",
-   "binding": "BOX2_MAIN_ClearSlot 0x021DD314, whose only caller is the release step BOX2_SEQ_StateMoveItemF 0x021E81D0, not inside BOX2_MAIN_UpdateBoxSlots",
-   "region": "ov170",
+   "where": "BOX2_MAIN_ClearSlot 0x021DD314, whose only caller is the release step BOX2_SEQ_StateMoveItemF 0x021E81D0, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the Pokemon stays; the box redraws it",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1482,7 +1368,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "its species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -1508,13 +1394,10 @@
   {
    "name": "box.deposit",
    "category": "Pokemon",
-   "binding": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a party Pokemon placed in a box",
-   "region": "ov170",
+   "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a party Pokemon placed in a box",
    "refuse": "the move is not applied; the box screen's own next step redraws the icons",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
@@ -1562,18 +1445,15 @@
   {
    "name": "box.withdraw",
    "category": "Pokemon",
-   "binding": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a box Pokemon placed in the party",
-   "region": "ov170",
+   "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a box Pokemon placed in the party",
    "refuse": "as box.deposit",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon, where it is now",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1582,7 +1462,7 @@
     {
      "name": "box",
      "type": "u8",
-     "meaning": "the box it moves into or out of",
+     "meaning": "",
      "writable": false,
      "cName": "box",
      "cType": "uint8_t",
@@ -1591,7 +1471,7 @@
     {
      "name": "slot",
      "type": "u8",
-     "meaning": "the box slot",
+     "meaning": "",
      "writable": false,
      "cName": "slot",
      "cType": "uint8_t",
@@ -1616,13 +1496,10 @@
   {
    "name": "party.swap",
    "category": "Pokemon",
-   "binding": "POKEPARTY_SwapMembers 0x0201AB8C, not inside BOX2_MAIN_UpdateBoxSlots",
-   "region": "arm9",
+   "where": "POKEPARTY_SwapMembers 0x0201AB8C, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the order does not change; the party screen redraws from the party",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "slot_a",
@@ -1657,22 +1534,15 @@
   {
    "name": "mon.helditem",
    "category": "Pokemon",
-   "binding": "POKELIST_SetHeldItem 0x021BA624",
-   "region": "ov091",
+   "where": "POKELIST_SetHeldItem 0x021BA624",
    "refuse": null,
    "modifyText": null,
-   "notes": [
-    "is not refusable: each of the five callers prints its \"was given\" text after the call. A mod that forbids held items takes the item back with a state call."
-   ],
-   "caveats": [
-    "mon.helditem's party position is the one the party screen's own block names: the screen's argument block holds the party it shows, and the Pokemon the call carries is a member of it, so the port reads the position out of that party the way the screen does."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1713,18 +1583,15 @@
   {
    "name": "egg.hatch",
    "category": "Pokemon",
-   "binding": "SCRCMD_POKEMON_FLD_StartEggHatch 0x021B63D4",
-   "region": "ov021",
+   "where": "SCRCMD_POKEMON_FLD_StartEggHatch 0x021B63D4",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the hatching Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -1733,7 +1600,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "its species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -1757,20 +1624,15 @@
   {
    "name": "trade.ingame",
    "category": "Pokemon",
-   "binding": "SCRCMD_POKEMON_FLD_StartTradeEvent 0x021B654C",
-   "region": "ov021",
+   "where": "SCRCMD_POKEMON_FLD_StartTradeEvent 0x021B654C",
    "refuse": "the trade does not happen and the script goes on",
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "trade.ingame's received species reads 0: the trade record is the overlay's own data and the call does not name it. The trade id and the party position are the command's own operands, and the port reads them out of the script's variables without moving the script VM's program counter."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "trade_id",
      "type": "u16",
-     "meaning": "the in-game trade",
+     "meaning": "",
      "writable": false,
      "cName": "trade_id",
      "cType": "uint16_t",
@@ -1809,22 +1671,223 @@
    "recipes": []
   },
   {
+   "name": "mon.cure",
+   "category": "Pokemon",
+   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 (ov091); BTL_SERVER_FLOW_CureSick 0x021C5620 (ov093); after the party heals of heal",
+   "refuse": "the status stays; an item on the party screen is kept",
+   "modifyText": null,
+   "notes": [
+    "status is the game's own number: 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison. In a battle, 6 and up are the battle's own conditions, such as confusion.",
+    "Refused on the party screen, the item is not used. Refused in a battle, the game's text may still say the status was cured.",
+    "A party heal fires it only for members that have a status."
+   ],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "EidosMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "status",
+     "type": "u8",
+     "meaning": "",
+     "writable": false,
+     "cName": "status",
+     "cType": "uint8_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "source",
+     "type": "u8",
+     "meaning": "Where a status cure comes from (mon.cure).",
+     "writable": false,
+     "cName": "source",
+     "cType": "uint8_t",
+     "ruleKind": "int",
+     "enum": "EIDOS_CURE_"
+    },
+    {
+     "name": "item",
+     "type": "u16",
+     "meaning": "the item, or 0",
+     "writable": false,
+     "cName": "item",
+     "cType": "uint16_t",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosMonCure",
+   "numId": 54,
+   "refusable": true,
+   "ruleEvent": true,
+   "id": "event:mon.cure",
+   "when": "A status is about to be cured: by an item on the party screen, in a battle, or by a party heal. Refusing keeps the status.",
+   "functions": [
+    "party_get",
+    "battle_get",
+    "message"
+   ],
+   "recipes": [
+    "no-battle-cures"
+   ]
+  },
+  {
+   "name": "mon.pp",
+   "category": "Pokemon",
+   "where": "POKE_TOOL_RestorePP 0x0201B970 (arm9); BTL_SERVER_FLOW_RestoreMovePp 0x021C6080 (ov093)",
+   "refuse": "no PP",
+   "modifyText": "the PP",
+   "notes": [
+    "amount is the PP the move gets, before the cap at its maximum. move is 0 when the port cannot read it."
+   ],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "EidosMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "slot",
+     "type": "u8",
+     "meaning": "the move slot, 0 to 3",
+     "writable": false,
+     "cName": "slot",
+     "cType": "uint8_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "source",
+     "type": "u8",
+     "meaning": "Where a PP restore comes from (mon.pp).",
+     "writable": false,
+     "cName": "source",
+     "cType": "uint8_t",
+     "ruleKind": "int",
+     "enum": "EIDOS_PP_"
+    },
+    {
+     "name": "move",
+     "type": "u16",
+     "meaning": "the move, or 0 when the port cannot read it",
+     "writable": false,
+     "cName": "move",
+     "cType": "uint16_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "amount",
+     "type": "u16",
+     "meaning": "",
+     "writable": true,
+     "cName": "amount",
+     "cType": "uint16_t",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosMonPp",
+   "numId": 55,
+   "refusable": true,
+   "ruleEvent": true,
+   "id": "event:mon.pp",
+   "when": "A move is about to get PP back, from an item on the party screen or in a battle. A handler may change the amount. Refusing gives none.",
+   "functions": [
+    "party_get",
+    "battle_get",
+    "message"
+   ],
+   "recipes": [
+    "halve-pp-restores"
+   ]
+  },
+  {
+   "name": "mon.form",
+   "category": "Pokemon",
+   "where": "POKE_TOOL_ChangeForm 0x02017988 (arm9); BTL_SERVER_FLOW_ProcHandExChangeForm 0x021CA748 (ov093)",
+   "refuse": "the form stays",
+   "modifyText": "the new form",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "EidosMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "species",
+     "type": "u16",
+     "meaning": "",
+     "writable": false,
+     "cName": "species",
+     "cType": "uint16_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "from",
+     "type": "u8",
+     "meaning": "",
+     "writable": false,
+     "cName": "from",
+     "cType": "uint8_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "to",
+     "type": "u8",
+     "meaning": "",
+     "writable": true,
+     "cName": "to",
+     "cType": "uint8_t",
+     "ruleKind": "int"
+    },
+    {
+     "name": "source",
+     "type": "u8",
+     "meaning": "Where a form change comes from (mon.form).",
+     "writable": false,
+     "cName": "source",
+     "cType": "uint8_t",
+     "ruleKind": "int",
+     "enum": "EIDOS_FORM_"
+    }
+   ],
+   "cStruct": "EidosMonForm",
+   "numId": 56,
+   "refusable": true,
+   "ruleEvent": true,
+   "id": "event:mon.form",
+   "when": "A Pokemon is about to change form, on the field or in a battle. A handler may change the new form. Refusing keeps the form it has.",
+   "functions": [
+    "party_get",
+    "battle_get",
+    "species_base",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
    "name": "battle.start",
    "category": "Battle",
-   "binding": "BTL_SETUP_Create 0x02013090 (arm9); the return of the setups: the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021), the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010)",
-   "region": "arm9, ov010, ov021",
+   "where": "BTL_SETUP_Create 0x02013090 (arm9); the return of the setups: the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021), the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010)",
    "refuse": null,
    "modifyText": "format, levels; the payload names the trainer ids and whether the battle is wild",
    "notes": [],
-   "caveats": [
-    "battle.start's wild flag, format, trainer ids and the handle of the opposing party read 0 at the row that creates the setup: the setup the game will build does not exist yet.  The rows that build it (the wild setup, the trainer setup and the scripted one) fill them, and the port applies the format and the levels the handlers asked for."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "wild",
      "type": "u8",
-     "meaning": "a wild battle; 0 at the row that creates the setup",
+     "meaning": "",
      "writable": false,
      "cName": "wild",
      "cType": "uint8_t",
@@ -1833,7 +1896,7 @@
     {
      "name": "format",
      "type": "u8",
-     "meaning": "single, double, triple, rotation, multi; 0xFF where the port does not know the format yet (the row that creates the setup)",
+     "meaning": "The battle format (battle.start, encounter.trainer).",
      "writable": true,
      "cName": "format",
      "cType": "uint8_t",
@@ -1861,7 +1924,7 @@
     {
      "name": "opponent_party",
      "type": "u32",
-     "meaning": "a handle to the opposing party; a handler edits it through the state calls",
+     "meaning": "a handle to the opposing party",
      "writable": false,
      "cName": "opponent_party",
      "cType": "uint32_t",
@@ -1884,15 +1947,10 @@
   {
    "name": "battle.action",
    "category": "Battle",
-   "binding": "fight BTL_CLIENT_IsMoveSelectionBlocked 0x021CF5B0; run BTL_CLIENT_GetEscapeBlockerForSide 0x021CF918 (inside BTL_CLIENT_StepSelectRun); switch the return of BTL_PICK_GetLast 0x0689CB1C (ov095, inside BTL_CLIENT_StepSelectSwitchTarget)",
-   "region": "ov093",
+   "where": "fight BTL_CLIENT_IsMoveSelectionBlocked 0x021CF5B0; run BTL_CLIENT_GetEscapeBlockerForSide 0x021CF918 (inside BTL_CLIENT_StepSelectRun); switch the return of BTL_PICK_GetLast 0x0689CB1C (ov095, inside BTL_CLIENT_StepSelectSwitchTarget)",
    "refuse": "the choice is not accepted and the action menu stays; the payload names the action and, for fight, the move",
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "battle.action's Pokemon reads 0 for the switch: the choice list holds the party positions and nothing else. The party position the player picked is the function's result, and 6 is the game's own \"backed out\"."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
@@ -1906,7 +1964,7 @@
     {
      "name": "side",
      "type": "u8",
-     "meaning": "0 the player's, 1 the opponent's (the AI asks the move check too)",
+     "meaning": "0 the player's, 1 the opponent's",
      "writable": false,
      "cName": "side",
      "cType": "uint8_t",
@@ -1915,7 +1973,7 @@
     {
      "name": "action",
      "type": "u8",
-     "meaning": "fight, switch, run",
+     "meaning": "What the player chose in battle (battle.action).",
      "writable": false,
      "cName": "action",
      "cType": "uint8_t",
@@ -1957,13 +2015,10 @@
   {
    "name": "battle.item",
    "category": "Battle",
-   "binding": "the return of BTLV_CORE_GetSelectedItem 0x021EA01C, inside BTL_CLIENT_StepSelectItem",
-   "region": "ov093",
+   "where": "the return of BTLV_CORE_GetSelectedItem 0x021EA01C, inside BTL_CLIENT_StepSelectItem",
    "refuse": "back to the action menu; the item stays in the bag and the turn is not spent",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "item",
@@ -2018,15 +2073,10 @@
   {
    "name": "battle.switch",
    "category": "Battle",
-   "binding": "BTL_SERVER_FLOW_ProcMemberIn 0x021BD9D4",
-   "region": "ov093",
+   "where": "BTL_SERVER_FLOW_ProcMemberIn 0x021BD9D4",
    "refuse": null,
    "modifyText": null,
-   "notes": [
-    "fires for every send-out, including after a faint and forced switches; it cannot be refused there, because the server has already committed the slot. A switch the player chooses is refused at battle.action."
-   ],
-   "caveats": [],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "out",
@@ -2072,13 +2122,10 @@
   {
    "name": "battle.escape",
    "category": "Battle",
-   "binding": "BTL_SERVER_FLOW_TryEscape 0x021BD60C",
-   "region": "ov093",
+   "where": "BTL_SERVER_FLOW_TryEscape 0x021BD60C",
    "refuse": "the escape fails as a failed run: \"Can't escape!\" and the turn is spent",
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
@@ -2106,20 +2153,15 @@
   {
    "name": "battle.move",
    "category": "Battle",
-   "binding": "BTL_SERVER_FLOW_RunMoveUsedEvent 0x021C1A10",
-   "region": "ov093",
+   "where": "BTL_SERVER_FLOW_RunMoveUsedEvent 0x021C1A10",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "battle.move's target reads 0. The call carries the attacker and the move record, and the move record holds no target: the server picks the target set itself."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "user",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon using the move",
+     "meaning": "",
      "writable": false,
      "cName": "user",
      "cType": "EidosMonRef",
@@ -2128,7 +2170,7 @@
     {
      "name": "move",
      "type": "u16",
-     "meaning": "the move",
+     "meaning": "",
      "writable": false,
      "cName": "move",
      "cType": "uint16_t",
@@ -2146,7 +2188,7 @@
     {
      "name": "turn",
      "type": "u16",
-     "meaning": "the turn",
+     "meaning": "",
      "writable": false,
      "cName": "turn",
      "cType": "uint16_t",
@@ -2169,20 +2211,15 @@
   {
    "name": "battle.damage",
    "category": "Battle",
-   "binding": "the return of BTL_SERVER_FLOW_CalcMoveDamage 0x021C1E74",
-   "region": "ov093",
+   "where": "the return of BTL_SERVER_FLOW_CalcMoveDamage 0x021C1E74",
    "refuse": null,
    "modifyText": "the amount; the payload names attacker, target, move and the target's HP before",
    "notes": [],
-   "caveats": [
-    "battle.damage fires on the return of the game's own function, so the amount is known: the port writes it into the word the caller reads. The target's HP before the hit is filled, because the hit has not landed yet (in a multi-hit move the earlier hits have)."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "attacker",
      "type": "EidosMonRef",
-     "meaning": "the attacker",
+     "meaning": "",
      "writable": false,
      "cName": "attacker",
      "cType": "EidosMonRef",
@@ -2191,7 +2228,7 @@
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "the target",
+     "meaning": "",
      "writable": false,
      "cName": "target",
      "cType": "EidosMonRef",
@@ -2200,7 +2237,7 @@
     {
      "name": "move",
      "type": "u16",
-     "meaning": "the move",
+     "meaning": "",
      "writable": false,
      "cName": "move",
      "cType": "uint16_t",
@@ -2227,7 +2264,7 @@
     {
      "name": "target_max_hp",
      "type": "u16",
-     "meaning": "the target's maximum HP",
+     "meaning": "",
      "writable": false,
      "cName": "target_max_hp",
      "cType": "uint16_t",
@@ -2236,7 +2273,7 @@
     {
      "name": "critical",
      "type": "u8",
-     "meaning": "a critical hit",
+     "meaning": "",
      "writable": false,
      "cName": "critical",
      "cType": "uint8_t",
@@ -2245,7 +2282,7 @@
     {
      "name": "effectiveness",
      "type": "u8",
-     "meaning": "no effect, not very, neutral, super effective",
+     "meaning": "",
      "writable": false,
      "cName": "effectiveness",
      "cType": "uint8_t",
@@ -2268,18 +2305,13 @@
   {
    "name": "battle.faint",
    "category": "Battle",
-   "binding": "BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64",
-   "region": "ov093",
+   "where": "BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64",
    "refuse": null,
    "modifyText": null,
    "notes": [
     "mon is a battle reference (place EIDOS_MON_BATTLE); side 0 is the player's. cause, cause_move and cause_damage are empty or 0 when the faint came from weather, a hazard or a status.",
     "A whiteout has its own event, whiteout. It is not the same moment as a single faint."
    ],
-   "caveats": [
-    "battle.faint's cause comes from the battle context, and a faint from the weather, a hazard or a status has no cause, so those fields read 0."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
@@ -2320,7 +2352,7 @@
     {
      "name": "cause_damage",
      "type": "u32",
-     "meaning": "the last damage, or 0 for weather, a hazard or a status",
+     "meaning": "the last damage, or 0",
      "writable": false,
      "cName": "cause_damage",
      "cType": "uint32_t",
@@ -2329,7 +2361,7 @@
     {
      "name": "turn",
      "type": "u16",
-     "meaning": "the turn",
+     "meaning": "",
      "writable": false,
      "cName": "turn",
      "cType": "uint16_t",
@@ -2357,22 +2389,15 @@
   {
    "name": "catch.attempt",
    "category": "Battle",
-   "binding": "BTL_SERVER_FLOW_TryThrowBall 0x021CBA40",
-   "region": "ov093",
+   "where": "BTL_SERVER_FLOW_TryThrowBall 0x021CBA40",
    "refuse": "the ball is blocked as in a trainer battle: the block message shows, the ball stays in the bag, the turn is spent; the payload names the ball and the target's species and level",
    "modifyText": "catch rate (BTL_SERVER_FLOW_GetBallCatchRate 0x021CBD48)",
-   "notes": [
-    "uses the trainer-battle path of the same function: BTL_SERVER_FLOW_TryThrowBall returns 0 and pushes the block command (0x47), and its caller only takes the ball from the bag on 1. A mod that wants the ball and the turn kept refuses battle.item for balls instead."
-   ],
-   "caveats": [
-    "catch.attempt's rate is the game's own rate as a percentage of its factor (the factor is a 12.12 fixed-point number and one is 0x1000), and the port answers the roll with the game's own factor scaled by the percentage a handler wrote. A mod that wants the absolute factor overrides the function that computes it, which is a declared row."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "the wild Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "target",
      "cType": "EidosMonRef",
@@ -2381,7 +2406,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "its species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -2390,7 +2415,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "its level",
+     "meaning": "",
      "writable": false,
      "cName": "level",
      "cType": "uint8_t",
@@ -2399,7 +2424,7 @@
     {
      "name": "shiny",
      "type": "u8",
-     "meaning": "shiny",
+     "meaning": "",
      "writable": false,
      "cName": "shiny",
      "cType": "uint8_t",
@@ -2408,7 +2433,7 @@
     {
      "name": "ball",
      "type": "u16",
-     "meaning": "the ball item",
+     "meaning": "",
      "writable": false,
      "cName": "ball",
      "cType": "uint16_t",
@@ -2417,7 +2442,7 @@
     {
      "name": "rate",
      "type": "u8",
-     "meaning": "the catch rate the roll uses, as a percentage of the game's own factor",
+     "meaning": "the catch rate the roll uses",
      "writable": true,
      "cName": "rate",
      "cType": "uint8_t",
@@ -2426,7 +2451,7 @@
     {
      "name": "static",
      "type": "u8",
-     "meaning": "version 4: 1 when encounter.static started the battle (a story or fixed Pokemon), 0 for a wild roll",
+     "meaning": "1 for a story or static encounter (encounter.static",
      "writable": false,
      "cName": "static_",
      "cType": "uint8_t",
@@ -2456,20 +2481,15 @@
   {
    "name": "catch.result",
    "category": "Battle",
-   "binding": "the return of BTL_SERVER_FLOW_CalcCaptureShakes 0x021CBB34",
-   "region": "ov093",
+   "where": "the return of BTL_SERVER_FLOW_CalcCaptureShakes 0x021CBB34",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "catch.result fires at the return of the game's own roll (BTL_SERVER_FLOW_CalcCaptureShakes), not at the throw: the roll is where the game knows whether the Pokemon was caught and how many shakes it took. The caught flag is the roll's own result and the shakes are the ones the roll wrote into the word it was given; the target and the ball are the roll's own arguments, so the port does not run the throw's search again to name them."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "the wild Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "target",
      "cType": "EidosMonRef",
@@ -2478,7 +2498,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "its species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -2487,7 +2507,7 @@
     {
      "name": "ball",
      "type": "u16",
-     "meaning": "the ball item",
+     "meaning": "",
      "writable": false,
      "cName": "ball",
      "cType": "uint16_t",
@@ -2533,18 +2553,15 @@
   {
    "name": "battle.end",
    "category": "Battle",
-   "binding": "EVENT_BATTLE_NotifyBattleEnd 0x0216EE7C",
-   "region": "ov010",
+   "where": "EVENT_BATTLE_NotifyBattleEnd 0x0216EE7C",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "outcome",
      "type": "u8",
-     "meaning": "win, loss, fled, caught, draw",
+     "meaning": "How a battle ended (battle.end).",
      "writable": false,
      "cName": "outcome",
      "cType": "uint8_t",
@@ -2554,7 +2571,7 @@
     {
      "name": "wild",
      "type": "u8",
-     "meaning": "a wild battle",
+     "meaning": "",
      "writable": false,
      "cName": "wild",
      "cType": "uint8_t",
@@ -2563,7 +2580,7 @@
     {
      "name": "trainer_id",
      "type": "u16[2]",
-     "meaning": "the opposing trainers, or 0",
+     "meaning": "",
      "writable": false,
      "cName": "trainer_id",
      "cType": "uint16_t[2]",
@@ -2572,7 +2589,7 @@
     {
      "name": "turns",
      "type": "u16",
-     "meaning": "turns taken",
+     "meaning": "",
      "writable": false,
      "cName": "turns",
      "cType": "uint16_t",
@@ -2597,15 +2614,10 @@
   {
    "name": "whiteout",
    "category": "Battle",
-   "binding": "BTL_CLIENT_StepShowBlackoutMessages 0x021D1960 (ov093); SCRIPT_SYS_RunRecoverScript 0x02158A20 (ov010)",
-   "region": "-",
+   "where": "BTL_CLIENT_StepShowBlackoutMessages 0x021D1960 (ov093); SCRIPT_SYS_RunRecoverScript 0x02158A20 (ov010)",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [
-    "whiteout's money lost reads 0. The game computes the penalty inside the step, at the state that shows the amount, and the accessor that computes it latches its result, so the port does not call it: the game would find nothing left to show. The field half of the event reads 0 for the same reason: the recover script takes the money, and the port does not read the script's work."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "in_battle",
@@ -2619,7 +2631,7 @@
     {
      "name": "money_lost",
      "type": "u32",
-     "meaning": "the money the game takes",
+     "meaning": "",
      "writable": false,
      "cName": "money_lost",
      "cType": "uint32_t",
@@ -2642,18 +2654,15 @@
   {
    "name": "battle.trainer_mon",
    "category": "Battle",
-   "binding": "the rows that build a trainer battle's setup (battle.start), once per opposing member",
-   "region": "-",
+   "where": "the rows that build a trainer battle's setup (battle.start), once per opposing member",
    "refuse": "the member leaves the party (the last stays)",
    "modifyText": "species, level, item, moves, ability, form",
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "trainer_id",
      "type": "u16",
-     "meaning": "the trainer",
+     "meaning": "the trainer the party belongs to",
      "writable": false,
      "cName": "trainer_id",
      "cType": "uint16_t",
@@ -2671,7 +2680,7 @@
     {
      "name": "level",
      "type": "u8",
-     "meaning": "the level",
+     "meaning": "",
      "writable": true,
      "cName": "level",
      "cType": "uint8_t",
@@ -2680,7 +2689,7 @@
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": true,
      "cName": "species",
      "cType": "uint16_t",
@@ -2698,7 +2707,7 @@
     {
      "name": "move1",
      "type": "u16",
-     "meaning": "the moves",
+     "meaning": "",
      "writable": true,
      "cName": "move1",
      "cType": "uint16_t",
@@ -2707,7 +2716,7 @@
     {
      "name": "move2",
      "type": "u16",
-     "meaning": "the moves",
+     "meaning": "",
      "writable": true,
      "cName": "move2",
      "cType": "uint16_t",
@@ -2716,7 +2725,7 @@
     {
      "name": "move3",
      "type": "u16",
-     "meaning": "the moves",
+     "meaning": "",
      "writable": true,
      "cName": "move3",
      "cType": "uint16_t",
@@ -2725,7 +2734,7 @@
     {
      "name": "move4",
      "type": "u16",
-     "meaning": "the moves",
+     "meaning": "",
      "writable": true,
      "cName": "move4",
      "cType": "uint16_t",
@@ -2734,7 +2743,7 @@
     {
      "name": "ability",
      "type": "u16",
-     "meaning": "the ability",
+     "meaning": "",
      "writable": true,
      "cName": "ability",
      "cType": "uint16_t",
@@ -2743,7 +2752,7 @@
     {
      "name": "form",
      "type": "u8",
-     "meaning": "the form",
+     "meaning": "the form, written when species is written",
      "writable": true,
      "cName": "form",
      "cType": "uint8_t",
@@ -2769,20 +2778,17 @@
   {
    "name": "battle.exp",
    "category": "Battle",
-   "binding": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093), before mon.exp",
-   "region": "-",
+   "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093), before mon.exp",
    "refuse": "nobody gains",
    "modifyText": "the scale of every share",
    "notes": [
     "members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."
    ],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "members",
      "type": "u8",
-     "meaning": "bit i: party position i gains",
+     "meaning": "bit i: party position i gains experience",
      "writable": false,
      "cName": "members",
      "cType": "uint8_t",
@@ -2800,7 +2806,7 @@
     {
      "name": "scale",
      "type": "u16",
-     "meaning": "a percentage of every share; 100 leaves them",
+     "meaning": "a percentage of every share, 100 to leave them",
      "writable": true,
      "cName": "scale",
      "cType": "uint16_t",
@@ -2809,7 +2815,7 @@
     {
      "name": "total",
      "type": "u32",
-     "meaning": "every share together",
+     "meaning": "the experience of every share together",
      "writable": false,
      "cName": "total",
      "cType": "uint32_t",
@@ -2834,20 +2840,15 @@
   {
    "name": "item.add",
    "category": "Items and money",
-   "binding": "MYITEM_SAVEDATA_AddItem 0x02007E50",
-   "region": "arm9",
+   "where": "MYITEM_SAVEDATA_AddItem 0x02007E50",
    "refuse": null,
    "modifyText": "count",
-   "notes": [
-    "is not refusable: its sixteen callers include the shop, which has taken the money before it adds the item. A count of 0 leaves the item out while the game's text says it was received."
-   ],
-   "caveats": [],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "item",
      "type": "u16",
-     "meaning": "the item",
+     "meaning": "",
      "writable": false,
      "cName": "item",
      "cType": "uint16_t",
@@ -2874,7 +2875,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "version 4: EIDOS_ITEM_FROM_SCRIPT (an item on the ground, a gift from a person), _GIFT, _PURCHASE, _BATTLE, _RETURN (a held item or mail back to the bag), _REWARD, _OTHER",
+     "meaning": "Where an item comes from (item.add).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -2898,22 +2899,15 @@
   {
    "name": "item.use",
    "category": "Items and money",
-   "binding": "PLIST_DEMO_CheckItemUsable 0x021BDD78",
-   "region": "ov091",
+   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78",
    "refuse": "the game's \"it won't have any effect\"; the item stays",
    "modifyText": null,
-   "notes": [
-    "binds to the check the party screen runs before it applies an item; the \"no effect\" message is the game's own path for an unusable item."
-   ],
-   "caveats": [
-    "item.use's target's party position reads 0: the call carries the party record but not the party, and the party is the party screen's own work. The record's address is in the handle, so a mod that has the party can find the position itself."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "item",
      "type": "u16",
-     "meaning": "the item",
+     "meaning": "",
      "writable": false,
      "cName": "item",
      "cType": "uint16_t",
@@ -2949,20 +2943,15 @@
   {
    "name": "shop.buy",
    "category": "Items and money",
-   "binding": "SCRCMD_PROC_FLD_PickQuantityOutcome 0x021B3370",
-   "region": "ov021",
+   "where": "SCRCMD_PROC_FLD_PickQuantityOutcome 0x021B3370",
    "refuse": "back to the item list; no money changes hands",
    "modifyText": "price",
-   "notes": [
-    "binds to the step that checks the money and the bag space after the player picks an item. The price is read there, so a changed price is the one the shop shows and charges. SCRCMD_PROC_FLD_PayPrice is not a binding: it runs after the \"here you are\" text and before the item is added."
-   ],
-   "caveats": [],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "item",
      "type": "u16",
-     "meaning": "the item picked",
+     "meaning": "",
      "writable": false,
      "cName": "item",
      "cType": "uint16_t",
@@ -2971,7 +2960,7 @@
     {
      "name": "price",
      "type": "u32",
-     "meaning": "the price of one; the shop shows and charges it",
+     "meaning": "the price of one",
      "writable": true,
      "cName": "price",
      "cType": "uint32_t",
@@ -2994,15 +2983,10 @@
   {
    "name": "money.change",
    "category": "Items and money",
-   "binding": "BEACON_AddPoints 0x0200C278; BEACON_SubPoints 0x0200C29C",
-   "region": "arm9",
+   "where": "BEACON_AddPoints 0x0200C278; BEACON_SubPoints 0x0200C29C",
    "refuse": null,
    "modifyText": "the amount",
    "notes": [],
-   "caveats": [
-    "money.change cannot be applied in the other direction on the row it fired on. The row that adds the money applies only a positive change and the row that takes it away applies only a negative one; a change of the other sign is applied as 0 and the money stays as it was. A mod that wants the money to go down waits for the row that takes it away."
-   ],
-   "outcomes": [],
    "payload": [
     {
      "name": "delta",
@@ -3025,7 +3009,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "version 4: EIDOS_MONEY_SCRIPT, _PURCHASE, _SALE, _BATTLE (a prize when the delta is positive, a loss when it is negative), _OTHER",
+     "meaning": "Where a money change comes from (money.change).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -3049,22 +3033,15 @@
   {
    "name": "heal",
    "category": "Items and money",
-   "binding": "SCRCMD_PROC_HealParty 0x0215B5A8 (ov010, a centre or a script); GPOWER_UseHpRestore 0x0201104C (arm9, the HP-restore power)",
-   "region": "-",
+   "where": "SCRCMD_PROC_HealParty 0x0215B5A8 (ov010, a centre or a script); GPOWER_UseHpRestore 0x0201104C (arm9, the HP-restore power)",
    "refuse": "the heal does not happen; the script's own text still plays",
    "modifyText": "which Pokemon heal",
-   "notes": [
-    "POKE_TOOL_HealParty is not a binding; it also heals link, musical and infrared battle parties."
-   ],
-   "caveats": [
-    "heal's source reads as script for a Pokemon Centre, because the nurse runs the same script command and the two cannot be told apart at the call. The mask names the party positions the heal covers, and the port heals the positions a handler kept with the game's own healer; it cannot take the heal away from a position the game's own function heals, because that function heals every occupied slot and there is no hook between its heal and its return. A mod that wants a narrower heal refuses the event and then heals the Pokemon it wants through the state calls."
-   ],
-   "outcomes": [],
+   "notes": [],
    "payload": [
     {
      "name": "source",
      "type": "u8",
-     "meaning": "Pokemon Centre or script, the HP-restore power",
+     "meaning": "Where a heal came from (heal).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -3099,21 +3076,18 @@
   {
    "name": "heal.hp",
    "category": "Pokemon",
-   "binding": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle)",
-   "region": "-",
+   "where": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle)",
    "refuse": "no HP is added",
    "modifyText": "the HP added",
    "notes": [
     "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
     "On the field the item is used up even when the restore is refused: refuse item.use to keep it."
    ],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon that gets HP back",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -3131,7 +3105,7 @@
     {
      "name": "max_hp",
      "type": "u16",
-     "meaning": "the max HP",
+     "meaning": "",
      "writable": false,
      "cName": "max_hp",
      "cType": "uint16_t",
@@ -3140,7 +3114,7 @@
     {
      "name": "amount",
      "type": "u16",
-     "meaning": "the HP to add, before the cap at max HP",
+     "meaning": "the HP to add",
      "writable": true,
      "cName": "amount",
      "cType": "uint16_t",
@@ -3149,7 +3123,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "field (an item from the bag or the party screen) or battle (any restore: bag item, held item, move, ability)",
+     "meaning": "Where an HP restore happens (heal.hp).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -3178,26 +3152,18 @@
   {
    "name": "mon.revive",
    "category": "Pokemon",
-   "binding": "PLIST_DEMO_CheckItemUsable 0x021BDD78 and PLIST_DEMO_RestoreHp 0x021BE914 (ov091); BTL_SERVER_FLOW_ItemEffectRevive 0x021CC008 (ov093); before the party heals of heal",
-   "region": "-",
+   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 and PLIST_DEMO_RestoreHp 0x021BE914 (ov091); BTL_SERVER_FLOW_ItemEffectRevive 0x021CC008 (ov093); before the party heals of heal",
    "refuse": "the Pokemon stays fainted; an item is kept where the game allows (docs/mod-payloads.md)",
    "modifyText": "the HP",
    "notes": [
     "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command.",
     "hp is at least 1 and at most max_hp."
    ],
-   "caveats": [],
-   "outcomes": [
-    "A Revive, Max Revive or Revival Herb on the party screen: at the item check (PLIST_DEMO_CheckItemUsable). Refused, the game says the item has no effect and the item stays in the bag.",
-    "Sacred Ash: it revives the party without the check, so the event fires at the HP write (PLIST_DEMO_RestoreHp) for each fainted member. Refused, that member stays fainted; the ash is used.",
-    "A revive item in battle: at the item's effect (BTL_SERVER_FLOW_ItemEffectRevive). Refused, the effect has no effect and the bag keeps the item.",
-    "A party heal (a Centre or another script, the HP-restore power): once for each fainted member before the heal. Refused, that member stays fainted and the others are healed. The source is _SCRIPT for every script heal: the Centre's nurse runs the same script command, so the port cannot yet tell a Centre from another script."
-   ],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "the Pokemon",
+     "meaning": "",
      "writable": false,
      "cName": "mon",
      "cType": "EidosMonRef",
@@ -3206,7 +3172,7 @@
     {
      "name": "hp",
      "type": "u16",
-     "meaning": "the HP it comes back with; at least 1, at most max_hp",
+     "meaning": "the HP it comes back with",
      "writable": true,
      "cName": "hp",
      "cType": "uint16_t",
@@ -3215,7 +3181,7 @@
     {
      "name": "max_hp",
      "type": "u16",
-     "meaning": "the max HP",
+     "meaning": "",
      "writable": false,
      "cName": "max_hp",
      "cType": "uint16_t",
@@ -3242,7 +3208,7 @@
     {
      "name": "source",
      "type": "u8",
-     "meaning": "EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER, _SCRIPT",
+     "meaning": "What brought a fainted Pokemon back (mon.revive).",
      "writable": false,
      "cName": "source",
      "cType": "uint8_t",
@@ -3271,13 +3237,10 @@
   {
    "name": "badge.get",
    "category": "Progress",
-   "binding": "the return of BEACON_SetFlag 0x0200C248",
-   "region": "arm9",
+   "where": "the return of BEACON_SetFlag 0x0200C248",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "badge",
@@ -3315,13 +3278,10 @@
   {
    "name": "flag.set",
    "category": "Progress",
-   "binding": "ZONEDATA_SetEventFlag 0x02014314",
-   "region": "arm9",
+   "where": "ZONEDATA_SetEventFlag 0x02014314",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "flag",
@@ -3359,18 +3319,15 @@
   {
    "name": "dex.register",
    "category": "Progress",
-   "binding": "ZUKAN_SAVE_RegisterSeen 0x0200CFA0; ZUKAN_SAVE_RegisterCaught 0x0200CDE0",
-   "region": "arm9",
+   "where": "ZUKAN_SAVE_RegisterSeen 0x0200CFA0; ZUKAN_SAVE_RegisterCaught 0x0200CDE0",
    "refuse": null,
    "modifyText": null,
    "notes": [],
-   "caveats": [],
-   "outcomes": [],
    "payload": [
     {
      "name": "species",
      "type": "u16",
-     "meaning": "the species",
+     "meaning": "",
      "writable": false,
      "cName": "species",
      "cType": "uint16_t",
@@ -3645,6 +3602,52 @@
     },
     {
      "name": "EIDOS_EXP_DAYCARE",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "title": "Where a status cure comes from (mon.cure).",
+   "prefix": "EIDOS_CURE_",
+   "members": [
+    {
+     "name": "EIDOS_CURE_FIELD_ITEM",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_CURE_BATTLE",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_CURE_PARTY",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "title": "Where a PP restore comes from (mon.pp).",
+   "prefix": "EIDOS_PP_",
+   "members": [
+    {
+     "name": "EIDOS_PP_FIELD_ITEM",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_PP_BATTLE",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "title": "Where a form change comes from (mon.form).",
+   "prefix": "EIDOS_FORM_",
+   "members": [
+    {
+     "name": "EIDOS_FORM_FIELD",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_FORM_BATTLE",
      "value": 1
     }
    ]
@@ -3970,7 +3973,7 @@
    "readable": true,
    "writableOk": true,
    "subscript": null,
-   "value": "the player's money",
+   "value": "The player's money.",
    "fromC": true
   },
   {
@@ -3980,7 +3983,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "the number of badges",
+   "value": "How many badges the player holds.",
    "fromC": true
   },
   {
@@ -3990,7 +3993,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "whether badge n is held",
+   "value": "1 when badge n is held.",
    "fromC": true
   },
   {
@@ -4000,7 +4003,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "the current zone",
+   "value": "The id of the zone the player is in.",
    "fromC": true
   },
   {
@@ -4010,7 +4013,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "Pokemon in the party",
+   "value": "How many Pokemon the party holds.",
    "fromC": true
   },
   {
@@ -4020,7 +4023,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's species",
+   "value": "The species id of the Pokemon.",
    "fromC": true
   },
   {
@@ -4030,7 +4033,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's level",
+   "value": "The level of the Pokemon.",
    "fromC": true
   },
   {
@@ -4040,7 +4043,7 @@
    "readable": true,
    "writableOk": true,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's HP and maximum HP",
+   "value": "The current HP of the Pokemon.",
    "fromC": true
   },
   {
@@ -4050,7 +4053,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's HP and maximum HP",
+   "value": "The maximum HP of the Pokemon.",
    "fromC": true
   },
   {
@@ -4060,7 +4063,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's types",
+   "value": "The first type of the Pokemon.",
    "fromC": true
   },
   {
@@ -4070,7 +4073,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's types",
+   "value": "The second type of the Pokemon.",
    "fromC": true
   },
   {
@@ -4080,7 +4083,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "whether a Pokemon is shiny",
+   "value": "1 when the Pokemon is shiny.",
    "fromC": true
   },
   {
@@ -4090,7 +4093,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "a Pokemon's held item",
+   "value": "The id of the item the Pokemon holds.",
    "fromC": true
   },
   {
@@ -4100,7 +4103,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "a species' types",
+   "value": "The first type of species s.",
    "fromC": true
   },
   {
@@ -4110,7 +4113,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "a species' types",
+   "value": "The second type of species s.",
    "fromC": true
   },
   {
@@ -4120,7 +4123,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "a species' base stat total",
+   "value": "The base stat total of species s.",
    "fromC": true
   },
   {
@@ -4130,7 +4133,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "whether a species is registered caught",
+   "value": "1 when species s is registered as caught.",
    "fromC": true
   },
   {
@@ -4140,7 +4143,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "how many of item i the bag holds",
+   "value": "How many of item i the bag holds.",
    "fromC": true
   },
   {
@@ -4566,12 +4569,13 @@
   {
    "name": "battle_style",
    "sub": "plain",
-   "writable": false,
+   "writable": true,
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "shift or set",
-   "fromC": true
+   "value": "The battle style setting: 0 is shift, 1 is set.",
+   "fromC": true,
+   "note": "It cannot be changed yet."
   },
   {
    "name": "in_battle",
@@ -4580,7 +4584,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "a battle is in progress",
+   "value": "1 when a battle is in progress.",
    "fromC": true
   }
  ],
@@ -4690,6 +4694,28 @@
    "fromC": true
   },
   {
+   "id": "fn:script",
+   "kind": "host",
+   "name": "script",
+   "cName": "eidos_script",
+   "group": "Entry points",
+   "signature": "int32_t eidos_script(uint32_t vm, uint32_t opcode, uint32_t handler_index)",
+   "params": [
+    "uint32_t vm",
+    "uint32_t opcode",
+    "uint32_t handler_index"
+   ],
+   "what": "Binds a handler to a script command of one of the two script machines. vm is an EIDOS_SCRIPT_VM_* constant, opcode the command, and the handler a function table index. The handler returns an EIDOS_SCRIPT_* answer.",
+   "result": "0 when bound.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
    "id": "fn:override",
    "kind": "host",
    "name": "override",
@@ -4703,6 +4729,27 @@
    ],
    "what": "Binds a handler to a game function from the raw hook list, by region and address. The handler is a function table index.",
    "result": null,
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:original",
+   "kind": "host",
+   "name": "original",
+   "cName": "eidos_original",
+   "group": "Entry points",
+   "signature": "int64_t eidos_original(const uint32_t *args, uint32_t nargs)",
+   "params": [
+    "const uint32_t *args",
+    "uint32_t nargs"
+   ],
+   "what": "Inside a hook handler, calls the next link of the chain (the game's own function, or the next wrap) with the arguments in args, and returns its result. Pass the argument count in nargs.",
+   "result": "The result of the call, as a 64-bit value.",
    "notes": [],
    "tiers": [
     "c"
@@ -4835,6 +4882,50 @@
    "fromC": true
   },
   {
+   "id": "fn:read",
+   "kind": "host",
+   "name": "read",
+   "cName": "eidos_read",
+   "group": "Game memory",
+   "signature": "int32_t eidos_read(uint32_t ds_addr, void *dst, uint32_t len)",
+   "params": [
+    "uint32_t ds_addr",
+    "void *dst",
+    "uint32_t len"
+   ],
+   "what": "Copies len bytes of game memory from a DS address into the mod's memory.",
+   "result": "0 on success, non-zero when the range is out of bounds.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:write",
+   "kind": "host",
+   "name": "write",
+   "cName": "eidos_write",
+   "group": "Game memory",
+   "signature": "int32_t eidos_write(uint32_t ds_addr, const void *src, uint32_t len)",
+   "params": [
+    "uint32_t ds_addr",
+    "const void *src",
+    "uint32_t len"
+   ],
+   "what": "Copies len bytes of the mod's memory into game memory at a DS address.",
+   "result": "0 on success, non-zero when the range is out of bounds.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
    "id": "fn:party_count",
    "kind": "state",
    "name": "party_count",
@@ -4906,6 +4997,9 @@
     "mon.helditem",
     "egg.hatch",
     "trade.ingame",
+    "mon.cure",
+    "mon.pp",
+    "mon.form",
     "battle.exp",
     "item.use",
     "heal.hp",
@@ -5093,6 +5187,9 @@
    ],
    "rule": null,
    "events": [
+    "mon.cure",
+    "mon.pp",
+    "mon.form",
     "battle.start",
     "battle.action",
     "battle.item",
@@ -5749,6 +5846,7 @@
    ],
    "rule": "species_base[s]",
    "events": [
+    "mon.form",
     "mon.revive"
    ],
    "fromC": true
@@ -5824,6 +5922,9 @@
     "mon.helditem",
     "egg.hatch",
     "trade.ingame",
+    "mon.cure",
+    "mon.pp",
+    "mon.form",
     "battle.start",
     "battle.action",
     "battle.item",
@@ -6558,7 +6659,9 @@
    "fns": [
     "log",
     "on",
-    "override"
+    "script",
+    "override",
+    "original"
    ]
   },
   {
@@ -6569,7 +6672,9 @@
     "rd32",
     "wr8",
     "wr16",
-    "wr32"
+    "wr32",
+    "read",
+    "write"
    ]
   },
   {
@@ -6822,9 +6927,8 @@
    "events": [
     "badge.get"
    ],
-   "proto": "void (void *, unsigned int)",
-   "protoFromC": true,
-   "corpusName": "MISC_SetBadge"
+   "proto": "void MISC_SetBadge(void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:arm9:0x0200C278",
@@ -6835,9 +6939,8 @@
    "events": [
     "money.change"
    ],
-   "proto": "unsigned int (void *, unsigned int)",
-   "protoFromC": true,
-   "corpusName": "MISC_AddMoney"
+   "proto": "unsigned int MISC_AddMoney(void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:arm9:0x0200C29C",
@@ -6848,9 +6951,8 @@
    "events": [
     "money.change"
    ],
-   "proto": "unsigned int (void *, unsigned int)",
-   "protoFromC": true,
-   "corpusName": "MISC_SubMoney"
+   "proto": "unsigned int MISC_SubMoney(void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:arm9:0x0200CDE0",
@@ -6884,7 +6986,9 @@
    "key": "arm9:0x0201104C",
    "events": [
     "heal",
-    "mon.revive"
+    "mon.revive",
+    "heal.hp",
+    "mon.cure"
    ],
    "proto": "unsigned int (void *)",
    "protoFromC": true
@@ -6970,6 +7074,18 @@
    "protoFromC": true
   },
   {
+   "id": "hook:arm9:0x02017988",
+   "name": "POKE_TOOL_ChangeForm",
+   "region": "arm9",
+   "addr": "0x02017988",
+   "key": "arm9:0x02017988",
+   "events": [
+    "mon.form"
+   ],
+   "proto": "unsigned int (void *, unsigned int)",
+   "protoFromC": true
+  },
+  {
    "id": "hook:arm9:0x020180F4",
    "name": "POKE_TOOL_PushMove",
    "region": "arm9",
@@ -7008,9 +7124,8 @@
    "events": [
     "move.learn"
    ],
-   "proto": "unsigned short (void *, void *, unsigned int)",
-   "protoFromC": true,
-   "corpusName": "POKE_TOOL_LearnLevelUpMove"
+   "proto": "unsigned short POKE_TOOL_LearnLevelUpMove(void *, void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:arm9:0x020186C8",
@@ -7056,6 +7171,18 @@
     "mon.evolve"
    ],
    "proto": "unsigned int (void *, void *, unsigned int, unsigned int, unsigned char, void *, unsigned short)",
+   "protoFromC": true
+  },
+  {
+   "id": "hook:arm9:0x0201B970",
+   "name": "POKE_TOOL_RestorePP",
+   "region": "arm9",
+   "addr": "0x0201B970",
+   "key": "arm9:0x0201B970",
+   "events": [
+    "mon.pp"
+   ],
+   "proto": "unsigned int (void *, unsigned int, unsigned int)",
    "protoFromC": true
   },
   {
@@ -7327,9 +7454,8 @@
    "addr": "0x0215AC68",
    "key": "ov010:0x0215AC68",
    "events": [],
-   "proto": "int (void *, void *)",
-   "protoFromC": true,
-   "corpusName": "SCRCMD_WORK_CmdSetBadge"
+   "proto": "int SCRCMD_WORK_CmdSetBadge(void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0215ADCC",
@@ -7398,9 +7524,8 @@
    "addr": "0x0215B328",
    "key": "ov010:0x0215B328",
    "events": [],
-   "proto": "int (void *, void *)",
-   "protoFromC": true,
-   "corpusName": "SCRCMD_WORK_CmdSetTrainerDefeatedFlag"
+   "proto": "int SCRCMD_WORK_CmdSetTrainerDefeatedFlag(void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0215B350",
@@ -7409,9 +7534,8 @@
    "addr": "0x0215B350",
    "key": "ov010:0x0215B350",
    "events": [],
-   "proto": "int (void *, void *)",
-   "protoFromC": true,
-   "corpusName": "SCRCMD_WORK_CmdClearTrainerDefeatedFlag"
+   "proto": "int SCRCMD_WORK_CmdClearTrainerDefeatedFlag(void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0215B5A8",
@@ -7421,7 +7545,9 @@
    "key": "ov010:0x0215B5A8",
    "events": [
     "heal",
-    "mon.revive"
+    "mon.revive",
+    "heal.hp",
+    "mon.cure"
    ],
    "proto": "int (void *, void *)",
    "protoFromC": true
@@ -7521,9 +7647,8 @@
    "addr": "0x0215C558",
    "key": "ov010:0x0215C558",
    "events": [],
-   "proto": "int (void *, void *)",
-   "protoFromC": true,
-   "corpusName": "SCRCMD_PROC_AddMoney"
+   "proto": "int SCRCMD_PROC_AddMoney(void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0215C584",
@@ -7532,9 +7657,8 @@
    "addr": "0x0215C584",
    "key": "ov010:0x0215C584",
    "events": [],
-   "proto": "int (void *, void *)",
-   "protoFromC": true,
-   "corpusName": "SCRCMD_PROC_SubMoney"
+   "proto": "int SCRCMD_PROC_SubMoney(void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0215C63C",
@@ -7792,7 +7916,9 @@
    "region": "ov010",
    "addr": "0x0216B004",
    "key": "ov010:0x0216B004",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0216B538",
@@ -7875,9 +8001,8 @@
    "addr": "0x0216EF84",
    "key": "ov010:0x0216EF84",
    "events": [],
-   "proto": "void (void *)",
-   "protoFromC": true,
-   "corpusName": "EVENT_BATTLE_AddBattleRecord"
+   "proto": "void EVENT_BATTLE_AddBattleRecord(void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov010:0x0216EFF0",
@@ -7945,7 +8070,9 @@
    "region": "ov018",
    "addr": "0x02180538",
    "key": "ov018:0x02180538",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov018:0x02181D8C",
@@ -8495,7 +8622,9 @@
    "region": "ov021",
    "addr": "0x021B35A4",
    "key": "ov021:0x021B35A4",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, unsigned int, unsigned char)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov021:0x021B4894",
@@ -8601,7 +8730,9 @@
    "region": "ov021",
    "addr": "0x021B6FF0",
    "key": "ov021:0x021B6FF0",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov021:0x021B72CC",
@@ -8609,7 +8740,9 @@
    "region": "ov021",
    "addr": "0x021B72CC",
    "key": "ov021:0x021B72CC",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov021:0x021B7364",
@@ -8767,7 +8900,9 @@
    "region": "ov070",
    "addr": "0x021B7B80",
    "key": "ov070:0x021B7B80",
-   "events": []
+   "events": [],
+   "proto": "void (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov070:0x021BAFC4",
@@ -8775,7 +8910,9 @@
    "region": "ov070",
    "addr": "0x021BAFC4",
    "key": "ov070:0x021BAFC4",
-   "events": []
+   "events": [],
+   "proto": "void (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BA5B4",
@@ -8785,7 +8922,9 @@
    "key": "ov091:0x021BA5B4",
    "events": [
     "move.learn"
-   ]
+   ],
+   "proto": "unsigned int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BA5E0",
@@ -8795,7 +8934,9 @@
    "key": "ov091:0x021BA5E0",
    "events": [
     "move.learn"
-   ]
+   ],
+   "proto": "void (void *, void *, unsigned char)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BA624",
@@ -8805,7 +8946,9 @@
    "key": "ov091:0x021BA624",
    "events": [
     "mon.helditem"
-   ]
+   ],
+   "proto": "void (void *, void *, unsigned short)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BA688",
@@ -8813,7 +8956,9 @@
    "region": "ov091",
    "addr": "0x021BA688",
    "key": "ov091:0x021BA688",
-   "events": []
+   "events": [],
+   "proto": "unsigned int (void *, unsigned short)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BC2C8",
@@ -8821,7 +8966,9 @@
    "region": "ov091",
    "addr": "0x021BC2C8",
    "key": "ov091:0x021BC2C8",
-   "events": []
+   "events": [],
+   "proto": "void (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BC30C",
@@ -8829,7 +8976,9 @@
    "region": "ov091",
    "addr": "0x021BC30C",
    "key": "ov091:0x021BC30C",
-   "events": []
+   "events": [],
+   "proto": "void (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BC350",
@@ -8837,7 +8986,9 @@
    "region": "ov091",
    "addr": "0x021BC350",
    "key": "ov091:0x021BC350",
-   "events": []
+   "events": [],
+   "proto": "int (void *, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BDD78",
@@ -8847,8 +8998,11 @@
    "key": "ov091:0x021BDD78",
    "events": [
     "item.use",
-    "mon.revive"
-   ]
+    "mon.revive",
+    "mon.cure"
+   ],
+   "proto": "int (void *, unsigned int, int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BE2B4",
@@ -8858,7 +9012,9 @@
    "key": "ov091:0x021BE2B4",
    "events": [
     "mon.levelup"
-   ]
+   ],
+   "proto": "int (void *, unsigned short, unsigned short, unsigned short, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov091:0x021BE914",
@@ -8869,7 +9025,9 @@
    "events": [
     "heal.hp",
     "mon.revive"
-   ]
+   ],
+   "proto": "void (void *, unsigned int, unsigned int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov092:0x021B9614",
@@ -8879,7 +9037,9 @@
    "key": "ov092:0x021B9614",
    "events": [
     "mon.receive"
-   ]
+   ],
+   "proto": "int (void *, void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021B9090",
@@ -8887,7 +9047,9 @@
    "region": "ov093",
    "addr": "0x021B9090",
    "key": "ov093:0x021B9090",
-   "events": []
+   "events": [],
+   "proto": "void (void *, unsigned int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021B90BC",
@@ -8895,7 +9057,9 @@
    "region": "ov093",
    "addr": "0x021B90BC",
    "key": "ov093:0x021B90BC",
-   "events": []
+   "events": [],
+   "proto": "void (void *, unsigned char, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BA238",
@@ -8903,7 +9067,9 @@
    "region": "ov093",
    "addr": "0x021BA238",
    "key": "ov093:0x021BA238",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BB8BC",
@@ -8911,7 +9077,9 @@
    "region": "ov093",
    "addr": "0x021BB8BC",
    "key": "ov093:0x021BB8BC",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BD60C",
@@ -8921,7 +9089,9 @@
    "key": "ov093:0x021BD60C",
    "events": [
     "battle.escape"
-   ]
+   ],
+   "proto": "int (void *, void *, unsigned char)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BD9D4",
@@ -8931,7 +9101,9 @@
    "key": "ov093:0x021BD9D4",
    "events": [
     "battle.switch"
-   ]
+   ],
+   "proto": "void (void *, unsigned char, unsigned char, unsigned char, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BE95C",
@@ -8939,7 +9111,9 @@
    "region": "ov093",
    "addr": "0x021BE95C",
    "key": "ov093:0x021BE95C",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021BF2EC",
@@ -8947,7 +9121,9 @@
    "region": "ov093",
    "addr": "0x021BF2EC",
    "key": "ov093:0x021BF2EC",
-   "events": []
+   "events": [],
+   "proto": "void (void *, unsigned int, unsigned int, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C1910",
@@ -8955,7 +9131,9 @@
    "region": "ov093",
    "addr": "0x021C1910",
    "key": "ov093:0x021C1910",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *, void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C1A10",
@@ -8965,7 +9143,9 @@
    "key": "ov093:0x021C1A10",
    "events": [
     "battle.move"
-   ]
+   ],
+   "proto": "void (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C1E74",
@@ -8975,7 +9155,9 @@
    "key": "ov093:0x021C1E74",
    "events": [
     "battle.damage"
-   ]
+   ],
+   "proto": "int (void *, void *, void *, void *, unsigned int, unsigned int, unsigned int, int, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C33E8",
@@ -8985,7 +9167,9 @@
    "key": "ov093:0x021C33E8",
    "events": [
     "heal.hp"
-   ]
+   ],
+   "proto": "void (void *, void *, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C4F64",
@@ -8995,7 +9179,9 @@
    "key": "ov093:0x021C4F64",
    "events": [
     "battle.faint"
-   ]
+   ],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C5200",
@@ -9003,7 +9189,9 @@
    "region": "ov093",
    "addr": "0x021C5200",
    "key": "ov093:0x021C5200",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C5350",
@@ -9011,7 +9199,9 @@
    "region": "ov093",
    "addr": "0x021C5350",
    "key": "ov093:0x021C5350",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C557C",
@@ -9019,7 +9209,33 @@
    "region": "ov093",
    "addr": "0x021C557C",
    "key": "ov093:0x021C557C",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *, int, int)",
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C5620",
+   "name": "BTL_SERVER_FLOW_CureSick",
+   "region": "ov093",
+   "addr": "0x021C5620",
+   "key": "ov093:0x021C5620",
+   "events": [
+    "mon.cure"
+   ],
+   "proto": "void (void *, void *, int, void *)",
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C6080",
+   "name": "BTL_SERVER_FLOW_RestoreMovePp",
+   "region": "ov093",
+   "addr": "0x021C6080",
+   "key": "ov093:0x021C6080",
+   "events": [
+    "mon.pp"
+   ],
+   "proto": "void (void *, void *, int, int, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C6564",
@@ -9027,7 +9243,9 @@
    "region": "ov093",
    "addr": "0x021C6564",
    "key": "ov093:0x021C6564",
-   "events": []
+   "events": [],
+   "proto": "void (void *, void *, unsigned int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021C84D8",
@@ -9035,7 +9253,9 @@
    "region": "ov093",
    "addr": "0x021C84D8",
    "key": "ov093:0x021C84D8",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CA270",
@@ -9043,7 +9263,21 @@
    "region": "ov093",
    "addr": "0x021CA270",
    "key": "ov093:0x021CA270",
-   "events": []
+   "events": [],
+   "proto": "unsigned char (void *, void *)",
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021CA748",
+   "name": "BTL_SERVER_FLOW_ProcHandExChangeForm",
+   "region": "ov093",
+   "addr": "0x021CA748",
+   "key": "ov093:0x021CA748",
+   "events": [
+    "mon.form"
+   ],
+   "proto": "unsigned char (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CB2D4",
@@ -9054,7 +9288,9 @@
    "events": [
     "battle.exp",
     "mon.exp"
-   ]
+   ],
+   "proto": "void (void *, void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CB730",
@@ -9062,7 +9298,9 @@
    "region": "ov093",
    "addr": "0x021CB730",
    "key": "ov093:0x021CB730",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, unsigned short, unsigned char, unsigned char)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CBA40",
@@ -9072,7 +9310,9 @@
    "key": "ov093:0x021CBA40",
    "events": [
     "catch.attempt"
-   ]
+   ],
+   "proto": "int (void *, void *, unsigned short)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CBB34",
@@ -9082,7 +9322,9 @@
    "key": "ov093:0x021CBB34",
    "events": [
     "catch.result"
-   ]
+   ],
+   "proto": "int (void *, void *, void *, unsigned short, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CBD48",
@@ -9090,7 +9332,9 @@
    "region": "ov093",
    "addr": "0x021CBD48",
    "key": "ov093:0x021CBD48",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CBEA8",
@@ -9098,7 +9342,9 @@
    "region": "ov093",
    "addr": "0x021CBEA8",
    "key": "ov093:0x021CBEA8",
-   "events": []
+   "events": [],
+   "proto": "int (void *, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CBFA0",
@@ -9106,7 +9352,9 @@
    "region": "ov093",
    "addr": "0x021CBFA0",
    "key": "ov093:0x021CBFA0",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CC008",
@@ -9116,7 +9364,9 @@
    "key": "ov093:0x021CC008",
    "events": [
     "mon.revive"
-   ]
+   ],
+   "proto": "int (void *, void *, unsigned short)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CC2C0",
@@ -9124,7 +9374,9 @@
    "region": "ov093",
    "addr": "0x021CC2C0",
    "key": "ov093:0x021CC2C0",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CC668",
@@ -9132,7 +9384,9 @@
    "region": "ov093",
    "addr": "0x021CC668",
    "key": "ov093:0x021CC668",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CE4D0",
@@ -9140,7 +9394,9 @@
    "region": "ov093",
    "addr": "0x021CE4D0",
    "key": "ov093:0x021CE4D0",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CEDC0",
@@ -9148,7 +9404,9 @@
    "region": "ov093",
    "addr": "0x021CEDC0",
    "key": "ov093:0x021CEDC0",
-   "events": []
+   "events": [],
+   "proto": "unsigned int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CEEB8",
@@ -9156,7 +9414,9 @@
    "region": "ov093",
    "addr": "0x021CEEB8",
    "key": "ov093:0x021CEEB8",
-   "events": []
+   "events": [],
+   "proto": "unsigned int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CF078",
@@ -9164,7 +9424,9 @@
    "region": "ov093",
    "addr": "0x021CF078",
    "key": "ov093:0x021CF078",
-   "events": []
+   "events": [],
+   "proto": "unsigned int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CF5B0",
@@ -9174,7 +9436,9 @@
    "key": "ov093:0x021CF5B0",
    "events": [
     "battle.action"
-   ]
+   ],
+   "proto": "int (void *, void *, unsigned int, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021CF918",
@@ -9184,7 +9448,9 @@
    "key": "ov093:0x021CF918",
    "events": [
     "battle.action"
-   ]
+   ],
+   "proto": "unsigned int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D1290",
@@ -9192,7 +9458,9 @@
    "region": "ov093",
    "addr": "0x021D1290",
    "key": "ov093:0x021D1290",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D1960",
@@ -9202,7 +9470,9 @@
    "key": "ov093:0x021D1960",
    "events": [
     "whiteout"
-   ]
+   ],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D2320",
@@ -9210,7 +9480,9 @@
    "region": "ov093",
    "addr": "0x021D2320",
    "key": "ov093:0x021D2320",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D2CA8",
@@ -9218,7 +9490,9 @@
    "region": "ov093",
    "addr": "0x021D2CA8",
    "key": "ov093:0x021D2CA8",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D5B68",
@@ -9226,7 +9500,9 @@
    "region": "ov093",
    "addr": "0x021D5B68",
    "key": "ov093:0x021D5B68",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D69B8",
@@ -9236,7 +9512,9 @@
    "key": "ov093:0x021D69B8",
    "events": [
     "mon.levelup"
-   ]
+   ],
+   "proto": "int (void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D7930",
@@ -9244,7 +9522,9 @@
    "region": "ov093",
    "addr": "0x021D7930",
    "key": "ov093:0x021D7930",
-   "events": []
+   "events": [],
+   "proto": "int (int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021D7A44",
@@ -9252,7 +9532,9 @@
    "region": "ov093",
    "addr": "0x021D7A44",
    "key": "ov093:0x021D7A44",
-   "events": []
+   "events": [],
+   "proto": "unsigned int (unsigned int, unsigned int, unsigned int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov093:0x021EA01C",
@@ -9262,7 +9544,9 @@
    "key": "ov093:0x021EA01C",
    "events": [
     "battle.item"
-   ]
+   ],
+   "proto": "unsigned short (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021F93F4",
@@ -9270,7 +9554,9 @@
    "region": "ov094",
    "addr": "0x021F93F4",
    "key": "ov094:0x021F93F4",
-   "events": []
+   "events": [],
+   "proto": "void * (void *, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021FBD44",
@@ -9278,7 +9564,9 @@
    "region": "ov094",
    "addr": "0x021FBD44",
    "key": "ov094:0x021FBD44",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021FBD88",
@@ -9286,7 +9574,9 @@
    "region": "ov094",
    "addr": "0x021FBD88",
    "key": "ov094:0x021FBD88",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021FBDD4",
@@ -9294,7 +9584,9 @@
    "region": "ov094",
    "addr": "0x021FBDD4",
    "key": "ov094:0x021FBDD4",
-   "events": []
+   "events": [],
+   "proto": "void (void *, int, int, int, int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021FC334",
@@ -9302,7 +9594,9 @@
    "region": "ov094",
    "addr": "0x021FC334",
    "key": "ov094:0x021FC334",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov094:0x021FC374",
@@ -9310,7 +9604,9 @@
    "region": "ov094",
    "addr": "0x021FC374",
    "key": "ov094:0x021FC374",
-   "events": []
+   "events": [],
+   "proto": "int (void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov095:0x0689CB1C",
@@ -9320,7 +9616,9 @@
    "key": "ov095:0x0689CB1C",
    "events": [
     "battle.action"
-   ]
+   ],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov120:0x021D42D8",
@@ -9328,7 +9626,9 @@
    "region": "ov120",
    "addr": "0x021D42D8",
    "key": "ov120:0x021D42D8",
-   "events": []
+   "events": [],
+   "proto": "int (int, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021DC860",
@@ -9336,7 +9636,9 @@
    "region": "ov170",
    "addr": "0x021DC860",
    "key": "ov170:0x021DC860",
-   "events": []
+   "events": [],
+   "proto": "int (void *, int, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021DD314",
@@ -9346,7 +9648,9 @@
    "key": "ov170:0x021DD314",
    "events": [
     "mon.release"
-   ]
+   ],
+   "proto": "void (void *, int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021DD330",
@@ -9355,7 +9659,8 @@
    "addr": "0x021DD330",
    "key": "ov170:0x021DD330",
    "events": [],
-   "corpusName": "BOX2_MAIN_SwapBoxAndPartyMon"
+   "proto": "void BOX2_MAIN_SwapBoxAndPartyMon(void *, void *, void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021DD530",
@@ -9366,7 +9671,9 @@
    "events": [
     "box.deposit",
     "box.withdraw"
-   ]
+   ],
+   "proto": "void (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021DD810",
@@ -9375,7 +9682,8 @@
    "addr": "0x021DD810",
    "key": "ov170:0x021DD810",
    "events": [],
-   "corpusName": "BOX2_MAIN_ResetShayminFormInBox"
+   "proto": "void BOX2_MAIN_ResetShayminFormInBox(void *, unsigned int, unsigned int, unsigned int)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021E9010",
@@ -9383,7 +9691,9 @@
    "region": "ov170",
    "addr": "0x021E9010",
    "key": "ov170:0x021E9010",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov170:0x021E91A0",
@@ -9391,7 +9701,9 @@
    "region": "ov170",
    "addr": "0x021E91A0",
    "key": "ov170:0x021E91A0",
-   "events": []
+   "events": [],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov173:0x021B6B0C",
@@ -9401,7 +9713,9 @@
    "key": "ov173:0x021B6B0C",
    "events": [
     "move.learn"
-   ]
+   ],
+   "proto": "int (void *)",
+   "protoFromC": true
   },
   {
    "id": "hook:ov207:0x0220B55C",
@@ -9411,7 +9725,9 @@
    "key": "ov207:0x0220B55C",
    "events": [
     "mon.nickname"
-   ]
+   ],
+   "proto": "void * (unsigned short, unsigned int, unsigned int, unsigned int, unsigned int, void *, void *, void *, void *)",
+   "protoFromC": true
   }
  ],
  "hookPage": {
@@ -9635,6 +9951,84 @@
     {
      "t": "p",
      "text": "Several handlers on one event all run, in load order. Writes chain and any refusal refuses. The battle works on a copy of each Pokemon: during a battle read and write the battle record (battle_get, battle_set), not the party record."
+    },
+    {
+     "t": "p",
+     "text": "The core imports come from the module `eidos`."
+    },
+    {
+     "t": "table",
+     "head": [
+      "Call",
+      "What it does"
+     ],
+     "rows": [
+      [
+       "`void eidos_log(const char *text, uint32_t len)`",
+       "Writes a line to the port's mod log. Pass the text and its length."
+      ],
+      [
+       "`int32_t eidos_on(uint32_t kind, uint32_t handler_index)`",
+       "Binds a handler to an event by the event's id. The handler is a function table index: in C, the handler's address cast to uint32_t. Call it from eidos_mod_start."
+      ],
+      [
+       "`int32_t eidos_script(uint32_t vm, uint32_t opcode, uint32_t handler_index)`",
+       "Binds a handler to a script command of one of the two script machines. vm is an EIDOS_SCRIPT_VM_* constant, opcode the command, and the handler a function table index. The handler returns an EIDOS_SCRIPT_* answer."
+      ],
+      [
+       "`int32_t eidos_override(uint32_t region, uint32_t addr, uint32_t handler_index)`",
+       "Binds a handler to a game function from the raw hook list, by region and address. The handler is a function table index."
+      ],
+      [
+       "`int64_t eidos_original(const uint32_t *args, uint32_t nargs)`",
+       "Inside a hook handler, calls the next link of the chain (the game's own function, or the next wrap) with the arguments in args, and returns its result. Pass the argument count in nargs."
+      ],
+      [
+       "`uint32_t eidos_rd8(uint32_t ds_addr)`",
+       "Reads a byte of game memory at a DS address. The access is bounds-checked."
+      ],
+      [
+       "`uint32_t eidos_rd16(uint32_t ds_addr)`",
+       "Reads 16 bits of game memory at a DS address."
+      ],
+      [
+       "`uint32_t eidos_rd32(uint32_t ds_addr)`",
+       "Reads 32 bits of game memory at a DS address."
+      ],
+      [
+       "`void eidos_wr8(uint32_t ds_addr, uint32_t value)`",
+       "Writes a byte of game memory at a DS address. The access is bounds-checked."
+      ],
+      [
+       "`void eidos_wr16(uint32_t ds_addr, uint32_t value)`",
+       "Writes 16 bits of game memory at a DS address."
+      ],
+      [
+       "`void eidos_wr32(uint32_t ds_addr, uint32_t value)`",
+       "Writes 32 bits of game memory at a DS address."
+      ],
+      [
+       "`int32_t eidos_read(uint32_t ds_addr, void *dst, uint32_t len)`",
+       "Copies len bytes of game memory from a DS address into the mod's memory."
+      ],
+      [
+       "`int32_t eidos_write(uint32_t ds_addr, const void *src, uint32_t len)`",
+       "Copies len bytes of the mod's memory into game memory at a DS address."
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "text": "The module exports:"
+    },
+    {
+     "t": "list",
+     "items": [
+      "`eidos_mod_start`: 0 when the mod started.",
+      "`eidos_mod_stop`",
+      "`memory`: The linear memory.",
+      "`__indirect_function_table`: The function table the handler indices point into."
+     ]
     }
    ],
    "id": "page:code-mods"
@@ -10365,6 +10759,47 @@
     "To spare one member and heal the rest, refuse `mon.revive` (a fainted member) or `heal.hp` (a hurt one) for that member."
    ],
    "id": "recipe:no-party-heals"
+  },
+  {
+   "slug": "no-battle-cures",
+   "title": "Block status cures in battle only",
+   "goal": "Status cures work on the party screen but not from the bag in battle.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "mon.cure"
+   ],
+   "functions": [],
+   "steps": [
+    "`mon.cure` fires when a status is about to be cured. `event.source` is 0 for an item on the party screen, 1 in a battle and 2 for a party heal.",
+    "The rule guards on source 1 and refuses. The status stays, and every other source goes on as usual."
+   ],
+   "rule": "language 1\nrule no_battle_cures on mon.cure\n    when event.source == 1\n    do refuse\n",
+   "notes": [
+    "A refused cure in a battle can still show the game's text that the status was cured. To stop the item from being used, refuse `battle.item`."
+   ],
+   "id": "recipe:no-battle-cures"
+  },
+  {
+   "slug": "halve-pp-restores",
+   "title": "Halve PP restores",
+   "goal": "Every PP restore gives half the PP, on the field and in battle.",
+   "tier": [
+    "rules",
+    "c"
+   ],
+   "events": [
+    "mon.pp"
+   ],
+   "functions": [],
+   "steps": [
+    "`mon.pp` fires before PP is added. `event.amount` is the PP the move gets, and is writable.",
+    "The amount is capped at the move's maximum after the rule runs. A refusal gives no PP."
+   ],
+   "rule": "language 1\nrule half_pp on mon.pp\n    do set event.amount event.amount / 2\n",
+   "c": "#include \"eidos_wasm.h\"\n\nstatic int32_t on_pp(EidosEvent *event)\n{\n    EidosMonPp *e = (EidosMonPp *)event;\n    e->amount /= 2;\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_MON_PP, (uint32_t)(uintptr_t)on_pp);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
+   "id": "recipe:halve-pp-restores"
   },
   {
    "slug": "keep-one-hurt",

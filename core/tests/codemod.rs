@@ -315,12 +315,30 @@ fn header_names() {
         f("eidos_log").signature,
         "void eidos_log(const char *text, uint32_t len)"
     );
-    assert!(f("eidos_log").doc.contains("core imports"));
-    // A declaration the header wraps is whole.
+    // The note after a declaration is its doc.
+    assert_eq!(f("eidos_log").doc, "a line in the mod log");
     assert_eq!(
         f("eidos_override").signature,
         "int32_t eidos_override(uint32_t region, uint32_t addr, uint32_t handler_index)"
     );
+    // Every core import is there, with its note.
+    for name in [
+        "log", "on", "script", "override", "original", "rd8", "rd16", "rd32", "wr8", "wr16",
+        "wr32", "read", "write",
+    ] {
+        let full = format!("eidos_{name}");
+        assert!(!f(&full).doc.is_empty(), "{full}");
+    }
+    assert_eq!(
+        f("eidos_original").signature,
+        "int64_t eidos_original(const uint32_t *args, uint32_t nargs)"
+    );
+    assert_eq!(
+        f("eidos_read").signature,
+        "int32_t eidos_read(uint32_t ds_addr, void *dst, uint32_t len)"
+    );
+    assert_eq!(c_value(&api, "EIDOS_CURE_BATTLE"), "1");
+    assert_eq!(c_value(&api, "EIDOS_EVENT_MON_FORM"), "56");
     assert!(api.functions.iter().any(|f| f.name == "eidos_on"));
     assert!(api.functions.iter().any(|f| f.name == "eidos_species_base"));
     let c = |n: &str| api.constants.iter().find(|c| c.name == n).unwrap();
@@ -337,6 +355,15 @@ fn header_names() {
         .filter(|n| !ids.contains(&n.as_str()))
         .collect();
     assert!(missing.is_empty(), "{missing:?}");
+}
+
+fn c_value(api: &kenon_core::codemod::CodeApi, name: &str) -> String {
+    api.constants
+        .iter()
+        .find(|c| c.name == name)
+        .unwrap()
+        .value
+        .clone()
 }
 
 // --- builds ---

@@ -171,14 +171,14 @@ export function buildIndex(api: Api, entries: Entry[]): SearchIndex {
       f = [
         x.name,
         x.payload.map((q) => join(q.name, q.cName)).join(" "),
-        join(x.binding, x.cStruct, x.region),
+        join(x.where, x.cStruct),
         x.category,
-        join(x.when, x.refuse, x.modifyText, ...x.outcomes, ...x.notes, ...x.caveats, ...x.payload.map((q) => q.meaning), ...x.functions, ...x.recipes.map((z) => recipeTitle(z))),
+        join(x.when, x.refuse, x.modifyText, ...x.notes, ...x.payload.map((q) => q.meaning), ...x.functions, ...x.recipes.map((z) => recipeTitle(z))),
       ];
     } else if (y) {
       f = [y.name, y.params.map(lastWord).join(" "), y.signature, y.group, join(y.what, y.result, y.rule, ...y.notes)];
     } else if (h) {
-      f = [h.name, join(h.key, h.corpusName), h.proto ?? "", e.group, h.events.join(" ")];
+      f = [h.name, h.key, h.proto ?? "", e.group, h.events.join(" ")];
     } else if (r) {
       f = [r.title, join(r.slug, ...r.events, ...r.functions), "", e.group, join(r.goal, ...r.steps, ...(r.notes ?? []), r.rule, r.rule2, r.c, r.settings)];
     } else if (s) {

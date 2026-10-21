@@ -302,7 +302,18 @@ pub fn parse_header(text: &str) -> CodeApi {
     // A declaration that wraps onto more lines is joined into one.
     let mut joined = String::new();
     for raw in text.lines() {
-        let trimmed = raw.trim();
+        let mut trimmed = raw.trim();
+        // A declaration may carry its note after it: `int f(void); /* note */`.
+        let mut note = None;
+        if !in_comment && !trimmed.starts_with("/*") {
+            if let Some(at) = trimmed.find("/*").filter(|_| trimmed.ends_with("*/")) {
+                let body = trimmed[at..]
+                    .trim_start_matches("/*")
+                    .trim_end_matches("*/");
+                note = Some(body.trim().to_string());
+                trimmed = trimmed[..at].trim_end();
+            }
+        }
         let whole;
         let line: &str = if !joined.is_empty()
             || (trimmed.starts_with("EIDOS_IMPORT(") && !trimmed.ends_with(';'))
@@ -359,7 +370,7 @@ pub fn parse_header(text: &str) -> CodeApi {
             api.functions.push(ApiFunction {
                 name: decl.0,
                 signature: decl.1,
-                doc: doc.join(" "),
+                doc: note.unwrap_or_else(|| doc.join(" ")),
             });
         }
         if !line.is_empty() {

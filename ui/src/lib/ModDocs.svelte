@@ -462,13 +462,10 @@
           <p class="lead">{e.when}</p>
 
           <h3>Game function</h3>
-          <p><code>{e.binding}</code> in {e.region}</p>
+          <p>{e.where}</p>
           {#if e.refuse}
             <h3>When refused</h3>
             <p>{e.refuse}</p>
-            {#if e.outcomes.length}
-              <ul class="small">{#each e.outcomes as o}<li>{o}</li>{/each}</ul>
-            {/if}
           {/if}
 
           <h3>Payload</h3>
@@ -499,10 +496,10 @@
             <p class="muted">No fields: the event is the moment itself.</p>
           {/if}
 
-          {#if e.notes.length || e.caveats.length}
+          {#if e.notes.length}
             <h3>Details</h3>
             <ul class="small">
-              {#each [...e.notes, ...e.caveats] as n}<li>{n}</li>{/each}
+              {#each e.notes as n}<li>{n}</li>{/each}
             </ul>
           {/if}
 
@@ -569,7 +566,6 @@
           <table class="fields">
             <tbody>
               <tr><td>Key</td><td><code>{h.key}</code></td></tr>
-              {#if h.corpusName}<tr><td>Newer name</td><td><code>{h.corpusName}</code></td></tr>{/if}
               <tr><td>Prototype</td><td>{#if h.proto}<code>{h.proto}</code>{:else}<span class="muted">Not published for this function.</span>{/if}</td></tr>
             </tbody>
           </table>
@@ -624,7 +620,7 @@
           <h1><code>{s.name}{s.sub === "plain" ? "" : s.sub === "mon" ? "[mon]" : "[n]"}</code></h1>
           <div class="tags">
             <span class="tag">{s.readable ? "Readable" : "Not readable yet"}</span>
-            <span class="tag">{s.writable ? (s.writableOk ? "Writable" : "Write not working yet") : "Read only"}</span>
+            <span class="tag">{s.writable ? (s.writableOk ? "Writable" : "Cannot be changed yet") : "Read only"}</span>
           </div>
           <p class="lead">{s.value}</p>
           {#if s.subscript}<p>The subscript is {s.subscript}.</p>{/if}
