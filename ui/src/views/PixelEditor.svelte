@@ -344,7 +344,10 @@
   </div>
 
   {#if view === "cells" && bankFor !== null && animFor !== null}
-    <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} version={tilesDirty || paletteDirty ? -1 : 0} />
+    <!-- A new player for every picture: nothing carries over from the last. -->
+    {#key `${chr.join(":")}/${pal.join(":")}/${bankFor}/${animFor}`}
+      <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} version={tilesDirty || paletteDirty ? -1 : 0} />
+    {/key}
   {/if}
   <div class="stage" bind:this={stage}>
     {#if error}

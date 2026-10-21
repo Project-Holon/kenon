@@ -45,6 +45,10 @@
   });
 
   const current = $derived(sequences[seq]);
+  // Only animations that move get the player; a picture whose sequences all
+  // hold one frame shows none.
+  const moving = $derived(sequences.filter((s) => s.frames.length > 1));
+  const steps = $derived((current?.frames.length ?? 0) > 1);
 
   // Advance through the frames by their own durations.
   $effect(() => {
@@ -83,7 +87,7 @@
 
 {#if error}
   <p class="bad pad">{error}</p>
-{:else if sequences.length}
+{:else if moving.length}
   <div class="player">
     <div class="frame window">
       {#if current}<img class="px" src={src(seq, frame)} alt="Frame {frame + 1}" style="zoom: {scale}" />{/if}
@@ -95,11 +99,13 @@
           {#each sequences as s, i}<option value={i}>{i} ({s.frames.length} frames)</option>{/each}
         </select>
       </label>
-      <div class="buttons">
-        <button onclick={() => step(-1)} aria-label="Previous frame">Prev</button>
-        <button class="primary" onclick={() => ((playing = !playing), sfx("select"))}>{playing ? "Pause" : "Play"}</button>
-        <button onclick={() => step(1)} aria-label="Next frame">Next</button>
-      </div>
+      {#if steps}
+        <div class="buttons">
+          <button onclick={() => step(-1)} aria-label="Previous frame">Prev</button>
+          <button class="primary" onclick={() => ((playing = !playing), sfx("select"))}>{playing ? "Pause" : "Play"}</button>
+          <button onclick={() => step(1)} aria-label="Next frame">Next</button>
+        </div>
+      {/if}
       <span class="muted">Frame {frame + 1} / {current?.frames.length ?? 0}, cell {current?.frames[frame]?.cell ?? "-"}, {current?.frames[frame]?.duration ?? 0}/60 s</span>
       <label>
         <span class="muted">Size</span>
