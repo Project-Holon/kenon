@@ -68,6 +68,13 @@ npm run check           # front-end type check
 cargo test --workspace  # Rust tests
 ```
 
+## Releases
+
+Pushing a tag `vX.Y.Z` builds the app for Windows, Linux and macOS and
+publishes the builds as a GitHub release. Set the version first with
+`npm run set-version -- X.Y.Z` (it updates `Cargo.toml`, `package.json`
+and `app/tauri.conf.json`), commit, then tag. The builds are not signed.
+
 ## Relationship to the other repositories
 
 - [aletheia](https://github.com/Project-Holon/aletheia): the decompilation

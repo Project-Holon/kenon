@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "set-version": "node tools/set-version.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

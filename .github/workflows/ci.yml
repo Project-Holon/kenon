@@ -32,6 +32,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Versions agree
+        run: node tools/set-version.mjs
+
       - name: Front end
         run: |
           npm ci
