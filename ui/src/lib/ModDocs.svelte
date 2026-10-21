@@ -10,13 +10,13 @@
     hookLine,
     loadApi,
     ruleSkeleton,
-    search,
     type Api,
     type ApiEvent,
     type Block,
     type Entry,
     type Section,
   } from "./moddocs";
+  import { buildIndex, queryMatcher, searchIndex, type SearchIndex } from "./moddocs/search";
 
   // A large window with the mod docs: events, functions, hookable game
   // functions, the rules language and worked recipes. `select` is the id of
@@ -31,12 +31,31 @@
   let selected = $state<string | null>(null);
   const open = new SvelteSet<string>(["sec:events"]);
   let detail = $state<HTMLElement | null>(null);
+  let index = $state.raw<SearchIndex | null>(null);
+  let cursor = $state(0);
+
+  // Find in the entry.
+  let findOpen = $state(false);
+  let findQuery = $state("");
+  let findInput = $state<HTMLInputElement | null>(null);
+  let findTotal = $state(0);
+  let findAt = $state(0);
+  // Set when the find text came from the sidebar search: stems match words.
+  let smart: ((word: string) => boolean) | null = null;
+  let spans: { node: Text; start: number; end: number }[] = [];
+  let ranges: Range[] = [];
+  let marks: HTMLElement[] = [];
+  let lastEsc = 0;
+  // The CSS highlight API paints matches without touching the text. Older
+  // webviews get <mark> elements instead.
+  const useHighlights = typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight !== "undefined";
 
   onMount(async () => {
     dialog?.showModal();
     try {
       api = await loadApi();
       entries = buildEntries(api);
+      index = buildIndex(api, entries);
       go(select && entries.some((e) => e.id === select) ? select : "event:" + api.events[0].name);
     } catch (e) {
       error = String(e);
@@ -45,12 +64,17 @@
 
   const byId = $derived(new Map(entries.map((e) => [e.id, e])));
   const current = $derived(selected ? byId.get(selected) : undefined);
-  const results = $derived(query.trim() ? search(entries, query).slice(0, 200) : []);
+  const results = $derived(index && query.trim() ? searchIndex(index, query, 50) : []);
 
-  function go(id: string) {
+  function go(id: string, fromSearch = false) {
     const e = byId.get(id) ?? entries.find((x) => x.id === id);
     if (!e) return;
     selected = id;
+    if (fromSearch && index) {
+      findQuery = query.trim();
+      smart = queryMatcher(index, query);
+      findOpen = true;
+    }
     open.add(`sec:${e.section}`);
     open.add(`grp:${e.section}:${e.group}`);
     tick().then(() => {
@@ -102,8 +126,165 @@
   const tierLabel = (t: string) => (t === "rules" ? "Rules" : t === "c" ? "C" : t);
   const unusedHooks = (h: { events: string[] }) => h.events.length === 0;
 
+  function searchKey(e: KeyboardEvent) {
+    if (!results.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      cursor = (cursor + (e.key === "ArrowDown" ? 1 : results.length - 1)) % results.length;
+      tick().then(() => document.querySelector(".tree [data-active='true']")?.scrollIntoView({ block: "nearest" }));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      go(results[Math.min(cursor, results.length - 1)].id, true);
+    }
+  }
+
+  // ---- find in the entry
+
+  const WORD = /[A-Za-z0-9]+/g;
+
+  function collect(): typeof spans {
+    const q = findQuery.trim().toLowerCase();
+    if (!detail || !q) return [];
+    const nodes: Text[] = [];
+    const walk = document.createTreeWalker(detail, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if ((n as Text).data.trim()) nodes.push(n as Text);
+    const out: typeof spans = [];
+    const scan = (words: string[]) => {
+      for (const node of nodes) {
+        const low = node.data.toLowerCase();
+        for (const w of words) {
+          for (let at = low.indexOf(w); at >= 0; at = low.indexOf(w, at + w.length)) out.push({ node, start: at, end: at + w.length });
+        }
+      }
+    };
+    if (smart) {
+      for (const node of nodes) {
+        for (const m of node.data.matchAll(WORD)) if (smart(m[0])) out.push({ node, start: m.index, end: m.index + m[0].length });
+      }
+      return out;
+    }
+    scan([q]);
+    const words = q.split(/\s+/).filter(Boolean);
+    if (!out.length && words.length > 1) {
+      scan(words);
+      // Document order.
+      const at = new Map(nodes.map((n, i) => [n, i]));
+      out.sort((a, b) => at.get(a.node)! - at.get(b.node)! || a.start - b.start);
+    }
+    return out;
+  }
+
+  function clearFind() {
+    if (useHighlights) {
+      CSS.highlights.delete("docs-find");
+      CSS.highlights.delete("docs-find-cur");
+    }
+    for (const m of marks) {
+      const parent = m.parentNode;
+      if (!parent) continue;
+      parent.replaceChild(document.createTextNode(m.textContent ?? ""), m);
+      parent.normalize();
+    }
+    marks = [];
+    ranges = [];
+    spans = [];
+  }
+
+  function runFind() {
+    clearFind();
+    if (!findOpen) return;
+    spans = collect();
+    findTotal = spans.length;
+    if (useHighlights) {
+      ranges = spans.map((s) => {
+        const r = new Range();
+        r.setStart(s.node, s.start);
+        r.setEnd(s.node, s.end);
+        return r;
+      });
+      if (ranges.length) CSS.highlights.set("docs-find", new Highlight(...ranges));
+    } else {
+      // Wrap from the end of each node so the offsets stay valid.
+      const made: HTMLElement[] = [];
+      for (const s of [...spans].reverse()) {
+        s.node.splitText(s.end);
+        const mid = s.node.splitText(s.start);
+        const el = document.createElement("mark");
+        el.className = "docs-find";
+        el.textContent = mid.data;
+        mid.parentNode?.replaceChild(el, mid);
+        made.push(el);
+      }
+      marks = made.reverse();
+    }
+    mark(0, true);
+  }
+
+  function mark(i: number, scroll: boolean) {
+    findAt = i;
+    if (!findTotal) return;
+    let el: Element | null | undefined;
+    if (useHighlights) {
+      CSS.highlights.set("docs-find-cur", new Highlight(ranges[i]));
+      el = ranges[i].startContainer.parentElement;
+    } else {
+      marks.forEach((m, k) => m.classList.toggle("cur", k === i));
+      el = marks[i];
+    }
+    if (scroll) el?.scrollIntoView({ block: "center" });
+  }
+
+  function step(d: number) {
+    if (!findTotal) return;
+    mark((findAt + d + findTotal) % findTotal, true);
+  }
+
+  async function openFind() {
+    findOpen = true;
+    await tick();
+    findInput?.focus();
+    findInput?.select();
+  }
+
+  function closeFind() {
+    findOpen = false;
+    clearFind();
+    findTotal = 0;
+    smart = null;
+  }
+
+  function findKey(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      step(e.shiftKey ? -1 : 1);
+    }
+  }
+
+  // Re-run on a new entry at once, and while typing after a short pause.
+  let lastShown: string | null = null;
+  $effect(() => {
+    const id = selected;
+    void findQuery;
+    void findOpen;
+    const wait = id !== lastShown ? 0 : 120;
+    lastShown = id;
+    const t = setTimeout(runFind, wait);
+    return () => clearTimeout(t);
+  });
+
   function onKey(e: KeyboardEvent) {
-    // Esc closes the dialog by itself; a click on the backdrop is handled below.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      e.preventDefault();
+      openFind();
+      return;
+    }
+    // The first Esc closes the find bar, the next one the dialog.
+    if (e.key === "Escape" && findOpen) {
+      e.preventDefault();
+      lastEsc = performance.now();
+      closeFind();
+      return;
+    }
     if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
       e.preventDefault();
       document.getElementById("moddocs-search")?.focus();
@@ -146,6 +327,10 @@
   </div>
 {/snippet}
 
+{#snippet chev(isOpen: boolean)}
+  <svg class="chev" class:open={isOpen} viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
+{/snippet}
+
 {#snippet link(id: string, label: string)}
   <button class="link" onclick={() => go(id)}>{label}</button>
 {/snippet}
@@ -161,11 +346,17 @@
     if (e.target === dialog) dialog?.close();
   }}
   aria-label="Mod docs"
+  oncancel={(e) => {
+    if (performance.now() - lastEsc < 150) e.preventDefault();
+  }}
 >
   <header>
     <h2>Mod docs</h2>
     {#if api?.meta.eidosRevision}<span class="muted">API {api.meta.apiVersion}, eidos {api.meta.eidosRevision}</span>{/if}
     <div class="spacer"></div>
+    <button class="icon" onclick={() => (findOpen ? closeFind() : openFind())} title="Find in this entry (Ctrl+F)" aria-label="Find in this entry" aria-pressed={findOpen}>
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" /><path d="M10 10l4 4" /></svg>
+    </button>
     <button onclick={() => dialog?.close()}>Close</button>
   </header>
 
@@ -176,13 +367,18 @@
   {:else}
     <div class="cols">
       <nav class="tree" aria-label="Docs index">
-        <input id="moddocs-search" type="search" placeholder="Search names, fields, text" aria-label="Search the docs" bind:value={query} />
+        <input id="moddocs-search" type="search" placeholder="Search names, fields, text" aria-label="Search the docs" bind:value={query} oninput={() => (cursor = 0)} onkeydown={searchKey} />
         <div class="scroll">
           {#if query.trim()}
-            {#each results as r (r.id)}
-              <button class="row-item" aria-current={r.id === selected} onclick={() => go(r.id)} title={r.title}>
-                <span class="label">{r.title}</span>
-                <span class="tag">{r.group}</span>
+            {#each results as r, i (r.id)}
+              <button class="row-item res" data-active={i === cursor} aria-current={r.id === selected} onclick={() => go(r.id, true)} title={r.title}>
+                <span class="line">
+                  <span class="label">{#each r.titleParts as p}{#if p.hit}<b class="hit">{p.text}</b>{:else}{p.text}{/if}{/each}</span>
+                  <span class="tag">{r.group}</span>
+                </span>
+                {#if r.snippet}
+                  <span class="why"><span class="fld">{r.field}</span> {#each r.snippet as p}{#if p.hit}<b class="hit">{p.text}</b>{:else}{p.text}{/if}{/each}</span>
+                {/if}
               </button>
             {:else}
               <p class="muted pad">Nothing found.</p>
@@ -190,12 +386,12 @@
           {:else}
             {#each tree as s (s.id)}
               <button class="sec" aria-expanded={open.has(`sec:${s.id}`)} onclick={() => toggle(`sec:${s.id}`)}>
-                <span class="caret">{open.has(`sec:${s.id}`) ? "v" : ">"}</span>{s.title}
+                {@render chev(open.has(`sec:${s.id}`))}{s.title}
               </button>
               {#if open.has(`sec:${s.id}`)}
                 {#each s.groups as g (g.name)}
                   <button class="grp" aria-expanded={open.has(`grp:${s.id}:${g.name}`)} onclick={() => toggle(`grp:${s.id}:${g.name}`)}>
-                    <span class="caret">{open.has(`grp:${s.id}:${g.name}`) ? "v" : ">"}</span>{g.name}
+                    {@render chev(open.has(`grp:${s.id}:${g.name}`))}{g.name}
                     <span class="count">{g.items.length}</span>
                   </button>
                   {#if open.has(`grp:${s.id}:${g.name}`)}
@@ -212,6 +408,30 @@
         </div>
       </nav>
 
+      <div class="right">
+      {#if findOpen}
+        <div class="find" role="search">
+          <input
+            bind:this={findInput}
+            type="search"
+            placeholder="Find in this entry"
+            aria-label="Find in this entry"
+            bind:value={findQuery}
+            oninput={() => (smart = null)}
+            onkeydown={findKey}
+          />
+          <span class="muted count-find">{findQuery.trim() ? (findTotal ? `${findAt + 1} of ${findTotal}` : "No matches") : ""}</span>
+          <button class="icon" onclick={() => step(-1)} disabled={!findTotal} title="Previous (Shift+Enter)" aria-label="Previous match">
+            <svg class="chev up" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
+          </button>
+          <button class="icon" onclick={() => step(1)} disabled={!findTotal} title="Next (Enter)" aria-label="Next match">
+            <svg class="chev down" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
+          </button>
+          <button class="icon" onclick={closeFind} title="Close (Esc)" aria-label="Close find">
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" /></svg>
+          </button>
+        </div>
+      {/if}
       <article class="detail" bind:this={detail}>
         {#if !current}
           <p class="muted">Choose an entry.</p>
@@ -397,6 +617,7 @@
           {#each p.blocks as b}{@render blk(b)}{/each}
         {/if}
       </article>
+      </div>
     </div>
   {/if}
 </dialog>
@@ -477,10 +698,119 @@
   .sec:hover {
     background: var(--panel-2);
   }
-  .caret {
-    width: 0.8rem;
-    font-family: ui-monospace, Consolas, monospace;
+  .chev {
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     color: var(--faint);
+    transition: transform 0.12s;
+  }
+  .chev.open {
+    transform: rotate(90deg);
+  }
+  .chev.up {
+    transform: rotate(-90deg);
+  }
+  .chev.down {
+    transform: rotate(90deg);
+  }
+  .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.45rem;
+  }
+  .icon svg:not(.chev) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .icon .chev {
+    color: inherit;
+  }
+  .right {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .find {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-bottom: 2px solid var(--outline);
+    background: var(--panel-2);
+  }
+  .find input {
+    flex: 1;
+    min-width: 0;
+  }
+  .count-find {
+    font-size: 0.85rem;
+    min-width: 4.5rem;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .detail {
+    flex: 1;
+  }
+  .res {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.1rem;
+  }
+  .res[data-active="true"]:not([aria-current="true"]) {
+    background: var(--panel-3);
+  }
+  .line {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+  .why {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .res[aria-current="true"] .why {
+    color: inherit;
+  }
+  .fld {
+    color: var(--faint);
+    margin-right: 0.2rem;
+  }
+  .hit {
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .res[aria-current="true"] .hit {
+    color: inherit;
+    text-decoration: underline;
+  }
+  :global(::highlight(docs-find)) {
+    background: color-mix(in srgb, var(--gold) 45%, transparent);
+    color: inherit;
+  }
+  :global(::highlight(docs-find-cur)) {
+    background: var(--gold);
+    color: #201a00;
+  }
+  :global(mark.docs-find) {
+    background: color-mix(in srgb, var(--gold) 45%, transparent);
+    color: inherit;
+  }
+  :global(mark.docs-find.cur) {
+    background: var(--gold);
+    color: #201a00;
   }
   .count {
     margin-left: auto;
