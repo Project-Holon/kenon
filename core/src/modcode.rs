@@ -28,6 +28,7 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
+use crate::modopts::SettingsCtx;
 use crate::project::{Manifest, Project, KENON_FILE, MANIFEST, ORDER_LIMIT};
 
 /// The newest interface version the port is built against (eidos
@@ -57,6 +58,14 @@ pub enum Severity {
 }
 
 /// One problem. `line` is 1-based, 0 for a problem with a whole file or with
+/// What a rule is checked against besides the language: the mod's tables and
+/// its options. A `None` part is not checked.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RuleContext<'a> {
+    pub tables: Option<&'a TableSet>,
+    pub settings: Option<&'a SettingsCtx>,
+}
+
 /// a form field (then `field` names it). `start` and `end` are 1-based
 /// columns, `end` exclusive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -71,7 +80,14 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    fn at(line: usize, text: &str, from: usize, to: usize, severity: Severity, msg: &str) -> Self {
+    pub(crate) fn at(
+        line: usize,
+        text: &str,
+        from: usize,
+        to: usize,
+        severity: Severity,
+        msg: &str,
+    ) -> Self {
         let col = |byte: usize| text[..byte.min(text.len())].chars().count() as u32 + 1;
         let start = col(from);
         Diagnostic {
@@ -84,7 +100,7 @@ impl Diagnostic {
         }
     }
 
-    fn field(field: &str, severity: Severity, msg: &str) -> Self {
+    pub(crate) fn field(field: &str, severity: Severity, msg: &str) -> Self {
         Diagnostic {
             line: 0,
             start: 0,
@@ -407,7 +423,9 @@ struct Parser<'a> {
     tok: Tok,
     event: Option<&'a RuleEvent>,
     names: &'static Names,
-    tables: Option<&'a TableSet>,
+    ctx: RuleContext<'a>,
+    /// Problems that do not stop the parse.
+    warns: Vec<PErr>,
     depth: u32,
 }
 
@@ -416,7 +434,7 @@ impl<'a> Parser<'a> {
         s: &'a str,
         event: Option<&'a RuleEvent>,
         names: &'static Names,
-        tables: Option<&'a TableSet>,
+        ctx: RuleContext<'a>,
     ) -> PResult<Parser<'a>> {
         let mut scan = Scan { s, p: 0 };
         let tok = scan.next()?;
@@ -425,7 +443,8 @@ impl<'a> Parser<'a> {
             tok,
             event,
             names,
-            tables,
+            ctx,
+            warns: Vec::new(),
             depth: 0,
         })
     }
@@ -714,6 +733,25 @@ impl<'a> Parser<'a> {
             if self.tok.kind != Tk::Ident {
                 return self.fail("a setting's key was expected");
             }
+            if let Some(s) = self.ctx.settings {
+                let at = self.tok.clone();
+                let err = |msg: String| PErr {
+                    start: at.start,
+                    end: at.end,
+                    msg,
+                };
+                if !s.namespace {
+                    return Err(err(
+                        "the rule has no namespace, so it has no settings".to_string()
+                    ));
+                }
+                if !s.keys.contains(&at.text) {
+                    self.warns.push(err(format!(
+                        "the mod declares no option '{}' (an `option` line in its options file); it reads -1",
+                        at.text
+                    )));
+                }
+            }
             self.advance()?;
             return Ok(Ty::Int);
         }
@@ -737,8 +775,8 @@ impl<'a> Parser<'a> {
             end: at.end,
             msg,
         };
-        match self.tables.and_then(|t| t.get(&name)) {
-            None if self.tables.is_some() => {
+        match self.ctx.tables.and_then(|t| t.get(&name)) {
+            None if self.ctx.tables.is_some() => {
                 return Err(bad(format!(
                     "the mod has no table '{name}' (a `table` line in its manifest)"
                 )));
@@ -927,6 +965,17 @@ pub fn check_rule_in(
     expected: Option<&str>,
     tables: Option<&TableSet>,
 ) -> Vec<Diagnostic> {
+    let ctx = RuleContext {
+        tables,
+        settings: None,
+    };
+    check_rule_ctx(text, expected, ctx)
+}
+
+/// [`check_rule_in`] with the mod's options too: a `setting.<key>` the
+/// options do not declare is a warning (it reads -1), and a mod with no
+/// namespace has no settings, which the port refuses.
+pub fn check_rule_ctx(text: &str, expected: Option<&str>, ctx: RuleContext) -> Vec<Diagnostic> {
     let names = rule_names();
     let mut out = Vec::new();
     let err = |out: &mut Vec<Diagnostic>, n: usize, line: &str, a: usize, b: usize, m: &str| {
@@ -1092,7 +1141,22 @@ pub fn check_rule_in(
                     );
                     continue;
                 }
-                let r = Parser::new(rest, event, names, tables).and_then(|mut p| p.guard());
+                let mut warns = Vec::new();
+                let r = Parser::new(rest, event, names, ctx).and_then(|mut p| {
+                    let r = p.guard();
+                    warns = std::mem::take(&mut p.warns);
+                    r
+                });
+                for w in warns {
+                    out.push(Diagnostic::at(
+                        n,
+                        line,
+                        rest_at + w.start,
+                        rest_at + w.end,
+                        Severity::Warning,
+                        &w.msg,
+                    ));
+                }
                 if let Err(e) = r {
                     err(
                         &mut out,
@@ -1128,8 +1192,22 @@ pub fn check_rule_in(
                 }
                 let args = &kw_rest[kw_end..];
                 let args_at = rest_at + kw_lead + kw_end;
-                let r = Parser::new(args, event, names, tables)
-                    .and_then(|mut p| p.action(kw, event.is_none_or(|e| e.refusable)));
+                let mut warns = Vec::new();
+                let r = Parser::new(args, event, names, ctx).and_then(|mut p| {
+                    let r = p.action(kw, event.is_none_or(|e| e.refusable));
+                    warns = std::mem::take(&mut p.warns);
+                    r
+                });
+                for w in warns {
+                    out.push(Diagnostic::at(
+                        n,
+                        line,
+                        args_at + w.start,
+                        args_at + w.end,
+                        Severity::Warning,
+                        &w.msg,
+                    ));
+                }
                 if let Err(e) = r {
                     let (a, b) = if e.start == 0 && e.end == 0 {
                         (rest_at + kw_lead, rest_at + kw_lead + kw.len())
@@ -1925,7 +2003,12 @@ pub fn write_rule(root: &Path, path: &str, text: &str) -> io::Result<Vec<Diagnos
         edit_manifest(root, |m| set_binding(m, &rel, Some(ev)))?;
     }
     let tables = table_set(root)?;
-    Ok(check_rule_in(text, event.as_deref(), Some(&tables)))
+    let settings = crate::modopts::settings_ctx(root)?;
+    let ctx = RuleContext {
+        tables: Some(&tables),
+        settings: Some(&settings),
+    };
+    Ok(check_rule_ctx(text, event.as_deref(), ctx))
 }
 
 /// Makes a rule file in `rules/` for an event and binds it.

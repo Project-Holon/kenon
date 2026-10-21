@@ -3,6 +3,7 @@
   import { debounced } from "../lib/cache.svelte";
   import { modCheckSettings, modGetSettings, modSaveSettings, type Diagnostic, type ModSettings } from "../lib/modApi";
   import { play } from "../lib/sfx";
+  import ModOptions from "./ModOptions.svelte";
 
   let { readOnly, onSaved }: { readOnly: boolean; onSaved: () => void } = $props();
 
@@ -23,6 +24,7 @@
   let error = $state<string | null>(null);
   let busy = $state(false);
   let loaded = $state(false);
+  let tab = $state<"general" | "options">("general");
 
   // The form as the file keeps it: an empty box is no value.
   const clean = (s: ModSettings): ModSettings => {
@@ -89,14 +91,27 @@
     }
   }
 
+  // Saving options may add the manifest's options-file line.
+  function optionsSaved(path: string | null) {
+    if (form.settings === original.settings) form.settings = path;
+    original.settings = path;
+    onSaved();
+  }
+
   const about = (field: string) => problems.filter((p) => p.field === field);
 </script>
 
 <div class="settings">
   <header>
     <h2>Mod settings</h2>
-    <div class="spacer"></div>
     {#if !readOnly}
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "general"} class:primary={tab === "general"} onclick={() => (tab = "general")}>General</button>
+        <button role="tab" aria-selected={tab === "options"} class:primary={tab === "options"} onclick={() => (tab = "options")}>Options</button>
+      </div>
+    {/if}
+    <div class="spacer"></div>
+    {#if !readOnly && tab === "general"}
       <button class="quiet" disabled={!dirty || busy} onclick={() => (form = { ...original })}>Undo</button>
       <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
     {/if}
@@ -105,7 +120,7 @@
   {#if readOnly}
     <p class="muted pad">Open a project to edit its settings.</p>
   {:else}
-    <div class="scroll">
+    <div class="scroll" hidden={tab !== "general"}>
       {#if error}<p class="bad">{error}</p>{/if}
       <form onsubmit={(e) => (e.preventDefault(), dirty && !busy && save())}>
         <label for="mod-name">Name</label>
@@ -174,6 +189,9 @@
         {/if}
       </form>
     </div>
+    <div class="pane" hidden={tab !== "options"}>
+      <ModOptions modName={form.name} onSaved={optionsSaved} />
+    </div>
   {/if}
 </div>
 
@@ -192,6 +210,18 @@
   }
   .spacer {
     flex: 1;
+  }
+  .tabs {
+    display: flex;
+    gap: 0.3rem;
+  }
+  .pane {
+    min-height: 0;
+    min-width: 0;
+  }
+  .pane[hidden],
+  .scroll[hidden] {
+    display: none;
   }
   .scroll {
     overflow-y: auto;

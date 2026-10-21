@@ -298,7 +298,7 @@
       {#each pieces(b.text) as p}{#if p.code !== undefined}<code>{p.code}</code>{:else}{p.text}{/if}{/each}
     </p>
   {:else if b.t === "code"}
-    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : b.lang === "manifest" ? "Manifest line" : b.lang === "table" ? "Table file" : "Code", b.text)}
+    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : b.lang === "manifest" ? "Manifest line" : b.lang === "table" ? "Table file" : b.lang === "options" ? "Options file" : "Code", b.text)}
   {:else if b.t === "list"}
     <ul>
       {#each b.items as item}

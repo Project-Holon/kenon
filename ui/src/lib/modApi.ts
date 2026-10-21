@@ -118,6 +118,34 @@ export const modRuleNames = () => invoke<RuleNames>("mod_rule_names");
 export const modListRules = () => invoke<RuleEntry[]>("mod_list_rules");
 export const modReadRule = (path: string) => invoke<string>("mod_read_rule", { path });
 export const modCheckRule = (text: string) => invoke<Diagnostic[]>("mod_check_rule", { text, event: null });
+/// One option of the mod's options file. `line`, `lead`, `comment` and `raw`
+/// keep the file's comments and unedited lines; send them back unchanged.
+export interface OptionDecl {
+  key: string;
+  label: string;
+  kind: "bool" | "choice" | "int";
+  /// 0 or 1 for a bool, 0 for a choice (the first value), the number for an int.
+  default: number;
+  min: number;
+  max: number;
+  values: string[];
+  line: number;
+  lead: string[];
+  comment: string;
+  raw: string;
+}
+
+export interface OptionsFile {
+  path: string | null;
+  exists: boolean;
+  options: OptionDecl[];
+  diagnostics: Diagnostic[];
+}
+
+export const modReadOptions = () => invoke<OptionsFile>("mod_read_options");
+export const modSaveOptions = (options: OptionDecl[]) => invoke<OptionsFile>("mod_save_options", { options });
+/// A problem of option `n` has the field `option:n`.
+export const modCheckOptions = (options: OptionDecl[]) => invoke<Diagnostic[]>("mod_check_options", { options });
 export const modSaveRule = (path: string, text: string) => invoke<Diagnostic[]>("mod_save_rule", { path, text });
 export const modNewRule = (name: string, event: string) => invoke<string>("mod_new_rule", { name, event });
 export const modRenameRule = (from: string, to: string) => invoke<string>("mod_rename_rule", { from, to });

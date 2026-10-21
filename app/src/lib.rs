@@ -1022,10 +1022,36 @@ fn mod_check_rule(
     text: String,
     event: Option<String>,
 ) -> Vec<modcode::Diagnostic> {
-    let tables = mod_root(&state)
-        .ok()
-        .and_then(|root| modcode::table_set(&root).ok());
-    modcode::check_rule_in(&text, event.as_deref(), tables.as_ref())
+    let root = mod_root(&state).ok();
+    let tables = root.as_ref().and_then(|r| modcode::table_set(r).ok());
+    let settings = root
+        .as_ref()
+        .and_then(|r| kenon_core::modopts::settings_ctx(r).ok());
+    let ctx = modcode::RuleContext {
+        tables: tables.as_ref(),
+        settings: settings.as_ref(),
+    };
+    modcode::check_rule_ctx(&text, event.as_deref(), ctx)
+}
+
+#[tauri::command]
+fn mod_read_options(state: State<AppState>) -> Result<kenon_core::modopts::OptionsFile, String> {
+    let root = mod_root(&state)?;
+    kenon_core::modopts::read_options_file(&root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_save_options(
+    state: State<AppState>,
+    options: Vec<kenon_core::modopts::OptionDecl>,
+) -> Result<kenon_core::modopts::OptionsFile, String> {
+    let root = mod_root(&state)?;
+    kenon_core::modopts::write_options_file(&root, &options).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_check_options(options: Vec<kenon_core::modopts::OptionDecl>) -> Vec<modcode::Diagnostic> {
+    kenon_core::modopts::check_options(&options)
 }
 
 #[tauri::command]
@@ -1568,6 +1594,9 @@ pub fn run() {
             mod_list_rules,
             mod_read_rule,
             mod_check_rule,
+            mod_read_options,
+            mod_save_options,
+            mod_check_options,
             mod_save_rule,
             mod_new_rule,
             mod_rename_rule,
