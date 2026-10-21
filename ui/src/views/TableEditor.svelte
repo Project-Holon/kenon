@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
+  import SearchSelect from "../lib/SearchSelect.svelte";
+  import { enumIcon, loadIcons } from "../lib/icons.svelte";
   import { debounced, once } from "../lib/cache.svelte";
   import { asset } from "../lib/backend";
   import { invoke } from "@tauri-apps/api/core";
@@ -38,6 +40,8 @@
   } = $props();
 
   const SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
+  // Lists longer than this get a search box.
+  const LONG = 30;
 
   let entries = $state<Entry[]>([]);
   let current = $state<number | null>(null);
@@ -50,6 +54,7 @@
   let busy = $state(false);
 
   onMount(async () => {
+    loadIcons();
     try {
       entries = await tableEntries(tables[0]);
       const first = (start !== undefined ? entries.find((e) => e.index === start) : null) ??
@@ -303,10 +308,14 @@
                       {#if v.inferred}<span class="tag" title="Meaning inferred, not confirmed in the game's code">?</span>{/if}
                     </span>
                     {#if v.enum && names[v.enum]?.length}
+                      {#if names[v.enum].length > LONG}
+                        <SearchSelect bind:value={v.value} options={names[v.enum]} icon={enumIcon(v.enum)} disabled={readOnly || v.readonly} label={v.label} />
+                      {:else}
                       <select bind:value={v.value} disabled={readOnly || v.readonly}>
                         {#each names[v.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
                         {#if v.value >= names[v.enum].length}<option value={v.value}>({v.value})</option>{/if}
                       </select>
+                      {/if}
                     {:else if v.max === 1 && v.min === 0}
                       <input type="checkbox" checked={v.value === 1} disabled={readOnly || v.readonly} onchange={(e) => (v.value = (e.currentTarget as HTMLInputElement).checked ? 1 : 0)} />
                     {:else}
@@ -331,10 +340,14 @@
                         <label class="field">
                           <span class="name">{c.label}</span>
                           {#if c.enum && names[c.enum]?.length}
+                            {#if names[c.enum].length > LONG}
+                              <SearchSelect bind:value={row[ci]} options={names[c.enum]} icon={enumIcon(c.enum)} disabled={readOnly} label={c.label} />
+                            {:else}
                             <select bind:value={row[ci]} disabled={readOnly}>
                               {#each names[c.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
                               {#if row[ci] >= names[c.enum].length}<option value={row[ci]}>({row[ci]})</option>{/if}
                             </select>
+                            {/if}
                           {:else}
                             <input type="number" min={c.min} max={c.max} bind:value={row[ci]} readonly={readOnly} />
                           {/if}
@@ -358,10 +371,14 @@
                       {#each s.columns as c, ci}
                         <td>
                           {#if c.enum && names[c.enum]?.length}
+                            {#if names[c.enum].length > LONG}
+                              <SearchSelect bind:value={row[ci]} options={names[c.enum]} icon={enumIcon(c.enum)} disabled={readOnly} label={c.label} />
+                            {:else}
                             <select bind:value={row[ci]} disabled={readOnly}>
                               {#each names[c.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
                               {#if row[ci] >= names[c.enum].length}<option value={row[ci]}>({row[ci]})</option>{/if}
                             </select>
+                            {/if}
                           {:else}
                             <input type="number" min={c.min} max={c.max} bind:value={row[ci]} readonly={readOnly} />
                           {/if}

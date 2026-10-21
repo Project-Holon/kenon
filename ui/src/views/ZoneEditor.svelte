@@ -8,6 +8,8 @@
   import { FLAG_BLOCKED, kindName, tileCss, tileLabel, tileRgb } from "../lib/terrain";
   import TableEditor from "./TableEditor.svelte";
   import WildEditor from "./WildEditor.svelte";
+  import SearchSelect from "../lib/SearchSelect.svelte";
+  import { itemIcon, loadIcons } from "../lib/icons.svelte";
 
   // One map: click things to edit them, drag to move them, paint tiles.
   let {
@@ -446,6 +448,7 @@
   }
 
   onMount(() => {
+    loadIcons();
     load(false);
     tableEntries("trainers").then((t) => (trainers = t)).catch(() => {});
     tableEntries("items").then((t) => (items = t)).catch(() => {});
@@ -1229,6 +1232,14 @@
     const t = setTimeout(() => (previewAt = f), 250);
     return () => clearTimeout(t);
   });
+  // Options for the searchable lists.
+  const trainerOptions = $derived<[number, string][]>([
+    [-1, "Nobody"],
+    ...trainers.filter((t) => t.index > 0).map((t) => [t.index, `${t.name || `Trainer ${t.index}`} (${t.index})`] as [number, string]),
+  ]);
+  const zoneOptions = $derived(allZones.map((z) => [z.id, `${z.place} (${z.id})`] as [number, string]));
+  const itemOptions = $derived(items.map((it) => [it.index, it.name || `Item ${it.index}`] as [number, string]));
+  const musicOptions = $derived(music.map((m) => [m.index, m.name] as [number, string]));
   const hoverIndex = $derived(hover && map ? hover.z * map.width + hover.x : -1);
   const counts = $derived.by(() => {
     const ev = map?.events ?? [];
@@ -1309,9 +1320,9 @@
       {/if}
       {#if adding === "prop" && propModels.length}
         <h3>Object to place</h3>
-        <select bind:value={newModel} aria-label="Object to place">
-          {#each propModels as m}<option value={m}>Object {m}</option>{/each}
-        </select>
+        {#if newModel !== null}
+          <SearchSelect bind:value={newModel} options={propModels.map((m) => [m, `Object ${m}`] as [number, string])} label="Object to place" />
+        {/if}
       {/if}
       {#if painting}
         <h3>Paint with</h3>
@@ -1385,7 +1396,7 @@
             {#each placed as pr (`${pr.chunk}:${pr.index}`)}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="prop"
+                class="prop-mark"
                 class:on={pickedProp === pr}
                 class:passive={tool !== "select" || adding !== null}
                 style="left: {(pr.x - 0.5) * scale}px; top: {(pr.z - 0.5) * scale}px; width: {scale}px; height: {scale}px"
@@ -1560,17 +1571,13 @@
         {#if ev.kind === "npc"}
           <label class="field">
             <span>Battles</span>
-            <select
+            <SearchSelect
               value={ev.trainer ?? -1}
+              options={trainerOptions}
               disabled={readOnly || busy}
-              onchange={(e) => {
-                const v = Number((e.currentTarget as HTMLSelectElement).value);
-                setTrainer(ev, v < 0 ? null : v);
-              }}
-            >
-              <option value={-1}>Nobody</option>
-              {#each trainers as t}{#if t.index > 0}<option value={t.index}>{t.name || `Trainer ${t.index}`} ({t.index})</option>{/if}{/each}
-            </select>
+              label="Battles"
+              onchange={(v) => setTrainer(ev, v < 0 ? null : v)}
+            />
           </label>
           <div class="field">
             <span>Looks like</span>
@@ -1605,9 +1612,13 @@
         {:else if ev.kind === "warp"}
           <label class="field">
             <span>Leads to</span>
-            <select value={ev.toZone ?? 0} disabled={readOnly || busy} onchange={(e) => save(ev, { zoneId: Number((e.currentTarget as HTMLSelectElement).value) })}>
-              {#each allZones as z}<option value={z.id}>{z.place} ({z.id})</option>{/each}
-            </select>
+            <SearchSelect
+              value={ev.toZone ?? 0}
+              options={zoneOptions}
+              disabled={readOnly || busy}
+              label="Leads to"
+              onchange={(v) => save(ev, { zoneId: v })}
+            />
           </label>
           {#if ev.toZone !== null}
             <button onclick={() => switchZone(ev.toZone!)}>Go there</button>
@@ -1624,9 +1635,14 @@
           {#if isItem(ev)}
             <label class="field">
               <span>Item</span>
-              <select value={value(ev, "scriptId")} disabled={readOnly || busy} onchange={(e) => save(ev, { scriptId: Number((e.currentTarget as HTMLSelectElement).value) })}>
-                {#each items as it}<option value={it.index}>{it.name || `Item ${it.index}`}</option>{/each}
-              </select>
+              <SearchSelect
+                value={value(ev, "scriptId")}
+                options={itemOptions}
+                icon={itemIcon}
+                disabled={readOnly || busy}
+                label="Item"
+                onchange={(v) => save(ev, { scriptId: v })}
+              />
             </label>
           {:else}
             <label class="field">
@@ -1821,10 +1837,13 @@
           {#each SEASONS as season, i}
             <div class="music">
               <span>{season}</span>
-              <select value={map.zone.music[i]} disabled={readOnly} onchange={(e) => saveMusic(i, Number((e.currentTarget as HTMLSelectElement).value))}>
-                {#each music as m}<option value={m.index}>{m.name}</option>{/each}
-                {#if !music.some((m) => m.index === map!.zone.music[i])}<option value={map.zone.music[i]}>{musicName(map.zone.music[i])}</option>{/if}
-              </select>
+              <SearchSelect
+                value={map.zone.music[i]}
+                options={musicOptions}
+                disabled={readOnly}
+                label="{season} music"
+                onchange={(v) => saveMusic(i, v)}
+              />
               <button class:primary={playing === i} onclick={() => toggleMusic(i)}>{playing === i ? "Stop" : "Play"}</button>
             </div>
           {/each}
@@ -2162,7 +2181,7 @@
     text-decoration: underline;
     cursor: pointer;
   }
-  .prop {
+  .prop-mark {
     position: absolute;
     box-sizing: border-box;
     border: 2px solid #fff;
@@ -2173,12 +2192,12 @@
     cursor: grab;
     z-index: 1;
   }
-  .prop.on {
+  .prop-mark.on {
     background: var(--gold);
     outline-color: var(--outline);
     z-index: 4;
   }
-  .prop.passive {
+  .prop-mark.passive {
     pointer-events: none;
   }
   .prop-badge,

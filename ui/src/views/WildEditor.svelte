@@ -5,6 +5,8 @@
   import { once } from "../lib/cache.svelte";
   import { enumValues, saveRecord, tableRecord, type Section, type TableRecord, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import SearchSelect from "../lib/SearchSelect.svelte";
+  import { loadIcons, speciesIcon } from "../lib/icons.svelte";
 
   // A map's wild Pokemon, one method at a time: each slot on one line.
   let { index, readOnly, onSaved }: { index: number; readOnly: boolean; onSaved: () => void } = $props();
@@ -38,6 +40,7 @@
   }
 
   onMount(() => {
+    loadIcons();
     load();
     enumValues("species").then((s) => (species = s));
     once("named/7", () => invoke<{ chr: number; paletteOffset: number }[] | null>("named_sheets", { arc: 7 }))
@@ -134,9 +137,7 @@
           <li>
             <span class="pct">{odds(l, i)}</span>
             {#if icon(row[sp])}<img class="px icon" src={icon(row[sp])} alt="" />{:else}<span class="icon"></span>{/if}
-            <select bind:value={row[sp]} disabled={readOnly} aria-label="Species">
-              {#each species as n, k}<option value={k}>{n || "None"}</option>{/each}
-            </select>
+            <SearchSelect bind:value={row[sp]} options={species.map((n, k) => [k, n || "None"] as [number, string])} icon={speciesIcon} disabled={readOnly} label="Species" />
             <span class="lv">Lv</span>
             <input class="num" type="number" min="0" max="100" bind:value={row[min]} readonly={readOnly} aria-label="Lowest level" />
             <span class="muted">-</span>
@@ -206,10 +207,6 @@
     align-items: center;
     gap: 0.3rem;
     font-size: 0.85rem;
-  }
-  .slots select {
-    min-width: 0;
-    width: 100%;
   }
   .pct {
     color: var(--muted);

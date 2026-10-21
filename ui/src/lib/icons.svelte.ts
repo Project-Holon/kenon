@@ -1,0 +1,61 @@
+// Small pictures for list entries, read from the ROM's own tables: a
+// species' menu icon, an item's bag icon, a trainer class's sprite.
+import { invoke } from "@tauri-apps/api/core";
+import { asset } from "./backend";
+import { once } from "./cache.svelte";
+
+const state = $state({
+  // Pokemon icon sheet -> palette bank offset (named sheets of archive 7).
+  iconOffset: new Map<number, number>(),
+  itemIcons: [] as number[],
+  trainerGraphic: [] as number[],
+});
+
+let started = false;
+
+/// Loads the tables once; the icon functions return null until then.
+export function loadIcons() {
+  if (started) return;
+  started = true;
+  once("named/7", () => invoke<{ chr: number; paletteOffset: number }[] | null>("named_sheets", { arc: 7 }))
+    .then((list) => (state.iconOffset = new Map((list ?? []).map((n) => [n.chr, n.paletteOffset]))))
+    .catch(() => {});
+  const table = (name: string) =>
+    once(`table/${name}`, () => fetch(asset(`table/${name}`)).then((r) => (r.ok ? r.json() : [])));
+  table("item_icons").then((t: number[]) => (state.itemIcons = t)).catch(() => {});
+  table("trainer_graphic").then((t: number[]) => (state.trainerGraphic = t)).catch(() => {});
+}
+
+export function speciesIcon(sp: number): string | null {
+  const chr = 7 + 2 * sp;
+  if (sp <= 0 || !state.iconOffset.has(chr)) return null;
+  return asset(`preview/7:${chr}/7:0?cells=2&paloffset=${state.iconOffset.get(chr)}`);
+}
+
+export function itemIcon(item: number): string | null {
+  const t = state.itemIcons;
+  const at = item * 4;
+  if (item <= 0 || at + 3 >= t.length) return null;
+  const tile = t[at] | (t[at + 1] << 8);
+  const pal = t[at + 2] | (t[at + 3] << 8);
+  return asset(`preview/25:${tile}/25:${pal}?cells=1`);
+}
+
+export function trainerClassIcon(cls: number): string | null {
+  const g = state.trainerGraphic[cls];
+  return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=2`);
+}
+
+/// The icon function for an enum, when its entries have pictures.
+export function enumIcon(name: string | null): ((v: number) => string | null) | undefined {
+  switch (name) {
+    case "species":
+      return speciesIcon;
+    case "item":
+      return itemIcon;
+    case "trainerClass":
+      return trainerClassIcon;
+    default:
+      return undefined;
+  }
+}
