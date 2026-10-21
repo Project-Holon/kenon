@@ -9,7 +9,7 @@ export type Category =
   | { id: string; label: string; kind: "files" }
   | { id: string; label: string; kind: "cries" }
   | { id: string; label: string; kind: "worldmap" }
-  | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "code" | "conflicts" }
+  | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
 export interface Group {
@@ -111,6 +111,7 @@ export const GROUPS: Group[] = [
       { id: "mod-settings", label: "Mod settings", kind: "mod", view: "settings" },
       { id: "mod-hooks", label: "Hooks", kind: "mod", view: "hooks" },
       { id: "mod-rules", label: "Rules", kind: "mod", view: "rules" },
+      { id: "mod-tables", label: "Tables", kind: "mod", view: "tables" },
       { id: "mod-code", label: "Code", kind: "mod", view: "code" },
       { id: "mod-conflicts", label: "Conflicts", kind: "mod", view: "conflicts" },
     ],

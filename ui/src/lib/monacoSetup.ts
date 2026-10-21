@@ -26,7 +26,7 @@ import "monaco-editor/editor/contrib/wordOperations/browser/wordOperations";
 import "monaco-editor/editor/browser/coreCommands";
 import "monaco-editor/editor/common/standaloneStrings";
 import "../../../node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
-import { HOOK_LANGUAGE, RULE_LANGUAGE, completions } from "./monaco";
+import { HOOK_LANGUAGE, RULE_LANGUAGE, TABLE_LANGUAGE, completions } from "./monaco";
 
 export { monaco };
 
@@ -84,7 +84,7 @@ function applyTheme() {
   monaco.editor.setTheme(name);
 }
 
-const ACTIONS = ["refuse", "set", "add", "sub", "message", "send"];
+const ACTIONS = ["refuse", "set", "add", "sub", "message", "send", "release", "give"];
 
 function registerRule() {
   monaco.languages.register({ id: RULE_LANGUAGE, extensions: [".rule"] });
@@ -127,6 +127,40 @@ function registerRule() {
       "species_bst",
       "caught",
       "item_count",
+      "personality",
+      "ot_id",
+      "exp",
+      "friendship",
+      "ability",
+      "move1",
+      "move2",
+      "move3",
+      "move4",
+      "is_egg",
+      "gender",
+      "form",
+      "nature",
+      "has_nickname",
+      "place",
+      "side",
+      "species_stage",
+      "gender_ratio",
+      "egg_group1",
+      "egg_group2",
+      "growth",
+      "catch_rate",
+      "area",
+      "area_of",
+      "wild_battle",
+      "play_seconds",
+      "owned",
+      "party_max_level",
+      "party_alive",
+      "party_has_type",
+      "item_pocket",
+      "move_type",
+      "move_power",
+      "move_class",
       "battle_style",
       "in_battle",
     ],
@@ -136,9 +170,9 @@ function registerRule() {
         [/(\brule\b)(\s+)([\w.-]+)(\s+)(\bon\b)(\s+)([\w.]+)/, ["keyword", "", "identifier", "", "keyword", "", "type"]],
         [/"(?:[^"\\]|\\.)*"/, "string"],
         [/"/, "string.invalid"],
-        [/\d+/, "number"],
+        [/0[xX][0-9a-fA-F]+|\d+/, "number"],
         [/\b(?:true|false)\b/, "constant"],
-        [/\b(?:event|state)\b(?=\.)/, "variable.predefined"],
+        [/\b(?:event|state|table|setting)\b(?=\.)/, "variable.predefined"],
         [
           /[A-Za-z_]\w*/,
           { cases: { "@keywords": "keyword", "@actions": "keyword.action", "@states": "variable.state", "@default": "identifier" } },
@@ -170,6 +204,10 @@ function registerRule() {
         return {
           suggestions: names.events.map((e) => make(e.name, K.Event, e.refusable ? "can be refused" : "")),
         };
+      }
+      // The mod's own tables.
+      if (/\btable\.\w*$/.test(before)) {
+        return { suggestions: completions.tables.map((t) => make(t, K.Struct, "data table")) };
       }
       // The event of the file, from its "rule ... on" line.
       const header = /^\s*rule\s+\S+\s+on\s+([\w.]+)/m.exec(model.getValue());
@@ -204,12 +242,48 @@ function registerRule() {
         suggestions: [
           make("event", K.Module, "payload of the event", "event."),
           make("state", K.Module, "the mod's own cell", "state."),
+          make("table", K.Module, "one of the mod's data tables", "table."),
+          make("setting", K.Module, "one of the mod's settings", "setting."),
           ...names.states
             .filter((s) => (writing ? s.writable && s.writableOk : s.readable))
             .map((s) =>
               make(s.name, K.Variable, s.sub === "plain" ? "" : s.sub === "mon" ? "takes a Pokemon" : "takes a number"),
             ),
           ...(writing ? [] : [make("true", K.Constant), make("false", K.Constant)]),
+        ],
+      };
+    },
+  });
+}
+
+function registerTable() {
+  monaco.languages.register({ id: TABLE_LANGUAGE });
+  monaco.languages.setLanguageConfiguration(TABLE_LANGUAGE, { comments: { lineComment: "#" } });
+  monaco.languages.setMonarchTokensProvider(TABLE_LANGUAGE, {
+    defaultToken: "",
+    tokenizer: {
+      root: [
+        [/#.*$/, "comment"],
+        [/\bdefault\b/, "keyword"],
+        [/[-+]?0[xX][0-9a-fA-F]+|[-+]?\d+/, "number"],
+        [/=/, "delimiter"],
+      ],
+    },
+  } as monaco.languages.IMonarchLanguage);
+  monaco.languages.registerCompletionItemProvider(TABLE_LANGUAGE, {
+    provideCompletionItems(model, position) {
+      const before = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+      if (!/^\s*\w*$/.test(before)) return { suggestions: [] };
+      const word = model.getWordUntilPosition(position);
+      return {
+        suggestions: [
+          {
+            label: "default",
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            detail: "the value of every key not listed",
+            insertText: "default = ",
+            range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+          },
         ],
       };
     },
@@ -301,6 +375,7 @@ export function ensureMonaco() {
     getWorker: () => new EditorWorker(),
   };
   registerRule();
+  registerTable();
   registerHooks();
   applyTheme();
   new MutationObserver(applyTheme).observe(document.documentElement, {

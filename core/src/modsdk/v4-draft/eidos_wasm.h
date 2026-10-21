@@ -91,6 +91,7 @@ enum {
     EIDOS_EVENT_CATCH_RESULT = 79,
     EIDOS_EVENT_BATTLE_END = 80,
     EIDOS_EVENT_WHITEOUT = 81,
+    EIDOS_EVENT_BATTLE_TRAINER_MON = 82, /* draft: api 4, one opposing Pokemon */
 
     /* items, money and healing */
     EIDOS_EVENT_ITEM_ADD = 90,
@@ -126,6 +127,30 @@ EIDOS_IMPORT("item_count") int32_t eidos_item_count(uint32_t item);
 /* Puts `count` of an item in the bag at once. Returns 0, or non-zero when
    the add is refused. */
 EIDOS_IMPORT("item_add") int32_t eidos_item_add(uint32_t item, uint32_t count);
+
+/* Scalar reads of the game state (draft: the names follow the state table of
+   sdk/mod_state.h and the services table of sdk/mod_api.h). */
+
+/* The area of a zone: the place name the game shows on entry. Negative when
+   the zone data is not loaded. */
+EIDOS_IMPORT("area_of") int32_t eidos_area_of(uint32_t zone);
+
+/* The battle in progress: 1 wild, 0 a trainer, -1 no battle. */
+EIDOS_IMPORT("battle_wild") int32_t eidos_battle_wild(void);
+
+/* The play time of the save in force, in seconds. */
+EIDOS_IMPORT("play_seconds") uint32_t eidos_play_seconds(void);
+
+/* One data field of an item or a move, by the game's field id. Returns 0,
+   or non-zero past the item or move limit. */
+EIDOS_IMPORT("item_value") int32_t eidos_item_value(uint32_t item, uint32_t field, uint32_t *out);
+EIDOS_IMPORT("move_value") int32_t eidos_move_value(uint32_t move, uint32_t field, uint32_t *out);
+
+/* A value of one of the mod's own data tables (manifest `table` line). The
+   name is `length` bytes. Returns 0 when the key is in the table, 1 when it
+   is not (*out then holds the table's default), -1 when the mod has no such
+   table. */
+EIDOS_IMPORT("table_get") int32_t eidos_table_get(const char *name, uint32_t length, int32_t key, int32_t *out);
 
 /* mon_release takes a Pokemon reference, which the draft has no handle for
    yet; it is not declared here. */

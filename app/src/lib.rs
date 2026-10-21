@@ -934,7 +934,9 @@ fn mod_check_settings(
 ) -> Result<Vec<modcode::Diagnostic>, String> {
     let root = mod_root(&state)?;
     let hooks = modcode::read_overrides(&root).map_err(|e| e.to_string())?;
-    Ok(modcode::check_settings(&settings, hooks.lines().count()))
+    let mut found = modcode::check_settings(&settings, hooks.lines().count());
+    found.extend(modcode::check_table_files(&root).map_err(|e| e.to_string())?);
+    Ok(found)
 }
 
 #[tauri::command]
@@ -1012,9 +1014,18 @@ fn mod_read_rule(state: State<AppState>, path: String) -> Result<String, String>
     modcode::read_rule(&root, &path).map_err(|e| e.to_string())
 }
 
+/// The mod's tables are the ones a rule may read; with no project open the
+/// table names are not checked.
 #[tauri::command]
-fn mod_check_rule(text: String, event: Option<String>) -> Vec<modcode::Diagnostic> {
-    modcode::check_rule(&text, event.as_deref())
+fn mod_check_rule(
+    state: State<AppState>,
+    text: String,
+    event: Option<String>,
+) -> Vec<modcode::Diagnostic> {
+    let tables = mod_root(&state)
+        .ok()
+        .and_then(|root| modcode::table_set(&root).ok());
+    modcode::check_rule_in(&text, event.as_deref(), tables.as_ref())
 }
 
 #[tauri::command]
@@ -1049,6 +1060,63 @@ fn mod_rename_rule(state: State<AppState>, from: String, to: String) -> Result<S
 fn mod_delete_rule(state: State<AppState>, path: String) -> Result<(), String> {
     let root = mod_root(&state)?;
     modcode::delete_rule(&root, &path).map_err(|e| e.to_string())?;
+    reload_project(&state)
+}
+
+#[tauri::command]
+fn mod_list_tables(state: State<AppState>) -> Result<Vec<modcode::TableEntry>, String> {
+    let root = mod_root(&state)?;
+    modcode::list_tables(&root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_read_table(state: State<AppState>, name: String) -> Result<String, String> {
+    let root = mod_root(&state)?;
+    modcode::read_table(&root, &name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_check_table(text: String) -> Vec<modcode::Diagnostic> {
+    modcode::check_table(&text)
+}
+
+#[tauri::command]
+fn mod_save_table(
+    state: State<AppState>,
+    name: String,
+    text: String,
+) -> Result<Vec<modcode::Diagnostic>, String> {
+    let root = mod_root(&state)?;
+    let found = modcode::write_table(&root, &name, &text).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(found)
+}
+
+#[tauri::command]
+fn mod_new_table(state: State<AppState>, name: String) -> Result<modcode::TableEntry, String> {
+    let root = mod_root(&state)?;
+    let made = modcode::new_table(&root, &name).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(made)
+}
+
+/// The renamed table and how many rule reads were changed with it.
+#[tauri::command]
+fn mod_rename_table(
+    state: State<AppState>,
+    from: String,
+    to: String,
+) -> Result<(modcode::TableEntry, usize), String> {
+    let root = mod_root(&state)?;
+    let done = modcode::rename_table(&root, &from, &to).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(done)
+}
+
+#[tauri::command]
+fn mod_delete_table(state: State<AppState>, name: String) -> Result<(), String> {
+    let root = mod_root(&state)?;
+    modcode::delete_table(&root, &name).map_err(|e| e.to_string())?;
     reload_project(&state)
 }
 
@@ -1504,6 +1572,13 @@ pub fn run() {
             mod_new_rule,
             mod_rename_rule,
             mod_delete_rule,
+            mod_list_tables,
+            mod_read_table,
+            mod_check_table,
+            mod_save_table,
+            mod_new_table,
+            mod_rename_table,
+            mod_delete_table,
             mod_get_paths,
             mod_set_paths,
             mod_conflicts,

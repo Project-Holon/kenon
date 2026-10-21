@@ -18,8 +18,8 @@ fn errors(text: &str, ev: Option<&str>) -> Vec<String> {
 #[test]
 fn tables_have_the_ports_counts() {
     let n = rule_names();
-    assert_eq!(n.events.len(), 52);
-    assert_eq!(n.states.len(), 20);
+    assert_eq!(n.events.len(), 53);
+    assert_eq!(n.states.len(), 59);
     let wild = n.event("encounter.wild").unwrap();
     assert!(wild.fields.iter().any(|f| f.name == "double"));
     assert!(n.event("battle.faint").unwrap().fields.len() == 6);
@@ -96,6 +96,8 @@ fn actions_state_and_heal_hp() {
             "message" | "send" => format!(" do {kw} 1"),
             "release" => " do release 0".to_string(),
             "give" => " do give 1 1".to_string(),
+            "box" => " do box 0 3".to_string(),
+            "withdraw" => " do withdraw 0 1".to_string(),
             other => panic!("the port has an action kenon does not check: {other}"),
         };
         let text = format!("language 1\nrule r on dex.register\n{body}\n");
@@ -392,6 +394,17 @@ fn eidos_own_rules() {
     ] {
         assert!(errors(text, Some("encounter.wild")).is_empty());
     }
+    // The interface 4 rules of that file: an operator next to a minus, and a
+    // table read (with the table declared, and then not).
+    if test.contains("rule negops on encounter.wild") {
+        let have = tables(&[("caps", true)]);
+        let negops = "language 1\nrule negops on encounter.wild\n    when event.level*-1 <-1\n    do set event.level 7\n";
+        assert!(errors_in(negops, "encounter.wild", Some(&have)).is_empty());
+        let read = "language 1\nrule cap on encounter.wild\n    do set event.level table.caps[event.level] + table.caps[50]\n";
+        assert!(errors_in(read, "encounter.wild", Some(&have)).is_empty());
+        let none = "language 1\nrule cap on encounter.wild\n    do set event.level table.nope[1]\n";
+        assert!(!errors_in(none, "encounter.wild", Some(&have)).is_empty());
+    }
     for text in [
         "language 1\nrule broken on encounter.wild\n    when event.level >\n    do set event.level 0\n",
         "language 1\nrule bad_event on no.such.event\n    do refuse\n",
@@ -457,4 +470,416 @@ fn doc_rules_pass_the_checker() {
         let kw = line.split_whitespace().nth(1).unwrap();
         assert!(docs.contains(&kw), "the docs lack the action {kw}");
     }
+}
+
+// ---------------------------------------------------------------------
+// Interface 4: more reads, data tables
+// ---------------------------------------------------------------------
+
+fn tables(names: &[(&str, bool)]) -> TableSet {
+    names.iter().map(|(n, ok)| (n.to_string(), *ok)).collect()
+}
+
+fn errors_in(text: &str, ev: &str, t: Option<&TableSet>) -> Vec<String> {
+    check_rule_in(text, Some(ev), t)
+        .into_iter()
+        .map(|d| d.message)
+        .collect()
+}
+
+#[test]
+fn operators_read_as_pairs_or_singles() {
+    let one = |body: &str| {
+        errors(
+            &format!("language 1\nrule r on mon.exp\n  when {body}\n  do message 1\n"),
+            Some("mon.exp"),
+        )
+    };
+    assert!(one("level[event.mon] * -1 < 0").is_empty());
+    assert!(one("event.level*-1 < 0").is_empty());
+    assert!(one("event.level<-1").is_empty());
+    assert!(one("event.level >= 0 && event.level<=-1").is_empty());
+    assert!(one("event.level =- 1")[0].contains("'=='"));
+    assert!(one("event.level & 1")[0].contains("'&&'"));
+}
+
+#[test]
+fn new_reads_check() {
+    let ok = |ev: &str, body: &str| {
+        let text = format!("language 1\nrule r on {ev}\n{body}");
+        let e = errors(&text, Some(ev));
+        assert!(e.is_empty(), "{text}: {e:?}");
+    };
+    // Every new state name reads with the subscript its kind needs.
+    for (name, sub) in [
+        ("personality", "event.mon"),
+        ("ot_id", "0"),
+        ("exp", "event.mon"),
+        ("friendship", "event.mon"),
+        ("ability", "event.mon"),
+        ("move1", "event.mon"),
+        ("move2", "event.mon"),
+        ("move3", "event.mon"),
+        ("move4", "event.mon"),
+        ("is_egg", "event.mon"),
+        ("gender", "event.mon"),
+        ("form", "event.mon"),
+        ("nature", "event.mon"),
+        ("has_nickname", "event.mon"),
+        ("place", "event.mon"),
+        ("side", "event.mon"),
+        ("species_stage", "event.level"),
+        ("catch_rate", "25"),
+        ("gender_ratio", "25"),
+        ("growth", "25"),
+        ("egg_group1", "25"),
+        ("egg_group2", "25"),
+        ("area_of", "event.level"),
+        ("owned", "25"),
+        ("party_has_type", "10"),
+        ("item_pocket", "17"),
+        ("move_type", "33"),
+        ("move_power", "33"),
+        ("move_class", "33"),
+    ] {
+        ok(
+            "mon.exp",
+            &format!("  when {name}[{sub}] >= 0\n  do message 1\n"),
+        );
+    }
+    for name in [
+        "area",
+        "wild_battle",
+        "play_seconds",
+        "party_max_level",
+        "party_alive",
+    ] {
+        ok("mon.exp", &format!("  when {name} >= 0\n  do message 1\n"));
+    }
+    let bad = |body: &str| {
+        errors(
+            &format!("language 1\nrule r on mon.exp\n  when {body}\n  do message 1\n"),
+            Some("mon.exp"),
+        )
+    };
+    assert!(bad("owned > 0")[0].contains("needs a subscript"));
+    assert!(bad("play_seconds[1] > 0")[0].contains("takes no subscript"));
+    assert!(bad("party_alive[0] > 0")[0].contains("takes no subscript"));
+    // None of them can be written.
+    let write = errors(
+        "language 1\nrule r on mon.exp\n  do set play_seconds 0\n",
+        Some("mon.exp"),
+    );
+    assert!(write[0].contains("cannot be changed"), "{write:?}");
+}
+
+#[test]
+fn tables_in_rules() {
+    let one =
+        |body: &str| format!("language 1\nrule r on mon.exp\n  when {body}\n  do message 1\n");
+    let have = tables(&[("caps", true), ("bad", false)]);
+    // The level cap by badge rule.
+    let cap = "language 1\nrule cap on mon.exp\n  when level[event.mon] >= table.caps[badges]\n  do set event.amount 0\n";
+    assert!(errors_in(cap, "mon.exp", Some(&have)).is_empty());
+    // Any number expression is a key.
+    assert!(errors_in(
+        &one("table.caps[badges * 2 + 1] > 0"),
+        "mon.exp",
+        Some(&have)
+    )
+    .is_empty());
+    assert!(errors_in(
+        &one("table.caps[event.level] == table.caps[0]"),
+        "mon.exp",
+        Some(&have)
+    )
+    .is_empty());
+    // A table the mod lacks is refused, as the port does at bind.
+    let e = errors_in(cap, "mon.exp", Some(&tables(&[("other", true)])));
+    assert!(
+        e[0].contains("no table 'caps'") && e[0].contains("manifest"),
+        "{e:?}"
+    );
+    let e = errors_in(cap, "mon.exp", Some(&tables(&[])));
+    assert!(e[0].contains("no table 'caps'"), "{e:?}");
+    // A table whose file does not load is not there either.
+    let e = errors_in(&one("table.bad[0] > 0"), "mon.exp", Some(&have));
+    assert!(e[0].contains("does not load"), "{e:?}");
+    // Without a mod the names are not checked.
+    assert!(errors_in(cap, "mon.exp", None).is_empty());
+    // Shape errors.
+    assert!(errors_in(&one("table.caps > 0"), "mon.exp", Some(&have))[0].contains("with a key"));
+    assert!(
+        errors_in(&one("table.caps[\"a\"] > 0"), "mon.exp", Some(&have))[0]
+            .contains("key must be a number")
+    );
+    assert!(errors_in(&one("table > 0"), "mon.exp", Some(&have))[0].contains("'.' was expected"));
+    assert!(
+        errors_in(&one("table.[0] > 0"), "mon.exp", Some(&have))[0].contains("name was expected")
+    );
+}
+
+#[test]
+fn capability_rules_pass() {
+    let have = tables(&[("caps", true)]);
+    for (ev, text) in [
+        // Level cap by badge.
+        (
+            "mon.exp",
+            "language 1\nrule cap on mon.exp\n  when level[event.mon] >= table.caps[badges]\n  do set event.amount 0\n",
+        ),
+        // Rare Candy refused at the cap.
+        (
+            "item.use",
+            "language 1\nrule candy_cap on item.use\n  when event.item == 50 && level[event.target] >= table.caps[badges]\n  do refuse\n  do message \"Too high a level for now.\"\n",
+        ),
+        // Dupes clause: no second catch of a species the player owns.
+        (
+            "catch.attempt",
+            "language 1\nrule dupes on catch.attempt\n  when owned[event.species] == 1\n  do refuse\n  do message \"Already owned.\"\n",
+        ),
+        // Dupes by evolution line: only a first stage counts as new.
+        (
+            "catch.attempt",
+            "language 1\nrule stage on catch.attempt\n  when species_stage[event.species] > 0 && owned[event.species] == 1\n  do refuse\n",
+        ),
+        // Monotype: the party must hold the type.
+        (
+            "encounter.wild",
+            "language 1\nrule mono on encounter.wild\n  when party_has_type[10] == 0\n  do refuse\n",
+        ),
+        // Play time and the area.
+        (
+            "route.change",
+            "language 1\nrule late on route.change\n  when play_seconds > 3600 && area == area_of[event.zone]\n  do message \"An hour in.\"\n",
+        ),
+        // Move data.
+        (
+            "battle.move",
+            "language 1\nrule weak on battle.move\n  when move_power[event.move] > 0 && move_class[event.move] == 2\n  do message 1\n",
+        ),
+    ] {
+        let e = errors_in(text, ev, Some(&have));
+        assert!(e.is_empty(), "{text}: {e:?}");
+    }
+}
+
+#[test]
+fn table_files() {
+    let msgs = |text: &str| check_table(text);
+    let ok = "# caps\n0 = 12\n1 = 20   # first gym\n0x2 = 25\n-1 = 0\n+3 = 0x1E\ndefault = 100\n";
+    assert!(msgs(ok).is_empty(), "{:?}", msgs(ok));
+    // Both ends of the signed range.
+    assert!(msgs("2147483647 = -2147483648\n-2147483648 = 2147483647\n").is_empty());
+    let d = msgs("1 = 2147483648\n");
+    assert_eq!((d[0].line, d[0].severity), (1, Severity::Error));
+    assert!(d[0].message.contains("32 bits"));
+    assert!(msgs("-2147483649 = 1\n")[0].message.contains("32 bits"));
+    // Syntax.
+    assert!(msgs("12\n")[0].message.contains("'=' is missing"));
+    assert!(msgs("a = 1\n")[0].message.contains("key is not a number"));
+    assert!(msgs("1 = x\n")[0].message.contains("value is not a number"));
+    assert!(msgs("1 = 2 3\n")[0]
+        .message
+        .contains("value is not a number"));
+    assert!(msgs("1 = \n")[0].message.contains("value is not a number"));
+    assert!(msgs("0x = 1\n")[0].message.contains("key is not a number"));
+    assert!(msgs("= 1\n")[0].message.contains("key is not a number"));
+    // The position points at the offending text.
+    let d = msgs("# c\n  7 = 0xZZ  # no\n");
+    assert_eq!((d[0].line, d[0].start, d[0].end), (2, 7, 11));
+    // A repeated key or default is a warning, and the file still loads.
+    let d = msgs("1 = 1\n0x1 = 2\ndefault = 0\ndefault = 5\n");
+    assert_eq!(d.len(), 2);
+    assert!(d.iter().all(|x| x.severity == Severity::Warning));
+    assert!(d[0].message.contains("line 1") && d[1].message.contains("default"));
+    assert!(!has_errors(&d));
+    // The entry limit: 65536 entries are fine, one more is not.
+    let big = |n: usize| (0..n).map(|i| format!("{i} = 1\n")).collect::<String>();
+    assert!(msgs(&big(TABLE_ENTRIES_MAX)).is_empty());
+    let d = msgs(&big(TABLE_ENTRIES_MAX + 1));
+    assert_eq!(d.len(), 1);
+    assert!(d[0].message.contains("65536") && d[0].line as usize == TABLE_ENTRIES_MAX + 1);
+}
+
+#[test]
+fn table_names_and_lines() {
+    for ok in ["caps", "_x", "A1_b", &"a".repeat(31)] {
+        assert!(table_name_valid(ok), "{ok}");
+    }
+    for bad in ["", "1a", "a-b", "a b", "a.b", &"a".repeat(32)] {
+        assert!(!table_name_valid(bad), "{bad}");
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("m");
+    Project::create(&root, "M", None).unwrap();
+    let check = |s: &ModSettings| check_settings(s, 0);
+    assert!(read_settings(&root).unwrap().tables.is_empty());
+    let with = |lines: &str| {
+        fs::write(root.join(MANIFEST), format!("name = M\n{lines}")).unwrap();
+        read_settings(&root).unwrap()
+    };
+    let s = with("table = caps tables/caps.txt\ntable = ban tables/ban.txt # note\n");
+    assert_eq!(s.tables.len(), 2);
+    assert_eq!(s.tables[1].name, "ban");
+    assert!(check(&s).is_empty());
+    for (line, what) in [
+        ("table = 1caps t.txt", "not a table name"),
+        ("table = caps", "needs one path"),
+        ("table = caps a b", "needs one path"),
+        ("table = caps ../x.txt", "inside the mod folder"),
+        ("table = caps /abs.txt", "inside the mod folder"),
+        ("table = caps C:/x.txt", "inside the mod folder"),
+        ("table = a-b t.txt", "not a table name"),
+    ] {
+        let d = check(&with(&format!("{line}\n")));
+        assert!(
+            d.iter()
+                .any(|x| x.message.contains(what) && x.field.as_deref() == Some("tables")),
+            "{line}: {d:?}"
+        );
+    }
+    let d = check(&with("table = caps a.txt\ntable = caps b.txt\n"));
+    assert!(d[0].severity == Severity::Warning && d[0].message.contains("twice"));
+    // The settings form does not touch the table lines.
+    let mut s = with("table = caps a.txt\nfuture = 1\n");
+    s.order = 4;
+    write_settings(&root, &s).unwrap();
+    let text = fs::read_to_string(root.join(MANIFEST)).unwrap();
+    assert!(
+        text.contains("table = caps a.txt") && text.contains("future = 1"),
+        "{text}"
+    );
+}
+
+#[test]
+fn table_files_on_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("m");
+    Project::create(&root, "M", None).unwrap();
+    assert!(list_tables(&root).unwrap().is_empty());
+    let made = new_table(&root, "caps").unwrap();
+    assert_eq!((made.path.as_str(), made.exists), ("tables/caps.txt", true));
+    assert!(fs::read_to_string(root.join(MANIFEST))
+        .unwrap()
+        .contains("table = caps tables/caps.txt"));
+    assert!(new_table(&root, "caps").is_err());
+    assert!(new_table(&root, "9bad").is_err());
+    assert!(new_table(&root, &"a".repeat(32)).is_err());
+    new_table(&root, "ban").unwrap();
+    assert_eq!(list_tables(&root).unwrap().len(), 2);
+    // A new table loads; an edit reports its problems.
+    assert!(check_table_files(&root).unwrap().is_empty());
+    assert!(
+        write_table(&root, "caps", "0 = 12\n1 = 20\ndefault = 100\n")
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        read_table(&root, "caps").unwrap(),
+        "0 = 12\n1 = 20\ndefault = 100\n"
+    );
+    let d = write_table(&root, "ban", "x = 1\n").unwrap();
+    assert!(has_errors(&d));
+    let d = check_table_files(&root).unwrap();
+    assert_eq!(d.len(), 1);
+    assert!(
+        d[0].message.contains("'ban'") && d[0].message.contains("line 1"),
+        "{d:?}"
+    );
+    assert_eq!(
+        table_set(&root).unwrap(),
+        tables(&[("caps", true), ("ban", false)])
+    );
+    assert!(read_table(&root, "nope").is_err());
+    assert!(write_table(&root, "nope", "").is_err());
+
+    // A rule that reads the table: checked against the manifest on save.
+    let rule = "language 1\nrule cap on mon.exp\n  when level[event.mon] >= table.caps[badges]\n  do set event.amount 0\n  # table.caps[1] in a comment\n  do message \"table.caps[1]\"\n";
+    let d = write_rule(&root, "rules/cap.rule", rule).unwrap();
+    assert!(d.is_empty(), "{d:?}");
+    let other = rule.replace("table.caps[badges]", "table.nope[badges]");
+    let d = write_rule(&root, "rules/other.rule", &other).unwrap();
+    assert!(d[0].message.contains("no table 'nope'"), "{d:?}");
+
+    // Rename: the line, the standard file and the reads move; comments and
+    // texts stay.
+    let (entry, reads) = rename_table(&root, "caps", "levelcaps").unwrap();
+    assert_eq!(
+        (entry.path.as_str(), entry.exists, reads),
+        ("tables/levelcaps.txt", true, 1)
+    );
+    assert!(root.join("tables/levelcaps.txt").is_file() && !root.join("tables/caps.txt").exists());
+    let m = fs::read_to_string(root.join(MANIFEST)).unwrap();
+    assert!(
+        m.contains("table = levelcaps tables/levelcaps.txt") && !m.contains("table = caps "),
+        "{m}"
+    );
+    let r = read_rule(&root, "rules/cap.rule").unwrap();
+    assert!(
+        r.contains("table.levelcaps[badges]")
+            && r.contains("# table.caps[1]")
+            && r.contains("\"table.caps[1]\""),
+        "{r}"
+    );
+    assert!(check_rule_in(&r, Some("mon.exp"), Some(&table_set(&root).unwrap())).is_empty());
+    assert!(rename_table(&root, "levelcaps", "ban").is_err());
+    assert!(rename_table(&root, "levelcaps", "1x").is_err());
+    assert!(rename_table(&root, "gone", "x").is_err());
+
+    // Delete: line and file go; the rule that reads it now fails.
+    delete_table(&root, "levelcaps").unwrap();
+    assert!(!root.join("tables/levelcaps.txt").exists());
+    assert_eq!(list_tables(&root).unwrap().len(), 1);
+    let now = table_set(&root).unwrap();
+    let d = check_rule_in(&r, Some("mon.exp"), Some(&now));
+    assert!(d[0].message.contains("no table 'levelcaps'"));
+}
+
+/// A rename changes the reads of exactly that table.
+#[test]
+fn rename_leaves_other_names_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("m");
+    Project::create(&root, "M", None).unwrap();
+    new_table(&root, "caps").unwrap();
+    new_table(&root, "capsule").unwrap();
+    let body = "  when table.caps[0] > table.capsule[0] && table.caps [2] > 0\n";
+    write_rule(
+        &root,
+        "rules/r.rule",
+        &format!("language 1\nrule r on mon.exp\n{body}  do refuse\n"),
+    )
+    .unwrap();
+    let (_, n) = rename_table(&root, "caps", "cap").unwrap();
+    assert_eq!(n, 2);
+    let r = read_rule(&root, "rules/r.rule").unwrap();
+    assert!(
+        r.contains("table.cap[0] > table.capsule[0] && table.cap [2]"),
+        "{r}"
+    );
+}
+
+/// The mod from the docs example passes every check.
+#[test]
+fn level_cap_mod_end_to_end() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("m");
+    Project::create(&root, "Caps", None).unwrap();
+    new_table(&root, "caps").unwrap();
+    write_table(&root, "caps", "0 = 12\n1 = 20\n2 = 25\ndefault = 100\n").unwrap();
+    let d = write_rule(
+        &root,
+        "rules/cap.rule",
+        "language 1\nrule cap on mon.exp\n  when level[event.mon] >= table.caps[badges]\n  do set event.amount 0\n",
+    )
+    .unwrap();
+    assert!(d.is_empty());
+    let m = fs::read_to_string(root.join(MANIFEST)).unwrap();
+    assert!(
+        m.contains("rule = mon.exp rules/cap.rule") && m.contains("table = caps tables/caps.txt"),
+        "{m}"
+    );
+    assert!(check_table_files(&root).unwrap().is_empty());
+    assert!(check_settings(&read_settings(&root).unwrap(), 0).is_empty());
 }

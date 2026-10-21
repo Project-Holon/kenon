@@ -20,6 +20,19 @@ export interface ModSettings {
   code: string | null;
   state: string | null;
   settings: string | null;
+  tables: TableDecl[];
+}
+
+/// One `table = <name> <path>` line of the manifest.
+export interface TableDecl {
+  name: string;
+  path: string;
+}
+
+export interface TableEntry {
+  name: string;
+  path: string;
+  exists: boolean;
 }
 
 export interface HookCheckRow {
@@ -109,6 +122,15 @@ export const modSaveRule = (path: string, text: string) => invoke<Diagnostic[]>(
 export const modNewRule = (name: string, event: string) => invoke<string>("mod_new_rule", { name, event });
 export const modRenameRule = (from: string, to: string) => invoke<string>("mod_rename_rule", { from, to });
 export const modDeleteRule = (path: string) => invoke<void>("mod_delete_rule", { path });
+export const modListTables = () => invoke<TableEntry[]>("mod_list_tables");
+export const modReadTable = (name: string) => invoke<string>("mod_read_table", { name });
+export const modCheckTable = (text: string) => invoke<Diagnostic[]>("mod_check_table", { text });
+export const modSaveTable = (name: string, text: string) => invoke<Diagnostic[]>("mod_save_table", { name, text });
+export const modNewTable = (name: string) => invoke<TableEntry>("mod_new_table", { name });
+/// The renamed table and how many reads in rule files were changed with it.
+export const modRenameTable = (from: string, to: string) =>
+  invoke<[TableEntry, number]>("mod_rename_table", { from, to });
+export const modDeleteTable = (name: string) => invoke<void>("mod_delete_table", { name });
 export const modGetPaths = () => invoke<ModPaths>("mod_get_paths");
 export const modSetPaths = (modsFolder: string | null, declaredSet: string | null) =>
   invoke<ModPaths>("mod_set_paths", { modsFolder, declaredSet });

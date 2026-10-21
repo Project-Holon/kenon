@@ -298,7 +298,7 @@
       {#each pieces(b.text) as p}{#if p.code !== undefined}<code>{p.code}</code>{:else}{p.text}{/if}{/each}
     </p>
   {:else if b.t === "code"}
-    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : "Code", b.text)}
+    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : b.lang === "manifest" ? "Manifest line" : b.lang === "table" ? "Table file" : "Code", b.text)}
   {:else if b.t === "list"}
     <ul>
       {#each b.items as item}
@@ -576,6 +576,7 @@
             {#each r.steps as s}<li>{#each pieces(s) as p}{#if p.code !== undefined}<code>{p.code}</code>{:else}{p.text}{/if}{/each}</li>{/each}
           </ol>
           {#if r.settings}{@render snip("settings.txt", r.settings)}{/if}
+          {#each r.tables ?? [] as t}{@render snip(t.file, t.text)}{/each}
           {#if r.rule}{@render snip(r.rule2 ? "Rule 1" : "Rule", r.rule)}{/if}
           {#if r.rule2}{@render snip("Rule 2", r.rule2)}{/if}
           {#if r.c}

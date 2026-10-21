@@ -5,11 +5,12 @@
   import ModDocs from "../lib/ModDocs.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
   import { debounced } from "../lib/cache.svelte";
-  import { RULE_LANGUAGE, setRuleNames, type Marker } from "../lib/monaco";
+  import { RULE_LANGUAGE, setRuleNames, setTables, type Marker } from "../lib/monaco";
   import {
     modCheckRule,
     modDeleteRule,
     modListRules,
+    modListTables,
     modNewRule,
     modReadRule,
     modRenameRule,
@@ -55,6 +56,7 @@
       setRuleNames(names);
       events = names.events.map((e) => e.name);
       await refresh();
+      setTables((await modListTables()).map((t) => t.name));
       if (entries.length) await pick(entries[0].path, false);
     } catch (e) {
       error = String(e);

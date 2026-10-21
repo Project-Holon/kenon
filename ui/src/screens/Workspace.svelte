@@ -19,6 +19,7 @@
   import ModSettings from "../views/ModSettings.svelte";
   import ModHooks from "../views/ModHooks.svelte";
   import ModRules from "../views/ModRules.svelte";
+  import ModTables from "../views/ModTables.svelte";
   import ModCode from "../views/ModCode.svelte";
   import ModConflicts from "../views/ModConflicts.svelte";
 
@@ -215,6 +216,8 @@
           <ModHooks {readOnly} onSaved={saved} />
         {:else if current.view === "rules"}
           <ModRules {readOnly} onSaved={saved} />
+        {:else if current.view === "tables"}
+          <ModTables {readOnly} onSaved={saved} />
         {:else if current.view === "code"}
           <ModCode {readOnly} onSaved={saved} />
         {:else}

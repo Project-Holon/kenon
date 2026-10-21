@@ -8,11 +8,12 @@
 //! the name tables). Where `docs/mod-rules-language.md` differs from that
 //! code, the code wins:
 //!
-//! - the port knows 52 events (`modnames/rules.txt`), not the 359 entries of
+//! - the port knows 53 events (`modnames/rules.txt`), not the 359 entries of
 //!   `docs/mod-events.md`, which count raw hooks too;
 //! - a rule file holds exactly one rule;
-//! - an operator is read as two characters at most, so `a<-1` is an error;
-//! - `battle_style` cannot be written yet.
+//! - an operator is read as two characters at most, and a pair that is not
+//!   an operator reads as two, so `x*-1` and `a<-1` mean what they look like;
+//! - `battle_style` cannot be written.
 //!
 //! A mod's "hook code" is a native library named by `code`, built outside
 //! kenon. The text kenon edits for it is the `override` lines of the
@@ -374,16 +375,16 @@ impl Scan<'_> {
                 &format!("the character '{ch}' is not in the language"),
             ));
         }
+        // A pair that is not an operator reads as two: the first character
+        // stands alone and the second starts the next token, so `x*-1` and
+        // `a<-1` mean what they look like.
+        if n == 2 && !["==", "!=", "<=", ">=", "&&", "||"].contains(&&self.s[start..start + 2]) {
+            n = 1;
+        }
         let op = &self.s[start..start + n];
         self.p += n;
         if n == 2 {
-            if ["==", "!=", "<=", ">=", "&&", "||"].contains(&op) {
-                return Ok(tok(Tk::Op, self.p, op));
-            }
-            return Err(err(
-                self.p,
-                &format!("the operator '{op}' is not in the language"),
-            ));
+            return Ok(tok(Tk::Op, self.p, op));
         }
         match op {
             "=" => Err(err(self.p, "'=' is not an operator; the language has '=='")),
@@ -396,16 +397,27 @@ impl Scan<'_> {
     }
 }
 
+/// The tables a mod declares: each name, and whether its file loads. Eidos
+/// refuses a rule that reads a table the mod does not have, and a table
+/// that fails to load is not there.
+pub type TableSet = BTreeMap<String, bool>;
+
 struct Parser<'a> {
     scan: Scan<'a>,
     tok: Tok,
     event: Option<&'a RuleEvent>,
     names: &'static Names,
+    tables: Option<&'a TableSet>,
     depth: u32,
 }
 
 impl<'a> Parser<'a> {
-    fn new(s: &'a str, event: Option<&'a RuleEvent>, names: &'static Names) -> PResult<Parser<'a>> {
+    fn new(
+        s: &'a str,
+        event: Option<&'a RuleEvent>,
+        names: &'static Names,
+        tables: Option<&'a TableSet>,
+    ) -> PResult<Parser<'a>> {
         let mut scan = Scan { s, p: 0 };
         let tok = scan.next()?;
         Ok(Parser {
@@ -413,6 +425,7 @@ impl<'a> Parser<'a> {
             tok,
             event,
             names,
+            tables,
             depth: 0,
         })
     }
@@ -704,8 +717,47 @@ impl<'a> Parser<'a> {
             self.advance()?;
             return Ok(Ty::Int);
         }
+        if self.is_ident("table") {
+            return self.table();
+        }
         self.state_field(false)?;
         Ok(Ty::Int)
+    }
+
+    /// `table.<name>[key]`: a value of one of the mod's own tables.
+    fn table(&mut self) -> PResult<Ty> {
+        self.expect_dot("table")?;
+        if self.tok.kind != Tk::Ident {
+            return self.fail("a table's name was expected");
+        }
+        let at = self.tok.clone();
+        let name = at.text.clone();
+        let bad = |msg: String| PErr {
+            start: at.start,
+            end: at.end,
+            msg,
+        };
+        match self.tables.and_then(|t| t.get(&name)) {
+            None if self.tables.is_some() => {
+                return Err(bad(format!(
+                    "the mod has no table '{name}' (a `table` line in its manifest)"
+                )));
+            }
+            Some(false) => {
+                return Err(bad(format!(
+                    "the mod's table '{name}' does not load, so the port refuses this rule"
+                )));
+            }
+            _ => {}
+        }
+        self.advance()?;
+        match self.subscript()? {
+            None => Err(bad(
+                "a table is read with a key: table.<name>[key]".to_string()
+            )),
+            Some(t) if !t.is_number() => self.fail("a table's key must be a number"),
+            Some(_) => Ok(Ty::Int),
+        }
     }
 
     fn target(&mut self) -> PResult<()> {
@@ -779,6 +831,25 @@ impl<'a> Parser<'a> {
                 }
                 Ok(())
             }
+            "box" => {
+                let mon = self.expr()?;
+                let n = self.expr()?;
+                self.at_end("the action has more than it needs")?;
+                if (mon != Ty::Mon && mon != Ty::Int) || !n.is_number() {
+                    return self
+                        .fail("the action needs a Pokemon or a party position, and a box number");
+                }
+                Ok(())
+            }
+            "withdraw" => {
+                let box_no = self.expr()?;
+                let slot = self.expr()?;
+                self.at_end("the action has more than it needs")?;
+                if !box_no.is_number() || !slot.is_number() {
+                    return self.fail("the box and the slot must be numbers");
+                }
+                Ok(())
+            }
             "give" => {
                 let item = self.expr()?;
                 let count = self.expr()?;
@@ -846,6 +917,16 @@ pub fn rule_event(text: &str) -> Option<String> {
 /// Checks a rule file the way the port does when it loads it. `expected` is
 /// the event the manifest binds the file to, when known.
 pub fn check_rule(text: &str, expected: Option<&str>) -> Vec<Diagnostic> {
+    check_rule_in(text, expected, None)
+}
+
+/// [`check_rule`] for a mod that declares `tables`: a rule that reads another
+/// table is an error. With `None` the table names are not checked.
+pub fn check_rule_in(
+    text: &str,
+    expected: Option<&str>,
+    tables: Option<&TableSet>,
+) -> Vec<Diagnostic> {
     let names = rule_names();
     let mut out = Vec::new();
     let err = |out: &mut Vec<Diagnostic>, n: usize, line: &str, a: usize, b: usize, m: &str| {
@@ -1011,7 +1092,7 @@ pub fn check_rule(text: &str, expected: Option<&str>) -> Vec<Diagnostic> {
                     );
                     continue;
                 }
-                let r = Parser::new(rest, event, names).and_then(|mut p| p.guard());
+                let r = Parser::new(rest, event, names, tables).and_then(|mut p| p.guard());
                 if let Err(e) = r {
                     err(
                         &mut out,
@@ -1047,7 +1128,7 @@ pub fn check_rule(text: &str, expected: Option<&str>) -> Vec<Diagnostic> {
                 }
                 let args = &kw_rest[kw_end..];
                 let args_at = rest_at + kw_lead + kw_end;
-                let r = Parser::new(args, event, names)
+                let r = Parser::new(args, event, names, tables)
                     .and_then(|mut p| p.action(kw, event.is_none_or(|e| e.refusable)));
                 if let Err(e) = r {
                     let (a, b) = if e.start == 0 && e.end == 0 {
@@ -1465,6 +1546,9 @@ pub struct ModSettings {
     pub code: Option<String>,
     pub state: Option<String>,
     pub settings: Option<String>,
+    /// The `table` lines. `write_settings` leaves them alone: the table
+    /// calls own them.
+    pub tables: Vec<TableDecl>,
 }
 
 /// `(key, value)` of a manifest line, comment cut, or `None`.
@@ -1506,6 +1590,7 @@ pub fn read_settings(root: &Path) -> io::Result<ModSettings> {
         code: last("code"),
         state: last("state"),
         settings: last("settings"),
+        tables: table_decls(&m),
     })
 }
 
@@ -1585,6 +1670,51 @@ pub fn check_settings(s: &ModSettings, overrides: usize) -> Vec<Diagnostic> {
                 Error,
                 "the state name is one folder name: letters, digits, '-', '_' and '.' (64 at most); the port uses a name made from the mod name instead",
             ));
+        }
+    }
+    let mut named: Vec<&str> = Vec::new();
+    for t in &s.tables {
+        let label = if t.name.is_empty() {
+            "a table"
+        } else {
+            &t.name
+        };
+        if !table_name_valid(&t.name) {
+            out.push(Diagnostic::field(
+                "tables",
+                Error,
+                &format!(
+                    "'{}' is not a table name: letters, digits and '_', not starting with a digit, {TABLE_NAME_MAX} at most; the port ignores the line",
+                    t.name
+                ),
+            ));
+        } else if t.path.is_empty() || t.path.contains(char::is_whitespace) {
+            out.push(Diagnostic::field(
+                "tables",
+                Error,
+                &format!(
+                    "{label} needs one path: table = <name> <path>; the port ignores the line"
+                ),
+            ));
+        } else if !is_relative(&t.path) {
+            out.push(Diagnostic::field(
+                "tables",
+                Error,
+                &format!("the path of {label} is a path inside the mod folder"),
+            ));
+        }
+        if table_name_valid(&t.name) {
+            if named.contains(&t.name.as_str()) {
+                out.push(Diagnostic::field(
+                    "tables",
+                    Warning,
+                    &format!(
+                        "the table {} is declared twice; the later line wins",
+                        t.name
+                    ),
+                ));
+            }
+            named.push(&t.name);
         }
     }
     for (field, value) in [("code", &s.code), ("settings", &s.settings)] {
@@ -1794,7 +1924,8 @@ pub fn write_rule(root: &Path, path: &str, text: &str) -> io::Result<Vec<Diagnos
     if let Some(ev) = &event {
         edit_manifest(root, |m| set_binding(m, &rel, Some(ev)))?;
     }
-    Ok(check_rule(text, event.as_deref()))
+    let tables = table_set(root)?;
+    Ok(check_rule_in(text, event.as_deref(), Some(&tables)))
 }
 
 /// Makes a rule file in `rules/` for an event and binds it.
@@ -1869,6 +2000,434 @@ pub fn delete_rule(root: &Path, path: &str) -> io::Result<()> {
         fs::remove_file(file)?;
     }
     edit_manifest(root, |m| set_binding(m, &rel, None))
+}
+
+// ---------------------------------------------------------------------
+// The data tables
+// ---------------------------------------------------------------------
+
+/// The longest table name the port takes, in characters (it refuses 32).
+pub const TABLE_NAME_MAX: usize = 31;
+/// The most entries one table file holds.
+pub const TABLE_ENTRIES_MAX: usize = 65536;
+/// The largest table file the port reads.
+pub const TABLE_FILE_MAX: usize = 16 * 1024 * 1024;
+/// Where new table files go.
+pub const TABLES_DIR: &str = "tables";
+/// The extension of a new table file.
+pub const TABLE_EXT: &str = "txt";
+
+/// One `table = <name> <path>` line of the manifest.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TableDecl {
+    pub name: String,
+    pub path: String,
+}
+
+/// A declared table with whether its file is there.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableEntry {
+    pub name: String,
+    pub path: String,
+    pub exists: bool,
+}
+
+/// A table name: letters, digits and `_`, not starting with a digit, up to
+/// 31 characters.
+pub fn table_name_valid(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= TABLE_NAME_MAX
+        && !name.starts_with(|c: char| c.is_ascii_digit())
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// The `table` lines of the manifest, all of them: a line the port would
+/// ignore shows up here too, and [`check_settings`] reports it.
+fn table_decls(m: &Manifest) -> Vec<TableDecl> {
+    other_values(m, "table")
+        .iter()
+        .map(|v| {
+            let mut words = v.split_whitespace();
+            TableDecl {
+                name: words.next().unwrap_or("").to_string(),
+                path: words.collect::<Vec<_>>().join(" "),
+            }
+        })
+        .collect()
+}
+
+/// The declarations the port accepts. A name declared twice keeps the later
+/// line.
+fn valid_decls(m: &Manifest) -> Vec<TableDecl> {
+    let mut out: Vec<TableDecl> = Vec::new();
+    for d in table_decls(m) {
+        if !table_name_valid(&d.name) || d.path.is_empty() || d.path.contains(char::is_whitespace) {
+            continue;
+        }
+        match out.iter_mut().find(|o| o.name == d.name) {
+            Some(o) => *o = d,
+            None => out.push(d),
+        }
+    }
+    out
+}
+
+/// A signed 32-bit number, decimal or `0x` hex, the way the port reads a
+/// table. `Err(true)` is a number that does not fit.
+fn parse_s32(s: &str) -> Result<i32, bool> {
+    let (neg, body) = match s.as_bytes().first() {
+        Some(b'-') => (true, &s[1..]),
+        Some(b'+') => (false, &s[1..]),
+        _ => (false, s),
+    };
+    let (radix, digits) = match body.get(..2) {
+        Some("0x" | "0X") if body.len() > 2 => (16, &body[2..]),
+        _ => (10, body),
+    };
+    if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+        return Err(false);
+    }
+    let mut v: u64 = 0;
+    for c in digits.chars() {
+        v = v * u64::from(radix) + u64::from(c.to_digit(radix).unwrap_or(0));
+        if v > 0x8000_0000 {
+            return Err(true);
+        }
+    }
+    if neg {
+        Ok((0i64 - v as i64) as i32)
+    } else if v > 0x7FFF_FFFF {
+        Err(true)
+    } else {
+        Ok(v as i32)
+    }
+}
+
+/// Checks a table file the way the port reads it: one `key = value` per
+/// line, `#` comments, an optional `default = N`. A key listed twice is a
+/// warning, because the later line wins.
+pub fn check_table(text: &str) -> Vec<Diagnostic> {
+    use Severity::{Error, Warning};
+    let mut out = Vec::new();
+    if text.len() > TABLE_FILE_MAX {
+        out.push(Diagnostic::field(
+            "file",
+            Error,
+            "the file is larger than the port reads (16 MiB)",
+        ));
+        return out;
+    }
+    let mut seen: HashMap<i32, usize> = HashMap::new();
+    let mut default_at: Option<usize> = None;
+    let mut entries = 0usize;
+    let mut limit_said = false;
+    for (i, line) in text.lines().enumerate() {
+        let n = i + 1;
+        let (lead, body) = trim_line(line);
+        if body.is_empty() {
+            continue;
+        }
+        let whole = (lead, lead + body.len());
+        let Some(eq) = body.find('=') else {
+            out.push(Diagnostic::at(
+                n,
+                line,
+                whole.0,
+                whole.1,
+                Error,
+                "'=' is missing: write key = value",
+            ));
+            continue;
+        };
+        let (key, value) = (body[..eq].trim_end(), body[eq + 1..].trim_start());
+        let value_at = lead + body.len() - value.len();
+        if let Err(wide) = parse_s32(value) {
+            let msg = if wide {
+                "the value does not fit in 32 bits"
+            } else {
+                "the value is not a number"
+            };
+            out.push(Diagnostic::at(n, line, value_at, whole.1, Error, msg));
+            continue;
+        }
+        if key == "default" {
+            if let Some(first) = default_at {
+                out.push(Diagnostic::at(
+                    n,
+                    line,
+                    lead,
+                    lead + key.len(),
+                    Warning,
+                    &format!("the default is also set on line {first}; this later line wins"),
+                ));
+            }
+            default_at = Some(n);
+            continue;
+        }
+        let key_n = match parse_s32(key) {
+            Ok(k) => k,
+            Err(wide) => {
+                let msg = if wide {
+                    "the key does not fit in 32 bits"
+                } else {
+                    "the key is not a number (or the word default)"
+                };
+                out.push(Diagnostic::at(n, line, lead, lead + key.len(), Error, msg));
+                continue;
+            }
+        };
+        entries += 1;
+        if entries > TABLE_ENTRIES_MAX && !limit_said {
+            limit_said = true;
+            out.push(Diagnostic::at(
+                n,
+                line,
+                whole.0,
+                whole.1,
+                Error,
+                &format!("a table holds {TABLE_ENTRIES_MAX} entries at most"),
+            ));
+        }
+        if let Some(first) = seen.insert(key_n, n) {
+            out.push(Diagnostic::at(
+                n,
+                line,
+                lead,
+                lead + key.len(),
+                Warning,
+                &format!("the key {key_n} is also on line {first}; this later line wins"),
+            ));
+        }
+    }
+    out
+}
+
+fn decl_of(root: &Path, name: &str) -> io::Result<TableDecl> {
+    valid_decls(&project_of(root)?.manifest)
+        .into_iter()
+        .find(|d| d.name == name)
+        .ok_or_else(|| bad_input("the mod has no table with that name"))
+}
+
+/// The mod's declared tables, each with whether its file is there.
+pub fn list_tables(root: &Path) -> io::Result<Vec<TableEntry>> {
+    Ok(valid_decls(&project_of(root)?.manifest)
+        .into_iter()
+        .filter(|d| is_relative(&d.path))
+        .map(|d| TableEntry {
+            exists: root.join(&d.path).is_file(),
+            name: d.name,
+            path: d.path,
+        })
+        .collect())
+}
+
+/// The declared table names with whether the file loads, for checking rules.
+pub fn table_set(root: &Path) -> io::Result<TableSet> {
+    Ok(list_tables(root)?
+        .into_iter()
+        .map(|t| {
+            let loads = fs::read_to_string(root.join(&t.path))
+                .is_ok_and(|text| !has_errors(&check_table(&text)));
+            (t.name, loads)
+        })
+        .collect())
+}
+
+/// Checks the mod's table lines against the disk: the file is there and
+/// loads. The lines themselves are checked by [`check_settings`].
+pub fn check_table_files(root: &Path) -> io::Result<Vec<Diagnostic>> {
+    let mut out = Vec::new();
+    for t in list_tables(root)? {
+        match fs::read_to_string(root.join(&t.path)) {
+            Err(_) => out.push(Diagnostic::field(
+                "tables",
+                Severity::Error,
+                &format!("the table '{}' cannot be read from {}", t.name, t.path),
+            )),
+            Ok(text) => {
+                let first = check_table(&text)
+                    .into_iter()
+                    .find(|d| d.severity == Severity::Error);
+                if let Some(d) = first {
+                    let at = if d.line > 0 {
+                        format!(" line {}", d.line)
+                    } else {
+                        String::new()
+                    };
+                    out.push(Diagnostic::field(
+                        "tables",
+                        Severity::Error,
+                        &format!(
+                            "the table '{}' does not load ({}{at}: {})",
+                            t.name, t.path, d.message
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+pub fn read_table(root: &Path, name: &str) -> io::Result<String> {
+    let d = decl_of(root, name)?;
+    fs::read_to_string(root.join(safe_rel(&d.path)?))
+}
+
+fn set_table_line(m: &mut Manifest, name: &str, path: Option<&str>) {
+    m.other.retain(|l| {
+        let Some(("table", v)) = key_value(l) else {
+            return true;
+        };
+        v.split_whitespace().next() != Some(name)
+    });
+    if let Some(path) = path {
+        m.other.push(format!("table = {name} {path}"));
+    }
+}
+
+/// Writes a table file. Returns what the port would report for it.
+pub fn write_table(root: &Path, name: &str, text: &str) -> io::Result<Vec<Diagnostic>> {
+    let d = decl_of(root, name)?;
+    write_text(&root.join(safe_rel(&d.path)?), text)?;
+    Ok(check_table(text))
+}
+
+/// Makes an empty table in `tables/` and declares it.
+pub fn new_table(root: &Path, name: &str) -> io::Result<TableEntry> {
+    if !table_name_valid(name) {
+        return Err(bad_input(
+            "a table name is letters, digits and '_', not starting with a digit, 31 at most",
+        ));
+    }
+    let mut project = project_of(root)?;
+    if valid_decls(&project.manifest)
+        .iter()
+        .any(|d| d.name == name)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "a table with that name exists",
+        ));
+    }
+    let path = format!("{TABLES_DIR}/{name}.{TABLE_EXT}");
+    if root.join(&path).exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "a file with that name exists",
+        ));
+    }
+    write_text(&root.join(&path), "# key = value\n")?;
+    set_table_line(&mut project.manifest, name, Some(&path));
+    project.save_meta()?;
+    Ok(TableEntry {
+        name: name.to_string(),
+        path,
+        exists: true,
+    })
+}
+
+/// `text` with every `table.<from>` read in the code of a rule changed to
+/// `table.<to>`, and how many there were. Comments and texts stay.
+fn rename_table_reads(text: &str, from: &str, to: &str) -> (String, usize) {
+    let head = format!("table.{from}");
+    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let mut count = 0;
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let (code, comment) = line.split_at(line.find('#').unwrap_or(line.len()));
+        let b = code.as_bytes();
+        let mut quoted = false;
+        let mut i = 0;
+        while i < b.len() {
+            if b[i] == b'"' {
+                quoted = !quoted;
+            }
+            if !quoted
+                && code[i..].starts_with(&head)
+                && (i == 0 || !(ident(b[i - 1]) || b[i - 1] == b'.'))
+                && b.get(i + head.len()).is_none_or(|c| !ident(*c))
+            {
+                out.push_str(&format!("table.{to}"));
+                i += head.len();
+                count += 1;
+                continue;
+            }
+            let len = code[i..].chars().next().map_or(1, char::len_utf8);
+            out.push_str(&code[i..i + len]);
+            i += len;
+        }
+        out.push_str(comment);
+    }
+    (out, count)
+}
+
+/// Renames a table: its manifest line, its file when the file has the
+/// standard name, and the reads in the mod's rule files. Returns the entry
+/// and how many reads changed.
+pub fn rename_table(root: &Path, from: &str, to: &str) -> io::Result<(TableEntry, usize)> {
+    if !table_name_valid(to) {
+        return Err(bad_input(
+            "a table name is letters, digits and '_', not starting with a digit, 31 at most",
+        ));
+    }
+    let d = decl_of(root, from)?;
+    let mut project = project_of(root)?;
+    if from != to && valid_decls(&project.manifest).iter().any(|o| o.name == to) {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "a table with that name exists",
+        ));
+    }
+    let mut path = safe_rel(&d.path)?;
+    let standard = format!("{TABLES_DIR}/{from}.{TABLE_EXT}");
+    let moved = format!("{TABLES_DIR}/{to}.{TABLE_EXT}");
+    if from != to && path == standard && !root.join(&moved).exists() {
+        if root.join(&path).is_file() {
+            fs::rename(root.join(&path), root.join(&moved))?;
+        }
+        path = moved;
+    }
+    set_table_line(&mut project.manifest, from, None);
+    set_table_line(&mut project.manifest, to, Some(&path));
+    project.save_meta()?;
+    let mut changed = 0;
+    if from != to {
+        for rule in list_rules(root)? {
+            let file = root.join(&rule.path);
+            let Ok(text) = fs::read_to_string(&file) else {
+                continue;
+            };
+            let (next, n) = rename_table_reads(&text, from, to);
+            if n > 0 {
+                write_text(&file, &next)?;
+                changed += n;
+            }
+        }
+    }
+    let exists = root.join(&path).is_file();
+    Ok((
+        TableEntry {
+            name: to.to_string(),
+            path,
+            exists,
+        },
+        changed,
+    ))
+}
+
+/// Deletes a table: its manifest line and its file. A rule that still reads
+/// it is reported by the rule check.
+pub fn delete_table(root: &Path, name: &str) -> io::Result<()> {
+    let d = decl_of(root, name)?;
+    let file = root.join(safe_rel(&d.path)?);
+    if file.is_file() {
+        fs::remove_file(file)?;
+    }
+    edit_manifest(root, |m| set_table_line(m, name, None))
 }
 
 // ---------------------------------------------------------------------

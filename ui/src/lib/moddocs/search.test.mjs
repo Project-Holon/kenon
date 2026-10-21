@@ -14,7 +14,7 @@ const build = performance.now() - t;
 const cases = [
   ["release fainted pokemon", ["recipe:release-on-faint", "event:mon.release", "event:battle.faint"]],
   ["pokemon dies", ["event:battle.faint"]],
-  ["level cap badge", ["recipe:level-cap", "event:badge.get"]],
+  ["level cap badge", ["recipe:level-cap-badge", "event:badge.get"]],
   ["give item", ["event:item.add", "fn:item_add"]],
   ["heal", ["event:heal", "event:heal.hp"]],
   ["shiny", ["fn:species_shiny", "recipe:fished-shiny"]],

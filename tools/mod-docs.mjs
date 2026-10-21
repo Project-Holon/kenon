@@ -281,6 +281,7 @@ for (const ev of events.values()) {
 
 // ---------------------------------------------------------------- rule state
 
+const curated = (await import(pathToFileURL(join(outDir, "curated.mjs")).href)).default;
 const rulesDoc = read("docs/mod-rules-language.md").split("\n");
 const stateDocs = new Map();
 for (const l of rulesDoc) {
@@ -288,9 +289,17 @@ for (const l of rulesDoc) {
   const c = cells(l);
   if (c.length !== 3 || c[0] === "Rule name") continue;
   for (const t of ticks(c[0])) stateDocs.set(t.replace(/\[.*$/, ""), { value: plain(c[1]), direction: c[2] });
+  // A row that names a range, `move1[m]` .. `move4[m]`, covers the names between.
+  const range = c[0].match(/`(\w*?)(\d+)(?:\[[^\]]*\])?` \.\. `\1(\d+)(?:\[[^\]]*\])?`/);
+  if (range) {
+    for (let i = Number(range[2]); i <= Number(range[3]); i++) {
+      stateDocs.set(range[1] + i, { value: plain(c[1]), direction: c[2] });
+    }
+  }
 }
 const state = stateFields.map((s) => {
-  const d = stateDocs.get(s.name);
+  const own = curated.state?.[s.name];
+  const d = own ? { value: own } : stateDocs.get(s.name);
   if (!d) warn(`state ${s.name} has no doc row`);
   const out = {
     ...s,
@@ -380,7 +389,6 @@ const hooks = declared.map((d) => {
 
 // ---------------------------------------------------------------- assemble
 
-const curated = (await import(pathToFileURL(join(outDir, "curated.mjs")).href)).default;
 const need = (cond, msg) => cond || warn(msg);
 
 // Functions worth a link from an event page, by what the event touches.

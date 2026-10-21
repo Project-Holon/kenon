@@ -88,6 +88,7 @@ export default {
     "badge.get": { when: "A badge is set. It fires after the badge is held." },
     "flag.set": { when: "The game sets an event flag." },
     "dex.register": { when: "A species is registered as seen or caught." },
+    "battle.trainer_mon": { when: "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form." },
   },
 
   functions: {
@@ -165,13 +166,66 @@ export default {
     on_frame: { what: "Sets a handler that runs once per game frame.", tiers: ["c"] },
     save_send: { what: "Sends the current save and the mod's saved data to a peer.", result: "0 when on its way.", tiers: ["c"] },
     on_save_received: { what: "Sets the handler for a save sent by a peer.", tiers: ["c"] },
-    setting_get: { what: "Reads one of the mod's own options (declared in the file named by the manifest's settings key).", result: "0 or 1 for a bool, the index for a choice.", tiers: ["rules", "c"], rule: "setting.key" },
+    area_of: { what: "The area of a zone: the place name the game shows on entry. Every floor of a cave and every building of a town share one area.", result: "The area number, or a negative number when the zone data is not loaded.", tiers: ["rules", "c"], rule: "area_of[z]" },
+    battle_wild: { what: "Whether the battle in progress is a wild one.", result: "1 for a wild battle, 0 for a trainer's, -1 when no battle runs.", tiers: ["rules", "c"], rule: "wild_battle" },
+    play_seconds: { what: "The play time of the save in force, in seconds.", tiers: ["rules", "c"], rule: "play_seconds" },
+    item_value: { what: "Reads one data field of an item, by the game's field id.", result: "0 on success; non-zero past the item limit.", tiers: ["rules", "c"], rule: "item_pocket[i]" },
+    move_value: { what: "Reads one data field of a move, by the game's field id: type, damage class or power.", result: "0 on success; non-zero past the move limit.", tiers: ["rules", "c"], rule: "move_type[v], move_power[v], move_class[v]" },
+    mon_to_box_n: { what: "Moves a party Pokemon to a named box (0 is the first). Queued like mon_to_box and applied at the next field step. It fails when the box is full, and it never leaves the party without a Pokemon that is not an egg.", result: "0 on success.", tiers: ["rules", "c"], rule: "do box event.mon n" },
+    mon_from_box: { what: "Moves the Pokemon at a box and slot to the party. Queued like mon_to_box. It fails when the party is full or the slot is empty.", result: "0 on success.", tiers: ["rules", "c"], rule: "do withdraw box slot" },
+    mon_recalc: { what: "Works out a party Pokemon's level and stats again from its species, experience, IVs and EVs, as the game does after a level up. Call it after party_set changes any of those. It does not work on a box or battle reference.", result: "0 on success.", tiers: ["c"] },
+    table_get: { what: "Reads a value of one of the mod's own data tables (a `table` line in the manifest). A mod reads only its own tables.", result: "0 when the key is in the table, 1 when it is not (the table's default is written to out), -1 when the mod has no table with that name.", tiers: ["rules", "c"], rule: "table.name[key]" },
+    setting_get: { what: "Reads one of the mod's own options (declared in the file named by the manifest's settings key).", result: "0 or 1 for a bool, the index for a choice, the number for an int option.", tiers: ["rules", "c"], rule: "setting.key" },
     state_load: { what: "Reads the mod's own saved data, kept per save slot.", result: "Bytes read, -1 on damage.", tiers: ["c"] },
     state_store: { what: "Writes the mod's own saved data (up to 4 MiB).", result: "0 on success.", tiers: ["c"] },
     state_clear: { what: "Deletes the mod's saved data.", tiers: ["c"] },
     state_info: { what: "Reads the header of the mod's saved data.", tiers: ["c"] },
     state_dir: { what: "The path of the mod's own folder.", tiers: ["c"] },
     state_in_step: { what: "Whether the mod's saved data was written together with the game save now in force.", result: "1 in step, 0 out of step, -1 unknown.", tiers: ["c"] },
+  },
+
+  // One plain line for each rule read the port added in version 4. The state
+  // page shows it instead of the engine's table row.
+  state: {
+    personality: "The personality value of the Pokemon.",
+    ot_id: "The id of the trainer who first had the Pokemon.",
+    exp: "The experience points the Pokemon holds.",
+    friendship: "The friendship value of the Pokemon.",
+    ability: "The id of the Pokemon's ability.",
+    move1: "The id of the Pokemon's first move.",
+    move2: "The id of the Pokemon's second move.",
+    move3: "The id of the Pokemon's third move.",
+    move4: "The id of the Pokemon's fourth move.",
+    is_egg: "1 when the Pokemon is an egg.",
+    gender: "The Pokemon's gender, as the game stores it.",
+    form: "The Pokemon's form number.",
+    nature: "The id of the Pokemon's nature.",
+    has_nickname: "1 when the Pokemon has a nickname.",
+    met_location: "The id of the place where the Pokemon was met.",
+    met_level: "The level the Pokemon had when it was met.",
+    origin_game: "The id of the game the Pokemon comes from.",
+    fateful: "1 when the Pokemon was met in a fateful encounter.",
+    ball: "The id of the ball the Pokemon was caught in.",
+    place: "Where a reference points: the BW_MON_* place id (party, box or battle).",
+    side: "In a battle, the side a reference belongs to: 0 is the player's.",
+    species_stage: "The evolution stage of species s: 0 for the first stage of a line.",
+    catch_rate: "The catch rate of species s.",
+    gender_ratio: "The gender ratio byte of species s.",
+    growth: "The growth rate id of species s.",
+    egg_group1: "The first egg group of species s.",
+    egg_group2: "The second egg group of species s.",
+    area: "The area the player is in: the place name the game shows on entry. Every floor of a cave and every building of a town share it.",
+    area_of: "The area of zone z.",
+    wild_battle: "1 when the battle in progress is a wild one.",
+    play_seconds: "The play time of the save, in seconds.",
+    owned: "1 when the party or a box holds a Pokemon of species s that is not an egg.",
+    party_max_level: "The highest level in the party, eggs left out.",
+    party_alive: "How many party Pokemon have HP left, eggs left out.",
+    party_has_type: "1 when a party Pokemon that is not an egg has type t.",
+    item_pocket: "The bag pocket of item i.",
+    move_type: "The type id of move v.",
+    move_power: "The power of move v.",
+    move_class: "The damage class of move v.",
   },
 
   functionGroups: [
@@ -182,7 +236,11 @@ export default {
     { title: "Species and dex", fns: ["species_value","species_shiny","dex_caught"] },
     { title: "Badges, money and flags", fns: ["badge_count","badge_has","money","money_set","flag","flag_set"] },
     { title: "The map and the player", fns: ["zone"] },
-    { title: "Moves between places", fns: ["mon_to_box","mon_take_item","mon_release"] },
+    { title: "Moves between places", fns: ["mon_to_box","mon_to_box_n","mon_from_box","mon_take_item","mon_release"] },
+    { title: "Recalculating a Pokemon", fns: ["mon_recalc"] },
+    { title: "The world, the battle and play time", fns: ["area_of","battle_wild","play_seconds"] },
+    { title: "Item and move data", fns: ["item_value","move_value"] },
+    { title: "Mod data tables", fns: ["table_get"] },
     { title: "Messages", fns: ["message","confirm"] },
     { title: "Miscellaneous", fns: ["item_count","item_add","setting_get","player_pos","battle_style"] },
     { title: "Peer sessions", fns: ["session_host","session_join","session_leave","session_send","on_session"] },
@@ -202,6 +260,8 @@ export default {
     { name: "message", syntax: "do message <text>", what: "Shows a line of text to the player.", example: "do message \"Be careful.\"" },
     { name: "send", syntax: "do send <expr>", what: "Sends a value to the peers of the current session.", example: "do send event.species" },
     { name: "release", syntax: "do release <mon or party position>", what: "Releases a Pokemon of the player's party for good. It is applied at the first player step on the field after a battle, and not when it would leave only eggs.", example: "do release event.mon" },
+    { name: "box", syntax: "do box <mon or party position> <n>", what: "Moves a party Pokemon to box n, counted from 0. It is applied at the next field step. It fails when the box is full, and not when it would leave only eggs.", example: "do box event.mon 23" },
+    { name: "withdraw", syntax: "do withdraw <box> <slot>", what: "Moves the Pokemon at a box and slot to the party. It is applied at the next field step. It fails when the party is full or the slot is empty.", example: "do withdraw 0 1" },
     { name: "give", syntax: "do give <item> <count>", what: "Puts a number of an item in the bag at once. Nothing happens when the bag cannot take it, and the rule stops for that firing.", example: "do give 17 5" },
   ],
 
@@ -235,7 +295,8 @@ export default {
         { t: "p", text: "Read a payload field as `event.<field>`. Read the game through state fields such as `money` or `level[event.mon]`. Keep your own data in `state.<cell>`; with a subscript it is a keyed table, up to 1024 keys, saved with the game." },
         { t: "table", head: ["Type", "Values"], rows: [["int", "A 32-bit signed number. Every numeric payload and state field."], ["bool", "true or false. Comparisons and flag fields."], ["text", "A string literal."], ["mon", "A Pokemon reference. Use it as a subscript: hp[event.mon]."]] },
         { t: "p", text: "Operators, loosest to tightest: `||`, `&&`, `!`, comparisons (`== != < <= > >=`), `+ -`, `* / %`, unary `-`. Both sides of a comparison must have the same type; arithmetic needs int. There are no names for enum values: use the numbers listed on the event page." },
-        { t: "p", text: "Operators are read as two characters at most, so write `a < -1` with spaces." },
+        { t: "p", text: "Read the mod's own options as `setting.<key>` and its data tables as `table.<name>[key]`." },
+        { t: "p", text: "Operators are read as two characters at most. A pair that is not an operator reads as two, so `x*-1` and `a<-1` mean what they look like." },
       ],
     },
     {
@@ -244,6 +305,22 @@ export default {
       blocks: [
         { t: "table", head: ["Target", "Writable when"], rows: [["event.<field>", "The payload page marks the field writable. Any other field is a load error."], ["money, hp[m], battle_style", "The state field page says the port can write it."], ["state.<cell>, state.<cell>[key]", "Always. The cell belongs to your mod."]] },
         { t: "p", text: "The game's later write wins. To make a change stick, write the payload field of the event the game derives the value from, not the state field after it." },
+      ],
+    },
+    {
+      slug: "tables",
+      title: "Data tables",
+      blocks: [
+        { t: "p", text: "A table is a file of numbers the mod reads by key: a level cap for each badge count, a list of banned species, a zone-to-area map. Rules and code read it. What the table means is up to the mod." },
+        { t: "p", text: "Declare each table with one line in the manifest. The Tables view writes it for you." },
+        { t: "code", lang: "manifest", text: "table = caps tables/caps.txt\n" },
+        { t: "list", items: ["The name is letters, digits and `_`, does not start with a digit, and has at most 31 characters.", "The path is inside the mod folder.", "A mod can hold up to 128 tables in all, counting every loaded mod.", "A table belongs to the mod that declares it. Two mods can each have a table called `caps`; neither reads the other's."] },
+        { t: "p", text: "The file has one entry per line. A key and a value are signed 32-bit numbers, written in decimal or with `0x` for hex. `#` starts a comment. `default = N` is the value of every key the table does not list, and 0 when there is no such line." },
+        { t: "code", lang: "table", text: "# level cap per badge count\n0 = 12\n1 = 20     # after the first gym\n0x2 = 25\ndefault = 100\n" },
+        { t: "list", items: ["When a key is listed twice, the later line wins. The checker warns about it.", "A table holds up to 65536 entries, and the file is at most 16 MiB.", "A table that fails to load is reported when the game starts. The mod's other tables and rules still load."] },
+        { t: "p", text: "A rule reads a table with `table.<name>[key]`. The key is any number expression, such as `badges`. A key the table lacks reads the default." },
+        { t: "code", lang: "rule", text: "language 1\nrule level_cap on mon.exp\n    when level[event.mon] >= table.caps[badges]\n    do set event.amount 0\n" },
+        { t: "p", text: "A rule that names a table the mod does not declare is refused when the game loads it. The checker reports the same error. Code reads a table with `table_get(name, key, &out)`." },
       ],
     },
   ],
@@ -637,6 +714,203 @@ static int on_faint(void *mod, BwEvent *event)
 }
 
 ${start("    return host->on(BW_EVENT_BATTLE_FAINT, on_faint);")}`,
+    },
+    {
+      slug: "level-cap-badge",
+      title: "Level cap by badge",
+      goal: "A Pokemon gains no experience once it reaches the level cap for the badges the player holds.",
+      tier: ["rules", "c"],
+      events: ["mon.exp"],
+      functions: ["table_get", "badge_count"],
+      steps: [
+        "Make a table called `caps` in the Tables view. Each key is a badge count and each value the highest level allowed. `default` covers every count the table does not list.",
+        "`mon.exp` fires once for each party member that gains experience. Setting `event.amount` to 0 gives that member none.",
+        "`table.caps[badges]` reads the cap for the badges the player holds now.",
+      ],
+      tables: [{ file: "tables/caps.txt", text: "# badge count = level cap\n0 = 12\n1 = 20\n2 = 25\n3 = 30\n4 = 36\n5 = 42\n6 = 48\n7 = 54\n8 = 60\ndefault = 100\n" }],
+      rule: rule(`
+language 1
+rule level_cap on mon.exp
+    when level[event.mon] >= table.caps[badges]
+    do set event.amount 0
+`),
+      c: `#include "mod_api.h"
+#include "mod_state.h"
+
+static const BwModHost *g_host;
+
+static int on_exp(void *mod, BwEvent *event)
+{
+    BwMonExp *e = (BwMonExp *)event;
+    s32 cap = 100;
+    (void)mod;
+    g_host->services->table_get("caps", (s32)g_host->state->badge_count(), &cap);
+    if ((s32)e->level >= cap) {
+        e->amount = 0;
+    }
+    return BW_EVENT_CONTINUE;
+}
+
+${start("    return host->on(BW_EVENT_MON_EXP, on_exp);")}`,
+      notes: ["The cap compares the level before the gain, as `event.level` and `level[event.mon]` both read it."],
+    },
+    {
+      slug: "rare-candy-cap",
+      title: "Rare Candy stops at the cap",
+      goal: "A Rare Candy cannot be used on a Pokemon that has reached the level cap.",
+      tier: ["rules"],
+      events: ["item.use"],
+      functions: ["message"],
+      steps: [
+        "`item.use` fires when an item is used and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
+        "`event.item` is the item and `event.target` the Pokemon it is used on. Item 50 is the Rare Candy in the game's item list.",
+        "The cap comes from the `caps` table of the level cap recipe.",
+      ],
+      tables: [{ file: "tables/caps.txt", text: "# badge count = level cap\n0 = 12\n1 = 20\n2 = 25\ndefault = 100\n" }],
+      rule: rule(`
+language 1
+rule candy_cap on item.use
+    when event.item == 50 && level[event.target] >= table.caps[badges]
+    do refuse
+    do message "It cannot grow past the cap yet."
+`),
+    },
+    {
+      slug: "dupes-clause",
+      title: "Roll again for a species the player owns",
+      goal: "A wild encounter of a species the player already owns is rolled again.",
+      tier: ["rules"],
+      events: ["encounter.wild"],
+      functions: [],
+      steps: [
+        "`owned[s]` is 1 when the party or a box holds a Pokemon of species `s` that is not an egg.",
+        "`event.reroll` is writable. Setting it to 1 rolls the encounter again with the game's own roll and fires the event again, at most 16 times. The last roll stands.",
+        "A rule that refuses the event on a reroll leaves no encounter.",
+      ],
+      rule: rule(`
+language 1
+rule dupes on encounter.wild
+    when owned[event.species] == 1
+    do set event.reroll 1
+`),
+      notes: ["To skip only the first stage of an evolution line, add `species_stage[event.species] == 0` to the guard."],
+    },
+    {
+      slug: "monotype",
+      title: "Check types in the party",
+      goal: "Refuse a ball on a species without a type, and refuse wild encounters while the party has no Pokemon of that type.",
+      tier: ["rules"],
+      events: ["catch.attempt", "encounter.wild"],
+      functions: ["message"],
+      steps: [
+        "Type ids are the game's own: Water is 10.",
+        "`species_type1[s]` and `species_type2[s]` read a species' types. The first rule refuses the ball when neither is Water.",
+        "`party_has_type[t]` is 1 when a party Pokemon that is not an egg has type `t`. The second rule refuses the encounter when it is 0.",
+        "A rule file holds one rule, so these are two files.",
+      ],
+      rule: rule(`
+language 1
+rule water_only on catch.attempt
+    when species_type1[event.species] != 10 && species_type2[event.species] != 10
+    do refuse
+    do message "Only Water types."
+`),
+      rule2: rule(`
+language 1
+rule need_water on encounter.wild
+    when party_has_type[10] == 0
+    do refuse
+`),
+      notes: ["The first block is the rule for `catch.attempt`; the second is the rule for `encounter.wild`."],
+    },
+    {
+      slug: "play-time",
+      title: "Use the play time",
+      goal: "Wild encounters start only after the save has an hour of play time.",
+      tier: ["rules"],
+      events: ["encounter.wild"],
+      functions: ["play_seconds"],
+      steps: ["`play_seconds` is the play time of the save in seconds.", "`encounter.wild` can be refused. The player keeps walking."],
+      rule: rule(`
+language 1
+rule slow_start on encounter.wild
+    when play_seconds < 3600
+    do refuse
+`),
+    },
+    {
+      slug: "dark-grass-doubles",
+      title: "Stronger second Pokemon in dark grass",
+      goal: "In a double battle from dark grass, the second wild Pokemon is two levels higher.",
+      tier: ["rules"],
+      events: ["encounter.wild"],
+      functions: [],
+      steps: [
+        "`event.method` is 1 for dark grass and `event.double` is 1 for a double battle.",
+        "`event.level2` and `event.species2` are the second Pokemon of the double. Both are writable. `level2` is 0 when there is no second Pokemon.",
+      ],
+      rule: rule(`
+language 1
+rule dark_grass_pair on encounter.wild
+    when event.method == 1 && event.double == 1
+    do add event.level2 2
+`),
+    },
+    {
+      slug: "stronger-trainers",
+      title: "Change a trainer's party",
+      goal: "Every Pokemon of every trainer is a number of levels higher, and the player picks the number.",
+      tier: ["rules"],
+      events: ["battle.trainer_mon"],
+      functions: ["setting_get"],
+      steps: [
+        "`battle.trainer_mon` fires once for each opposing Pokemon, in party order, after the game builds the party.",
+        "A new level works out the stats again. Writing 0 to `level`, `species` or `ability` keeps the game's value.",
+        "The option is a whole number. `setting.boost` reads it. It is declared in the settings file with a minimum, a maximum and a default.",
+      ],
+      settings: `option boost int "Extra trainer levels" 0 20 3\n`,
+      rule: rule(`
+language 1
+rule stronger_trainers on battle.trainer_mon
+    do add event.level setting.boost
+`),
+    },
+    {
+      slug: "no-grinding",
+      title: "Change experience by source",
+      goal: "Wild battles give no experience.",
+      tier: ["rules"],
+      events: ["mon.exp"],
+      functions: [],
+      steps: [
+        "`event.source` is 0 for a battle and 1 for the day care.",
+        "`event.wild` is 1 when the battle is a wild one.",
+        "The event fires once for each member that gains experience, and an amount of 0 gives that member none.",
+      ],
+      rule: rule(`
+language 1
+rule no_grinding on mon.exp
+    when event.source == 0 && event.wild == 1
+    do set event.amount 0
+`),
+    },
+    {
+      slug: "graveyard-box",
+      title: "Move a Pokemon to a box",
+      goal: "A Pokemon of the player that faints is moved to box 23.",
+      tier: ["rules"],
+      events: ["battle.faint"],
+      functions: ["mon_to_box_n"],
+      steps: [
+        "`box <mon> <n>` moves a party Pokemon to box `n`, counted from 0. It is applied at the next field step, so the battle is not disturbed.",
+        "It fails when the box is full, and it never leaves the party without a Pokemon that is not an egg.",
+      ],
+      rule: rule(`
+language 1
+rule graveyard on battle.faint
+    when event.side == 0
+    do box event.mon 23
+`),
     },
   ],
 };

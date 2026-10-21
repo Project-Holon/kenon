@@ -6,7 +6,16 @@
 
   let { readOnly, onSaved }: { readOnly: boolean; onSaved: () => void } = $props();
 
-  const blank: ModSettings = { name: "", order: 0, api: null, port: null, code: null, state: null, settings: null };
+  const blank: ModSettings = {
+    name: "",
+    order: 0,
+    api: null,
+    port: null,
+    code: null,
+    state: null,
+    settings: null,
+    tables: [],
+  };
   let form = $state<ModSettings>({ ...blank });
   let original = $state<ModSettings>({ ...blank });
   let apiVersion = $state(0);
@@ -27,6 +36,7 @@
       code,
       state: text(s.state),
       settings: text(s.settings),
+      tables: s.tables,
     };
   };
 
@@ -153,6 +163,15 @@
           <p class="hint muted">A file in the mod folder that lists the mod's options for the game's settings screen.</p>
           {#each about("settings") as p}<p class="bad">{p.message}</p>{/each}
         </div>
+
+        {#if form.tables.length}
+          <span class="label">Tables</span>
+          <div class="field">
+            <p>{form.tables.map((t) => t.name || "(no name)").join(", ")}</p>
+            <p class="hint muted">Edit them in Tables.</p>
+            {#each about("tables") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
+          </div>
+        {/if}
       </form>
     </div>
   {/if}
@@ -187,7 +206,8 @@
     gap: 0.9rem 1rem;
     align-items: start;
   }
-  label {
+  label,
+  .label {
     font-weight: 600;
     padding-top: 0.45rem;
   }

@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "91d4c44",
+  "eidosRevision": "7524fd1",
   "apiVersion": 4,
   "sources": [
    "docs/mod-events.md",
@@ -688,7 +688,7 @@
    "binding": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
    "region": "ov021",
    "refuse": "no battle; the player keeps walking; the payload names the area, the method (grass, surf, fishing, shaking grass) and the slot",
-   "modifyText": "species, level, shiny",
+   "modifyText": "species, level, shiny; the second Pokemon of a double; a reroll",
    "notes": [],
    "caveats": [
     "encounter.wild's species, level and shiny are the ones the game builds the wild Pokemon from. For a roamer the slot reads 0, because a roamer comes from the save and not from a table of the zone, and the roamer's shiny and double flags read 0 as well: its personality is the save's own and the game sets its battle up alone."
@@ -757,6 +757,33 @@
      "cName": "double_",
      "cType": "u8",
      "ruleKind": "int"
+    },
+    {
+     "name": "reroll",
+     "type": "u8",
+     "meaning": "version 4: 1 rolls the encounter again with the game's own roll and fires the event again, at most 16 times; the last answer stands",
+     "writable": true,
+     "cName": "reroll",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "level2",
+     "type": "u8",
+     "meaning": "version 4: the second Pokemon of a double (dark grass), 0 when there is none",
+     "writable": true,
+     "cName": "level2",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "species2",
+     "type": "u16",
+     "meaning": "version 4: the same",
+     "writable": true,
+     "cName": "species2",
+     "cType": "u16",
+     "ruleKind": "int"
     }
    ],
    "id": "event:encounter.wild",
@@ -774,7 +801,11 @@
    ],
    "recipes": [
     "block-wild-encounter",
-    "force-shiny-fishing"
+    "force-shiny-fishing",
+    "dupes-clause",
+    "monotype",
+    "play-time",
+    "dark-grass-doubles"
    ]
   },
   {
@@ -1213,6 +1244,25 @@
      "cName": "level",
      "cType": "u8",
      "ruleKind": "int"
+    },
+    {
+     "name": "source",
+     "type": "u8",
+     "meaning": "version 4: BW_EXP_BATTLE or BW_EXP_DAYCARE",
+     "writable": false,
+     "cName": "source",
+     "cType": "u8",
+     "enum": "BW_EXP_",
+     "ruleKind": "int"
+    },
+    {
+     "name": "wild",
+     "type": "u8",
+     "meaning": "version 4: for a battle, 1 when the battle is a wild one",
+     "writable": false,
+     "cName": "wild",
+     "cType": "u8",
+     "ruleKind": "int"
     }
    ],
    "id": "event:mon.exp",
@@ -1228,7 +1278,9 @@
    ],
    "recipes": [
     "level-cap",
-    "setting-toggle"
+    "setting-toggle",
+    "level-cap-badge",
+    "no-grinding"
    ]
   },
   {
@@ -2235,7 +2287,8 @@
    "recipes": [
     "faint-penalty",
     "release-on-faint",
-    "faint-counter"
+    "faint-counter",
+    "graveyard-box"
    ]
   },
   {
@@ -2323,7 +2376,8 @@
    ],
    "recipes": [
     "catch-rate",
-    "one-catch-per-route"
+    "one-catch-per-route",
+    "monotype"
    ]
   },
   {
@@ -2510,6 +2564,31 @@
    "recipes": []
   },
   {
+   "name": "battle.trainer_mon",
+   "category": "Battle",
+   "binding": "the rows that build a trainer battle's setup (battle.start), once per opposing member",
+   "region": "-",
+   "refuse": null,
+   "modifyText": "species, level, item, moves, ability, form",
+   "notes": [],
+   "caveats": [],
+   "payload": [],
+   "id": "event:battle.trainer_mon",
+   "cStruct": "BwBattleTrainerMon",
+   "ruleEvent": true,
+   "refusable": false,
+   "numId": 82,
+   "when": "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": [
+    "stronger-trainers"
+   ]
+  },
+  {
    "name": "item.add",
    "category": "Items and money",
    "binding": "MYITEM_SAVEDATA_AddItem 0x02007E50",
@@ -2608,7 +2687,9 @@
     "money_set",
     "message"
    ],
-   "recipes": []
+   "recipes": [
+    "rare-candy-cap"
+   ]
   },
   {
    "name": "shop.buy",
@@ -3182,6 +3263,21 @@
    "fromC": true
   },
   {
+   "title": "Where experience comes from (mon.exp).",
+   "prefix": "BW_EXP_",
+   "members": [
+    {
+     "name": "BW_EXP_BATTLE",
+     "value": 0
+    },
+    {
+     "name": "BW_EXP_DAYCARE",
+     "value": 1
+    }
+   ],
+   "fromC": true
+  },
+  {
    "title": "Where an HP restore happens (heal.hp).",
    "prefix": "BW_HEAL_HP_",
    "members": [
@@ -3266,6 +3362,78 @@
     {
      "name": "BW_MON_FIELD_TYPE2",
      "value": 175
+    },
+    {
+     "name": "BW_MON_FIELD_PERSONALITY",
+     "value": 0
+    },
+    {
+     "name": "BW_MON_FIELD_OT_ID",
+     "value": 7
+    },
+    {
+     "name": "BW_MON_FIELD_FRIENDSHIP",
+     "value": 9
+    },
+    {
+     "name": "BW_MON_FIELD_ABILITY",
+     "value": 10
+    },
+    {
+     "name": "BW_MON_FIELD_MOVE1",
+     "value": 54
+    },
+    {
+     "name": "BW_MON_FIELD_MOVE2",
+     "value": 55
+    },
+    {
+     "name": "BW_MON_FIELD_MOVE3",
+     "value": 56
+    },
+    {
+     "name": "BW_MON_FIELD_MOVE4",
+     "value": 57
+    },
+    {
+     "name": "BW_MON_FIELD_IS_EGG",
+     "value": 76
+    },
+    {
+     "name": "BW_MON_FIELD_GENDER",
+     "value": 110
+    },
+    {
+     "name": "BW_MON_FIELD_FORM",
+     "value": 111
+    },
+    {
+     "name": "BW_MON_FIELD_NATURE",
+     "value": 112
+    },
+    {
+     "name": "BW_MON_FIELD_HAS_NICKNAME",
+     "value": 117
+    },
+    {
+     "name": "BW_MON_FIELD_FATEFUL",
+     "value": 109
+    },
+    {
+     "name": "BW_MON_FIELD_ORIGIN_GAME",
+     "value": 119
+    },
+    {
+     "name": "BW_MON_FIELD_MET_LOCATION",
+     "value": 150
+    },
+    {
+     "name": "BW_MON_FIELD_BALL",
+     "value": 152
+    },
+    {
+     "name": "BW_MON_FIELD_MET_LEVEL",
+     "value": 153
     }
    ],
    "fromC": true
@@ -3487,6 +3655,396 @@
    "fromC": true
   },
   {
+   "name": "personality",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The personality value of the Pokemon.",
+   "fromC": true
+  },
+  {
+   "name": "ot_id",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the trainer who first had the Pokemon.",
+   "fromC": true
+  },
+  {
+   "name": "exp",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The experience points the Pokemon holds.",
+   "fromC": true
+  },
+  {
+   "name": "friendship",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The friendship value of the Pokemon.",
+   "fromC": true
+  },
+  {
+   "name": "ability",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's ability.",
+   "fromC": true
+  },
+  {
+   "name": "move1",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's first move.",
+   "fromC": true
+  },
+  {
+   "name": "move2",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's second move.",
+   "fromC": true
+  },
+  {
+   "name": "move3",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's third move.",
+   "fromC": true
+  },
+  {
+   "name": "move4",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's fourth move.",
+   "fromC": true
+  },
+  {
+   "name": "is_egg",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "1 when the Pokemon is an egg.",
+   "fromC": true
+  },
+  {
+   "name": "gender",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The Pokemon's gender, as the game stores it.",
+   "fromC": true
+  },
+  {
+   "name": "form",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The Pokemon's form number.",
+   "fromC": true
+  },
+  {
+   "name": "nature",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the Pokemon's nature.",
+   "fromC": true
+  },
+  {
+   "name": "has_nickname",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "1 when the Pokemon has a nickname.",
+   "fromC": true
+  },
+  {
+   "name": "fateful",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "1 when the Pokemon was met in a fateful encounter.",
+   "fromC": true
+  },
+  {
+   "name": "origin_game",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the game the Pokemon comes from.",
+   "fromC": true
+  },
+  {
+   "name": "met_location",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the place where the Pokemon was met.",
+   "fromC": true
+  },
+  {
+   "name": "ball",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The id of the ball the Pokemon was caught in.",
+   "fromC": true
+  },
+  {
+   "name": "met_level",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "The level the Pokemon had when it was met.",
+   "fromC": true
+  },
+  {
+   "name": "place",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "Where a reference points: the BW_MON_* place id (party, box or battle).",
+   "fromC": true
+  },
+  {
+   "name": "side",
+   "sub": "mon",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a Pokemon, usually event.mon",
+   "value": "In a battle, the side a reference belongs to: 0 is the player's.",
+   "fromC": true
+  },
+  {
+   "name": "species_stage",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The evolution stage of species s: 0 for the first stage of a line.",
+   "fromC": true
+  },
+  {
+   "name": "gender_ratio",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The gender ratio byte of species s.",
+   "fromC": true
+  },
+  {
+   "name": "egg_group1",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The first egg group of species s.",
+   "fromC": true
+  },
+  {
+   "name": "egg_group2",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The second egg group of species s.",
+   "fromC": true
+  },
+  {
+   "name": "growth",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The growth rate id of species s.",
+   "fromC": true
+  },
+  {
+   "name": "catch_rate",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The catch rate of species s.",
+   "fromC": true
+  },
+  {
+   "name": "area",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "The area the player is in: the place name the game shows on entry. Every floor of a cave and every building of a town share it.",
+   "fromC": true
+  },
+  {
+   "name": "area_of",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The area of zone z.",
+   "fromC": true
+  },
+  {
+   "name": "wild_battle",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "1 when the battle in progress is a wild one.",
+   "fromC": true
+  },
+  {
+   "name": "play_seconds",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "The play time of the save, in seconds.",
+   "fromC": true
+  },
+  {
+   "name": "owned",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "1 when the party or a box holds a Pokemon of species s that is not an egg.",
+   "fromC": true
+  },
+  {
+   "name": "party_max_level",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "The highest level in the party, eggs left out.",
+   "fromC": true
+  },
+  {
+   "name": "party_alive",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "How many party Pokemon have HP left, eggs left out.",
+   "fromC": true
+  },
+  {
+   "name": "party_has_type",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "1 when a party Pokemon that is not an egg has type t.",
+   "fromC": true
+  },
+  {
+   "name": "item_pocket",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The bag pocket of item i.",
+   "fromC": true
+  },
+  {
+   "name": "move_type",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The type id of move v.",
+   "fromC": true
+  },
+  {
+   "name": "move_power",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The power of move v.",
+   "fromC": true
+  },
+  {
+   "name": "move_class",
+   "sub": "int",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": "a number",
+   "value": "The damage class of move v.",
+   "fromC": true
+  },
+  {
    "name": "battle_style",
    "sub": "plain",
    "writable": true,
@@ -3550,6 +4108,18 @@
    "syntax": "do release <mon or party position>",
    "what": "Releases a Pokemon of the player's party for good. It is applied at the first player step on the field after a battle, and not when it would leave only eggs.",
    "example": "do release event.mon"
+  },
+  {
+   "name": "box",
+   "syntax": "do box <mon or party position> <n>",
+   "what": "Moves a party Pokemon to box n, counted from 0. It is applied at the next field step. It fails when the box is full, and not when it would leave only eggs.",
+   "example": "do box event.mon 23"
+  },
+  {
+   "name": "withdraw",
+   "syntax": "do withdraw <box> <slot>",
+   "what": "Moves the Pokemon at a box and slot to the party. It is applied at the next field step. It fails when the party is full or the slot is empty.",
+   "example": "do withdraw 0 1"
   },
   {
    "name": "give",
@@ -3823,7 +4393,8 @@
     "catch.attempt",
     "catch.result",
     "battle.end",
-    "whiteout"
+    "whiteout",
+    "battle.trainer_mon"
    ],
    "fromC": true
   },
@@ -3858,6 +4429,7 @@
     "catch.result",
     "battle.end",
     "whiteout",
+    "battle.trainer_mon",
     "heal.hp"
    ],
    "fromC": true
@@ -4291,6 +4863,167 @@
    "fromC": true
   },
   {
+   "id": "fn:area_of",
+   "kind": "state",
+   "name": "area_of",
+   "group": "The world, the battle and play time",
+   "signature": "s32 (*area_of)(u16 zone)",
+   "params": [
+    "u16 zone"
+   ],
+   "what": "The area of a zone: the place name the game shows on entry. Every floor of a cave and every building of a town share one area.",
+   "result": "The area number, or a negative number when the zone data is not loaded.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "area_of[z]",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:battle_wild",
+   "kind": "state",
+   "name": "battle_wild",
+   "group": "The world, the battle and play time",
+   "signature": "s32 (*battle_wild)()",
+   "params": [],
+   "what": "Whether the battle in progress is a wild one.",
+   "result": "1 for a wild battle, 0 for a trainer's, -1 when no battle runs.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "wild_battle",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:play_seconds",
+   "kind": "state",
+   "name": "play_seconds",
+   "group": "The world, the battle and play time",
+   "signature": "u32 (*play_seconds)()",
+   "params": [],
+   "what": "The play time of the save in force, in seconds.",
+   "result": null,
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "play_seconds",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:item_value",
+   "kind": "state",
+   "name": "item_value",
+   "group": "Item and move data",
+   "signature": "int (*item_value)(u16 item, u32 field, u32 *out)",
+   "params": [
+    "u16 item",
+    "u32 field",
+    "u32 *out"
+   ],
+   "what": "Reads one data field of an item, by the game's field id.",
+   "result": "0 on success; non-zero past the item limit.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "item_pocket[i]",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:move_value",
+   "kind": "state",
+   "name": "move_value",
+   "group": "Item and move data",
+   "signature": "int (*move_value)(u16 move, u32 field, u32 *out)",
+   "params": [
+    "u16 move",
+    "u32 field",
+    "u32 *out"
+   ],
+   "what": "Reads one data field of a move, by the game's field id: type, damage class or power.",
+   "result": "0 on success; non-zero past the move limit.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "move_type[v], move_power[v], move_class[v]",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:mon_to_box_n",
+   "kind": "state",
+   "name": "mon_to_box_n",
+   "group": "Moves between places",
+   "signature": "int (*mon_to_box_n)(BwMonRef mon, u32 box)",
+   "params": [
+    "BwMonRef mon",
+    "u32 box"
+   ],
+   "what": "Moves a party Pokemon to a named box (0 is the first). Queued like mon_to_box and applied at the next field step. It fails when the box is full, and it never leaves the party without a Pokemon that is not an egg.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "do box event.mon n",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:mon_from_box",
+   "kind": "state",
+   "name": "mon_from_box",
+   "group": "Moves between places",
+   "signature": "int (*mon_from_box)(u32 box, u32 slot)",
+   "params": [
+    "u32 box",
+    "u32 slot"
+   ],
+   "what": "Moves the Pokemon at a box and slot to the party. Queued like mon_to_box. It fails when the party is full or the slot is empty.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "do withdraw box slot",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:mon_recalc",
+   "kind": "state",
+   "name": "mon_recalc",
+   "group": "Recalculating a Pokemon",
+   "signature": "int (*mon_recalc)(BwMonRef mon)",
+   "params": [
+    "BwMonRef mon"
+   ],
+   "what": "Works out a party Pokemon's level and stats again from its species, experience, IVs and EVs, as the game does after a level up. Call it after party_set changes any of those. It does not work on a box or battle reference.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
    "id": "fn:message",
    "kind": "service",
    "name": "message",
@@ -4351,6 +5084,7 @@
     "catch.result",
     "battle.end",
     "whiteout",
+    "battle.trainer_mon",
     "item.add",
     "item.use",
     "shop.buy",
@@ -4873,7 +5607,7 @@
     "const char *key"
    ],
    "what": "Reads one of the mod's own options (declared in the file named by the manifest's settings key).",
-   "result": "0 or 1 for a bool, the index for a choice.",
+   "result": "0 or 1 for a bool, the index for a choice, the number for an int option.",
    "notes": [],
    "tiers": [
     "rules",
@@ -5007,6 +5741,28 @@
    "rule": null,
    "events": [],
    "fromC": true
+  },
+  {
+   "id": "fn:table_get",
+   "kind": "service",
+   "name": "table_get",
+   "group": "Mod data tables",
+   "signature": "int (*table_get)(const char *name, s32 key, s32 *out)",
+   "params": [
+    "const char *name",
+    "s32 key",
+    "s32 *out"
+   ],
+   "what": "Reads a value of one of the mod's own data tables (a `table` line in the manifest). A mod reads only its own tables.",
+   "result": "0 when the key is in the table, 1 when it is not (the table's default is written to out), -1 when the mod has no table with that name.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "table.name[key]",
+   "events": [],
+   "fromC": true
   }
  ],
  "functionGroups": [
@@ -5072,8 +5828,37 @@
    "title": "Moves between places",
    "fns": [
     "mon_to_box",
+    "mon_to_box_n",
+    "mon_from_box",
     "mon_take_item",
     "mon_release"
+   ]
+  },
+  {
+   "title": "Recalculating a Pokemon",
+   "fns": [
+    "mon_recalc"
+   ]
+  },
+  {
+   "title": "The world, the battle and play time",
+   "fns": [
+    "area_of",
+    "battle_wild",
+    "play_seconds"
+   ]
+  },
+  {
+   "title": "Item and move data",
+   "fns": [
+    "item_value",
+    "move_value"
+   ]
+  },
+  {
+   "title": "Mod data tables",
+   "fns": [
+    "table_get"
    ]
   },
   {
@@ -8029,7 +8814,11 @@
     },
     {
      "t": "p",
-     "text": "Operators are read as two characters at most, so write `a < -1` with spaces."
+     "text": "Read the mod's own options as `setting.<key>` and its data tables as `table.<name>[key]`."
+    },
+    {
+     "t": "p",
+     "text": "Operators are read as two characters at most. A pair that is not an operator reads as two, so `x*-1` and `a<-1` mean what they look like."
     }
    ],
    "id": "page:expressions"
@@ -8066,6 +8855,66 @@
     }
    ],
    "id": "page:targets"
+  },
+  {
+   "section": "rules",
+   "slug": "tables",
+   "title": "Data tables",
+   "blocks": [
+    {
+     "t": "p",
+     "text": "A table is a file of numbers the mod reads by key: a level cap for each badge count, a list of banned species, a zone-to-area map. Rules and code read it. What the table means is up to the mod."
+    },
+    {
+     "t": "p",
+     "text": "Declare each table with one line in the manifest. The Tables view writes it for you."
+    },
+    {
+     "t": "code",
+     "lang": "manifest",
+     "text": "table = caps tables/caps.txt\n"
+    },
+    {
+     "t": "list",
+     "items": [
+      "The name is letters, digits and `_`, does not start with a digit, and has at most 31 characters.",
+      "The path is inside the mod folder.",
+      "A mod can hold up to 128 tables in all, counting every loaded mod.",
+      "A table belongs to the mod that declares it. Two mods can each have a table called `caps`; neither reads the other's."
+     ]
+    },
+    {
+     "t": "p",
+     "text": "The file has one entry per line. A key and a value are signed 32-bit numbers, written in decimal or with `0x` for hex. `#` starts a comment. `default = N` is the value of every key the table does not list, and 0 when there is no such line."
+    },
+    {
+     "t": "code",
+     "lang": "table",
+     "text": "# level cap per badge count\n0 = 12\n1 = 20     # after the first gym\n0x2 = 25\ndefault = 100\n"
+    },
+    {
+     "t": "list",
+     "items": [
+      "When a key is listed twice, the later line wins. The checker warns about it.",
+      "A table holds up to 65536 entries, and the file is at most 16 MiB.",
+      "A table that fails to load is reported when the game starts. The mod's other tables and rules still load."
+     ]
+    },
+    {
+     "t": "p",
+     "text": "A rule reads a table with `table.<name>[key]`. The key is any number expression, such as `badges`. A key the table lacks reads the default."
+    },
+    {
+     "t": "code",
+     "lang": "rule",
+     "text": "language 1\nrule level_cap on mon.exp\n    when level[event.mon] >= table.caps[badges]\n    do set event.amount 0\n"
+    },
+    {
+     "t": "p",
+     "text": "A rule that names a table the mod does not declare is refused when the game loads it. The checker reports the same error. Code reads a table with `table_get(name, key, &out)`."
+    }
+   ],
+   "id": "page:tables"
   }
  ],
  "recipes": [
@@ -8391,6 +9240,214 @@
    ],
    "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\nstatic u32 g_faints;\n\nstatic int on_faint(void *mod, BwEvent *event)\n{\n    BwBattleFaint *e = (BwBattleFaint *)event;\n    char line[24] = \"Faints: \";\n    char digits[11];\n    u32 n = 0, v, i;\n    (void)mod;\n    if (e->side != 0) {\n        return BW_EVENT_CONTINUE;\n    }\n    g_faints++;\n    v = g_faints;\n    do {\n        digits[n++] = (char)('0' + v % 10);\n        v /= 10;\n    } while (v);\n    for (i = 0; i < n; i++) {\n        line[8 + i] = digits[n - 1 - i];\n    }\n    line[8 + n] = 0;\n    g_host->services->panel_set(0, line);\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_BATTLE_FAINT, on_faint);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
    "id": "recipe:faint-counter"
+  },
+  {
+   "slug": "level-cap-badge",
+   "title": "Level cap by badge",
+   "goal": "A Pokemon gains no experience once it reaches the level cap for the badges the player holds.",
+   "tier": [
+    "rules",
+    "c"
+   ],
+   "events": [
+    "mon.exp"
+   ],
+   "functions": [
+    "table_get",
+    "badge_count"
+   ],
+   "steps": [
+    "Make a table called `caps` in the Tables view. Each key is a badge count and each value the highest level allowed. `default` covers every count the table does not list.",
+    "`mon.exp` fires once for each party member that gains experience. Setting `event.amount` to 0 gives that member none.",
+    "`table.caps[badges]` reads the cap for the badges the player holds now."
+   ],
+   "tables": [
+    {
+     "file": "tables/caps.txt",
+     "text": "# badge count = level cap\n0 = 12\n1 = 20\n2 = 25\n3 = 30\n4 = 36\n5 = 42\n6 = 48\n7 = 54\n8 = 60\ndefault = 100\n"
+    }
+   ],
+   "rule": "language 1\nrule level_cap on mon.exp\n    when level[event.mon] >= table.caps[badges]\n    do set event.amount 0\n",
+   "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\n\nstatic int on_exp(void *mod, BwEvent *event)\n{\n    BwMonExp *e = (BwMonExp *)event;\n    s32 cap = 100;\n    (void)mod;\n    g_host->services->table_get(\"caps\", (s32)g_host->state->badge_count(), &cap);\n    if ((s32)e->level >= cap) {\n        e->amount = 0;\n    }\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_MON_EXP, on_exp);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
+   "notes": [
+    "The cap compares the level before the gain, as `event.level` and `level[event.mon]` both read it."
+   ],
+   "id": "recipe:level-cap-badge"
+  },
+  {
+   "slug": "rare-candy-cap",
+   "title": "Rare Candy stops at the cap",
+   "goal": "A Rare Candy cannot be used on a Pokemon that has reached the level cap.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "item.use"
+   ],
+   "functions": [
+    "message"
+   ],
+   "steps": [
+    "`item.use` fires when an item is used and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
+    "`event.item` is the item and `event.target` the Pokemon it is used on. Item 50 is the Rare Candy in the game's item list.",
+    "The cap comes from the `caps` table of the level cap recipe."
+   ],
+   "tables": [
+    {
+     "file": "tables/caps.txt",
+     "text": "# badge count = level cap\n0 = 12\n1 = 20\n2 = 25\ndefault = 100\n"
+    }
+   ],
+   "rule": "language 1\nrule candy_cap on item.use\n    when event.item == 50 && level[event.target] >= table.caps[badges]\n    do refuse\n    do message \"It cannot grow past the cap yet.\"\n",
+   "id": "recipe:rare-candy-cap"
+  },
+  {
+   "slug": "dupes-clause",
+   "title": "Roll again for a species the player owns",
+   "goal": "A wild encounter of a species the player already owns is rolled again.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "encounter.wild"
+   ],
+   "functions": [],
+   "steps": [
+    "`owned[s]` is 1 when the party or a box holds a Pokemon of species `s` that is not an egg.",
+    "`event.reroll` is writable. Setting it to 1 rolls the encounter again with the game's own roll and fires the event again, at most 16 times. The last roll stands.",
+    "A rule that refuses the event on a reroll leaves no encounter."
+   ],
+   "rule": "language 1\nrule dupes on encounter.wild\n    when owned[event.species] == 1\n    do set event.reroll 1\n",
+   "notes": [
+    "To skip only the first stage of an evolution line, add `species_stage[event.species] == 0` to the guard."
+   ],
+   "id": "recipe:dupes-clause"
+  },
+  {
+   "slug": "monotype",
+   "title": "Check types in the party",
+   "goal": "Refuse a ball on a species without a type, and refuse wild encounters while the party has no Pokemon of that type.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "catch.attempt",
+    "encounter.wild"
+   ],
+   "functions": [
+    "message"
+   ],
+   "steps": [
+    "Type ids are the game's own: Water is 10.",
+    "`species_type1[s]` and `species_type2[s]` read a species' types. The first rule refuses the ball when neither is Water.",
+    "`party_has_type[t]` is 1 when a party Pokemon that is not an egg has type `t`. The second rule refuses the encounter when it is 0.",
+    "A rule file holds one rule, so these are two files."
+   ],
+   "rule": "language 1\nrule water_only on catch.attempt\n    when species_type1[event.species] != 10 && species_type2[event.species] != 10\n    do refuse\n    do message \"Only Water types.\"\n",
+   "rule2": "language 1\nrule need_water on encounter.wild\n    when party_has_type[10] == 0\n    do refuse\n",
+   "notes": [
+    "The first block is the rule for `catch.attempt`; the second is the rule for `encounter.wild`."
+   ],
+   "id": "recipe:monotype"
+  },
+  {
+   "slug": "play-time",
+   "title": "Use the play time",
+   "goal": "Wild encounters start only after the save has an hour of play time.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "encounter.wild"
+   ],
+   "functions": [
+    "play_seconds"
+   ],
+   "steps": [
+    "`play_seconds` is the play time of the save in seconds.",
+    "`encounter.wild` can be refused. The player keeps walking."
+   ],
+   "rule": "language 1\nrule slow_start on encounter.wild\n    when play_seconds < 3600\n    do refuse\n",
+   "id": "recipe:play-time"
+  },
+  {
+   "slug": "dark-grass-doubles",
+   "title": "Stronger second Pokemon in dark grass",
+   "goal": "In a double battle from dark grass, the second wild Pokemon is two levels higher.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "encounter.wild"
+   ],
+   "functions": [],
+   "steps": [
+    "`event.method` is 1 for dark grass and `event.double` is 1 for a double battle.",
+    "`event.level2` and `event.species2` are the second Pokemon of the double. Both are writable. `level2` is 0 when there is no second Pokemon."
+   ],
+   "rule": "language 1\nrule dark_grass_pair on encounter.wild\n    when event.method == 1 && event.double == 1\n    do add event.level2 2\n",
+   "id": "recipe:dark-grass-doubles"
+  },
+  {
+   "slug": "stronger-trainers",
+   "title": "Change a trainer's party",
+   "goal": "Every Pokemon of every trainer is a number of levels higher, and the player picks the number.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "battle.trainer_mon"
+   ],
+   "functions": [
+    "setting_get"
+   ],
+   "steps": [
+    "`battle.trainer_mon` fires once for each opposing Pokemon, in party order, after the game builds the party.",
+    "A new level works out the stats again. Writing 0 to `level`, `species` or `ability` keeps the game's value.",
+    "The option is a whole number. `setting.boost` reads it. It is declared in the settings file with a minimum, a maximum and a default."
+   ],
+   "settings": "option boost int \"Extra trainer levels\" 0 20 3\n",
+   "rule": "language 1\nrule stronger_trainers on battle.trainer_mon\n    do add event.level setting.boost\n",
+   "id": "recipe:stronger-trainers"
+  },
+  {
+   "slug": "no-grinding",
+   "title": "Change experience by source",
+   "goal": "Wild battles give no experience.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "mon.exp"
+   ],
+   "functions": [],
+   "steps": [
+    "`event.source` is 0 for a battle and 1 for the day care.",
+    "`event.wild` is 1 when the battle is a wild one.",
+    "The event fires once for each member that gains experience, and an amount of 0 gives that member none."
+   ],
+   "rule": "language 1\nrule no_grinding on mon.exp\n    when event.source == 0 && event.wild == 1\n    do set event.amount 0\n",
+   "id": "recipe:no-grinding"
+  },
+  {
+   "slug": "graveyard-box",
+   "title": "Move a Pokemon to a box",
+   "goal": "A Pokemon of the player that faints is moved to box 23.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "battle.faint"
+   ],
+   "functions": [
+    "mon_to_box_n"
+   ],
+   "steps": [
+    "`box <mon> <n>` moves a party Pokemon to box `n`, counted from 0. It is applied at the next field step, so the battle is not disturbed.",
+    "It fails when the box is full, and it never leaves the party without a Pokemon that is not an egg."
+   ],
+   "rule": "language 1\nrule graveyard on battle.faint\n    when event.side == 0\n    do box event.mon 23\n",
+   "id": "recipe:graveyard-box"
   }
  ]
 }

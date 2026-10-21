@@ -100,6 +100,8 @@ export interface Recipe {
   rule2?: string;
   c?: string;
   settings?: string;
+  /** Table files the recipe reads, with their text. */
+  tables?: { file: string; text: string }[];
   notes?: string[];
 }
 export interface Api {
@@ -138,16 +140,12 @@ export interface Entry {
   section: Section;
   group: string;
   title: string;
-  // Lower-case text the search looks in.
-  text: string;
 }
 
 export function hookFamily(api: Api, name: string): string {
   const hit = api.hookFamilies.find(([prefix]) => name.startsWith(prefix));
   return hit ? hit[1] : "Other";
 }
-
-const low = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" ").toLowerCase();
 
 export function buildEntries(api: Api): Entry[] {
   const out: Entry[] = [];
@@ -157,46 +155,29 @@ export function buildEntries(api: Api): Entry[] {
       section: "events",
       group: e.category,
       title: e.name,
-      text: low(e.name, e.when, e.refuse, ...e.payload.map((f) => `${f.name} ${f.meaning}`)),
     });
   }
   for (const p of api.pages.filter((x) => x.section === "functions")) {
-    out.push({ id: p.id, section: "functions", group: "Code mods", title: p.title, text: low(p.title, ...p.blocks.map(blockText)) });
+    out.push({ id: p.id, section: "functions", group: "Code mods", title: p.title });
   }
   for (const f of api.functions) {
-    out.push({ id: f.id, section: "functions", group: f.group, title: f.name, text: low(f.name, f.what, f.result, f.rule) });
+    out.push({ id: f.id, section: "functions", group: f.group, title: f.name });
   }
-  out.push({ id: api.hookPage.id, section: "hooks", group: "Raw hooks", title: api.hookPage.title, text: low(api.hookPage.title, ...api.hookPage.blocks.map(blockText)) });
+  out.push({ id: api.hookPage.id, section: "hooks", group: "Raw hooks", title: api.hookPage.title });
   for (const h of api.hooks) {
-    out.push({ id: h.id, section: "hooks", group: hookFamily(api, h.name), title: h.name, text: low(h.name, h.key, h.corpusName, h.proto, h.events.join(" ")) });
+    out.push({ id: h.id, section: "hooks", group: hookFamily(api, h.name), title: h.name });
   }
   for (const p of api.pages.filter((x) => x.section === "rules")) {
-    out.push({ id: p.id, section: "rules", group: "Language", title: p.title, text: low(p.title, ...p.blocks.map(blockText)) });
+    out.push({ id: p.id, section: "rules", group: "Language", title: p.title });
   }
-  out.push({ id: "page:actions", section: "rules", group: "Language", title: "Actions", text: low("actions", ...api.actions.map((a) => `${a.name} ${a.what}`)) });
+  out.push({ id: "page:actions", section: "rules", group: "Language", title: "Actions" });
   for (const s of api.state) {
-    out.push({ id: `state:${s.name}`, section: "rules", group: "State fields", title: s.name, text: low(s.name, s.value) });
+    out.push({ id: `state:${s.name}`, section: "rules", group: "State fields", title: s.name });
   }
   for (const r of api.recipes) {
-    out.push({ id: r.id, section: "recipes", group: r.tier.includes("rules") ? "Rules" : "Code", title: r.title, text: low(r.title, r.goal, ...r.steps, r.events.join(" ")) });
+    out.push({ id: r.id, section: "recipes", group: r.tier.includes("rules") ? "Rules" : "Code", title: r.title });
   }
   return out;
-}
-
-function blockText(b: Block): string {
-  if (b.t === "p") return b.text;
-  if (b.t === "code") return b.text;
-  if (b.t === "list") return b.items.join(" ");
-  return [...b.head, ...b.rows.flat()].join(" ");
-}
-
-/** Entries that match every word of the query, titles first. */
-export function search(entries: Entry[], query: string): Entry[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-  const hits = entries.filter((e) => words.every((w) => e.text.includes(w)));
-  const rank = (e: Entry) => (words.every((w) => e.title.toLowerCase().includes(w)) ? 0 : 1);
-  return hits.sort((a, b) => rank(a) - rank(b));
 }
 
 /** The id of the entry a context names: an event, a function or a hook. */
