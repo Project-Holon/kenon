@@ -651,7 +651,14 @@
       }
       return;
     }
-    if (e.button !== 0 || !inside(p)) return;
+    if (e.button !== 0) return;
+    // A click off the map clears every selection.
+    if (!inside(p)) {
+      picked = null;
+      pickedProp = null;
+      sel = null;
+      return;
+    }
     if (adding) {
       if (!readOnly) {
         if (adding === "prop") addProp(p);
