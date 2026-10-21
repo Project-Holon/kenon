@@ -90,6 +90,11 @@
   }
 
   const dirty = $derived(JSON.stringify(records) !== original);
+  // In a side panel, one section at a time.
+  let secTab = $state(0);
+  const allSections = $derived(records.flatMap((r) => r?.sections ?? []));
+  const sectionIndex = (ri: number, si: number) =>
+    records.slice(0, ri).reduce((n, r) => n + (r?.sections.length ?? 0), 0) + si;
   const query = debounced(() => filter);
   const shown = $derived.by(() => {
     const q = query.value.trim().toLowerCase();
@@ -273,11 +278,19 @@
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
 
+    {#if single && allSections.length > 1}
+      <div class="sec-tabs" role="tablist">
+        {#each allSections as s, i}
+          <button role="tab" aria-selected={secTab === i} class:primary={secTab === i} onclick={() => (secTab = i)}>{s.label}</button>
+        {/each}
+      </div>
+    {/if}
     <div class="scroll body">
-      {#each records as r}
-        {#each r?.sections ?? [] as s}
+      {#each records as r, ri}
+        {#each r?.sections ?? [] as s, si}
+          {#if !single || allSections.length < 2 || sectionIndex(ri, si) === secTab}
           <div class="window block">
-            <h3>{s.label}</h3>
+            {#if !single}<h3>{s.label}</h3>{/if}
             {#if s.kind === "fields"}
               <div class="grid">
                 {#each s.values as v}
@@ -363,6 +376,7 @@
               {/if}
             {/if}
           </div>
+          {/if}
         {/each}
       {/each}
     </div>
@@ -422,6 +436,16 @@
   .field input[type="number"] {
     min-width: 0;
     max-width: 100%;
+  }
+  .sec-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 0.3rem;
+  }
+  .sec-tabs button {
+    padding: 0.15rem 0.55rem;
+    font-size: 0.8rem;
   }
   .rows {
     display: flex;

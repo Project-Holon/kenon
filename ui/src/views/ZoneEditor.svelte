@@ -7,6 +7,7 @@
   import { once } from "../lib/cache.svelte";
   import { FLAG_BLOCKED, kindName, tileCss, tileLabel, tileRgb } from "../lib/terrain";
   import TableEditor from "./TableEditor.svelte";
+  import WildEditor from "./WildEditor.svelte";
 
   // One map: click things to edit them, drag to move them, paint tiles.
   let {
@@ -138,6 +139,19 @@
   let newModel = $state<number | null>(null);
   // Bumped when placed models change, so the picture is drawn again.
   let renderStamp = $state(0);
+  // The side panel's tab, per what is selected.
+  let ptab = $state("main");
+  // Only a different selection resets it; a reload of the same one keeps it.
+  const selKey = $derived(
+    picked ? `e:${picked.kind}:${picked.index}` : pickedProp ? `p:${pickedProp.chunk}:${pickedProp.index}` : "",
+  );
+  let lastKey = "";
+  $effect(() => {
+    if (selKey !== lastKey) {
+      lastKey = selKey;
+      ptab = "main";
+    }
+  });
   let sel = $state<Rect | null>(null);
   let moving = $state<Pt | null>(null);
   let boxing = $state<Rect | null>(null);
@@ -373,16 +387,41 @@
     if (!stage || !map) return;
     const w = stage.clientWidth - 32;
     const h = stage.clientHeight - 32;
-    scale = Math.max(2, Math.min(32, Math.floor(Math.min(w / map.width, h / map.height))));
-    pan = { x: (stage.clientWidth - map.width * scale) / 2, y: (stage.clientHeight - map.height * scale) / 2 };
+    scale = Math.max(minScale(), Math.min(32, Math.floor(Math.min(w / map.width, h / map.height))));
+    setPan((stage.clientWidth - map.width * scale) / 2, (stage.clientHeight - map.height * scale) / 2);
+  }
+
+  // Zooming out stops when the map takes 80% of the view.
+  function minScale(): number {
+    if (!stage || !map) return 1;
+    return Math.max(1, Math.min(stage.clientWidth / map.width, stage.clientHeight / map.height) * 0.8);
+  }
+
+  // Panning stops 20% of the view past each edge of the map.
+  function setPan(x: number, y: number) {
+    if (!stage || !map) return void (pan = { x, y });
+    const clamp = (v: number, view: number, size: number) => {
+      const margin = view * 0.2;
+      let lo = view - margin - size;
+      let hi = margin;
+      if (lo > hi) {
+        const mid = (view - size) / 2;
+        [lo, hi] = [mid - margin, mid + margin];
+      }
+      return Math.max(lo, Math.min(hi, v));
+    };
+    pan = {
+      x: clamp(x, stage.clientWidth, map.width * scale),
+      y: clamp(y, stage.clientHeight, map.height * scale),
+    };
   }
 
   function zoomAt(next: number, cx: number, cy: number) {
-    next = Math.max(2, Math.min(48, next));
+    next = Math.max(minScale(), Math.min(48, next));
     const wx = (cx - pan.x) / scale;
     const wy = (cy - pan.y) / scale;
     scale = next;
-    pan = { x: cx - wx * next, y: cy - wy * next };
+    setPan(cx - wx * next, cy - wy * next);
   }
 
   // Added by hand so it can stop the page scroll and zoom.
@@ -400,9 +439,9 @@
       const step = Math.max(1, Math.round(scale * 0.15));
       zoomAt(scale + (e.deltaY < 0 ? step : -step), e.clientX - r.left, e.clientY - r.top);
     } else if (e.shiftKey) {
-      pan = { x: pan.x - e.deltaY, y: pan.y };
+      setPan(pan.x - e.deltaY, pan.y);
     } else {
-      pan = { x: pan.x - e.deltaX, y: pan.y - e.deltaY };
+      setPan(pan.x - e.deltaX, pan.y - e.deltaY);
     }
   }
 
@@ -530,7 +569,7 @@
     if (!drag || !map) return;
     switch (drag.t) {
       case "pan":
-        pan = { x: drag.x + e.clientX - drag.px, y: drag.y + e.clientY - drag.py };
+        setPan(drag.x + e.clientX - drag.px, drag.y + e.clientY - drag.py);
         break;
       case "event": {
         const ev = drag.ev;
@@ -1205,14 +1244,25 @@
       {#if map}
         <div class="world" style="width: {map.width * scale}px; height: {map.height * scale}px; transform: translate({pan.x}px, {pan.y}px)">
           {#if renderOk}
-            <img
-              class="render"
-              class:hidden={look === "tiles"}
-              src={asset(`maprender/${current}?px=16${renderStamp ? `&v=${renderStamp}` : ""}`)}
-              alt=""
-              draggable="false"
-              onerror={() => (renderOk = false)}
-            />
+            <!-- A small picture first, the sharp one over it once drawn. -->
+            {#key `${current}/${renderStamp}`}
+              <img
+                class="render"
+                class:hidden={look === "tiles"}
+                src={asset(`maprender/${current}?px=4&ss=1${renderStamp ? `&v=${renderStamp}` : ""}`)}
+                alt=""
+                draggable="false"
+                onerror={() => (renderOk = false)}
+              />
+              <img
+                class="render sharp"
+                class:hidden={look === "tiles"}
+                src={asset(`maprender/${current}?px=16${renderStamp ? `&v=${renderStamp}` : ""}`)}
+                alt=""
+                draggable="false"
+                onload={(e) => (e.currentTarget as HTMLImageElement).classList.add("ready")}
+              />
+            {/key}
           {/if}
           <canvas
             bind:this={canvas}
@@ -1388,6 +1438,18 @@
           </div>
         {/if}
 
+        {@const tabs = [
+          ["main", ev.trainer !== null ? "Person" : KIND_LABEL[ev.kind]],
+          ...(scriptOf(ev) ? [["says", "Says"]] : []),
+          ...(ev.trainer !== null ? [["trainer", "Trainer"]] : []),
+          ["values", "Values"],
+        ]}
+        <div class="ptabs" role="tablist">
+          {#each tabs as [id, label]}
+            <button role="tab" aria-selected={ptab === id} class:primary={ptab === id} onclick={() => (ptab = id)}>{label}</button>
+          {/each}
+        </div>
+        {#if ptab === "main"}
         {#if ev.kind === "npc"}
           <label class="field">
             <span>Battles</span>
@@ -1480,7 +1542,8 @@
           </div>
         {/if}
 
-        {#if scriptOf(ev)}
+        {/if}
+        {#if ptab === "says" && scriptOf(ev)}
           {@const sc = scriptOf(ev)!}
           <section class="does">
             {#if sc.messages.length}
@@ -1517,8 +1580,8 @@
           </section>
         {/if}
 
-        <details class="raw">
-          <summary>All values</summary>
+        {#if ptab === "values"}
+        <div class="raw">
           <div class="fields">
             {#each ev.values as v (v.key)}
               <label>
@@ -1537,9 +1600,10 @@
           {#if !readOnly}
             <button class="primary" disabled={busy || !Object.keys(edits).length} onclick={() => save(ev, edits)}>Save</button>
           {/if}
-        </details>
+        </div>
+        {/if}
 
-        {#if ev.trainer !== null}
+        {#if ptab === "trainer" && ev.trainer !== null}
           <div class="embed">
             {#key ev.trainer}
               <TableEditor tables={["trainers", "trainerParties"]} single start={ev.trainer} {readOnly} version={0} {onSaved} />
@@ -1578,8 +1642,13 @@
         <div class="head">
           <div class="title"><strong>{map.zone.place}</strong><span class="muted">Map {map.zone.id}, {map.width} x {map.height} tiles</span></div>
         </div>
+        <div class="ptabs" role="tablist">
+          {#each [["main", "On this map"], ["music", "Music"], ["wild", "Wild Pokemon"]] as [id, label]}
+            <button role="tab" aria-selected={ptab === id} class:primary={ptab === id} onclick={() => (ptab = id)}>{label}</button>
+          {/each}
+        </div>
+        {#if ptab === "main"}
         <section>
-          <h3>On this map</h3>
           {#each counts as [label, list]}
             {#if list.length}
               <details>
@@ -1593,8 +1662,8 @@
             {/if}
           {/each}
         </section>
+        {:else if ptab === "music"}
         <section>
-          <h3>Music</h3>
           {#each SEASONS as season, i}
             <div class="music">
               <span>{season}</span>
@@ -1606,18 +1675,15 @@
             </div>
           {/each}
         </section>
-        <section class="grow">
-          <h3>Wild Pokemon</h3>
+        {:else if ptab === "wild"}
           {#if map.zone.encounters !== null}
-            <div class="embed">
-              {#key map.zone.encounters}
-                <TableEditor tables={["encounters"]} single start={map.zone.encounters} {readOnly} version={0} {onSaved} />
-              {/key}
-            </div>
+            {#key map.zone.encounters}
+              <WildEditor index={map.zone.encounters} {readOnly} {onSaved} />
+            {/key}
           {:else}
-            <p class="muted">None.</p>
+            <p class="muted">No wild Pokemon on this map.</p>
           {/if}
-        </section>
+        {/if}
       {/if}
     </aside>
   </div>
@@ -1764,6 +1830,13 @@
     height: 100%;
     image-rendering: pixelated;
     pointer-events: none;
+  }
+  .render.sharp {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .render.sharp:global(.ready) {
+    opacity: 1;
   }
   .render.hidden {
     visibility: hidden;
@@ -2101,7 +2174,6 @@
   .field input {
     width: 100%;
   }
-  .raw summary,
   section details summary {
     cursor: pointer;
     font-size: 0.85rem;
@@ -2144,6 +2216,17 @@
   }
   .music button {
     padding: 0.2rem 0.6rem;
+  }
+  .ptabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    border-bottom: 2px solid var(--outline);
+    padding-bottom: 0.5rem;
+  }
+  .ptabs button {
+    padding: 0.2rem 0.65rem;
+    font-size: 0.85rem;
   }
   .embed {
     min-width: 0;
