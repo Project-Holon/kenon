@@ -1,14 +1,13 @@
 <script lang="ts">
-  import { Pan } from "../lib/pan.svelte";
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { asset, sounds, type SoundInfo } from "../lib/backend";
   import { tableEntries, type Entry, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import { FLAG_BLOCKED, kindName, tileCss, tileLabel, tileRgb } from "../lib/terrain";
   import TableEditor from "./TableEditor.svelte";
 
-  // One zone, tile by tile: a tile layer to paint and an event layer to
-  // place people, warps, triggers and signs on.
+  // One map: click things to edit them, drag to move them, paint tiles.
   let {
     zone,
     zones = [],
@@ -35,114 +34,186 @@
     toZone: number | null;
     values: Value[];
   }
+  interface ZoneInfo {
+    id: number;
+    place: string;
+    encounters: number | null;
+    music: number[];
+  }
   interface ZoneMap {
-    zone: { id: number; place: string; encounters: number | null; music: number[] };
+    zone: ZoneInfo;
     width: number;
     height: number;
     terrain: number[];
     flags: number[];
     events: MapEvent[];
   }
-  interface Brush {
-    terrain: number;
-    flags: number;
-  }
-  type Layer = "tiles" | "events";
-  type Tool = "pencil" | "rect" | "fill" | "pick" | "select" | Kind;
-  // One undo step: the tiles a stroke changed and what they were before.
-  type Step = { i: number; terrain: number; flags: number }[];
+  type Pt = { x: number; z: number };
+  type Rect = { x: number; z: number; w: number; h: number };
+  type Tool = "select" | "paint" | "box" | "fill" | "pick";
+  type Add = "npc" | "bg" | "item" | "warp" | "pos";
+  type TileWrite = [number, number, number, number];
+  type Step =
+    | { t: "tiles"; before: TileWrite[] }
+    | { t: "move"; kind: Kind; index: number; x: number; z: number }
+    | { t: "add"; kind: Kind; index: number };
 
-  const KIND_LABEL: Record<Kind, string> = {
-    npc: "Person",
-    warp: "Warp",
-    pos: "Trigger",
-    bg: "Sign",
-  };
-  const TILE_TOOLS: [Tool, string, string][] = [
-    ["pencil", "Pencil", "P"],
-    ["rect", "Rectangle", "R"],
-    ["fill", "Fill", "F"],
+  const TOOLS: [Tool, string, string][] = [
+    ["select", "Select", "V"],
+    ["paint", "Paint", "B"],
+    ["box", "Box", "R"],
+    ["fill", "Fill", "G"],
     ["pick", "Pick", "I"],
   ];
-  const EVENT_TOOLS: [Tool, string, string][] = [
-    ["select", "Select", "S"],
-    ["npc", "Person", "1"],
-    ["warp", "Warp", "2"],
-    ["pos", "Trigger", "3"],
-    ["bg", "Sign", "4"],
+  const ADDS: [Add, string][] = [
+    ["npc", "Person"],
+    ["bg", "Sign"],
+    ["item", "Hidden item"],
+    ["warp", "Warp"],
+    ["pos", "Trigger"],
   ];
+  const KIND_LABEL: Record<Kind, string> = { npc: "Person", warp: "Warp", pos: "Trigger", bg: "Sign" };
+  const HINT: Record<Tool, string> = {
+    select: "Click to select. Drag to move. Drag on empty ground to select tiles.",
+    paint: "Click or drag to paint. Right click picks a tile.",
+    box: "Drag a box to fill it.",
+    fill: "Click to fill an area of the same tile.",
+    pick: "Click a tile to paint with it.",
+  };
+  const SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
+  const DIRS = ["Up", "Down", "Left", "Right", "Any side", "Left or right", "Up or down"];
 
   // svelte-ignore state_referenced_locally
   let current = $state(zone);
   let map = $state<ZoneMap | null>(null);
-  let tab = $state<"map" | "trainer" | "music" | "wild">("map");
-  // The trainer open in the Trainer tab.
-  let trainer = $state<number | null>(null);
-  let layer = $state<Layer>("tiles");
-  let tool = $state<Tool>("pencil");
-  let brush = $state<Brush>({ terrain: 0, flags: 1 });
-  let selected = $state<MapEvent | null>(null);
-  let edits = $state<Record<string, number>>({});
+  // Tile arrays stay plain for speed; `tick` redraws after a change.
+  let terrain = $state.raw<number[]>([]);
+  let flags = $state.raw<number[]>([]);
+  let tick = $state(0);
+  let tool = $state<Tool>("select");
+  let adding = $state<Add | null>(null);
+  let brush = $state({ terrain: 0, flags: 0 });
+  let picked = $state<MapEvent | null>(null);
+  let sel = $state<Rect | null>(null);
+  let moving = $state<Pt | null>(null);
+  let boxing = $state<Rect | null>(null);
+  let hover = $state<Pt | null>(null);
+  let hoverEvent = $state<MapEvent | null>(null);
+  let mouse = $state({ x: 0, y: 0 });
   let scale = $state(12);
+  let pan = $state({ x: 0, y: 0 });
   let grid = $state(true);
-  let hover = $state<{ x: number; z: number } | null>(null);
-  let rect = $state<{ x0: number; z0: number; x1: number; z1: number } | null>(null);
+  let look = $state<"game" | "tiles">("game");
+  let renderOk = $state(true);
   let undo = $state<Step[]>([]);
+  let edits = $state<Record<string, number>>({});
   let trainers = $state<Entry[]>([]);
+  let items = $state<Entry[]>([]);
+  let allZones = $state<ZoneInfo[]>([]);
   let music = $state<SoundInfo[]>([]);
+  let playing = $state<number | null>(null);
   let error = $state<string | null>(null);
   let busy = $state(false);
   let canvas = $state<HTMLCanvasElement | null>(null);
   let stage = $state<HTMLDivElement | null>(null);
+  let space = $state(false);
   let audio: HTMLAudioElement | null = null;
-  const pan = new Pan();
-  // The tiles of the stroke in progress, by index, with their old values.
-  let stroke: Map<number, { terrain: number; flags: number }> | null = null;
-  let drag: { ev: MapEvent; x: number; z: number; dx: number; dz: number } | null = null;
+  let clip: { w: number; h: number; cells: [number, number][] } | null = null;
+  let eventClip: MapEvent | null = null;
 
-  async function load() {
+  // What the pointer is doing.
+  let drag = $state<
+    | { t: "pan"; px: number; py: number; x: number; y: number }
+    | { t: "event"; ev: MapEvent; x0: number; z0: number; ox: number; oz: number }
+    | { t: "size"; ev: MapEvent }
+    | { t: "marquee"; from: Pt }
+    | { t: "tiles"; from: Pt; copy: boolean }
+    | { t: "paint"; before: Map<number, [number, number]> }
+    | { t: "box"; from: Pt }
+    | null
+  >(null);
+
+  async function load(keepView = true) {
     error = null;
     try {
       const next = await invoke<ZoneMap>("zone_map", { zone: current });
-      const keep = selected;
+      terrain = next.terrain;
+      flags = next.flags;
       map = next;
-      selected = keep ? (next.events.find((e) => e.kind === keep.kind && e.index === keep.index) ?? null) : null;
+      tick++;
+      const keep = picked;
+      picked = keep ? (map.events.find((e) => e.kind === keep.kind && e.index === keep.index) ?? null) : null;
       edits = {};
+      if (!keepView) requestAnimationFrame(fit);
     } catch (e) {
       error = String(e);
     }
   }
 
   onMount(() => {
-    load().then(fit);
+    load(false);
     tableEntries("trainers").then((t) => (trainers = t)).catch(() => {});
+    tableEntries("items").then((t) => (items = t)).catch(() => {});
+    invoke<ZoneInfo[]>("zones").then((z) => (allZones = z)).catch(() => {});
     sounds().then((s) => (music = s.filter((x) => x.group === "music"))).catch(() => {});
     return () => audio?.pause();
   });
 
-  // The largest tile size that shows the whole map in the pane.
+  // The whole map in view, centred.
   function fit() {
     if (!stage || !map) return;
-    pan.reset();
     const w = stage.clientWidth - 32;
     const h = stage.clientHeight - 32;
-    scale = Math.max(4, Math.min(24, Math.floor(Math.min(w / map.width, h / map.height))));
+    scale = Math.max(2, Math.min(32, Math.floor(Math.min(w / map.width, h / map.height))));
+    pan = { x: (stage.clientWidth - map.width * scale) / 2, y: (stage.clientHeight - map.height * scale) / 2 };
   }
 
-  // A colour per terrain id; tiles you cannot walk on are darker.
-  function color(terrain: number, flags: number): string {
-    if (terrain < 0) return "#00000000";
-    const hue = (terrain * 47) % 360;
-    return `hsl(${hue} ${terrain === 0 ? 0 : 45}% ${flags & 1 ? 62 : 32}%)`;
+  function zoomAt(next: number, cx: number, cy: number) {
+    next = Math.max(2, Math.min(48, next));
+    const wx = (cx - pan.x) / scale;
+    const wy = (cy - pan.y) / scale;
+    scale = next;
+    pan = { x: cx - wx * next, y: cy - wy * next };
   }
 
-  // The terrain and flag pairs the map uses, most common first.
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    const r = stage!.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey) {
+      const step = Math.max(1, Math.round(scale * 0.15));
+      zoomAt(scale + (e.deltaY < 0 ? step : -step), e.clientX - r.left, e.clientY - r.top);
+    } else if (e.shiftKey) {
+      pan = { x: pan.x - e.deltaY, y: pan.y };
+    } else {
+      pan = { x: pan.x - e.deltaX, y: pan.y - e.deltaY };
+    }
+  }
+
+  // Tiles: one pixel each, scaled up by CSS.
+  $effect(() => {
+    void tick;
+    if (!canvas || !map) return;
+    const ctx = canvas.getContext("2d")!;
+    const img = ctx.createImageData(map.width, map.height);
+    const cache = new Map<number, [number, number, number]>();
+    for (let i = 0; i < terrain.length; i++) {
+      const t = terrain[i];
+      if (t < 0) continue;
+      const key = t * 0x10000 + flags[i];
+      let c = cache.get(key);
+      if (!c) cache.set(key, (c = tileRgb(t, flags[i])));
+      img.data.set([c[0], c[1], c[2], 255], i * 4);
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // The tile kinds this map uses, most common first.
   const palette = $derived.by(() => {
-    if (!map) return [] as (Brush & { count: number })[];
+    void tick;
     const counts = new Map<number, number>();
-    for (let i = 0; i < map.terrain.length; i++) {
-      if (map.terrain[i] < 0) continue;
-      const key = map.terrain[i] * 0x10000 + map.flags[i];
+    for (let i = 0; i < terrain.length; i++) {
+      if (terrain[i] < 0) continue;
+      const key = terrain[i] * 0x10000 + flags[i];
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return [...counts]
@@ -150,184 +221,353 @@
       .sort((a, b) => b.count - a.count);
   });
 
-  $effect(() => {
-    if (!canvas || !map) return;
-    const ctx = canvas.getContext("2d")!;
-    const { width, height, terrain, flags } = map;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let z = 0; z < height; z++)
-      for (let x = 0; x < width; x++) {
-        const i = z * width + x;
-        if (terrain[i] < 0) continue;
-        ctx.fillStyle = color(terrain[i], flags[i]);
-        ctx.fillRect(x * scale, z * scale, scale, scale);
-      }
-    if (grid && scale >= 6) {
-      ctx.strokeStyle = "rgba(0,0,0,0.15)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x <= width; x++) {
-        ctx.moveTo(x * scale + 0.5, 0);
-        ctx.lineTo(x * scale + 0.5, height * scale);
-      }
-      for (let z = 0; z <= height; z++) {
-        ctx.moveTo(0, z * scale + 0.5);
-        ctx.lineTo(width * scale, z * scale + 0.5);
-      }
-      ctx.stroke();
-      // Chunk borders every 32 tiles.
-      ctx.strokeStyle = "rgba(0,0,0,0.4)";
-      ctx.beginPath();
-      for (let x = 0; x <= width; x += 32) {
-        ctx.moveTo(x * scale + 0.5, 0);
-        ctx.lineTo(x * scale + 0.5, height * scale);
-      }
-      for (let z = 0; z <= height; z += 32) {
-        ctx.moveTo(0, z * scale + 0.5);
-        ctx.lineTo(width * scale, z * scale + 0.5);
-      }
-      ctx.stroke();
-    }
+  function at(e: PointerEvent | MouseEvent): Pt {
+    const r = stage!.getBoundingClientRect();
+    return { x: Math.floor((e.clientX - r.left - pan.x) / scale), z: Math.floor((e.clientY - r.top - pan.y) / scale) };
+  }
+  const inside = (p: Pt) => !!map && p.x >= 0 && p.z >= 0 && p.x < map.width && p.z < map.height;
+  const inRect = (p: Pt, r: Rect | null) => !!r && p.x >= r.x && p.z >= r.z && p.x < r.x + r.w && p.z < r.z + r.h;
+  const clampPt = (p: Pt): Pt => ({
+    x: Math.max(0, Math.min(map!.width - 1, p.x)),
+    z: Math.max(0, Math.min(map!.height - 1, p.z)),
+  });
+  const rectOf = (a: Pt, b: Pt): Rect => ({
+    x: Math.min(a.x, b.x),
+    z: Math.min(a.z, b.z),
+    w: Math.abs(a.x - b.x) + 1,
+    h: Math.abs(a.z - b.z) + 1,
   });
 
-  function at(e: PointerEvent): { x: number; z: number } {
-    const r = canvas!.getBoundingClientRect();
-    return { x: Math.floor((e.clientX - r.left) / scale), z: Math.floor((e.clientY - r.top) / scale) };
-  }
-  const inside = (p: { x: number; z: number }) => !!map && p.x >= 0 && p.z >= 0 && p.x < map.width && p.z < map.height;
+  // ---- pointer on the map ----
 
-  // Paints one tile locally and records it in the current stroke.
+  function onDown(e: PointerEvent) {
+    if (!map) return;
+    const target = e.currentTarget as HTMLElement;
+    if (e.button === 1 || (e.button === 0 && space)) {
+      e.preventDefault();
+      drag = { t: "pan", px: e.clientX, py: e.clientY, x: pan.x, y: pan.y };
+      target.setPointerCapture(e.pointerId);
+      return;
+    }
+    const p = at(e);
+    if (e.button === 2) {
+      if (inside(p) && terrain[p.z * map.width + p.x] >= 0) {
+        const i = p.z * map.width + p.x;
+        brush = { terrain: terrain[i], flags: flags[i] };
+        if (tool === "select") tool = "paint";
+        play("select");
+      }
+      return;
+    }
+    if (e.button !== 0 || !inside(p)) return;
+    if (adding) {
+      if (!readOnly) addEvent(adding, p);
+      return;
+    }
+    const i = p.z * map.width + p.x;
+    switch (tool) {
+      case "select":
+        picked = null;
+        if (inRect(p, sel) && !readOnly) {
+          drag = { t: "tiles", from: p, copy: e.altKey };
+          moving = { x: 0, z: 0 };
+        } else {
+          sel = { x: p.x, z: p.z, w: 1, h: 1 };
+          drag = { t: "marquee", from: p };
+        }
+        break;
+      case "pick":
+        if (terrain[i] >= 0) brush = { terrain: terrain[i], flags: flags[i] };
+        tool = "paint";
+        play("select");
+        return;
+      case "fill":
+        if (readOnly) return;
+        drag = { t: "paint", before: new Map() };
+        flood(p);
+        finishPaint();
+        return;
+      case "box":
+        if (readOnly) return;
+        drag = { t: "box", from: p };
+        boxing = rectOf(p, p);
+        break;
+      case "paint":
+        if (readOnly) return;
+        drag = { t: "paint", before: new Map() };
+        touch(i);
+        break;
+    }
+    target.setPointerCapture(e.pointerId);
+  }
+
+  function onMove(e: PointerEvent) {
+    const r = stage!.getBoundingClientRect();
+    mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
+    const p = at(e);
+    hover = inside(p) ? p : null;
+    if (!drag || !map) return;
+    switch (drag.t) {
+      case "pan":
+        pan = { x: drag.x + e.clientX - drag.px, y: drag.y + e.clientY - drag.py };
+        break;
+      case "event": {
+        const ev = drag.ev;
+        ev.x = Math.max(0, Math.min(map.width - ev.w, p.x - drag.ox));
+        ev.z = Math.max(0, Math.min(map.height - ev.h, p.z - drag.oz));
+        break;
+      }
+      case "size":
+        drag.ev.w = Math.max(1, p.x - drag.ev.x + 1);
+        drag.ev.h = Math.max(1, p.z - drag.ev.z + 1);
+        break;
+      case "marquee":
+        sel = rectOf(drag.from, clampPt(p));
+        break;
+      case "tiles":
+        moving = { x: p.x - drag.from.x, z: p.z - drag.from.z };
+        break;
+      case "paint":
+        if (inside(p)) touch(p.z * map.width + p.x);
+        break;
+      case "box":
+        boxing = rectOf(drag.from, clampPt(p));
+        break;
+    }
+  }
+
+  async function onUp() {
+    const d = drag;
+    if (!d || !map) return;
+    if (d.t === "paint") return finishPaint();
+    drag = null;
+    switch (d.t) {
+      case "event":
+        if (d.ev.x !== d.x0 || d.ev.z !== d.z0) await moveEvent(d.ev, d.x0, d.z0);
+        break;
+      case "size":
+        await save(d.ev, { sizeX: d.ev.w, sizeZ: d.ev.h }, false);
+        break;
+      case "marquee":
+        if (sel && sel.w * sel.h > 1) play("select");
+        break;
+      case "tiles": {
+        const m = moving;
+        moving = null;
+        if (m && (m.x || m.z)) await moveTiles(m, d.copy);
+        break;
+      }
+      case "box":
+        if (boxing) {
+          const b = boxing;
+          boxing = null;
+          drag = { t: "paint", before: new Map() };
+          for (let z = b.z; z < b.z + b.h; z++) for (let x = b.x; x < b.x + b.w; x++) touch(z * map.width + x);
+          finishPaint();
+        }
+        break;
+    }
+  }
+
+  // ---- tiles ----
+
   function touch(i: number) {
-    if (!map || !stroke || map.terrain[i] < 0) return;
-    if (map.terrain[i] === brush.terrain && map.flags[i] === brush.flags) return;
-    if (!stroke.has(i)) stroke.set(i, { terrain: map.terrain[i], flags: map.flags[i] });
-    map.terrain[i] = brush.terrain;
-    map.flags[i] = brush.flags;
+    if (drag?.t !== "paint" || terrain[i] < 0) return;
+    if (terrain[i] === brush.terrain && flags[i] === brush.flags) return;
+    if (!drag.before.has(i)) drag.before.set(i, [terrain[i], flags[i]]);
+    terrain[i] = brush.terrain;
+    flags[i] = brush.flags;
+    tick++;
   }
 
-  function flood(p: { x: number; z: number }) {
-    const m = map!;
-    const start = p.z * m.width + p.x;
-    const from = [m.terrain[start], m.flags[start]];
+  function flood(p: Pt) {
+    const w = map!.width;
+    const start = p.z * w + p.x;
+    const from = [terrain[start], flags[start]];
     if (from[0] === brush.terrain && from[1] === brush.flags) return;
-    const seen = new Set<number>([start]);
+    const seen = new Set([start]);
     const todo = [start];
     while (todo.length) {
       const i = todo.pop()!;
       touch(i);
-      const x = i % m.width;
-      for (const j of [i - m.width, i + m.width, x > 0 ? i - 1 : -1, x < m.width - 1 ? i + 1 : -1]) {
-        if (j < 0 || j >= m.terrain.length || seen.has(j)) continue;
-        if (m.terrain[j] !== from[0] || m.flags[j] !== from[1]) continue;
+      const x = i % w;
+      for (const j of [i - w, i + w, x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1]) {
+        if (j < 0 || j >= terrain.length || seen.has(j)) continue;
+        if (terrain[j] !== from[0] || flags[j] !== from[1]) continue;
         seen.add(j);
         todo.push(j);
       }
     }
   }
 
-  function onMapDown(e: PointerEvent) {
-    if (!map || e.button !== 0) return;
-    const p = at(e);
-    if (!inside(p)) return;
-    const i = p.z * map.width + p.x;
-    if (layer === "events") {
-      if (tool === "select") {
-        selected = null;
-        return;
+  function finishPaint() {
+    const d = drag;
+    drag = null;
+    if (d?.t !== "paint" || !d.before.size || !map) return;
+    const w = map.width;
+    const before: TileWrite[] = [...d.before].map(([i, [t, f]]) => [i % w, Math.floor(i / w), t, f]);
+    const after: TileWrite[] = [...d.before.keys()].map((i) => [i % w, Math.floor(i / w), terrain[i], flags[i]]);
+    writeTiles(after, before);
+  }
+
+  // Writes tiles already changed on screen; `before` makes the undo step.
+  async function writeTiles(after: TileWrite[], before: TileWrite[] | null) {
+    if (before) undo = [...undo.slice(-99), { t: "tiles", before }];
+    try {
+      await invoke("write_tiles", { zone: current, tiles: after });
+      play("select");
+      onSaved();
+    } catch (err) {
+      error = String(err);
+      await load();
+    }
+  }
+
+  function setLocal(writes: TileWrite[]): TileWrite[] {
+    const w = map!.width;
+    const before: TileWrite[] = [];
+    for (const [x, z, t, f] of writes) {
+      const i = z * w + x;
+      if (terrain[i] < 0) continue;
+      before.push([x, z, terrain[i], flags[i]]);
+      terrain[i] = t;
+      flags[i] = f;
+    }
+    tick++;
+    return before;
+  }
+
+  // Moves (or copies) the selected tiles and the things on them; the
+  // ground left behind takes the paint tile.
+  async function moveTiles(d: Pt, copy: boolean) {
+    if (!sel || !map) return;
+    const w = map.width;
+    const src = sel;
+    const dst = { ...src, x: src.x + d.x, z: src.z + d.z };
+    const writes = new Map<number, TileWrite>();
+    if (!copy)
+      for (let z = src.z; z < src.z + src.h; z++)
+        for (let x = src.x; x < src.x + src.w; x++) writes.set(z * w + x, [x, z, brush.terrain, brush.flags]);
+    for (let z = 0; z < src.h; z++)
+      for (let x = 0; x < src.w; x++) {
+        const [sx, sz, tx, tz] = [src.x + x, src.z + z, dst.x + x, dst.z + z];
+        if (!inside({ x: tx, z: tz })) continue;
+        const i = sz * w + sx;
+        if (terrain[i] < 0) continue;
+        writes.set(tz * w + tx, [tx, tz, terrain[i], flags[i]]);
       }
-      if (!readOnly) addEvent(tool as Kind, p);
-      return;
-    }
-    if (tool === "pick" || e.altKey) {
-      if (map.terrain[i] >= 0) brush = { terrain: map.terrain[i], flags: map.flags[i] };
-      play("select");
-      return;
-    }
+    const list = [...writes.values()];
+    const before = setLocal(list);
+    sel = dst;
+    await writeTiles(list, before);
+    if (!copy)
+      for (const ev of map.events.filter((e) => inRect(e, src))) {
+        const [x0, z0] = [ev.x, ev.z];
+        ev.x = Math.max(0, Math.min(map.width - 1, ev.x + d.x));
+        ev.z = Math.max(0, Math.min(map.height - 1, ev.z + d.z));
+        await moveEvent(ev, x0, z0);
+      }
+  }
+
+  function selTiles(f: (i: number, x: number, z: number) => TileWrite | null): TileWrite[] {
+    const list: TileWrite[] = [];
+    if (!sel || !map) return list;
+    for (let z = sel.z; z < sel.z + sel.h; z++)
+      for (let x = sel.x; x < sel.x + sel.w; x++) {
+        const i = z * map.width + x;
+        if (terrain[i] < 0) continue;
+        const w = f(i, x, z);
+        if (w) list.push(w);
+      }
+    return list;
+  }
+
+  function applySelection(f: (i: number, x: number, z: number) => TileWrite | null) {
     if (readOnly) return;
-    stroke = new Map();
-    if (tool === "fill") {
-      flood(p);
-      commit();
-      return;
-    }
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    if (tool === "rect") rect = { x0: p.x, z0: p.z, x1: p.x, z1: p.z };
-    else touch(i);
+    const list = selTiles(f);
+    if (!list.length) return;
+    const before = setLocal(list);
+    writeTiles(list, before);
   }
 
-  function onMapMove(e: PointerEvent) {
-    if (!map) return;
+  // The kinds in the selection, for its summary.
+  const selKinds = $derived.by(() => {
+    void tick;
+    if (!sel || !map) return [] as { terrain: number; count: number }[];
+    const counts = new Map<number, number>();
+    for (let z = sel.z; z < sel.z + sel.h; z++)
+      for (let x = sel.x; x < sel.x + sel.w; x++) {
+        const t = terrain[z * map.width + x];
+        if (t >= 0) counts.set(t, (counts.get(t) ?? 0) + 1);
+      }
+    return [...counts].map(([terrain, count]) => ({ terrain, count })).sort((a, b) => b.count - a.count);
+  });
+
+  // ---- events ----
+
+  function onEventDown(ev: MapEvent, e: PointerEvent) {
+    if (e.button !== 0 || space || adding || tool !== "select") return;
+    e.stopPropagation();
+    picked = ev;
+    sel = null;
+    edits = {};
+    play("select");
+    if (readOnly) return;
     const p = at(e);
-    hover = inside(p) ? p : null;
-    if (!stroke || !inside(p)) return;
-    if (rect) {
-      rect.x1 = p.x;
-      rect.z1 = p.z;
-    } else if (tool === "pencil") touch(p.z * map.width + p.x);
+    drag = { t: "event", ev, x0: ev.x, z0: ev.z, ox: p.x - ev.x, oz: p.z - ev.z };
+    stage!.setPointerCapture(e.pointerId);
   }
 
-  function onMapUp() {
-    if (!stroke || !map) return;
-    if (rect) {
-      const [xa, xb] = [Math.min(rect.x0, rect.x1), Math.max(rect.x0, rect.x1)];
-      const [za, zb] = [Math.min(rect.z0, rect.z1), Math.max(rect.z0, rect.z1)];
-      for (let z = za; z <= zb; z++) for (let x = xa; x <= xb; x++) touch(z * map.width + x);
-      rect = null;
-    }
-    commit();
+  function onSizeDown(ev: MapEvent, e: PointerEvent) {
+    if (e.button !== 0 || readOnly) return;
+    e.stopPropagation();
+    drag = { t: "size", ev };
+    stage!.setPointerCapture(e.pointerId);
   }
 
-  // Writes the stroke's tiles in one call.
-  async function commit() {
-    const done = stroke;
-    stroke = null;
-    if (!done || !done.size || !map) return;
-    const width = map.width;
-    const tiles = [...done.keys()].map((i) => [i % width, Math.floor(i / width)]);
-    undo = [...undo.slice(-49), [...done].map(([i, old]) => ({ i, ...old }))];
+  async function moveEvent(ev: MapEvent, x0: number, z0: number) {
     try {
-      await invoke("set_tiles", { zone: current, tiles, terrain: brush.terrain, flags: brush.flags });
+      await invoke("move_event", { zone: current, kind: ev.kind, index: ev.index, x: ev.x, z: ev.z });
+      undo = [...undo.slice(-99), { t: "move", kind: ev.kind, index: ev.index, x: x0, z: z0 }];
       play("select");
       onSaved();
+      refreshValues();
     } catch (err) {
       error = String(err);
       await load();
     }
   }
 
-  async function undoStep() {
-    const step = undo.at(-1);
-    if (!step || !map || readOnly) return;
-    undo = undo.slice(0, -1);
-    const width = map.width;
-    // One call per old value.
-    const groups = new Map<number, number[][]>();
-    for (const { i, terrain, flags } of step) {
-      map.terrain[i] = terrain;
-      map.flags[i] = flags;
-      const key = terrain * 0x10000 + flags;
-      groups.set(key, [...(groups.get(key) ?? []), [i % width, Math.floor(i / width)]]);
-    }
+  // Re-reads the event values after a change without touching the view.
+  async function refreshValues() {
     try {
-      for (const [key, tiles] of groups)
-        await invoke("set_tiles", { zone: current, tiles, terrain: Math.floor(key / 0x10000), flags: key % 0x10000 });
-      play("cancel");
-      onSaved();
-    } catch (err) {
-      error = String(err);
-      await load();
+      const next = await invoke<ZoneMap>("zone_map", { zone: current });
+      if (!map) return;
+      for (const ev of map.events) {
+        const n = next.events.find((e) => e.kind === ev.kind && e.index === ev.index);
+        if (n) {
+          ev.values = n.values;
+          ev.trainer = n.trainer;
+          ev.toZone = n.toZone;
+        }
+      }
+    } catch {
+      // The next full load picks it up.
     }
   }
 
-  async function addEvent(kind: Kind, p: { x: number; z: number }) {
+  async function addEvent(what: Add, p: Pt) {
     busy = true;
+    const kind: Kind = what === "item" ? "bg" : what;
     try {
       const index = await invoke<number>("add_event", { zone: current, kind, x: p.x, z: p.z });
+      if (what === "item") await invoke("save_event", { zone: current, kind, index, values: { type: 2, scriptId: 0 } });
+      if (what === "bg") await invoke("save_event", { zone: current, kind, index, values: { type: 0 } });
+      undo = [...undo.slice(-99), { t: "add", kind, index }];
       play("decide");
-      selected = null;
+      adding = null;
       await load();
-      selected = map!.events.find((ev) => ev.kind === kind && ev.index === index) ?? null;
-      tool = "select";
+      picked = map!.events.find((ev) => ev.kind === kind && ev.index === index) ?? null;
       onSaved();
     } catch (err) {
       error = String(err);
@@ -336,49 +576,50 @@
     }
   }
 
-  function pickEvent(ev: MapEvent, e: PointerEvent) {
-    if (layer !== "events" || tool !== "select") return;
-    e.stopPropagation();
-    play("select");
-    selected = ev;
-    edits = {};
-    if (!readOnly && (ev.kind === "npc" || ev.kind === "bg")) {
-      const p = at(e);
-      drag = { ev, x: ev.x, z: ev.z, dx: p.x - ev.x, dz: p.z - ev.z };
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  async function duplicate(ev: MapEvent, p?: Pt) {
+    if (readOnly || !map) return;
+    busy = true;
+    try {
+      const to = p ?? { x: Math.min(map.width - 1, ev.x + 1), z: ev.z };
+      const index = await invoke<number>("copy_event", { zone: current, kind: ev.kind, index: ev.index, x: to.x, z: to.z });
+      undo = [...undo.slice(-99), { t: "add", kind: ev.kind, index }];
+      play("decide");
+      await load();
+      picked = map!.events.find((e) => e.kind === ev.kind && e.index === index) ?? null;
+      onSaved();
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
     }
   }
 
-  function onDragMove(e: PointerEvent) {
-    if (!drag || !map) return;
-    const p = at(e);
-    drag.ev.x = Math.max(0, Math.min(map.width - 1, p.x - drag.dx));
-    drag.ev.z = Math.max(0, Math.min(map.height - 1, p.z - drag.dz));
-  }
-
-  // Saved positions are matrix tiles: move them by the drag.
-  async function onDragEnd() {
-    if (!drag) return;
-    const { ev, x, z } = drag;
-    drag = null;
-    const [kx, kz] = ev.kind === "npc" ? ["gridX", "gridZ"] : ["x", "z"];
-    const vx = ev.values.find((v) => v.key === kx);
-    const vz = ev.values.find((v) => v.key === kz);
-    if (!vx || !vz || (ev.x === x && ev.z === z)) return;
-    await save(ev, { [kx]: vx.value + ev.x - x, [kz]: vz.value + ev.z - z });
-  }
-
-  async function save(ev: MapEvent, values: Record<string, number>) {
+  async function save(ev: MapEvent, values: Record<string, number>, reload = true) {
     busy = true;
     try {
       await invoke("save_event", { zone: current, kind: ev.kind, index: ev.index, values });
       play("save");
-      await load();
       onSaved();
+      if (reload) await load();
+      else await refreshValues();
     } catch (err) {
       error = String(err);
       play("cancel");
       await load();
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function setTrainer(ev: MapEvent, trainer: number | null) {
+    busy = true;
+    try {
+      await invoke("set_trainer", { zone: current, index: ev.index, trainer });
+      play("save");
+      onSaved();
+      await load();
+    } catch (err) {
+      error = String(err);
     } finally {
       busy = false;
     }
@@ -389,7 +630,9 @@
     try {
       await invoke("remove_event", { zone: current, kind: ev.kind, index: ev.index });
       play("cancel");
-      selected = null;
+      picked = null;
+      // Indices after it shift down: older event undo steps no longer apply.
+      undo = undo.filter((s) => s.t === "tiles");
       await load();
       onSaved();
     } catch (err) {
@@ -398,6 +641,36 @@
       busy = false;
     }
   }
+
+  async function undoStep() {
+    const step = undo.at(-1);
+    if (!step || readOnly || !map) return;
+    undo = undo.slice(0, -1);
+    try {
+      if (step.t === "tiles") {
+        setLocal(step.before);
+        await invoke("write_tiles", { zone: current, tiles: step.before });
+      } else if (step.t === "move") {
+        const ev = map.events.find((e) => e.kind === step.kind && e.index === step.index);
+        if (ev) {
+          ev.x = step.x;
+          ev.z = step.z;
+        }
+        await invoke("move_event", { zone: current, kind: step.kind, index: step.index, x: step.x, z: step.z });
+      } else {
+        await invoke("remove_event", { zone: current, kind: step.kind, index: step.index });
+        if (picked?.kind === step.kind && picked.index === step.index) picked = null;
+        await load();
+      }
+      play("cancel");
+      onSaved();
+    } catch (err) {
+      error = String(err);
+      await load();
+    }
+  }
+
+  // ---- zone ----
 
   async function saveMusic(season: number, seq: number) {
     if (!map) return;
@@ -413,62 +686,152 @@
     }
   }
 
-  function playMusic(seq: number) {
+  function toggleMusic(season: number) {
     audio?.pause();
-    audio = new Audio(asset(`sound/${seq}?seconds=60`));
-    audio.play().catch(() => {});
+    audio = null;
+    if (playing === season || !map) {
+      playing = null;
+      return;
+    }
+    playing = season;
+    const a = new Audio(asset(`sound/${map.zone.music[season]}?seconds=60`));
+    a.onended = () => {
+      if (audio === a) playing = null;
+    };
+    audio = a;
+    a.play().catch(() => (playing = null));
   }
 
   function switchZone(id: number) {
     play("select");
     current = id;
-    selected = null;
+    picked = null;
+    sel = null;
     undo = [];
-    load().then(fit);
+    renderOk = true;
+    audio?.pause();
+    playing = null;
+    load(false);
   }
 
-  function setLayer(l: Layer) {
-    layer = l;
-    tool = l === "tiles" ? "pencil" : "select";
-    if (l === "tiles") selected = null;
-    play("select");
-  }
+  // ---- keys ----
 
   function onKey(e: KeyboardEvent) {
-    if (tab !== "map" || (e.target as HTMLElement).closest("input, select, textarea")) return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+    if ((e.target as HTMLElement).closest("input, select, textarea, .monaco-editor")) return;
+    if (e.key === " ") {
+      space = e.type === "keydown";
+      e.preventDefault();
+      return;
+    }
+    if (e.type !== "keydown" || !map) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    if (mod && k === "z") {
       e.preventDefault();
       undoStep();
       return;
     }
-    if (e.key === "Escape") selected = null;
-    if (e.key === "Delete" && selected && !readOnly) remove(selected);
-    const k = e.key.toUpperCase();
-    const tile = TILE_TOOLS.find((t) => t[2] === k);
-    const ev = EVENT_TOOLS.find((t) => t[2] === k);
-    if (tile) (layer = "tiles"), (tool = tile[0]);
-    else if (ev) (layer = "events"), (tool = ev[0]);
-    else if (k === "G") grid = !grid;
+    if (mod && k === "a") {
+      e.preventDefault();
+      tool = "select";
+      picked = null;
+      sel = { x: 0, z: 0, w: map.width, h: map.height };
+      return;
+    }
+    if (mod && k === "c") {
+      if (picked) eventClip = picked;
+      else if (sel) {
+        const cells: [number, number][] = [];
+        for (let z = sel.z; z < sel.z + sel.h; z++)
+          for (let x = sel.x; x < sel.x + sel.w; x++) cells.push([terrain[z * map.width + x], flags[z * map.width + x]]);
+        clip = { w: sel.w, h: sel.h, cells };
+        eventClip = null;
+      }
+      play("select");
+      return;
+    }
+    if (mod && k === "v" && hover && !readOnly) {
+      const h = hover;
+      if (eventClip) duplicate(eventClip, h);
+      else if (clip) {
+        const c = clip;
+        const list: TileWrite[] = [];
+        c.cells.forEach(([t, f], i) => {
+          const p = { x: h.x + (i % c.w), z: h.z + Math.floor(i / c.w) };
+          if (t >= 0 && inside(p)) list.push([p.x, p.z, t, f]);
+        });
+        const before = setLocal(list);
+        sel = { x: h.x, z: h.z, w: c.w, h: c.h };
+        writeTiles(list, before);
+      }
+      return;
+    }
+    if (mod && k === "d" && picked) {
+      e.preventDefault();
+      duplicate(picked);
+      return;
+    }
+    if (mod) return;
+    if (e.key === "Escape") {
+      picked = null;
+      sel = null;
+      adding = null;
+      return;
+    }
+    if ((e.key === "Delete" || e.key === "Backspace") && !readOnly) {
+      if (picked) remove(picked);
+      else if (sel) applySelection((_, x, z) => [x, z, brush.terrain, brush.flags]);
+      return;
+    }
+    const t = TOOLS.find((x) => x[2].toLowerCase() === k);
+    if (t) {
+      tool = t[0];
+      adding = null;
+    } else if (k === "h") grid = !grid;
+    else if (k === "f") fit();
   }
 
-  const trainerName = (id: number) => trainers[id]?.name ?? `Trainer ${id}`;
+  // ---- labels ----
+
+  const trainerName = (id: number) => trainers[id]?.name || `Trainer ${id}`;
+  const itemName = (id: number) => items[id]?.name || `Item ${id}`;
+  const zoneName = (id: number) => {
+    const z = allZones[id];
+    return z ? `${z.place} (${id})` : `Map ${id}`;
+  };
   const musicName = (seq: number) => music.find((m) => m.index === seq)?.name ?? `#${seq}`;
-  const eventLabel = (ev: MapEvent) =>
-    ev.trainer !== null ? trainerName(ev.trainer) : `${KIND_LABEL[ev.kind]} ${ev.index}`;
+  const value = (ev: MapEvent, key: string) => ev.values.find((v) => v.key === key)?.value ?? 0;
+  const isItem = (ev: MapEvent) => ev.kind === "bg" && value(ev, "type") === 2;
+  function eventLabel(ev: MapEvent): string {
+    if (ev.trainer !== null) return trainerName(ev.trainer);
+    if (isItem(ev)) return `Hidden ${itemName(value(ev, "scriptId"))}`;
+    if (ev.kind === "warp" && ev.toZone !== null) return `Warp to ${zoneName(ev.toZone)}`;
+    return `${KIND_LABEL[ev.kind]} ${ev.index + 1}`;
+  }
+  const eventIcon = (ev: MapEvent) =>
+    ev.trainer !== null ? "T" : ev.kind === "npc" ? "P" : ev.kind === "warp" ? "W" : ev.kind === "pos" ? "" : isItem(ev) ? "I" : "S";
+
   const hoverIndex = $derived(hover && map ? hover.z * map.width + hover.x : -1);
-  const rectBox = $derived(
-    rect
-      ? {
-          x: Math.min(rect.x0, rect.x1),
-          z: Math.min(rect.z0, rect.z1),
-          w: Math.abs(rect.x1 - rect.x0) + 1,
-          h: Math.abs(rect.z1 - rect.z0) + 1,
-        }
-      : null,
+  const counts = $derived.by(() => {
+    const ev = map?.events ?? [];
+    return [
+      ["People", ev.filter((e) => e.kind === "npc" && e.trainer === null)],
+      ["Trainers", ev.filter((e) => e.trainer !== null)],
+      ["Signs", ev.filter((e) => e.kind === "bg" && !isItem(e))],
+      ["Hidden items", ev.filter(isItem)],
+      ["Warps", ev.filter((e) => e.kind === "warp")],
+      ["Triggers", ev.filter((e) => e.kind === "pos")],
+    ] as [string, MapEvent[]][];
+  });
+  const painting = $derived(tool !== "select");
+  const showTiles = $derived(look === "tiles" || !renderOk || painting || sel !== null);
+  const commonKinds = $derived([...new Set([...palette.map((p) => p.terrain), 0, 4, 6, 8, 0x0c, 0x3d, 0x3f, 0x72, 0x73, 0x74, 0x75])]);
+  const hint = $derived(
+    adding ? `Click on the map to place a ${ADDS.find((a) => a[0] === adding)![1].toLowerCase()}. Esc cancels.` : HINT[tool],
   );
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onkeyup={onKey} />
 
 <div class="zone-editor">
   <header class="bar">
@@ -479,135 +842,239 @@
         {#each zones as z}<option value={z.id}>{z.label}</option>{/each}
       </select>
     {/if}
-    <div class="tabs" role="tablist">
-      {#each [["map", "Map"], ...(trainer !== null ? [["trainer", trainerName(trainer)]] : []), ["music", "Music"], ["wild", "Wild Pokemon"]] as [id, label]}
-        <button role="tab" aria-selected={tab === id} class:primary={tab === id} onclick={() => ((tab = id as typeof tab), play("select"))}>{label}</button>
-      {/each}
-    </div>
+    <div class="spacer"></div>
+    {#if renderOk}
+      <div class="seg" role="radiogroup" aria-label="Look">
+        <button class:primary={look === "game"} onclick={() => (look = "game")}>Game</button>
+        <button class:primary={look === "tiles"} onclick={() => (look = "tiles")}>Tile kinds</button>
+      </div>
+    {/if}
+    <button disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
   </header>
 
-  {#if error}<p class="bad pad">{error}</p>{/if}
+  {#if error}<p class="bad pad" role="alert">{error}</p>{/if}
 
-  {#if tab === "map"}
-    <div class="body">
-      <aside class="palette">
-        <div class="layers" role="radiogroup" aria-label="Layer">
-          <button class:primary={layer === "tiles"} onclick={() => setLayer("tiles")}>Tiles</button>
-          <button class:primary={layer === "events"} onclick={() => setLayer("events")}>Events</button>
+  <div class="body">
+    <aside class="tools">
+      {#each TOOLS as [t, label, key]}
+        <button
+          class="tool"
+          class:primary={tool === t && !adding}
+          disabled={readOnly && t !== "select"}
+          title="{label} ({key})"
+          onclick={() => ((tool = t), (adding = null), play("select"))}
+        >{label}<kbd>{key}</kbd></button>
+      {/each}
+      {#if !readOnly}
+        <h3>Add</h3>
+        {#each ADDS as [a, label]}
+          <button class="tool" class:primary={adding === a} onclick={() => ((adding = adding === a ? null : a), play("select"))}>
+            <i class="dot {a}"></i>{label}
+          </button>
+        {/each}
+      {/if}
+      {#if painting}
+        <h3>Paint with</h3>
+        <div class="brush">
+          <span class="chip big" style="background: {tileCss(brush.terrain, brush.flags)}"></span>
+          <span class="brush-name">{tileLabel(brush.terrain, brush.flags)}</span>
         </div>
-
-        <div class="tools">
-          {#each layer === "tiles" ? TILE_TOOLS : EVENT_TOOLS as [t, label, key]}
+        <label class="check"><input type="checkbox" checked={(brush.flags & FLAG_BLOCKED) !== 0} onchange={() => (brush.flags ^= FLAG_BLOCKED)} />Blocked</label>
+        <div class="kinds">
+          {#each palette as p (p.terrain * 0x10000 + p.flags)}
             <button
-              class:primary={tool === t}
-              disabled={readOnly && t !== "pick" && t !== "select"}
-              title="{label} ({key})"
-              onclick={() => ((tool = t), play("select"))}
+              class="kind"
+              class:on={p.terrain === brush.terrain && p.flags === brush.flags}
+              title="{p.count} tiles"
+              onclick={() => ((brush = { terrain: p.terrain, flags: p.flags }), play("select"))}
             >
-              {#if layer === "events" && t !== "select"}<i class="dot {t}"></i>{/if}{label}
+              <span class="chip" style="background: {tileCss(p.terrain, p.flags)}"></span>
+              <span class="kind-name">{tileLabel(p.terrain, p.flags)}</span>
             </button>
           {/each}
         </div>
+      {/if}
+    </aside>
 
-        {#if layer === "tiles"}
-          <div class="brush">
-            <span class="swatch big" style="background: {color(brush.terrain, brush.flags)}"></span>
-            <label><span class="muted">Terrain</span><input type="number" min="0" max="65535" bind:value={brush.terrain} /></label>
-            <label><span class="muted">Flags</span><input type="number" min="0" max="32767" bind:value={brush.flags} /></label>
-            <label class="check"><input type="checkbox" checked={(brush.flags & 1) === 1} onchange={() => (brush.flags ^= 1)} />Walkable</label>
-          </div>
-          <div class="swatches">
-            {#each palette as p (p.terrain * 0x10000 + p.flags)}
-              <button
-                class="swatch"
-                class:on={p.terrain === brush.terrain && p.flags === brush.flags}
-                style="background: {color(p.terrain, p.flags)}"
-                title="Terrain {p.terrain}, flags {p.flags} ({p.count} tiles)"
-                onclick={() => ((brush = { terrain: p.terrain, flags: p.flags }), play("select"))}
-              >{p.terrain}</button>
-            {/each}
-          </div>
-        {:else if map}
-          <ul class="event-list">
-            {#each map.events as ev (ev.kind + ev.index)}
-              <li>
-                <button class="row-item" class:on={selected === ev} onclick={() => ((selected = ev), (edits = {}), (tool = "select"), play("select"))}>
-                  <i class="dot {ev.kind}" class:trainer={ev.trainer !== null}></i>
-                  <span class="label">{eventLabel(ev)}</span>
-                  <span class="muted">{ev.x}, {ev.z}</span>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </aside>
-
-      <div
-        class="stage"
-        bind:this={stage}
-        onpointerdowncapture={pan.down}
-        onpointermovecapture={pan.move}
-        onpointerupcapture={pan.up}
-        onauxclick={(e) => e.preventDefault()}
-        onwheel={(e) => {
-          if (!e.ctrlKey) return;
-          e.preventDefault();
-          scale = Math.max(3, Math.min(32, scale + (e.deltaY < 0 ? 1 : -1)));
-        }}
-      >
-        {#if map}
-          <div class="canvas" class:events={layer === "events"} style="width: {map.width * scale}px; height: {map.height * scale}px; {pan.style}">
-            <canvas
-              bind:this={canvas}
-              width={map.width * scale}
-              height={map.height * scale}
-              onpointerdown={onMapDown}
-              onpointermove={onMapMove}
-              onpointerup={onMapUp}
-              onpointerleave={() => (hover = null)}
-            ></canvas>
-            {#each map.events as ev (ev.kind + ev.index)}
-              {#if ev.x >= 0 && ev.z >= 0}
-                <button
-                  class="ev {ev.kind}"
-                  class:trainer={ev.trainer !== null}
-                  class:on={selected === ev}
-                  style="left: {ev.x * scale}px; top: {ev.z * scale}px; width: {ev.w * scale}px; height: {ev.h * scale}px"
-                  title={eventLabel(ev)}
-                  aria-label={eventLabel(ev)}
-                  onpointerdown={(e) => pickEvent(ev, e)}
-                  onpointermove={onDragMove}
-                  onpointerup={onDragEnd}
-                ></button>
-              {/if}
-            {/each}
-            {#if rectBox}
-              <div class="rect" style="left: {rectBox.x * scale}px; top: {rectBox.z * scale}px; width: {rectBox.w * scale}px; height: {rectBox.h * scale}px"></div>
-            {/if}
-            {#if hover && layer === "tiles" && !rect}
-              <div class="cursor" style="left: {hover.x * scale}px; top: {hover.z * scale}px; width: {scale}px; height: {scale}px"></div>
-            {/if}
-          </div>
-        {:else}
-          <p class="muted pad">Loading...</p>
-        {/if}
-      </div>
-
-      <aside class="inspector">
-        {#if selected}
-          <div class="head">
-            <i class="dot {selected.kind}" class:trainer={selected.trainer !== null}></i>
-            <strong>{eventLabel(selected)}</strong>
-            <span class="tag">{KIND_LABEL[selected.kind]}</span>
-          </div>
-          {#if selected.trainer !== null}
-            <button class="primary" onclick={() => ((trainer = selected!.trainer), (tab = "trainer"), play("decide"))}>Edit trainer</button>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="stage"
+      class:panning={space || drag?.t === "pan"}
+      bind:this={stage}
+      onpointerdown={onDown}
+      onpointermove={onMove}
+      onpointerup={onUp}
+      onpointerleave={() => ((hover = null), (hoverEvent = null))}
+      onwheel={onWheel}
+      oncontextmenu={(e) => e.preventDefault()}
+      onauxclick={(e) => e.preventDefault()}
+    >
+      {#if map}
+        <div class="world" style="width: {map.width * scale}px; height: {map.height * scale}px; transform: translate({pan.x}px, {pan.y}px)">
+          {#if renderOk}
+            <img
+              class="render"
+              class:hidden={look === "tiles"}
+              src={asset(`maprender/${current}?px=16`)}
+              alt=""
+              draggable="false"
+              onerror={() => (renderOk = false)}
+            />
           {/if}
-          {#if selected.toZone !== null}
-            <button onclick={() => switchZone(selected!.toZone!)}>Go to map {selected.toZone}</button>
+          <canvas
+            bind:this={canvas}
+            width={map.width}
+            height={map.height}
+            class="tiles"
+            style="opacity: {showTiles ? (renderOk && look === 'game' ? 0.55 : 1) : 0}"
+          ></canvas>
+          {#if grid && scale >= 6}
+            <div class="grid" style="--s: {scale}px; --c: {scale * 32}px"></div>
           {/if}
+          {#each map.events as ev (ev.kind + ev.index)}
+            {#if ev.x >= 0 && ev.z >= 0}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="ev {ev.kind}"
+                class:trainer={ev.trainer !== null}
+                class:item={isItem(ev)}
+                class:on={picked === ev}
+                class:passive={tool !== "select" || adding !== null}
+                style="left: {ev.x * scale}px; top: {ev.z * scale}px; width: {ev.w * scale}px; height: {ev.h * scale}px; font-size: {Math.max(8, scale * 0.6)}px"
+                onpointerdown={(e) => onEventDown(ev, e)}
+                onpointerenter={() => (hoverEvent = ev)}
+                onpointerleave={() => (hoverEvent = null)}
+              >
+                {eventIcon(ev)}
+                {#if picked === ev && ev.kind === "pos" && !readOnly}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <span class="handle" onpointerdown={(e) => onSizeDown(ev, e)}></span>
+                {/if}
+              </div>
+            {/if}
+          {/each}
+          {#if sel}
+            <div
+              class="sel"
+              class:moving={moving !== null}
+              style="left: {(sel.x + (moving?.x ?? 0)) * scale}px; top: {(sel.z + (moving?.z ?? 0)) * scale}px; width: {sel.w * scale}px; height: {sel.h * scale}px"
+            ></div>
+          {/if}
+          {#if boxing}
+            <div class="sel box" style="left: {boxing.x * scale}px; top: {boxing.z * scale}px; width: {boxing.w * scale}px; height: {boxing.h * scale}px"></div>
+          {/if}
+          {#if hover && (painting || adding)}
+            <div class="cursor" style="left: {hover.x * scale}px; top: {hover.z * scale}px; width: {scale}px; height: {scale}px"></div>
+          {/if}
+        </div>
+        {#if (hoverEvent || hoverIndex >= 0) && !drag}
+          <div class="tip window" style="left: {mouse.x + 14}px; top: {mouse.y + 14}px">
+            {#if hoverEvent}
+              <strong>{eventLabel(hoverEvent)}</strong>
+            {:else}
+              {tileLabel(terrain[hoverIndex], flags[hoverIndex])}
+            {/if}
+          </div>
+        {/if}
+      {:else}
+        <p class="muted pad">Loading...</p>
+      {/if}
+    </div>
+
+    <aside class="panel">
+      {#if picked && map}
+        {@const ev = picked}
+        <div class="head">
+          <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
+          <div class="title">
+            <strong>{eventLabel(ev)}</strong>
+            <span class="muted">{ev.trainer !== null ? "Trainer" : isItem(ev) ? "Hidden item" : KIND_LABEL[ev.kind]} at {ev.x}, {ev.z}</span>
+          </div>
+        </div>
+        {#if !readOnly}
+          <div class="row">
+            <button onclick={() => duplicate(ev)} disabled={busy} title="Ctrl+D">Duplicate</button>
+            <button onclick={() => remove(ev)} disabled={busy} title="Delete">Delete</button>
+          </div>
+        {/if}
+
+        {#if ev.kind === "npc"}
+          <label class="field">
+            <span>Battles</span>
+            <select
+              value={ev.trainer ?? -1}
+              disabled={readOnly || busy}
+              onchange={(e) => {
+                const v = Number((e.currentTarget as HTMLSelectElement).value);
+                setTrainer(ev, v < 0 ? null : v);
+              }}
+            >
+              <option value={-1}>Nobody</option>
+              {#each trainers as t}{#if t.index > 0}<option value={t.index}>{t.name || `Trainer ${t.index}`} ({t.index})</option>{/if}{/each}
+            </select>
+          </label>
+          <label class="field">
+            <span>Looks like (object code)</span>
+            <input
+              type="number"
+              min="0"
+              max="798"
+              value={value(ev, "objCode")}
+              readonly={readOnly}
+              onchange={(e) => save(ev, { objCode: Number((e.currentTarget as HTMLInputElement).value) }, false)}
+            />
+          </label>
+        {:else if ev.kind === "warp"}
+          <label class="field">
+            <span>Leads to</span>
+            <select value={ev.toZone ?? 0} disabled={readOnly || busy} onchange={(e) => save(ev, { zoneId: Number((e.currentTarget as HTMLSelectElement).value) })}>
+              {#each allZones as z}<option value={z.id}>{z.place} ({z.id})</option>{/each}
+            </select>
+          </label>
+          {#if ev.toZone !== null}
+            <button onclick={() => switchZone(ev.toZone!)}>Go there</button>
+          {/if}
+        {:else if ev.kind === "bg"}
+          <label class="field">
+            <span>Kind</span>
+            <select value={isItem(ev) ? 2 : value(ev, "type")} disabled={readOnly || busy} onchange={(e) => save(ev, { type: Number((e.currentTarget as HTMLSelectElement).value) })}>
+              <option value={0}>Sign</option>
+              <option value={1}>Something to check</option>
+              <option value={2}>Hidden item</option>
+            </select>
+          </label>
+          {#if isItem(ev)}
+            <label class="field">
+              <span>Item</span>
+              <select value={value(ev, "scriptId")} disabled={readOnly || busy} onchange={(e) => save(ev, { scriptId: Number((e.currentTarget as HTMLSelectElement).value) })}>
+                {#each items as it}<option value={it.index}>{it.name || `Item ${it.index}`}</option>{/each}
+              </select>
+            </label>
+          {:else}
+            <label class="field">
+              <span>Read from</span>
+              <select value={value(ev, "dir")} disabled={readOnly || busy} onchange={(e) => save(ev, { dir: Number((e.currentTarget as HTMLSelectElement).value) }, false)}>
+                {#each DIRS as d, i}<option value={i}>{d}</option>{/each}
+              </select>
+            </label>
+          {/if}
+        {:else if ev.kind === "pos"}
+          <div class="row">
+            <label class="field">
+              <span>Width</span>
+              <input type="number" min="1" max="255" value={ev.w} readonly={readOnly} onchange={(e) => save(ev, { sizeX: Number((e.currentTarget as HTMLInputElement).value) })} />
+            </label>
+            <label class="field">
+              <span>Height</span>
+              <input type="number" min="1" max="255" value={ev.h} readonly={readOnly} onchange={(e) => save(ev, { sizeZ: Number((e.currentTarget as HTMLInputElement).value) })} />
+            </label>
+          </div>
+        {/if}
+
+        <details class="raw">
+          <summary>All values</summary>
           <div class="fields">
-            {#each selected.values as v (v.key)}
+            {#each ev.values as v (v.key)}
               <label>
                 <span class="muted">{v.label}</span>
                 <input
@@ -622,69 +1089,102 @@
             {/each}
           </div>
           {#if !readOnly}
-            <div class="actions">
-              <button class="primary" disabled={busy || !Object.keys(edits).length} onclick={() => save(selected!, edits)}>Save</button>
-              <button disabled={busy} onclick={() => remove(selected!)}>Delete</button>
-            </div>
+            <button class="primary" disabled={busy || !Object.keys(edits).length} onclick={() => save(ev, edits)}>Save</button>
           {/if}
-        {:else if map}
-          <div class="head"><strong>Map {map.zone.id}</strong></div>
-          <dl>
-            <dt>Size</dt><dd>{map.width} x {map.height}</dd>
-            <dt>People</dt><dd>{map.events.filter((e) => e.kind === "npc").length}</dd>
-            <dt>Trainers</dt><dd>{map.events.filter((e) => e.trainer !== null).length}</dd>
-            <dt>Warps</dt><dd>{map.events.filter((e) => e.kind === "warp").length}</dd>
-            <dt>Triggers</dt><dd>{map.events.filter((e) => e.kind === "pos").length}</dd>
-            <dt>Signs</dt><dd>{map.events.filter((e) => e.kind === "bg").length}</dd>
-          </dl>
-        {/if}
-      </aside>
-    </div>
+        </details>
 
-    <footer class="status">
-      {#if hover && map && hoverIndex >= 0}
-        <span>{hover.x}, {hover.z}</span>
-        <span>Terrain {map.terrain[hoverIndex]}</span>
-        <span>Flags {map.flags[hoverIndex]}</span>
-      {:else}
-        <span class="muted">-</span>
+        {#if ev.trainer !== null}
+          <div class="embed">
+            {#key ev.trainer}
+              <TableEditor tables={["trainers", "trainerParties"]} single start={ev.trainer} {readOnly} version={0} {onSaved} />
+            {/key}
+          </div>
+        {/if}
+      {:else if sel && map}
+        <div class="head">
+          <div class="title">
+            <strong>{sel.w * sel.h === 1 ? `Tile ${sel.x}, ${sel.z}` : `${sel.w} x ${sel.h} tiles`}</strong>
+            <span class="muted">{selKinds.map((k) => kindName(k.terrain)).slice(0, 3).join(", ")}</span>
+          </div>
+        </div>
+        {#if !readOnly}
+          <label class="field">
+            <span>Kind</span>
+            <select
+              value={selKinds.length === 1 ? selKinds[0].terrain : -1}
+              onchange={(e) => {
+                const t = Number((e.currentTarget as HTMLSelectElement).value);
+                applySelection((i, x, z) => [x, z, t, flags[i]]);
+              }}
+            >
+              {#if selKinds.length !== 1}<option value={-1} disabled>Mixed</option>{/if}
+              {#each commonKinds as t}<option value={t}>{kindName(t)}</option>{/each}
+            </select>
+          </label>
+          <div class="row">
+            <button onclick={() => applySelection((i, x, z) => [x, z, terrain[i], flags[i] | FLAG_BLOCKED])}>Block</button>
+            <button onclick={() => applySelection((i, x, z) => [x, z, terrain[i], flags[i] & ~FLAG_BLOCKED])}>Unblock</button>
+            <button onclick={() => applySelection((_, x, z) => [x, z, brush.terrain, brush.flags])}>Fill with paint</button>
+          </div>
+          <p class="muted small">Drag the selection to move it. Hold Alt to copy. Ctrl+C and Ctrl+V copy and paste.</p>
+        {/if}
+      {:else if map}
+        <div class="head">
+          <div class="title"><strong>{map.zone.place}</strong><span class="muted">Map {map.zone.id}, {map.width} x {map.height} tiles</span></div>
+        </div>
+        <section>
+          <h3>On this map</h3>
+          {#each counts as [label, list]}
+            {#if list.length}
+              <details>
+                <summary>{label} <span class="muted">{list.length}</span></summary>
+                <ul class="list">
+                  {#each list as ev (ev.kind + ev.index)}
+                    <li><button class="row-item" onclick={() => ((picked = ev), (tool = "select"), play("select"))}>{eventLabel(ev)}</button></li>
+                  {/each}
+                </ul>
+              </details>
+            {/if}
+          {/each}
+        </section>
+        <section>
+          <h3>Music</h3>
+          {#each SEASONS as season, i}
+            <div class="music">
+              <span>{season}</span>
+              <select value={map.zone.music[i]} disabled={readOnly} onchange={(e) => saveMusic(i, Number((e.currentTarget as HTMLSelectElement).value))}>
+                {#each music as m}<option value={m.index}>{m.name}</option>{/each}
+                {#if !music.some((m) => m.index === map!.zone.music[i])}<option value={map.zone.music[i]}>{musicName(map.zone.music[i])}</option>{/if}
+              </select>
+              <button class:primary={playing === i} onclick={() => toggleMusic(i)}>{playing === i ? "Stop" : "Play"}</button>
+            </div>
+          {/each}
+        </section>
+        <section class="grow">
+          <h3>Wild Pokemon</h3>
+          {#if map.zone.encounters !== null}
+            <div class="embed">
+              {#key map.zone.encounters}
+                <TableEditor tables={["encounters"]} single start={map.zone.encounters} {readOnly} version={0} {onSaved} />
+              {/key}
+            </div>
+          {:else}
+            <p class="muted">None.</p>
+          {/if}
+        </section>
       {/if}
-      <span class="spacer"></span>
-      <button class="quiet" disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
-      <label class="check"><input type="checkbox" bind:checked={grid} />Grid</label>
-      <input type="range" min="3" max="32" bind:value={scale} aria-label="Zoom" />
-      <button class="quiet" onclick={fit}>Fit</button>
-    </footer>
-  {:else if tab === "music" && map}
-    <div class="sheet">
-      {#each ["Spring", "Summer", "Autumn", "Winter"] as season, i}
-        <label class="row">
-          <span>{season}</span>
-          <select value={map.zone.music[i]} disabled={readOnly} onchange={(e) => saveMusic(i, Number((e.currentTarget as HTMLSelectElement).value))}>
-            {#each music as m}<option value={m.index}>{m.name}</option>{/each}
-            {#if !music.some((m) => m.index === map!.zone.music[i])}<option value={map.zone.music[i]}>{musicName(map.zone.music[i])}</option>{/if}
-          </select>
-          <button onclick={() => playMusic(map!.zone.music[i])}>Play</button>
-        </label>
-      {/each}
-    </div>
-  {:else if tab === "trainer" && trainer !== null}
-    <div class="embed">
-      {#key trainer}
-        <TableEditor tables={["trainers", "trainerParties"]} single start={trainer} {readOnly} version={0} {onSaved} />
-      {/key}
-    </div>
-  {:else if tab === "wild" && map}
-    {#if map.zone.encounters !== null}
-      <div class="embed">
-        {#key map.zone.encounters}
-          <TableEditor tables={["encounters"]} single start={map.zone.encounters} {readOnly} version={0} {onSaved} />
-        {/key}
-      </div>
-    {:else}
-      <p class="muted pad">No wild Pokemon on this map.</p>
-    {/if}
-  {/if}
+    </aside>
+  </div>
+
+  <footer class="status">
+    <span class="hint">{hint}</span>
+    {#if hover && hoverIndex >= 0}<span>{hover.x}, {hover.z}</span>{/if}
+    <label class="check"><input type="checkbox" bind:checked={grid} />Grid</label>
+    <button class="quiet" onclick={() => stage && zoomAt(scale - Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom out">-</button>
+    <span class="zoom">{Math.round((scale / 16) * 100)}%</span>
+    <button class="quiet" onclick={() => stage && zoomAt(scale + Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom in">+</button>
+    <button class="quiet" onclick={fit} title="F">Fit</button>
+  </footer>
 </div>
 
 <style>
@@ -696,7 +1196,6 @@
   }
   .bar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 0.6rem;
     padding: 0.35rem 0.9rem;
@@ -706,174 +1205,217 @@
     margin: 0;
     font-size: 1.05rem;
   }
-  .tabs {
-    display: flex;
-    gap: 0.25rem;
-    margin-left: auto;
-  }
-  .bar button,
-  .palette button,
-  .status button {
+  .bar button {
     padding: 0.2rem 0.7rem;
+  }
+  .spacer {
+    flex: 1;
+  }
+  .seg {
+    display: flex;
+    gap: 0.2rem;
   }
   .body {
     display: grid;
-    grid-template-columns: 13rem minmax(0, 1fr) 16rem;
+    grid-template-columns: 11rem minmax(0, 1fr) 24rem;
     min-height: 0;
   }
-  .palette {
+  .tools {
     border-right: 2px solid var(--outline);
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.6rem;
+    gap: 0.25rem;
+    padding: 0.5rem;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
   }
-  .layers {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.25rem;
-  }
-  .tools {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
-  .tools button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .brush {
-    display: grid;
-    grid-template-columns: auto 1fr 1fr;
-    align-items: end;
-    gap: 0.35rem;
-  }
-  .brush label {
-    display: flex;
-    flex-direction: column;
-    font-size: 0.75rem;
-    min-width: 0;
-  }
-  .brush input[type="number"] {
-    width: 100%;
-  }
-  .brush .check {
-    grid-column: 1 / -1;
-  }
-  .check {
-    display: flex;
-    flex-direction: row !important;
-    align-items: center;
-    gap: 0.3rem;
+  .tools h3 {
+    margin: 0.6rem 0 0.1rem;
     font-size: 0.8rem;
+    color: var(--muted);
   }
-  .swatches {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr));
-    gap: 0.25rem;
-  }
-  .swatch {
-    height: 2.2rem;
-    padding: 0;
-    border: 2px solid var(--outline);
-    border-radius: var(--radius-s);
-    box-shadow: none;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #000c;
-  }
-  .swatch.big {
-    display: block;
-    width: 2.2rem;
-  }
-  .swatch.on {
-    outline: 3px solid var(--gold);
-    outline-offset: 1px;
-  }
-  .event-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .event-list .row-item {
+  .tool {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    width: 100%;
+    padding: 0.3rem 0.6rem;
+    text-align: left;
   }
-  .event-list .label {
-    flex: 1;
-    min-width: 0;
+  .tool kbd {
+    margin-left: auto;
+    font-size: 0.7rem;
+    opacity: 0.6;
+  }
+  .brush {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .brush-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .chip {
+    display: inline-block;
+    flex: none;
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 2px solid var(--outline);
+    border-radius: 3px;
+  }
+  .chip.big {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+  .kinds {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .kind {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.4rem;
+    box-shadow: none;
+    background: transparent;
+    border: 2px solid transparent;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+  .kind.on {
+    border-color: var(--gold);
+  }
+  .kind-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    text-align: left;
   }
-  .row-item.on {
-    background: color-mix(in srgb, var(--gold) 25%, transparent);
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
   }
   .stage {
-    overflow: auto;
+    position: relative;
+    overflow: hidden;
     min-width: 0;
     min-height: 0;
-    padding: 1rem;
     background: var(--stage);
-  }
-  .canvas {
-    position: relative;
-    margin: auto;
-  }
-  .canvas canvas {
-    display: block;
-    cursor: crosshair;
-    image-rendering: pixelated;
-  }
-  .canvas:not(.events) .ev {
-    pointer-events: none;
-    opacity: 0.6;
-  }
-  .canvas.events canvas {
     cursor: default;
+    touch-action: none;
+    user-select: none;
+  }
+  .stage.panning {
+    cursor: grab;
+  }
+  .world {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+  }
+  .render,
+  .tiles {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  .render.hidden {
+    visibility: hidden;
+  }
+  .tiles {
+    transition: opacity 0.15s;
+  }
+  .grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 1px, transparent 1px),
+      linear-gradient(to right, rgba(0, 0, 0, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+    background-size:
+      var(--c) var(--c),
+      var(--c) var(--c),
+      var(--s) var(--s),
+      var(--s) var(--s);
   }
   .ev {
     position: absolute;
-    padding: 0;
-    border-radius: 3px;
-    box-shadow: none;
-    border: 2px solid var(--outline);
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, 0.7);
+    border-radius: 4px;
+    color: #fff;
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 1px 1px #0008;
+    cursor: grab;
     min-width: 6px;
     min-height: 6px;
   }
+  .ev.passive {
+    pointer-events: none;
+    opacity: 0.7;
+  }
   .ev.npc,
-  .dot.npc {
+  .dot.npc,
+  .badge.npc {
     background: #3aa0ff;
     border-radius: 50%;
   }
-  .ev.npc.trainer,
-  .dot.trainer {
+  .ev.trainer,
+  .badge.trainer {
     background: #ff4d4d;
-    border-radius: 50%;
   }
   .ev.warp,
-  .dot.warp {
-    background: rgba(140, 90, 255, 0.75);
+  .dot.warp,
+  .badge.warp {
+    background: rgba(140, 90, 255, 0.85);
   }
   .ev.pos,
-  .dot.pos {
-    background: rgba(255, 200, 40, 0.45);
+  .dot.pos,
+  .badge.pos {
+    background: rgba(255, 200, 40, 0.35);
+    border-style: dashed;
+    border-color: rgba(200, 140, 0, 0.9);
   }
   .ev.bg,
-  .dot.bg {
+  .dot.bg,
+  .badge.bg {
     background: #2fcf8f;
+  }
+  .ev.item,
+  .dot.item,
+  .badge.item {
+    background: #f0a020;
+  }
+  .ev:hover {
+    filter: brightness(1.15);
+    z-index: 3;
   }
   .ev.on {
     outline: 3px solid var(--gold);
     outline-offset: 1px;
-    z-index: 2;
+    z-index: 4;
+  }
+  .handle {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 12px;
+    height: 12px;
+    background: var(--gold);
+    border: 2px solid var(--outline);
+    border-radius: 3px;
+    cursor: nwse-resize;
   }
   .dot {
     display: inline-block;
@@ -882,14 +1424,34 @@
     height: 10px;
     border-radius: 3px;
   }
-  .rect,
+  .sel {
+    position: absolute;
+    pointer-events: none;
+    border: 2px dashed var(--gold);
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
+    z-index: 2;
+  }
+  .sel.moving {
+    background: color-mix(in srgb, var(--gold) 35%, transparent);
+  }
+  .sel.box {
+    border-style: solid;
+  }
   .cursor {
     position: absolute;
     pointer-events: none;
     border: 2px solid var(--gold);
-    background: color-mix(in srgb, var(--gold) 20%, transparent);
+    z-index: 2;
   }
-  .inspector {
+  .tip {
+    position: absolute;
+    pointer-events: none;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .panel {
     border-left: 2px solid var(--outline);
     overflow-y: auto;
     overflow-x: hidden;
@@ -897,73 +1459,136 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    min-height: 0;
   }
   .head {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
-  dl {
+  .title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .title strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .badge {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.25rem 0.75rem;
-    margin: 0;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 6px;
+    border: 2px solid var(--outline);
+    color: #fff;
+    font-weight: 800;
   }
-  dt {
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+    min-width: 0;
+    flex: 1;
+  }
+  .field > span {
     color: var(--muted);
   }
-  dd {
-    margin: 0;
+  .field select,
+  .field input {
+    width: 100%;
+  }
+  .raw summary,
+  section details summary {
+    cursor: pointer;
+    font-size: 0.85rem;
   }
   .fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.4rem;
+    margin: 0.5rem 0;
   }
   .fields label {
     display: flex;
     flex-direction: column;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     min-width: 0;
   }
   .fields input {
     width: 100%;
   }
-  .actions {
-    display: flex;
+  section h3 {
+    margin: 0.2rem 0 0.4rem;
+    font-size: 0.9rem;
+  }
+  .list {
+    list-style: none;
+    margin: 0.2rem 0 0.4rem;
+    padding: 0;
+  }
+  .list .row-item {
+    width: 100%;
+    text-align: left;
+  }
+  .music {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) 4rem;
+    align-items: center;
     gap: 0.4rem;
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+  }
+  .music button {
+    padding: 0.2rem 0.6rem;
+  }
+  .embed {
+    flex: 1 0 30rem;
+    min-height: 30rem;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+  }
+  .grow {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+  }
+  .small {
+    font-size: 0.8rem;
   }
   .status {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0.8rem;
     padding: 0.25rem 0.9rem;
     border-top: 2px solid var(--outline);
     font-size: 0.85rem;
     font-variant-numeric: tabular-nums;
   }
-  .status .spacer {
+  .status .hint {
     flex: 1;
-  }
-  .status input[type="range"] {
-    width: 7rem;
-  }
-  .sheet {
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    overflow-y: auto;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 6rem minmax(0, 22rem) auto;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .embed {
-    min-height: 0;
+    min-width: 0;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+  .status button {
+    padding: 0.1rem 0.6rem;
+  }
+  .zoom {
+    min-width: 3rem;
+    text-align: center;
   }
   .pad {
     padding: 1rem;

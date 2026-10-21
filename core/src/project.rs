@@ -208,6 +208,15 @@ impl Project {
         remove_siblings(&dir, index, false)
     }
 
+    /// Drops a whole-file override.
+    pub fn revert_file(&self, path: &str) -> io::Result<()> {
+        let p = self.root.join(path.trim_start_matches('/'));
+        if p.is_file() {
+            fs::remove_file(p)?;
+        }
+        Ok(())
+    }
+
     /// A whole-file override, if the mod has one. An archive path that is a
     /// folder of member overrides is not a whole-file override.
     pub fn file(&self, path: &str) -> Option<Vec<u8>> {

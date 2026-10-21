@@ -460,6 +460,73 @@ async fn set_tiles(
 }
 
 #[tauri::command]
+async fn zones(state: State<'_, AppState>) -> Result<Arc<Vec<kenon_core::world::Zone>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::world::zones(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn describe_changes(
+    state: State<'_, AppState>,
+) -> Result<Vec<kenon_core::changes::ChangeInfo>, String> {
+    let bridge = state.need_bridge()?;
+    Ok(kenon_core::changes::describe_all(&bridge))
+}
+
+#[tauri::command]
+async fn revert_change(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::changes::revert(&bridge, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn write_tiles(
+    state: State<'_, AppState>,
+    zone: usize,
+    tiles: Vec<(usize, usize, u16, u16)>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::write_tiles(&bridge, zone, &tiles).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn move_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::move_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn copy_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::copy_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_trainer(
+    state: State<'_, AppState>,
+    zone: usize,
+    index: usize,
+    trainer: Option<u16>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_trainer(&bridge, zone, index, trainer).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
@@ -529,6 +596,13 @@ pub fn run() {
             remove_event,
             set_tile,
             set_tiles,
+            write_tiles,
+            describe_changes,
+            revert_change,
+            zones,
+            move_event,
+            copy_event,
+            set_trainer,
             set_music,
         ])
         .run(tauri::generate_context!())

@@ -391,6 +391,19 @@ fn other_field(bridge: &Bridge, link: &TableField, index: usize) -> Result<i64, 
 pub fn record(bridge: &Bridge, id: &str, index: usize, season: usize) -> Result<Record, Error> {
     let t = table(id)?;
     let bytes = bridge.member(member(t, index))?;
+    record_of(bridge, id, index, &bytes, season)
+}
+
+/// A record read from given member bytes (the game's or the mod's).
+pub fn record_of(
+    bridge: &Bridge,
+    id: &str,
+    index: usize,
+    bytes: &[u8],
+    season: usize,
+) -> Result<Record, Error> {
+    let t = table(id)?;
+    let bytes = bytes.to_vec();
     let changed = bridge
         .project()
         .is_some_and(|p| p.member(t.archive, index).is_some());

@@ -878,3 +878,60 @@ fn zone_map() {
         again.events.len()
     );
 }
+
+/// The change list names what changed and shows old and new values;
+/// moving, copying and retargeting events, and painting tiles, round-trip.
+#[test]
+fn changes_described() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    use kenon_core::{changes, tables, zonemap};
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+    // A trainer field, an event move, a copy, a trainer swap and tiles.
+    let mut values = std::collections::HashMap::new();
+    values.insert("aiFlags".to_string(), 0i64);
+    tables::save(
+        &bridge,
+        "trainers",
+        1,
+        &tables::Edit {
+            values,
+            lists: Default::default(),
+            season: 0,
+        },
+    )
+    .unwrap();
+    let map = zonemap::zone_map(&bridge, 319).unwrap();
+    let jimmy = map.events.iter().find(|e| e.trainer == Some(1)).unwrap();
+    zonemap::move_event(&bridge, 319, "npc", jimmy.index, jimmy.x + 2, jimmy.z).unwrap();
+    let copy = zonemap::copy_event(&bridge, 319, "npc", jimmy.index, 3, 3).unwrap();
+    zonemap::set_trainer(&bridge, 319, copy, Some(2)).unwrap();
+    zonemap::write_tiles(&bridge, 319, &[(0, 0, 4, 0), (1, 0, 4, 1)]).unwrap();
+    let after = zonemap::zone_map(&bridge, 319).unwrap();
+    let moved = after.events.iter().find(|e| e.kind == "npc" && e.index == jimmy.index).unwrap();
+    assert_eq!((moved.x, moved.z), (jimmy.x + 2, jimmy.z));
+    let c = after.events.iter().find(|e| e.kind == "npc" && e.index == copy).unwrap();
+    assert_eq!((c.x, c.z, c.trainer), (3, 3, Some(2)));
+    assert_eq!((after.terrain[0], after.flags[1]), (4, 1));
+
+    let all = changes::describe_all(&bridge);
+    for c in &all {
+        eprintln!("{} [{}] {}", c.title, c.category, c.path);
+        for l in &c.lines {
+            eprintln!("    {}: {} -> {}", l.label, l.old, l.new);
+        }
+    }
+    assert!(all.iter().any(|c| c.category == "Trainers" && !c.lines.is_empty()));
+    assert!(all.iter().any(|c| c.title.starts_with("Map events") && !c.lines.is_empty()));
+    // Undo everything.
+    for c in &all {
+        changes::revert(&bridge, &c.path).unwrap();
+    }
+    assert!(changes::describe_all(&bridge).is_empty());
+}

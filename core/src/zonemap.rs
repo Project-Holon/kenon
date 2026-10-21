@@ -397,15 +397,13 @@ pub fn remove_event(
     crate::catalog::write_member(bridge, m, &file)
 }
 
-/// Sets many tiles to one terrain id and flags, writing each map chunk
-/// once. Tiles are map tiles of the zone (as `zone_map` lays them out).
-pub fn set_tiles(
-    bridge: &Bridge,
-    zone_id: usize,
-    tiles: &[(usize, usize)],
-    terrain: u16,
-    flags: u16,
-) -> Result<(), Error> {
+/// One tile change: map tile (as `zone_map` lays them out), terrain id
+/// and flags.
+pub type TileWrite = (usize, usize, u16, u16);
+
+/// Writes tiles, each with its own terrain and flags, writing each map
+/// chunk once.
+pub fn write_tiles(bridge: &Bridge, zone_id: usize, tiles: &[TileWrite]) -> Result<(), Error> {
     let zones = world::zones(bridge)?;
     let zone = zones
         .get(zone_id)
@@ -413,7 +411,7 @@ pub fn set_tiles(
     let map = zone_map(bridge, zone_id)?;
     let m = matrix(bridge, zone.matrix)?;
     let mut chunks: HashMap<usize, Vec<u8>> = HashMap::new();
-    for &(x, z) in tiles {
+    for &(x, z, terrain, flags) in tiles {
         let (mx, mz) = (x + map.origin_x as usize, z + map.origin_z as usize);
         let (cx, cz) = (mx / CHUNK_TILES, mz / CHUNK_TILES);
         let Some(&chunk) = m.chunks.get(cz * m.width + cx).filter(|&&c| c != u32::MAX) else {
@@ -443,6 +441,18 @@ pub fn set_tiles(
     Ok(())
 }
 
+/// Sets many tiles to one terrain id and flags.
+pub fn set_tiles(
+    bridge: &Bridge,
+    zone_id: usize,
+    tiles: &[(usize, usize)],
+    terrain: u16,
+    flags: u16,
+) -> Result<(), Error> {
+    let writes: Vec<TileWrite> = tiles.iter().map(|&(x, z)| (x, z, terrain, flags)).collect();
+    write_tiles(bridge, zone_id, &writes)
+}
+
 /// Sets a tile's terrain id and flags.
 pub fn set_tile(
     bridge: &Bridge,
@@ -452,32 +462,101 @@ pub fn set_tile(
     terrain: u16,
     flags: u16,
 ) -> Result<(), Error> {
-    let zones = world::zones(bridge)?;
-    let zone = zones
-        .get(zone_id)
-        .ok_or_else(|| Error::Missing(format!("zone {zone_id}")))?;
+    write_tiles(bridge, zone_id, &[(x, z, terrain, flags)])
+}
+
+/// Moves an event so its corner is on map tile (x, z), in each kind's own
+/// units (warps keep their sixteenths within the tile).
+pub fn move_event(
+    bridge: &Bridge,
+    zone_id: usize,
+    kind: &str,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<(), Error> {
     let map = zone_map(bridge, zone_id)?;
-    let m = matrix(bridge, zone.matrix)?;
-    let (mx, mz) = (x + map.origin_x as usize, z + map.origin_z as usize);
-    let (cx, cz) = (mx / CHUNK_TILES, mz / CHUNK_TILES);
-    let chunk = *m
-        .chunks
-        .get(cz * m.width + cx)
-        .filter(|&&c| c != u32::MAX)
-        .ok_or_else(|| Error::Missing("no map chunk there".into()))?;
-    let member = Member {
-        arc: CHUNKS,
-        index: chunk as usize,
+    let ev = map
+        .events
+        .iter()
+        .find(|e| e.kind == kind && e.index == index)
+        .ok_or_else(|| Error::Missing(format!("{kind} {index}")))?;
+    let (mx, mz) = ((x + map.origin_x) as i64, (z + map.origin_z) as i64);
+    let value = |key: &str| {
+        ev.values
+            .iter()
+            .find(|v| v.key == key)
+            .map_or(0, |v| v.value)
     };
-    let mut bytes = bridge.member(member)?;
-    let (first, gw, _) =
-        chunk_grid(&bytes).ok_or_else(|| Error::Format("chunk has no tile grid".into()))?;
-    let at = first + ((mz % CHUNK_TILES) * gw as usize + mx % CHUNK_TILES) * TILE_RECORD + 4;
-    let old = rd32(&bytes, at).ok_or_else(|| Error::Format("tile past the grid".into()))?;
-    // Bit 31 belongs to the slope search, not the attribute: keep it.
-    let attr = (old & 0x8000_0000) | ((flags as u32 & 0x7FFF) << 16) | terrain as u32;
-    bytes[at..at + 4].copy_from_slice(&attr.to_le_bytes());
-    crate::catalog::write_member(bridge, member, &bytes)
+    let mut values = HashMap::new();
+    match kind {
+        "npc" => {
+            values.insert("gridX".to_string(), mx);
+            values.insert("gridZ".to_string(), mz);
+        }
+        "warp" => {
+            values.insert("x".to_string(), (mx << 4) | (value("x") & 15));
+            values.insert("z".to_string(), (mz << 4) | (value("z") & 15));
+        }
+        _ => {
+            values.insert("x".to_string(), mx);
+            values.insert("z".to_string(), mz);
+        }
+    }
+    save_event(bridge, zone_id, kind, index, &values)
+}
+
+/// Makes a person battle a trainer (or stop battling, with `None`).
+pub fn set_trainer(
+    bridge: &Bridge,
+    zone_id: usize,
+    index: usize,
+    trainer: Option<u16>,
+) -> Result<(), Error> {
+    let mut values = HashMap::new();
+    match trainer {
+        Some(t) => {
+            values.insert("eventType".to_string(), 1);
+            values.insert("eventId".to_string(), 3000 + t as i64);
+        }
+        None => {
+            values.insert("eventType".to_string(), 0);
+            values.insert("eventId".to_string(), 0);
+        }
+    }
+    save_event(bridge, zone_id, "npc", index, &values)
+}
+
+/// Copies an event to map tile (x, z) and returns the copy's index.
+pub fn copy_event(
+    bridge: &Bridge,
+    zone_id: usize,
+    kind: &str,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<usize, Error> {
+    let (m, mut file) = event_file(bridge, zone_id)?;
+    let a = array_index(kind)?;
+    let size = event_arrays()[a].record_size;
+    let (start, count) = array_spans(&file)[a];
+    if index >= count {
+        return Err(Error::Missing(format!("{kind} {index}")));
+    }
+    if count >= 255 {
+        return Err(Error::BadPath(
+            "this zone holds the most events of that kind".into(),
+        ));
+    }
+    let record = file[start + index * size..start + (index + 1) * size].to_vec();
+    let at = start + count * size;
+    file.splice(at..at, record);
+    file[4 + a] = (count + 1) as u8;
+    let trailer = rd32(&file, 0).unwrap_or(0) + size as u32;
+    file[0..4].copy_from_slice(&trailer.to_le_bytes());
+    crate::catalog::write_member(bridge, m, &file)?;
+    move_event(bridge, zone_id, kind, count, x, z)?;
+    Ok(count)
 }
 
 /// Sets a zone's seasonal music (zone header 0x0C..0x14), in place in the
@@ -496,4 +575,60 @@ pub fn set_music(bridge: &Bridge, zone_id: usize, music: [u16; 4]) -> Result<(),
         headers[at + i * 2..at + i * 2 + 2].copy_from_slice(&v.to_le_bytes());
     }
     crate::catalog::write_member(bridge, m, &headers)
+}
+
+/// How many tile records differ between two versions of a map chunk.
+pub fn changed_tiles(base: &[u8], current: &[u8]) -> usize {
+    let (Some((fa, wa, ha)), Some((fb, _, _))) = (chunk_grid(base), chunk_grid(current)) else {
+        return 0;
+    };
+    (0..wa as usize * ha as usize)
+        .filter(|i| {
+            let (a, b) = (fa + i * TILE_RECORD, fb + i * TILE_RECORD);
+            base.get(a..a + TILE_RECORD) != current.get(b..b + TILE_RECORD)
+        })
+        .count()
+}
+
+/// The events that differ between two versions of an event file:
+/// (what, the game's, the mod's).
+pub fn diff_events(base: &[u8], current: &[u8]) -> Vec<(String, String, String)> {
+    let mut out = Vec::new();
+    let (sa, sb) = (array_spans(base), array_spans(current));
+    for (a, array) in event_arrays().iter().enumerate() {
+        let ((ba, ca), (bb, cb)) = (sa[a], sb[a]);
+        let (label, many) = match array.name.as_str() {
+            "npc" => ("Person", "People"),
+            "warp" => ("Warp", "Warps"),
+            "pos" => ("Trigger", "Triggers"),
+            _ => ("Sign", "Signs"),
+        };
+        if ca != cb {
+            out.push((many.to_string(), ca.to_string(), cb.to_string()));
+        }
+        for i in 0..ca.min(cb) {
+            let (x, y) = (ba + i * array.record_size, bb + i * array.record_size);
+            let (Some(ra), Some(rb)) = (
+                base.get(x..x + array.record_size),
+                current.get(y..y + array.record_size),
+            ) else {
+                continue;
+            };
+            if ra == rb {
+                continue;
+            }
+            let va = tables::values(ra, 0, &array.fields);
+            let vb = tables::values(rb, 0, &array.fields);
+            for (p, q) in va.iter().zip(&vb) {
+                if p.value != q.value {
+                    out.push((
+                        format!("{label} {}: {}", i + 1, q.label),
+                        p.value.to_string(),
+                        q.value.to_string(),
+                    ));
+                }
+            }
+        }
+    }
+    out
 }

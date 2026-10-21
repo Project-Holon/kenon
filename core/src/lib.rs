@@ -7,6 +7,7 @@
 pub mod blz;
 pub mod bridge;
 pub mod catalog;
+pub mod changes;
 pub mod code;
 pub mod data_root;
 pub mod g3d;

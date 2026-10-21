@@ -5,6 +5,7 @@
   import { forget } from "../lib/cache.svelte";
   import { forgetThumbs } from "../lib/thumbs";
   import ThemePicker from "../lib/ThemePicker.svelte";
+  import ChangesDialog from "../lib/ChangesDialog.svelte";
   import { clearEnums } from "../lib/tables";
   import GraphicsBrowser from "../views/GraphicsBrowser.svelte";
   import SoundBrowser from "../views/SoundBrowser.svelte";
@@ -26,6 +27,10 @@
   let sound = $state(sfxOn());
   // Bumped after a save, so views reload what changed.
   let version = $state(0);
+  let showChanges = $state(false);
+  // Bumped when changes are undone from the list: the open view starts over.
+  let reverts = $state(0);
+  let reverted = false;
 
   // The entry a view opens on when another view sends the user there.
   let start = $state<number | undefined>(undefined);
@@ -71,7 +76,7 @@
         <span class="tag">read only</span>
       {:else if status.project}
         <strong>{status.project.name}</strong>
-        <span class="tag" class:changed={changes > 0}>{changes} changed</span>
+        <button class="tag changes" class:changed={changes > 0} onclick={() => ((showChanges = true), play("decide"))} title="See and undo changes">{changes} changed</button>
       {/if}
     </div>
     <div class="right">
@@ -96,8 +101,22 @@
     {/each}
   </nav>
 
+  {#if showChanges}
+    <ChangesDialog
+      onClose={() => {
+        showChanges = false;
+        if (reverted) reverts++;
+        reverted = false;
+      }}
+      onChanged={() => {
+        reverted = true;
+        saved();
+      }}
+    />
+  {/if}
+
   <main class="content">
-    {#key `${current.id}/${start}`}
+    {#key `${current.id}/${start}/${reverts}`}
       {#if current.kind === "graphics"}
         <GraphicsBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "sound"}
@@ -172,6 +191,13 @@
   }
   .sidebar h3:first-child {
     margin-top: 0.2rem;
+  }
+  .changes {
+    cursor: pointer;
+    box-shadow: none;
+  }
+  .changes:hover {
+    filter: brightness(1.15);
   }
   .content {
     min-width: 0;
