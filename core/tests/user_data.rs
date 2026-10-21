@@ -266,3 +266,29 @@ fn render_options_cells() {
         }
     }
 }
+
+/// The code images: the overlay table gives the load addresses the
+/// inventory names, and the ARM9 archive path table (0x020A6C58, 235
+/// pointers) spells a/X/Y/Z for every id, the rule narc::archive_path uses.
+#[test]
+fn code_images() {
+    use kenon_core::code::{CodeImages, Image};
+    let Some(root) = data_root() else {
+        return;
+    };
+    let Some(dir) = root.extraction_dir.as_deref().filter(|_| root.has_arm9) else {
+        return;
+    };
+    let code = CodeImages::open(dir).unwrap();
+    assert_eq!(code.address(Image::Overlay(67)), Some(0x021B_6100));
+    assert_eq!(code.address(Image::Overlay(21)), Some(0x0218_7F00));
+    for id in 0..235u16 {
+        let ptr = code
+            .u32_at(Image::Arm9, 0x020A_6C58 + id as u32 * 4)
+            .unwrap();
+        let path = code.c_string(Image::Arm9, ptr, 32).unwrap();
+        assert_eq!(Some(path), narc::archive_path(id), "archive {id}");
+    }
+    // Overlay 67 holds the touch bar button looks (inventory section 14).
+    assert!(code.read(Image::Overlay(67), 0x021B_942C, 7 * 20).is_some());
+}
