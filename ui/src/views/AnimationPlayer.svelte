@@ -30,7 +30,7 @@
   let seq = $state(0);
   let frame = $state(0);
   let playing = $state(true);
-  let scale = $state(3);
+  let scale = $state(2);
   let error = $state<string | null>(null);
 
   onMount(() => {
@@ -81,7 +81,7 @@
   const src = (s: number, f: number) =>
     asset(
       `anim/${chr[0]}:${chr[1]}/${pal[0]}:${pal[1]}/${cer[0]}:${cer[1]}/${anr[0]}:${anr[1]}/${s}/${f}?paloffset=${offset}` +
-        (version ? `&v=${Date.now()}` : ""),
+        (version ? `&v=${version}` : ""),
     );
 </script>
 
@@ -96,7 +96,7 @@
       <label>
         <span class="muted">Animation</span>
         <select value={seq} onchange={(e) => choose(Number((e.currentTarget as HTMLSelectElement).value))}>
-          {#each sequences as s, i}<option value={i}>{i} ({s.frames.length} frames)</option>{/each}
+          {#each sequences as s, i}<option value={i}>{i}: {s.frames.length} {s.frames.length === 1 ? "frame" : "frames"}</option>{/each}
         </select>
       </label>
       {#if steps}
@@ -106,7 +106,7 @@
           <button onclick={() => step(1)} aria-label="Next frame">Next</button>
         </div>
       {/if}
-      <span class="muted">Frame {frame + 1} / {current?.frames.length ?? 0}, cell {current?.frames[frame]?.cell ?? "-"}, {current?.frames[frame]?.duration ?? 0}/60 s</span>
+      <span class="muted info">Frame {frame + 1} of {current?.frames.length ?? 0}, {(((current?.frames[frame]?.duration ?? 0) / 60)).toFixed(2)} s</span>
       <label>
         <span class="muted">Size</span>
         <input type="range" min="1" max="6" bind:value={scale} />
@@ -129,8 +129,14 @@
     place-items: center;
     min-width: 64px;
     min-height: 64px;
+    max-height: 13rem;
+    overflow: hidden;
     padding: 0.5rem;
     background: var(--bg);
+  }
+  .info {
+    min-width: 11rem;
+    font-variant-numeric: tabular-nums;
   }
   .frame img {
     display: block;

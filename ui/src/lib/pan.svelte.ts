@@ -36,4 +36,9 @@ export class Pan {
     e.stopPropagation();
     this.from = null;
   };
+
+  // Use as onpointercancel / onlostpointercapture: ends a pan that lost its pointer.
+  cancel = () => {
+    this.from = null;
+  };
 }

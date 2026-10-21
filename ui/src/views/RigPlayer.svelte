@@ -12,9 +12,10 @@
   let {
     path,
     label = "Battle animation",
+    pause = false,
     onFrame,
     children,
-  }: { path: string; label?: string; onFrame?: (frame: number) => void; children?: Snippet } = $props();
+  }: { path: string; label?: string; pause?: boolean; onFrame?: (frame: number) => void; children?: Snippet } = $props();
 
   interface Info {
     frames: number;
@@ -52,9 +53,14 @@
     onFrame?.(frame);
   });
 
+  // While a frame is being edited it must stay put.
+  $effect(() => {
+    if (pause) playing = false;
+  });
+
   $effect(() => {
     if (!playing || !info || urls.length < info.frames || info.frames < 2) return;
-    const timer = setTimeout(() => (frame = (frame + 1) % info!.frames), (info.durations[frame] * 1000) / 60);
+    const timer = setTimeout(() => (frame = (frame + 1) % info!.frames), (Math.max(1, info.durations[frame] ?? 1) * 1000) / 60);
     return () => clearTimeout(timer);
   });
 
@@ -68,11 +74,13 @@
 
 {#if error}
   <p class="muted pad">No battle animation.</p>
-{:else if info}
+{:else if !info}
+  <p class="muted pad">Loading...</p>
+{:else}
   <div class="player">
     <div class="frame" style="width: {info.width * scale}px; height: {info.height * scale}px">
       {#if urls[Math.min(frame, urls.length - 1)]}
-        <img class="px" src={urls[Math.min(frame, urls.length - 1)]} alt={label} style="width: {info.width * scale}px" />
+        <img class="px" src={urls[Math.min(frame, urls.length - 1)]} alt={label} style="width: {info.width * scale}px; max-width: 100%; max-height: 14rem; object-fit: contain" />
       {/if}
     </div>
     {#if info.frames > 1}
@@ -102,7 +110,8 @@
   .frame {
     display: grid;
     place-items: center;
-    max-height: 96px;
+    max-height: 14rem;
+    max-width: 100%;
     overflow: hidden;
     background: var(--bg);
     border-radius: var(--radius-s);

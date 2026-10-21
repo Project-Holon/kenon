@@ -60,6 +60,32 @@
   const animated = (i: Item) => !!i.rig || (i.anims !== undefined && i.anims !== null);
   const someAnimated = $derived(items.some(animated) && !items.every(animated));
   let changedSet = $state<Set<number>>(new Set());
+  let loaded = $state(false);
+  // Unsaved edits in the editor, and the move the user asked for meanwhile.
+  let dirty = $state(false);
+  let pending = $state<{ label: string; run: () => void } | null>(null);
+  let loadId = 0;
+
+  // Runs `run` now, or after the user agrees to drop the unsaved edits.
+  function guard(label: string, run: () => void): boolean {
+    if (!dirty) {
+      run();
+      return true;
+    }
+    pending = { label, run };
+    play("select");
+    return false;
+  }
+
+  // Edits were saved or reverted: refresh which pictures show as changed.
+  let seenVersion = -1;
+  $effect(() => {
+    const v = version;
+    if (seenVersion === -1) seenVersion = v;
+    if (v === seenVersion) return;
+    seenVersion = v;
+    if (arc !== null) changedMembers(arc).then((c) => (changedSet = new Set(c))).catch(() => {});
+  });
 
   const palettes = $derived(list.filter((m) => m.kind === "NCLR"));
   const query = debounced(() => filter);
@@ -82,17 +108,21 @@
   }
 
   async function load(id: number) {
+    const mine = ++loadId;
     error = null;
+    loaded = false;
     list = [];
     items = [];
     selected = null;
+    dirty = false;
     try {
-      changedMembers(id).then((c) => (changedSet = new Set(c)));
+      changedMembers(id).then((c) => mine === loadId && (changedSet = new Set(c))).catch(() => {});
       // A named archive lists at once; only a bare one needs the full
       // member listing (to find its sheets and palettes).
       const named = await namedSheets(id);
       const ms = named ? [] : await members(id);
       const scrs = named ? [] : await screens(id);
+      if (mine !== loadId) return;
       list = ms;
       // Bare archives: the assembled screens first (menus are built from
       // them), then each sheet on its own.
@@ -129,15 +159,47 @@
             }));
       if (!named) items = [...screenItems, ...items];
       if (items[0]) choose(items[0], false);
+      loaded = true;
     } catch (e) {
-      error = String(e);
+      if (mine === loadId) error = String(e);
     }
   }
 
   function choose(item: Item, sound = true) {
+    if (item === selected) return;
+    if (selected && !guard(`open ${item.label}`, () => choose(item, sound))) return;
     if (sound) play("select");
+    dirty = false;
     selected = item;
     palette = item.pal;
+  }
+
+  function setMode(m: "picture" | "animation") {
+    if (m === editMode) return;
+    guard("change what is edited", () => {
+      dirty = false;
+      editMode = m;
+      play("select");
+    });
+  }
+
+  function setPalette(i: number) {
+    guard("change the palette", () => {
+      dirty = false;
+      palette = i;
+    });
+  }
+
+  function keep() {
+    pending = null;
+    play("cancel");
+  }
+
+  function discard() {
+    const p = pending;
+    pending = null;
+    dirty = false;
+    p?.run();
   }
 
   onMount(async () => {
@@ -172,9 +234,16 @@
         <select
           value={arc}
           onchange={(e) => {
-            arc = Number((e.currentTarget as HTMLSelectElement).value);
-            play("select");
-            load(arc);
+            const el = e.currentTarget as HTMLSelectElement;
+            const next = Number(el.value);
+            // Refused: put the old archive back in the box.
+            const ok = guard("open another archive", () => {
+              arc = next;
+              play("select");
+              load(next);
+              el.value = String(next);
+            });
+            if (!ok) el.value = String(arc);
           }}
         >
           {#each choices as a}
@@ -183,7 +252,13 @@
         </select>
       </label>
     {/if}
-    <input class="search" placeholder="Search {items.length}" bind:value={filter} />
+    <input
+      class="search"
+      placeholder="Search {items.length} pictures"
+      aria-label="Search pictures"
+      bind:value={filter}
+      onkeydown={(e) => e.key === "Escape" && (filter = "")}
+    />
     <VirtualList items={shown} height={54} key={(i) => i.key} label="Pictures">
       {#snippet row(item)}
         <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)}>
@@ -194,12 +269,19 @@
         </button>
       {/snippet}
       {#snippet empty()}
-        <p class="muted empty">{error ?? (items.length ? "Nothing matches." : "Loading...")}</p>
+        <p class="muted empty">{error ?? (!loaded ? "Loading..." : items.length ? "Nothing matches." : "No pictures here.")}</p>
       {/snippet}
     </VirtualList>
   </aside>
 
   <section class="editor">
+    {#if pending}
+      <div class="unsaved window" role="alert">
+        <span>Unsaved edits. Discard them to {pending.label}?</span>
+        <button onclick={keep}>Keep editing</button>
+        <button class="primary" onclick={discard}>Discard</button>
+      </div>
+    {/if}
     {#if chr && pal && selected}
       {#if selected.scr !== undefined && arc !== null}
         <div class="screen-view window">
@@ -212,28 +294,31 @@
         {#key `${big}/${pal[1]}/${version}`}
           <RigPlayer
             path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`}
+            pause={editMode === "animation"}
             onFrame={(f) => (rigFrameIndex = f)}
           >
             <div class="mode" role="radiogroup" aria-label="Edit">
-              <button class:primary={editMode === "picture"} onclick={() => ((editMode = "picture"), play("select"))}>Picture</button>
-              <button class:primary={editMode === "animation"} onclick={() => ((editMode = "animation"), play("select"))}>Animation</button>
+              <button class:primary={editMode === "picture"} aria-pressed={editMode === "picture"} title="Edit the still picture" onclick={() => setMode("picture")}>Picture</button>
+              <button class:primary={editMode === "animation"} aria-pressed={editMode === "animation"} title="Edit the frame shown; step with Prev and Next" onclick={() => setMode("animation")}>Animation</button>
             </div>
           </RigPlayer>
         {/key}
       {/if}
-      {#key `${chr.join(":")}/${pal.join(":")}/${version}/${editMode}`}
+      {#key `${chr.join(":")}/${pal.join(":")}/${editMode}`}
         {@const rig = editMode === "animation" && selected.rig && arc !== null ? selected.rig : null}
         <PixelEditor
           chr={rig ? [arc!, rig[0]] : chr}
           rigFrame={rig ? { cer: [arc!, rig[1]], anr: [arc!, rig[2]], mcr: [arc!, rig[3]], frame: rigFrameIndex } : null}
           {pal}
+          {version}
+          bind:dirty
           {readOnly}
           changed={changed(selected.chr)}
           palettes={selected.palettes.length ? selected.palettes : palettes.map((p) => [`#${p.index}`, p.index] as [string, number])}
           paletteOffset={selected.offset}
           cells={selected.cells}
           anims={selected.anims}
-          onPalette={(i) => (palette = i)}
+          onPalette={setPalette}
           {onSaved}
         />
       {/key}
@@ -264,6 +349,10 @@
     flex-direction: column;
     gap: 0.25rem;
   }
+  .pick select {
+    max-width: 100%;
+    min-width: 0;
+  }
   .sheet .thumb {
     width: 64px;
     height: 48px;
@@ -288,6 +377,19 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+  .unsaved {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.4rem 0.9rem 0;
+    padding: 0.4rem 0.75rem;
+    flex: none;
+  }
+  .unsaved span {
+    flex: 1;
+    min-width: 12rem;
   }
   .mode {
     display: flex;

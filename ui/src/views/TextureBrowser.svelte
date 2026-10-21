@@ -26,11 +26,13 @@
   let big = $state<Texture | null>(null);
   let filter = $state("");
   let error = $state<string | null>(null);
+  let ready = $state(false);
 
   onMount(async () => {
     try {
       const members = await once(`count/${archive}`, () => invoke<{ index: number }[]>("members", { arc: archive }));
       count = members.length;
+      ready = true;
       if (count) await open(0, false);
     } catch (e) {
       error = String(e);
@@ -42,12 +44,15 @@
     current = index;
     big = null;
     textures = [];
+    error = null;
     try {
-      textures = await once(`textures/${archive}:${index}`, () =>
+      const next = await once(`textures/${archive}:${index}`, () =>
         fetch(asset(`textures/${archive}:${index}`)).then((r) => r.json()),
       );
+      // A later click may have moved on while this one loaded.
+      if (current === index) textures = next;
     } catch (e) {
-      error = String(e);
+      if (current === index) error = String(e);
     }
   }
 
@@ -60,6 +65,8 @@
   const src = (t: Texture) => asset(`texture/${archive}:${current}/${t.block}/${t.index}`);
 </script>
 
+<svelte:window onkeydown={(e) => e.key === "Escape" && big && ((big = null), play("cancel"))} />
+
 <div class="textures">
   <aside class="sets">
     <VirtualList items={sets} height={34} key={(i) => i} label="Texture sets">
@@ -69,18 +76,24 @@
         </button>
       {/snippet}
       {#snippet empty()}
-        <p class="muted pad">{error ?? "Loading..."}</p>
+        <p class="muted pad">{error ?? (ready ? "No sets." : "Loading...")}</p>
       {/snippet}
     </VirtualList>
   </aside>
 
   <section class="body">
     <div class="head">
-      <input class="search" placeholder="Search {textures.length} textures" bind:value={filter} />
+      <input
+        class="search"
+        placeholder="Search {textures.length} textures"
+        aria-label="Search textures"
+        bind:value={filter}
+        onkeydown={(e) => e.key === "Escape" && filter && ((filter = ""), e.stopPropagation())}
+      />
     </div>
     {#if big}
       <div class="window zoom">
-        <img class="px" src={src(big)} alt={big.name} style="width: {Math.min(512, big.width * 4)}px" />
+        <img class="px" src={src(big)} alt={big.name} style="width: {Math.min(512, big.width * 4)}px; max-height: 40vh; object-fit: contain" />
         <div>
           <strong>{big.name}</strong>
           <p class="muted">{big.width} x {big.height}, {big.format}</p>
@@ -90,12 +103,12 @@
     {/if}
     <div class="grid">
       {#each shown as t (`${t.block}/${t.index}`)}
-        <button class="tile window" onclick={() => ((big = t), play("decide"))} title="{t.name}, {t.width}x{t.height}, {t.format}">
+        <button class="tile window" class:on={t === big} aria-pressed={t === big} onclick={() => ((big = t), play("decide"))} title="{t.name}, {t.width}x{t.height}, {t.format}">
           <span class="pic"><Thumb src={src(t)} /></span>
           <span class="name">{t.name}</span>
         </button>
       {:else}
-        <p class="muted pad">{current === null ? "" : textures.length ? "Nothing matches." : "No textures in this set."}</p>
+        <p class="muted pad">{error ?? (current === null ? "" : textures.length ? "Nothing matches." : "No textures in this set.")}</p>
       {/each}
     </div>
   </section>
@@ -132,6 +145,7 @@
     width: min(20rem, 100%);
   }
   .zoom {
+    flex: none;
     display: flex;
     gap: 1rem;
     align-items: flex-start;
@@ -171,9 +185,14 @@
     border-radius: 4px;
   }
   .pic :global(img) {
-    max-width: 96px;
-    max-height: 96px;
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
     image-rendering: pixelated;
+  }
+  .tile.on {
+    outline: 3px solid var(--gold);
+    outline-offset: 1px;
   }
   .name {
     font-size: 0.8rem;

@@ -4,19 +4,36 @@
 // kept for the session.
 
 const PARALLEL = 4;
-const done = new Map<string, Promise<string>>();
-const waiting: { url: string; resolve: (u: string) => void; reject: () => void; cancelled: boolean }[] = [];
+
+interface Job {
+  url: string;
+  promise: Promise<string>;
+  resolve: (u: string) => void;
+  reject: () => void;
+  /// How many callers still want it.
+  refs: number;
+  started: boolean;
+  cancelled: boolean;
+}
+
+const done = new Map<string, Job>();
+const waiting: Job[] = [];
 let running = 0;
 
 function pump() {
   while (running < PARALLEL && waiting.length) {
     const job = waiting.shift()!;
     if (job.cancelled) continue;
+    job.started = true;
     running++;
     fetch(job.url)
       .then((r) => (r.ok ? r.blob() : Promise.reject()))
       .then((b) => job.resolve(URL.createObjectURL(b)))
-      .catch(() => job.reject())
+      .catch(() => {
+        // A failed picture may be asked for again.
+        if (done.get(job.url) === job) done.delete(job.url);
+        job.reject();
+      })
       .finally(() => {
         running--;
         pump();
@@ -25,29 +42,39 @@ function pump() {
 }
 
 /// A loaded picture for `url`; `signal` drops it from the queue when the
-/// row scrolls away before its turn.
+/// row scrolls away before its turn. A picture already on its way or loaded
+/// stays cached for the next caller.
 export function thumb(url: string, signal?: AbortSignal): Promise<string> {
-  const known = done.get(url);
-  if (known) return known;
-  const p = new Promise<string>((resolve, reject) => {
-    const job = { url, resolve, reject, cancelled: false };
-    signal?.addEventListener("abort", () => {
-      if (!job.cancelled) {
-        job.cancelled = true;
-        done.delete(url);
-        reject();
-      }
+  let job = done.get(url);
+  if (!job) {
+    let resolve!: (u: string) => void;
+    let reject!: () => void;
+    const promise = new Promise<string>((res, rej) => {
+      resolve = res;
+      reject = rej;
     });
+    promise.catch(() => {});
+    job = { url, promise, resolve, reject, refs: 0, started: false, cancelled: false };
+    done.set(url, job);
     waiting.push(job);
-    pump();
+  }
+  const mine = job;
+  mine.refs++;
+  signal?.addEventListener("abort", () => {
+    mine.refs--;
+    // Only a picture nobody wants and not yet fetched is dropped.
+    if (mine.refs <= 0 && !mine.started && !mine.cancelled) {
+      mine.cancelled = true;
+      if (done.get(url) === mine) done.delete(url);
+      mine.reject();
+    }
   });
-  done.set(url, p);
-  p.catch(() => done.delete(url));
-  return p;
+  pump();
+  return mine.promise;
 }
 
 /// Forgets loaded pictures (after an edit changed them).
 export function forgetThumbs() {
-  for (const p of done.values()) p.then((u) => URL.revokeObjectURL(u)).catch(() => {});
+  for (const j of done.values()) j.promise.then((u) => URL.revokeObjectURL(u)).catch(() => {});
   done.clear();
 }

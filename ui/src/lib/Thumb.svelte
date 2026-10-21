@@ -9,13 +9,14 @@
   $effect(() => {
     const controller = new AbortController();
     url = null;
-    if (src) thumb(src, controller.signal).then((u) => (url = u)).catch(() => {});
+    // A picture that arrives after the row moved on is ignored.
+    if (src) thumb(src, controller.signal).then((u) => !controller.signal.aborted && (url = u)).catch(() => {});
     return () => controller.abort();
   });
 </script>
 
 {#if url}
-  <img class="px {cls}" src={url} {alt} />
+  <img class="px {cls}" src={url} {alt} draggable="false" />
 {:else}
   <span class="placeholder {cls}"></span>
 {/if}
