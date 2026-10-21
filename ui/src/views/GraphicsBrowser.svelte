@@ -293,12 +293,6 @@
       </div>
     {/if}
     {#if chr && pal && selected}
-      {#if selected.scr !== undefined && arc !== null}
-        <div class="screen-view window">
-          <img class="px" src={asset(`screen/${arc}:${selected.chr}/${arc}:${pal[1]}/${arc}:${selected.scr}`, version)} alt="Screen {selected.scr}" />
-          <p class="muted">Screen #{selected.scr}, tiles #{selected.chr}</p>
-        </div>
-      {/if}
       {#if selected.rig && arc !== null}
         {#key `${selected.rig[0]}/${pal[1]}/${version}`}
           <RigPlayer
@@ -327,6 +321,7 @@
           changed={changed(selected.chr)}
           palettes={selected.palettes.length ? selected.palettes : palettes.map((p) => [`#${p.index}`, p.index] as [string, number])}
           paletteOffset={selected.offset}
+          screen={selected.scr !== undefined && arc !== null && !rig ? ([arc, selected.scr] as [number, number]) : null}
           cells={selected.cells}
           anims={selected.anims}
           onPalette={setPalette}
@@ -409,20 +404,6 @@
   }
   .mode button {
     padding: 0.2rem 0.7rem;
-  }
-  .screen-view {
-    display: flex;
-    align-items: flex-end;
-    gap: 1rem;
-    margin: 0.4rem 0.9rem;
-    padding: 0.4rem;
-  }
-  .screen-view img {
-    height: 128px;
-    width: auto;
-    max-width: 60%;
-    object-fit: contain;
-    background: var(--bg);
   }
   .editor > :global(.pixel-editor) {
     flex: 1;

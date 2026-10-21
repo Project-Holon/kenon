@@ -25,6 +25,7 @@
     cells,
     anims,
     rigFrame,
+    screen = null,
     version = 0,
     dirty = $bindable(false),
     onPalette,
@@ -44,6 +45,8 @@
     anims?: number | null;
     /// Edit one frame of a battle rig instead (the sheet is its picture).
     rigFrame?: { cer: Ref; anr: Ref; mcr: Ref; mna?: Ref | null; frame: number } | null;
+    /// Edit through a screen: its tiles as the screen places them.
+    screen?: Ref | null;
     /// Changes after a save or a revert: the picture is read again.
     version?: number;
     /// True while there are edits not yet saved.
@@ -117,6 +120,8 @@
     try {
       const layout: Layout = rigFrame
         ? { kind: "rig", ...rigFrame }
+        : screen && view === "cells"
+        ? { kind: "screen", scr: screen }
         : view === "cells" && bankFor !== null
           ? { kind: "cells", cer: [chr[0], bankFor] }
           : { kind: "grid", cols };
@@ -163,6 +168,12 @@
   onMount(async () => {
     if (rigFrame) {
       lastFrame = rigFrame.frame;
+      view = "cells";
+      await load(false);
+      return;
+    }
+    // A screen opens as the screen; "Tiles" shows the shared sheet.
+    if (screen) {
       view = "cells";
       await load(false);
       return;
@@ -453,9 +464,9 @@
         <button class:primary={tool === t} aria-pressed={tool === t} disabled={readOnly && t !== "picker"} onclick={() => ((tool = t as Tool), play("select"))}>{label}</button>
       {/each}
     </div>
-    {#if bankFor !== null && !rigFrame}
+    {#if (bankFor !== null || screen) && !rigFrame}
       <div class="group" role="radiogroup" aria-label="View">
-        <button class:primary={view === "cells"} aria-pressed={view === "cells"} onclick={() => setView("cells")}>Sprite</button>
+        <button class:primary={view === "cells"} aria-pressed={view === "cells"} onclick={() => setView("cells")}>{screen ? "Screen" : "Sprite"}</button>
         <button class:primary={view === "grid"} aria-pressed={view === "grid"} onclick={() => setView("grid")}>Tiles</button>
       </div>
     {/if}
@@ -497,7 +508,7 @@
     {/if}
   </div>
 
-  {#if view === "cells" && bankFor !== null && animFor !== null && !rigFrame}
+  {#if view === "cells" && bankFor !== null && animFor !== null && !rigFrame && !screen}
     <!-- A new player for every picture: nothing carries over from the last. -->
     {#key `${chr.join(":")}/${pal.join(":")}/${bankFor}/${animFor}`}
       <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} {version} />

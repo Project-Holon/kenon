@@ -153,6 +153,10 @@ pub enum Layout {
     /// by side. A 1D sheet only makes a picture this way: its tiles are
     /// stored OBJ by OBJ.
     Cells { cer: [usize; 2] },
+    /// A screen (NSCR): its tiles where the screen puts them, flipped and
+    /// with their palette banks. Screens share tiles, so an edit shows in
+    /// every screen that uses the tile.
+    Screen { scr: [usize; 2] },
     /// One frame of a battle rig's animation: the sheet is the large
     /// battle picture, assembled as it moves (cells, animation and
     /// multi-cell banks).
@@ -214,6 +218,33 @@ pub fn sheet_data(
                 }
             }
             (w, h, map, vec![0; w * h])
+        }
+        Layout::Screen { scr } => {
+            let screen = crate::nscr::Nscr::parse(&bridge.member(member_of(*scr))?)
+                .map_err(|e| Error::Format(e.to_string()))?;
+            let (tw, th) = (screen.tiles_wide(), screen.tiles_high());
+            let (w, h) = (tw * 8, th * 8);
+            let mut map = vec![-1; w * h];
+            let mut banks = vec![0; w * h];
+            for ty in 0..th {
+                for tx in 0..tw {
+                    let Some(e) = screen.entry(tx, ty) else {
+                        continue;
+                    };
+                    if e.tile as usize >= count {
+                        continue;
+                    }
+                    for p in 0..64 {
+                        let (px, py) = (p % 8, p / 8);
+                        let sx = if e.hflip { 7 - px } else { px };
+                        let sy = if e.vflip { 7 - py } else { py };
+                        let at = (ty * 8 + py) * w + tx * 8 + px;
+                        map[at] = (e.tile as usize * 64 + sy * 8 + sx) as i32;
+                        banks[at] = e.palette;
+                    }
+                }
+            }
+            (w, h, map, banks)
         }
         Layout::Cells { cer } => {
             let bank = Ncer::parse(&bridge.member(member_of(*cer))?)

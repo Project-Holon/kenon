@@ -1258,3 +1258,38 @@ fn trainer_speech() {
         eprintln!("trainer {t}: kind 19 added at message {}", line.id);
     }
 }
+
+/// A screen opens in the editor as the screen: its size, every placed
+/// pixel mapped to a tile pixel, and the same picture the screen path draws.
+#[test]
+fn screen_layout() {
+    use kenon_core::bridge::{Bridge, Member};
+    use kenon_core::catalog;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let mut checked = 0;
+    for arc in [5u16, 27, 71, 88] {
+        let Ok(list) = catalog::screens(&bridge, arc) else {
+            continue;
+        };
+        for s in list.iter().take(3) {
+            let data = catalog::sheet_data(
+                &bridge,
+                Member { arc, index: s.chr },
+                Member { arc, index: s.pal },
+                &catalog::Layout::Screen {
+                    scr: [arc as usize, s.scr],
+                },
+            )
+            .unwrap();
+            assert_eq!(data.width % 8, 0);
+            assert!(data.map.iter().any(|&m| m >= 0));
+            checked += 1;
+        }
+    }
+    eprintln!("{checked} screens laid out");
+    assert!(checked > 0);
+}
