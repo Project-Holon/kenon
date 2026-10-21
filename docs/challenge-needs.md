@@ -356,3 +356,55 @@ eidos-side (needs the game process): M1, M3 to M13, M14 to M17 as listed. M2 has
 - Set mode: B/W has the game option (`battle_style`: shift or set); a rule may force it on `battle.start`, but the player can change it in the options menu between battles (`CONFIG_GetBattleStyle`, `arm9/config.h:19`). Forcing it at `menu.open` is a second guard.
 - Pokemon Centre: the nurse is a script that calls the same heal command as scripts (see M7).
 - Gym order: Striaton, Nacrene, Castelia, Nimbasa, Driftveil, Mistralton, Icirrus, Opelucid, and the cap follows the badge count unless the player skips; badges are bits of the misc save (`MISC_GetBadge` 0x0200C234, `MISC_CountBadges` 0x0200C258), so a cap by badge count is right even when the gyms are visited out of order, but the "next leader" for a skipped gym would be wrong. A table keyed by badge count is the intended shape.
+
+## 8. The kenon Challenge mod
+
+kenon ships one Challenge mod. Each rule below is a setting of that mod. The user decided which rules are on by default and which are options.
+
+| Rule | Setting | Needs |
+|---|---|---|
+| Dupes clause with reroll: a dupe first encounter is rolled again | on by default | M21, M5 |
+| Dupes by evolution line: owning any member of a line makes the line a dupe | on by default | M13 (`species_base`), M5 |
+| Dark grass double battle: one of the two wild Pokemon counts, picked at random | on by default | M22 |
+| Story and gift Pokemon (Zekrom or Reshiram, Victini, the gift monkey, Darmanitan): allowed or not | option | M23 |
+| No Dream World, Entralink or traded Pokemon | option | M24, M3 (`ot_id`) |
+| Graveyard box: the dead go to a chosen box instead of release; optional revive token per badge | option | M25 |
+| No revives: a fainted Pokemon cannot get HP back | on in Nuzlocke presets | `heal.hp` with `hp == 0` (api 4), plus M26 for revive items used outside `heal.hp` |
+| Held item lost on faint | option | `mon_take_item` (today) |
+| Level cap: disobedience above the cap | option | M27 |
+| Level cap: no Rare Candy or EXP items above the cap | option | M28 |
+| No grinding: reduced or no EXP from wild battles | option | M29 |
+| Stronger trainers: level scaling, max IVs | option | M30 |
+| Inverse or custom type chart | option | M31 |
+| Wonderlocke and Ironmon swaps | option | M32 |
+| Genlocke: carry survivors to the next game | option | M33 |
+| Every Pokemon must battle (bench rules) | option | M34 |
+| No Day Care, trading, Entralink or Dream World use | option | M35 |
+| One shop purchase per city, no healing items in shops | option | `shop.buy` (today), M1 |
+| Limited Pokemon Centre visits per badge | option | M7 or a table (M2) |
+| Reload counter and penalty | option | `save.load` `state_in_step` (today), rule cells |
+| Soul Link type clause | option | M3, M36 |
+
+The Challenge mod needs a numeric setting for counts and caps (Centre visits, cap offset). Settings are bool or choice today: M37.
+
+### Missing functions for the Challenge mod
+
+| # | Need | Proposed shape |
+|---|---|---|
+| M21 | Writable species and level on the wild encounter, at roll time, before the battle starts | `encounter.wild` payload `species *mod`, `level *mod`; or a new refusable `encounter.roll` that fires again on refuse (reroll) |
+| M22 | Double wild battle: both Pokemon in the payload, and which one is first | `encounter.wild` `double`, `species2`, `level2` |
+| M23 | Kind of encounter: wild, static (story), gift, egg, trade | `catch.attempt` and a new `mon.received` event with `kind` |
+| M24 | Origin reads | rule `met_location[m]`, `origin_game[m]`, `met_level[m]`, `fateful[m]` (POKE_TOOL_PARAM ids) |
+| M25 | Move a Pokemon to a given box, and back to the party | `mon_to_box_n(BwMonRef, u8 box)`, `mon_from_box(u8 box, u8 slot)`; rule actions `box <mon> <n>`, `withdraw <box> <slot>` |
+| M26 | Status-only revive paths | confirm every revive (Revive, Max Revive, Revival Herb, Sacred Ash, Entralink power) goes through `heal.hp` with `hp == 0`; if not, a `mon.revive` refusable event |
+| M27 | Obedience check hook | refusable `battle.obey` event or a writable `obeys` flag, on the game's obedience check |
+| M28 | EXP source | `mon.exp` `source`: battle, rare candy, item, day care |
+| M29 | Battle kind on EXP | `mon.exp` `battle_kind`: wild, trainer, gym leader, elite four (M12 trainer class) |
+| M30 | Trainer party edit at battle start | `battle.trainer_party` event: each member writable (species, level, moves, item, ability, IVs) before the battle builds it |
+| M31 | Type effectiveness hook | `battle.type_effect` event: attack type, defender types, `multiplier *mod` |
+| M32 | Replace a Pokemon in place and write its fields | `mon_set(BwMonRef, field, value)` for species, form, ability, moves, nature, IVs, with stats recalculated |
+| M33 | Export and import a full Pokemon | `mon_export(BwMonRef, u8 *buf, u32 size)`, `mon_import(const u8 *buf, u32 size, BwMonRef *out)`; the file format is the game's own party record |
+| M34 | Took-part flag per Pokemon | `battle.end` payload `took_part` bit mask by party position |
+| M35 | Refuse events for systems | refusable `daycare.deposit`, `trade.start` (in game and link), `entralink.enter`, `dreamworld.sync` |
+| M36 | Refuse moving a Pokemon into the party | refusable `party.add` (from box, gift, catch) with the Pokemon |
+| M37 | Numeric mod settings | settings type `int <min> <max> <default>` |
