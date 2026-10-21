@@ -54,7 +54,29 @@
     bank: number;
     id: number;
     text: string;
+    /// Shown only on some paths through the script.
+    conditional?: boolean;
   }
+  interface TrainerLine {
+    kind: number;
+    label: string;
+    bankArc: number;
+    bank: number;
+    id: number;
+    text: string;
+  }
+  // Speech kinds a trainer can be given (trainer_text::kind_label).
+  const LINE_KINDS: [number, string][] = [
+    [0, "Before battle"],
+    [1, "Defeated"],
+    [2, "After battle"],
+    [19, "Last Pokemon"],
+    [3, "Before battle (pair, first)"],
+    [5, "After battle (pair, first)"],
+    [7, "Before battle (pair, second)"],
+    [8, "Defeated (pair, second)"],
+    [9, "After battle (pair, second)"],
+  ];
   interface ScriptInfo {
     id: number;
     messages: MessageRef[];
@@ -147,6 +169,52 @@
   );
   let lastKey = "";
   $effect(() => {
+    const t = picked?.trainer ?? null;
+    speech = null;
+    if (t === null) return;
+    invoke<TrainerLine[]>("trainer_lines", { trainer: t })
+      .then((l) => {
+        if (picked?.trainer === t) speech = l;
+      })
+      .catch(() => (speech = []));
+  });
+
+  async function saveSpeech(l: TrainerLine) {
+    const key = `${l.bankArc}/${l.bank}:${l.id}`;
+    const text = lines[key];
+    if (text === undefined) return;
+    busy = true;
+    try {
+      const strings = await textBank(l.bankArc, l.bank);
+      strings[l.id] = fromEdit(text);
+      await saveTextBank(l.bankArc, l.bank, strings);
+      delete lines[key];
+      l.text = fromEdit(text);
+      play("save");
+      onSaved();
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function addSpeech(trainer: number) {
+    if (!newText.trim()) return;
+    busy = true;
+    try {
+      await invoke("add_trainer_line", { trainer, kind: newKind, text: fromEdit(newText) });
+      newText = "";
+      speech = await invoke<TrainerLine[]>("trainer_lines", { trainer });
+      play("save");
+      onSaved();
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+  $effect(() => {
     if (selKey !== lastKey) {
       lastKey = selKey;
       ptab = "main";
@@ -178,6 +246,10 @@
   let scripts = $state<EventScript[]>([]);
   let lines = $state<Record<string, string>>({});
   let species = $state<Entry[]>([]);
+  // The selected trainer's own speech.
+  let speech = $state<TrainerLine[] | null>(null);
+  let newKind = $state(0);
+  let newText = $state("");
   let error = $state<string | null>(null);
   let busy = $state(false);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -1440,7 +1512,7 @@
 
         {@const tabs = [
           ["main", ev.trainer !== null ? "Person" : KIND_LABEL[ev.kind]],
-          ...(scriptOf(ev) ? [["says", "Says"]] : []),
+          ...(scriptOf(ev) || ev.trainer !== null ? [["says", "Says"]] : []),
           ...(ev.trainer !== null ? [["trainer", "Trainer"]] : []),
           ["values", "Values"],
         ]}
@@ -1543,7 +1615,45 @@
         {/if}
 
         {/if}
-        {#if ptab === "says" && scriptOf(ev)}
+        {#if ptab === "says" && ev.trainer !== null}
+          <section class="does">
+            {#if speech === null}
+              <p class="muted">Loading...</p>
+            {:else}
+              {#each speech as l (`${l.kind}`)}
+                {@const key = `${l.bankArc}/${l.bank}:${l.id}`}
+                <div class="line">
+                  <span class="muted small">{l.label}</span>
+                  <textarea
+                    rows={Math.min(5, (lines[key] ?? toEdit(l.text)).split("\n").length + 1)}
+                    readonly={readOnly}
+                    value={lines[key] ?? toEdit(l.text)}
+                    oninput={(e) => (lines[key] = (e.currentTarget as HTMLTextAreaElement).value)}
+                  ></textarea>
+                  {#if lines[key] !== undefined && !readOnly}
+                    <div class="row">
+                      <button class="primary" disabled={busy} onclick={() => saveSpeech(l)}>Save</button>
+                      <button onclick={() => delete lines[key]}>Discard</button>
+                    </div>
+                  {/if}
+                </div>
+              {:else}
+                <p class="muted">This trainer says nothing.</p>
+              {/each}
+              {#if !readOnly}
+                {@const free = LINE_KINDS.filter(([k]) => !speech!.some((l) => l.kind === k))}
+                {#if free.length}
+                  <h3>Add a line</h3>
+                  <select bind:value={newKind} aria-label="When">
+                    {#each free as [k, label]}<option value={k}>{label}</option>{/each}
+                  </select>
+                  <textarea rows="2" bind:value={newText} placeholder="Text"></textarea>
+                  <button disabled={busy || !newText.trim()} onclick={() => addSpeech(ev.trainer!)}>Add</button>
+                {/if}
+              {/if}
+            {/if}
+          </section>
+        {:else if ptab === "says" && scriptOf(ev)}
           {@const sc = scriptOf(ev)!}
           <section class="does">
             {#if sc.messages.length}
@@ -1551,6 +1661,7 @@
               {#each uniqueMessages(sc) as m (`${m.bank}:${m.id}`)}
                 {@const key = `${m.bank}:${m.id}`}
                 <div class="line">
+                  {#if m.conditional}<span class="muted small">Only sometimes</span>{/if}
                   <textarea
                     rows={Math.min(5, (lines[key] ?? toEdit(m.text)).split("\n").length + 1)}
                     readonly={readOnly}

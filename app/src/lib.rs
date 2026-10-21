@@ -555,6 +555,27 @@ async fn remove_prop(state: State<'_, AppState>, chunk: usize, index: usize) -> 
 }
 
 #[tauri::command]
+async fn trainer_lines(
+    state: State<'_, AppState>,
+    trainer: u16,
+) -> Result<Vec<kenon_core::trainer_text::TrainerLine>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::trainer_text::trainer_lines(&bridge, trainer).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn add_trainer_line(
+    state: State<'_, AppState>,
+    trainer: u16,
+    kind: u16,
+    text: String,
+) -> Result<kenon_core::trainer_text::TrainerLine, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::trainer_text::add_trainer_line(&bridge, trainer, kind, &text)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -673,6 +694,8 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            trainer_lines,
+            add_trainer_line,
             props,
             prop_models,
             set_prop,
