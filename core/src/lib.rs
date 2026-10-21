@@ -7,6 +7,7 @@
 pub mod data_root;
 pub mod image;
 pub mod lz;
+pub mod msg;
 pub mod narc;
 pub mod ncgr;
 pub mod nclr;

@@ -180,3 +180,54 @@ fn fonts() {
     assert_ne!(main.glyph_index(0x3042), 0);
     assert_ne!(main.glyph_index(0x30A2), 0);
 }
+
+/// Every bank in a/0/0/2 and a/0/0/3 parses, writes back byte for byte,
+/// and every string survives the display form.
+#[test]
+fn message_banks() {
+    use kenon_core::msg::{parse_display, Bank, Display};
+    let Some(root) = data_root() else {
+        return;
+    };
+    let (mut banks, mut strings, mut identical) = (0, 0, 0);
+    let mut different = Vec::new();
+    for rel in ["a/0/0/2", "a/0/0/3"] {
+        let archive = narc::Narc::open(&root.file(rel)).unwrap();
+        for (index, raw) in archive.iter_raw().enumerate() {
+            let bank = Bank::parse(raw).unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+            banks += 1;
+            for (i, message) in bank.messages().iter().enumerate() {
+                strings += 1;
+                let text = Display(&message.units).to_string();
+                assert_eq!(
+                    parse_display(&text).unwrap(),
+                    message.units,
+                    "{rel} #{index} string {i}: {text}"
+                );
+            }
+            if bank.build() == raw {
+                identical += 1;
+            } else if different.len() < 5 {
+                let built = bank.build();
+                let at = built.iter().zip(raw.iter()).position(|(a, b)| a != b);
+                different.push(format!(
+                    "{rel} #{index}: sizes {} vs {}, first difference at {at:?} of {}",
+                    built.len(),
+                    raw.len(),
+                    raw.len()
+                ));
+            }
+        }
+    }
+    eprintln!("{banks} banks, {strings} strings, {identical} written back byte for byte");
+    eprintln!("first banks that differ: {different:?}");
+
+    // aletheia's check: the species bank (a/0/0/2 #70) string 1.
+    let archive = narc::Narc::open(&root.file("a/0/0/2")).unwrap();
+    let species = Bank::parse(archive.raw(70).unwrap()).unwrap();
+    assert_eq!(
+        Display(&species.messages()[1].units).to_string(),
+        "Bulbasaur"
+    );
+    assert_eq!(identical, banks);
+}
