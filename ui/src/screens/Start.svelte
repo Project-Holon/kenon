@@ -135,7 +135,7 @@
 
       <section class="window card">
         <h2>View game data</h2>
-        <p class="muted">The game as it is, read only.</p>
+        <p class="muted">Read only.</p>
         <button disabled={!ready} onclick={() => (play("decide"), onView())}>View game data</button>
       </section>
 
