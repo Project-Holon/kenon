@@ -42,7 +42,9 @@ pub struct OverlayEntry {
 /// Parses `y9.bin`.
 pub fn parse_overlay_table(bytes: &[u8]) -> Vec<OverlayEntry> {
     bytes
-        .chunks_exact(32)
+        .as_chunks::<32>()
+        .0
+        .iter()
         .map(|e| {
             let word = |i: usize| u32::from_le_bytes(e[i * 4..i * 4 + 4].try_into().unwrap());
             OverlayEntry {
