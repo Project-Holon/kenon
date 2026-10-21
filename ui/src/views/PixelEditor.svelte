@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { revert, savePalette, saveSheet, sheetData, type Ref, type SheetData } from "../lib/backend";
+  import {
+    cellBank,
+    revert,
+    savePalette,
+    saveSheet,
+    sheetData,
+    type Layout,
+    type Ref,
+    type SheetData,
+  } from "../lib/backend";
   import { play } from "../lib/sfx";
 
   let {
@@ -23,12 +32,16 @@
 
   type Tool = "pencil" | "fill" | "picker";
 
+  // The picture comes from the game's own layout: a sprite's cells
+  // assembled as the game draws them, or the plain tiles. Every pixel of
+  // the picture maps to one pixel of one tile, so painting edits the tiles.
   let data = $state<SheetData | null>(null);
   let tiles = $state<number[][]>([]);
   let colors = $state<number[]>([]);
+  let bankFor = $state<number | null>(null);
+  let view = $state<"cells" | "grid">("grid");
   let cols = $state(16);
   let zoom = $state(4);
-  // The largest zoom that fits the pane: the sheet never scrolls sideways.
   let maxZoom = $state(12);
   let bank = $state(0);
   let color = $state(1);
@@ -45,35 +58,56 @@
   let drawing = false;
   let fitted = false;
 
-  const rows = $derived(Math.max(1, Math.ceil(tiles.length / cols)));
-  const width = $derived(cols * 8);
-  const height = $derived(rows * 8);
   const banks = $derived(data?.bpp === 4 ? Math.max(1, Math.floor(colors.length / 16)) : 1);
   const base = $derived(data?.bpp === 4 ? bank * 16 : 0);
   const swatches = $derived(data?.bpp === 4 ? colors.slice(base, base + 16) : colors);
 
-  onMount(async () => {
+  async function load(keepEdits: boolean) {
+    error = null;
     try {
-      data = await sheetData(chr, pal);
-      tiles = data.tiles.map((t) => t.slice());
-      colors = data.colors.slice();
-      cols = data.tilesWide ?? Math.min(16, Math.max(1, tiles.length));
+      const layout: Layout =
+        view === "cells" && bankFor !== null
+          ? { kind: "cells", cer: [chr[0], bankFor] }
+          : { kind: "grid", cols };
+      const next = await sheetData(chr, pal, layout);
+      if (!keepEdits || !data) {
+        tiles = next.tiles.map((t) => t.slice());
+        colors = next.colors.slice();
+      }
+      data = next;
+      fitted = false;
       fit();
     } catch (e) {
       error = String(e);
     }
+  }
+
+  onMount(async () => {
+    try {
+      bankFor = await cellBank(chr);
+    } catch {
+      bankFor = null;
+    }
+    view = bankFor !== null ? "cells" : "grid";
+    await load(false);
   });
 
+  function setView(v: "cells" | "grid") {
+    if (v === view) return;
+    play("select");
+    view = v;
+    load(true);
+  }
+
   function fit() {
+    if (!data) return;
     const avail = (stage?.clientWidth ?? 600) - 32;
-    maxZoom = Math.max(1, Math.min(16, Math.floor(avail / (cols * 8))));
+    maxZoom = Math.max(1, Math.min(16, Math.floor(avail / Math.max(1, data.width))));
     zoom = fitted ? Math.min(zoom, maxZoom) : maxZoom;
     fitted = true;
   }
 
-  // Refit when the pane or the layout width changes.
   $effect(() => {
-    void cols;
     if (!stage) return;
     const observer = new ResizeObserver(() => fit());
     observer.observe(stage);
@@ -82,36 +116,40 @@
 
   const hex = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
 
+  function pixelBase(i: number): number {
+    if (!data || data.bpp === 8) return 0;
+    return (view === "cells" ? data.banks[i] : bank) * 16;
+  }
+
   // Redraw whenever the pixels, palette, layout or bank change.
   $effect(() => {
     if (!canvas || !data) return;
+    const { width, height, map } = data;
     const ctx = canvas.getContext("2d")!;
     const img = ctx.createImageData(width, height);
-    tiles.forEach((tile, t) => {
-      const tx = (t % cols) * 8;
-      const ty = Math.floor(t / cols) * 8;
-      for (let p = 0; p < 64; p++) {
-        const v = tile[p];
-        if (v === 0) continue;
-        const c = colors[base + v] ?? 0xff00ff;
-        const i = ((ty + (p >> 3)) * width + tx + (p & 7)) * 4;
-        img.data[i] = c >> 16;
-        img.data[i + 1] = (c >> 8) & 0xff;
-        img.data[i + 2] = c & 0xff;
-        img.data[i + 3] = 255;
-      }
-    });
+    for (let i = 0; i < map.length; i++) {
+      const src = map[i];
+      if (src < 0) continue;
+      const v = tiles[src >> 6][src & 63];
+      if (v === 0) continue;
+      const c = colors[pixelBase(i) + v] ?? 0xff00ff;
+      img.data[i * 4] = c >> 16;
+      img.data[i * 4 + 1] = (c >> 8) & 0xff;
+      img.data[i * 4 + 2] = c & 0xff;
+      img.data[i * 4 + 3] = 255;
+    }
     ctx.putImageData(img, 0, 0);
   });
 
-  function at(e: PointerEvent): { t: number; p: number } | null {
+  /// The picture pixel under the pointer, if it maps to a tile.
+  function at(e: PointerEvent): number | null {
+    if (!data) return null;
     const r = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect();
-    const x = Math.floor(((e.clientX - r.left) / r.width) * width);
-    const y = Math.floor(((e.clientY - r.top) / r.height) * height);
-    if (x < 0 || y < 0 || x >= width || y >= height) return null;
-    const t = Math.floor(y / 8) * cols + Math.floor(x / 8);
-    if (t >= tiles.length) return null;
-    return { t, p: (y % 8) * 8 + (x % 8) };
+    const x = Math.floor(((e.clientX - r.left) / r.width) * data.width);
+    const y = Math.floor(((e.clientY - r.top) / r.height) * data.height);
+    if (x < 0 || y < 0 || x >= data.width || y >= data.height) return null;
+    const i = y * data.width + x;
+    return data.map[i] < 0 ? null : i;
   }
 
   function snapshot() {
@@ -120,55 +158,61 @@
     redo = [];
   }
 
-  function paint(spot: { t: number; p: number }) {
-    if (tiles[spot.t][spot.p] === color) return;
-    tiles[spot.t][spot.p] = color;
+  function paint(i: number) {
+    const src = data!.map[i];
+    if (tiles[src >> 6][src & 63] === color) return;
+    tiles[src >> 6][src & 63] = color;
     tilesDirty = true;
   }
 
-  function fill(spot: { t: number; p: number }) {
-    const target = tiles[spot.t][spot.p];
+  function fill(start: number) {
+    const { width, height, map } = data!;
+    const target = tiles[map[start] >> 6][map[start] & 63];
     if (target === color) return;
-    const px = (t: number, p: number) => ({ x: (t % cols) * 8 + (p & 7), y: Math.floor(t / cols) * 8 + (p >> 3) });
-    const start = px(spot.t, spot.p);
     const stack = [start];
     const seen = new Set<number>();
     while (stack.length) {
-      const { x, y } = stack.pop()!;
-      if (x < 0 || y < 0 || x >= width || y >= height || seen.has(y * width + x)) continue;
-      seen.add(y * width + x);
-      const t = Math.floor(y / 8) * cols + Math.floor(x / 8);
-      const p = (y % 8) * 8 + (x % 8);
-      if (t >= tiles.length || tiles[t][p] !== target) continue;
-      tiles[t][p] = color;
-      stack.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
+      const i = stack.pop()!;
+      if (seen.has(i)) continue;
+      seen.add(i);
+      const src = map[i];
+      if (src < 0 || tiles[src >> 6][src & 63] !== target) continue;
+      tiles[src >> 6][src & 63] = color;
+      const x = i % width;
+      const y = Math.floor(i / width);
+      if (x > 0) stack.push(i - 1);
+      if (x < width - 1) stack.push(i + 1);
+      if (y > 0) stack.push(i - width);
+      if (y < height - 1) stack.push(i + width);
     }
     tilesDirty = true;
   }
 
   function down(e: PointerEvent) {
-    const spot = at(e);
-    if (!spot) return;
+    const i = at(e);
+    if (i === null) return;
+    const src = data!.map[i];
     if (e.button === 2 || tool === "picker") {
-      color = tiles[spot.t][spot.p];
+      color = tiles[src >> 6][src & 63];
+      if (view === "cells" && data!.bpp === 4) bank = data!.banks[i];
       play("select");
       return;
     }
     if (readOnly) return;
     snapshot();
     if (tool === "fill") {
-      fill(spot);
+      fill(i);
       return;
     }
     drawing = true;
     (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
-    paint(spot);
+    paint(i);
   }
 
   function move(e: PointerEvent) {
     if (!drawing) return;
-    const spot = at(e);
-    if (spot) paint(spot);
+    const i = at(e);
+    if (i !== null) paint(i);
   }
 
   function step(from: typeof undo, to: typeof undo) {
@@ -182,6 +226,8 @@
   }
 
   function key(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (!(e.ctrlKey || e.metaKey)) {
       if (e.key === "b") tool = "pencil";
       else if (e.key === "g") tool = "fill";
@@ -244,14 +290,20 @@
         <button class:primary={tool === t} disabled={readOnly && t !== "picker"} onclick={() => ((tool = t as Tool), play("select"))}>{label}</button>
       {/each}
     </div>
+    {#if bankFor !== null}
+      <div class="group" role="radiogroup" aria-label="View">
+        <button class:primary={view === "cells"} onclick={() => setView("cells")}>Sprite</button>
+        <button class:primary={view === "grid"} onclick={() => setView("grid")}>Tiles</button>
+      </div>
+    {/if}
     <label>
       <span class="muted">Zoom</span>
       <input type="range" min="1" max={maxZoom} bind:value={zoom} />
     </label>
-    {#if data && data.tilesWide === null}
+    {#if data && view === "grid" && data.tilesWide === null}
       <label>
         <span class="muted">Width</span>
-        <input class="num" type="number" min="1" max="64" bind:value={cols} />
+        <input class="num" type="number" min="1" max="64" bind:value={cols} onchange={() => load(true)} />
       </label>
     {/if}
     <label>
@@ -278,14 +330,19 @@
       <canvas
         class="px sheet"
         bind:this={canvas}
-        {width}
-        {height}
-        style="width: {width * zoom}px; height: {height * zoom}px"
+        width={data.width}
+        height={data.height}
+        style="width: {data.width * zoom}px; height: {data.height * zoom}px"
         onpointerdown={down}
         onpointermove={move}
         onpointerup={() => (drawing = false)}
         oncontextmenu={(e) => e.preventDefault()}
       ></canvas>
+      {#if view === "grid" && bankFor !== null}
+        <p class="muted note">
+          Tiles view: this sheet is stored piece by piece, so it only makes a picture in the Sprite view.
+        </p>
+      {/if}
     {/if}
   </div>
 
@@ -299,7 +356,7 @@
           </select>
         </label>
       {/if}
-      <div class="swatches" class:wide={data.bpp === 8}>
+      <div class="swatches">
         {#each swatches as c, i}
           <button
             class="swatch"
@@ -318,6 +375,7 @@
           <input type="color" value={hex(colors[base + color] ?? 0)} onchange={(e) => setColor((e.currentTarget as HTMLInputElement).value)} />
         </label>
       {/if}
+      <span class="muted hint">Right click picks a colour. Ctrl+Z undoes, Ctrl+S saves.</span>
     </div>
   {/if}
 </div>
@@ -368,7 +426,9 @@
   .sheet {
     display: block;
     cursor: crosshair;
-    outline: 2px solid var(--outline);
+  }
+  .note {
+    margin-top: 0.75rem;
   }
   .palette {
     display: flex;
@@ -400,5 +460,8 @@
   .swatch.on {
     outline: 3px solid var(--gold);
     outline-offset: 1px;
+  }
+  .hint {
+    font-size: 0.85rem;
   }
 </style>

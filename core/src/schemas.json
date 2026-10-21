@@ -1,0 +1,3829 @@
+{
+ "version": 1,
+ "notes": [
+  "Archive numbers are 100*X + 10*Y + Z for the NARC at a/X/Y/Z. A member override is written to a/X/Y/Z/<index>.",
+  "Offsets are bytes from the start of the record. Integers are little-endian. A 'bits' field reads width bits starting at bit (LSB = 0) of the size-byte little-endian word at offset.",
+  "'repeat' means the field occurs count times at stride bytes; the n-th copy is at offset + n * stride and is named name1..nameN in a form.",
+  "'when' makes a field apply only while the named field of the same record equals the value.",
+  "'confidence' is 'verified' (code or data confirmed) or 'inferred' (see docs/game-data-map.md).",
+  "Enums with a 'source' point at a text bank in archive 2 (a/0/0/2); the entry index equals the enum value. No game text is stored here.",
+  "Tables listed under arm9Tables are not in a NARC; they live in the ARM9 image."
+ ],
+ "tables": [
+  {
+   "id": "species",
+   "label": "Pokemon stats (personal data)",
+   "archive": 16,
+   "path": "a/0/1/6",
+   "members": "one member per species or form record: 0 is a 56-byte sentinel, 1..649 species, 650..667 extra form records, 668 is the form table (not a record)",
+   "memberCount": 669,
+   "recordSize": 60,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 70
+   },
+   "nameIndex": "species id (records 1..649); 650 and above are forms, see formStatsIndex",
+   "src": "poke_personal_types.h:7, poke_personal.c:82",
+   "fields": [
+    {
+     "name": "baseHp",
+     "label": "Base HP",
+     "offset": 0,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseAttack",
+     "label": "Base Attack",
+     "offset": 1,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseDefense",
+     "label": "Base Defense",
+     "offset": 2,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseSpeed",
+     "label": "Base Speed",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseSpAttack",
+     "label": "Base Sp. Atk",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseSpDefense",
+     "label": "Base Sp. Def",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "type1",
+     "label": "Type 1",
+     "offset": 6,
+     "type": "u8",
+     "enum": "type",
+     "confidence": "verified",
+     "note": "type id; see enum type"
+    },
+    {
+     "name": "type2",
+     "label": "Type 2",
+     "offset": 7,
+     "type": "u8",
+     "enum": "type",
+     "confidence": "verified",
+     "note": "equal to type1 for a mono-type species"
+    },
+    {
+     "name": "catchRate",
+     "label": "Catch rate",
+     "offset": 8,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "evoStage",
+     "label": "Evolution stage",
+     "offset": 9,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "1 for a first stage, 2 for a middle or final stage (Bulbasaur 1, Pikachu 2), 3 seen on single-stage legendaries (Mewtwo, Giratina); exact rule not established"
+    },
+    {
+     "name": "evHp",
+     "label": "EV yield HP",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 2,
+     "confidence": "verified",
+     "note": "0..3"
+    },
+    {
+     "name": "evAttack",
+     "label": "EV yield Attack",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 2,
+     "width": 2,
+     "confidence": "verified"
+    },
+    {
+     "name": "evDefense",
+     "label": "EV yield Defense",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 4,
+     "width": 2,
+     "confidence": "verified"
+    },
+    {
+     "name": "evSpeed",
+     "label": "EV yield Speed",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 6,
+     "width": 2,
+     "confidence": "verified"
+    },
+    {
+     "name": "evSpAttack",
+     "label": "EV yield Sp. Atk",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 8,
+     "width": 2,
+     "confidence": "verified"
+    },
+    {
+     "name": "evSpDefense",
+     "label": "EV yield Sp. Def",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 10,
+     "width": 2,
+     "confidence": "verified"
+    },
+    {
+     "name": "yieldFlag",
+     "label": "Yield flag",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 12,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "named yieldFlag in the decompilation (getter case 16); meaning not established"
+    },
+    {
+     "name": "heldItemCommon",
+     "label": "Held item (common)",
+     "offset": 12,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "inferred",
+     "note": "item id, 0 = none; 50 percent in the wild"
+    },
+    {
+     "name": "heldItemRare",
+     "label": "Held item (rare)",
+     "offset": 14,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "inferred",
+     "note": "item id; 5 percent in the wild"
+    },
+    {
+     "name": "heldItemDream",
+     "label": "Held item (dream)",
+     "offset": 16,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "inferred",
+     "note": "third slot; named heldItemDream in the decompilation"
+    },
+    {
+     "name": "genderRatio",
+     "label": "Gender ratio",
+     "offset": 18,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "female threshold out of 254: 0 always male, 254 always female, 255 genderless (31 = 12.5 percent female, 127 = 50 percent)"
+    },
+    {
+     "name": "eggCycles",
+     "label": "Egg cycles",
+     "offset": 19,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "baseFriendship",
+     "label": "Base friendship",
+     "offset": 20,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "growthRate",
+     "label": "Growth rate",
+     "offset": 21,
+     "type": "u8",
+     "enum": "growthRate",
+     "confidence": "verified",
+     "note": "enum growthRate"
+    },
+    {
+     "name": "eggGroup1",
+     "label": "Egg group 1",
+     "offset": 22,
+     "type": "u8",
+     "enum": "eggGroup",
+     "confidence": "verified",
+     "note": "enum eggGroup"
+    },
+    {
+     "name": "eggGroup2",
+     "label": "Egg group 2",
+     "offset": 23,
+     "type": "u8",
+     "enum": "eggGroup",
+     "confidence": "verified",
+     "note": "enum eggGroup"
+    },
+    {
+     "name": "ability1",
+     "label": "Ability 1",
+     "offset": 24,
+     "type": "u8",
+     "enum": "ability",
+     "confidence": "verified",
+     "note": "ability id; 0 = none"
+    },
+    {
+     "name": "ability2",
+     "label": "Ability 2",
+     "offset": 25,
+     "type": "u8",
+     "enum": "ability",
+     "confidence": "verified",
+     "note": "ability id; 0 = none"
+    },
+    {
+     "name": "hiddenAbility",
+     "label": "Hidden ability",
+     "offset": 26,
+     "type": "u8",
+     "enum": "ability",
+     "confidence": "verified",
+     "note": "ability id; 0 = none"
+    },
+    {
+     "name": "escapeRate",
+     "label": "Escape rate",
+     "offset": 27,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "named escapeRate in the decompilation; 0 for every record checked (flee rate for Safari-style use)"
+    },
+    {
+     "name": "formStatsIndex",
+     "label": "Form record base",
+     "offset": 28,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member index of this species' first extra form record; form n (n >= 1) lives at formStatsIndex + n - 1 (poke_personal.c 'species-to-form resolver'); 0 = none"
+    },
+    {
+     "name": "formSpriteIndex",
+     "label": "Form sprite base",
+     "offset": 30,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "base for the form's sprite blocks: battle sprite block 652 + formSpriteIndex + form - 1, icon member (formSpriteIndex + form - 1) * 2 + 1311, icon palette index formSpriteIndex + form + 651"
+    },
+    {
+     "name": "formCount",
+     "label": "Form count",
+     "offset": 32,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "number of forms including the base form"
+    },
+    {
+     "name": "color",
+     "label": "Dex color",
+     "offset": 33,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 6,
+     "enum": "dexColor",
+     "confidence": "verified",
+     "note": "enum dexColor"
+    },
+    {
+     "name": "spriteFlip",
+     "label": "Sprite flip",
+     "offset": 33,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "named spriteFlip in the decompilation (getter 34)"
+    },
+    {
+     "name": "formSpriteShared",
+     "label": "Forms share sprite",
+     "offset": 33,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "confidence": "verified",
+     "note": "1 = the extra forms are palette-only (pokegra.c palOnlyForms): no separate sprite block"
+    },
+    {
+     "name": "baseExp",
+     "label": "Base experience",
+     "offset": 34,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "named baseExp in the decompilation; Bulbasaur 64 verified in data"
+    },
+    {
+     "name": "height",
+     "label": "Height (dm)",
+     "offset": 36,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "decimetres; Bulbasaur 7 verified in data"
+    },
+    {
+     "name": "weight",
+     "label": "Weight (hg)",
+     "offset": 38,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "hectograms; Bulbasaur 69 verified in data"
+    },
+    {
+     "name": "tmFlags1",
+     "label": "TM/HM flags 1",
+     "offset": 40,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "machine bits 0..31: TM01..TM32. Bit layout over the four words: bits 0..91 TM01..92, bits 92..94 TM93..95, bits 95..100 HM01..06 (verified against file_util.c GetId and a species with known TM and HM sets)"
+    },
+    {
+     "name": "tmFlags2",
+     "label": "TM/HM flags 2",
+     "offset": 44,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "machine bits 32..63"
+    },
+    {
+     "name": "tmFlags3",
+     "label": "TM/HM flags 3",
+     "offset": 48,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "machine bits 64..95"
+    },
+    {
+     "name": "tmFlags4",
+     "label": "TM/HM flags 4",
+     "offset": 52,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "machine bits 96..100 (HM bits 95..100 straddle words 3 and 4)"
+    },
+    {
+     "name": "tutorFlags",
+     "label": "Tutor flags",
+     "offset": 56,
+     "type": "u32",
+     "confidence": "inferred",
+     "note": "one bit per move-tutor entry; the tutor move list is not in this archive (gap)"
+    }
+   ]
+  },
+  {
+   "id": "moves",
+   "label": "Moves",
+   "archive": 21,
+   "path": "a/0/2/1",
+   "members": "one member per move id (member 0 is the empty move)",
+   "memberCount": 560,
+   "recordSize": 36,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 203
+   },
+   "descBank": {
+    "archive": 2,
+    "bank": 202
+   },
+   "src": "waza_tool.c:29, waza_tool.c:178",
+   "fields": [
+    {
+     "name": "type",
+     "label": "Type",
+     "offset": 0,
+     "type": "u8",
+     "enum": "type",
+     "confidence": "verified",
+     "note": "enum type"
+    },
+    {
+     "name": "effectCategory",
+     "label": "Effect category",
+     "offset": 1,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "named category in the decompilation; 14 values (0..13) in data, groups moves by battle-effect family; value meanings not enumerated"
+    },
+    {
+     "name": "damageClass",
+     "label": "Damage class",
+     "offset": 2,
+     "type": "u8",
+     "enum": "damageClass",
+     "confidence": "verified",
+     "note": "0 status, 1 physical, 2 special"
+    },
+    {
+     "name": "power",
+     "label": "Power",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "accuracy",
+     "label": "Accuracy",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "101 is stored for 'never misses' and read back as 100 (waza_tool.c getter case 4)"
+    },
+    {
+     "name": "pp",
+     "label": "PP",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "priority",
+     "label": "Priority",
+     "offset": 6,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "hitMin",
+     "label": "Min hits",
+     "offset": 7,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "confidence": "verified",
+     "note": "multi-hit minimum"
+    },
+    {
+     "name": "hitMax",
+     "label": "Max hits",
+     "offset": 7,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "confidence": "verified",
+     "note": "multi-hit maximum"
+    },
+    {
+     "name": "sickId",
+     "label": "Status condition",
+     "offset": 8,
+     "type": "u16",
+     "confidence": "inferred",
+     "note": "inflicted condition id (named sickId; getter case 11)"
+    },
+    {
+     "name": "sickPercent",
+     "label": "Status chance (%)",
+     "offset": 10,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "sickContType",
+     "label": "Status duration type",
+     "offset": 11,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "0 none, 1..4 observed"
+    },
+    {
+     "name": "sickTurnMin",
+     "label": "Status turns min",
+     "offset": 12,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "sickTurnMax",
+     "label": "Status turns max",
+     "offset": 13,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "criticalRank",
+     "label": "Critical-hit rank",
+     "offset": 14,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "6 is read back as 0 (always-crit marker handled elsewhere)"
+    },
+    {
+     "name": "shrinkPercent",
+     "label": "Flinch chance (%)",
+     "offset": 15,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "effectSequence",
+     "label": "Battle effect sequence",
+     "offset": 16,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "index of the battle-effect script (value range 0..337 in data)"
+    },
+    {
+     "name": "drainRatio",
+     "label": "Drain / recoil (%)",
+     "offset": 18,
+     "type": "s8",
+     "confidence": "verified",
+     "note": "positive = drain, negative = recoil (getter cases 25 and 30)"
+    },
+    {
+     "name": "healRatio",
+     "label": "Heal / self-damage (%)",
+     "offset": 19,
+     "type": "s8",
+     "confidence": "verified",
+     "note": "positive = heal, negative = damage to the user (cases 26 and 31)"
+    },
+    {
+     "name": "target",
+     "label": "Target",
+     "offset": 20,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "targeting mode, 14 values (0 selected target, 4 all adjacent, 5 all foes, 7 user ...); no enum fixed"
+    },
+    {
+     "name": "rankType1",
+     "label": "Stat change 1 stat",
+     "offset": 21,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "which stat stage 1 changes"
+    },
+    {
+     "name": "rankType2",
+     "label": "Stat change 2 stat",
+     "offset": 22,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankType3",
+     "label": "Stat change 3 stat",
+     "offset": 23,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankValue1",
+     "label": "Stat change 1 stages",
+     "offset": 24,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankValue2",
+     "label": "Stat change 2 stages",
+     "offset": 25,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankValue3",
+     "label": "Stat change 3 stages",
+     "offset": 26,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankPercent1",
+     "label": "Stat change 1 chance (%)",
+     "offset": 27,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankPercent2",
+     "label": "Stat change 2 chance (%)",
+     "offset": 28,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "rankPercent3",
+     "label": "Stat change 3 chance (%)",
+     "offset": 29,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "pad1E",
+     "label": "Marker (constant 0x5353)",
+     "offset": 30,
+     "type": "u16",
+     "readonly": true,
+     "confidence": "verified",
+     "note": "constant in all 560 records; keep unchanged"
+    },
+    {
+     "name": "flagContact",
+     "label": "Makes contact",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 0,
+     "width": 1,
+     "confidence": "verified",
+     "note": "bit 0"
+    },
+    {
+     "name": "flagCharge",
+     "label": "Charge turn",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 1,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 1; set on 12 moves (two-turn moves)"
+    },
+    {
+     "name": "flagRecharge",
+     "label": "Recharge turn",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 2,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 2; set on 7 moves"
+    },
+    {
+     "name": "flagProtect",
+     "label": "Blocked by Protect",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 3,
+     "width": 1,
+     "confidence": "verified",
+     "note": "bit 3"
+    },
+    {
+     "name": "flagMagicCoat",
+     "label": "Reflected by Magic Coat",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 4,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 4"
+    },
+    {
+     "name": "flagSnatch",
+     "label": "Stolen by Snatch",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 5,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 5"
+    },
+    {
+     "name": "flagMirrorMove",
+     "label": "Copyable by Mirror Move",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 6,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 6"
+    },
+    {
+     "name": "flagPunch",
+     "label": "Punch move",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 7,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 7; set on 15 moves"
+    },
+    {
+     "name": "flagSound",
+     "label": "Sound move",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 8,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 8; set on 18 moves"
+    },
+    {
+     "name": "flagGravity",
+     "label": "Disabled by Gravity",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 9,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 9"
+    },
+    {
+     "name": "flagDefrost",
+     "label": "Thaws the user",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 10,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 10"
+    },
+    {
+     "name": "flagDistanceTriple",
+     "label": "Reaches far in triple battle",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 11,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 11"
+    },
+    {
+     "name": "flagHeal",
+     "label": "Heal move (Heal Block)",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 12,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 12"
+    },
+    {
+     "name": "flagIgnoreSubstitute",
+     "label": "Bypasses Substitute",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 13,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "bit 13"
+    }
+   ]
+  },
+  {
+   "id": "items",
+   "label": "Items",
+   "archive": 24,
+   "path": "a/0/2/4",
+   "members": "one member per item id; ids above 626 read as 0 (file_util.c:324)",
+   "memberCount": 627,
+   "recordSize": 36,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 54
+   },
+   "descBank": {
+    "archive": 2,
+    "bank": 53
+   },
+   "src": "file_util.c:110, file_util.c:54, file_util.c:400",
+   "fields": [
+    {
+     "name": "price",
+     "label": "Price / 10",
+     "offset": 0,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "the game reads price * 10 (file_util.c GetItemRecordParam case 0); sell price is half"
+    },
+    {
+     "name": "holdEffect",
+     "label": "Hold effect",
+     "offset": 2,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "holdEffectParam",
+     "label": "Hold effect parameter",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "pluckEffect",
+     "label": "Pluck effect",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "flingEffect",
+     "label": "Fling effect",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "flingPower",
+     "label": "Fling power",
+     "offset": 6,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "naturalGiftPower",
+     "label": "Natural Gift power",
+     "offset": 7,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "naturalGiftType",
+     "label": "Natural Gift type",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 5,
+     "enum": "type",
+     "confidence": "verified",
+     "note": "type id; 31 = none"
+    },
+    {
+     "name": "preventToss",
+     "label": "Cannot be tossed",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 5,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "selectable",
+     "label": "Selectable in bag",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 6,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "pocket",
+     "label": "Bag pocket",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 7,
+     "width": 4,
+     "enum": "itemPocket",
+     "confidence": "verified",
+     "note": "enum itemPocket (verified: 0 items/balls, 1 medicine, 2 machines, 3 berries, 4 key items)"
+    },
+    {
+     "name": "sortGroup",
+     "label": "Bag sort group",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 11,
+     "width": 5,
+     "confidence": "verified"
+    },
+    {
+     "name": "fieldUse",
+     "label": "Field use",
+     "offset": 10,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "field-use handler id (0 none, 1, 6, 7, 8, 19, 20, 21 seen)"
+    },
+    {
+     "name": "battleUse",
+     "label": "Battle use",
+     "offset": 11,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "0 none, 1..3 seen"
+    },
+    {
+     "name": "extType",
+     "label": "Extension present",
+     "offset": 12,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "1 = the 18-byte medicine block at 0x10 applies; 0 = byte 0x10 is a plain value"
+    },
+    {
+     "name": "partyUse",
+     "label": "Party-screen use",
+     "offset": 13,
+     "type": "u8",
+     "confidence": "inferred"
+    },
+    {
+     "name": "partyUseParam",
+     "label": "Party-screen parameter",
+     "offset": 14,
+     "type": "u8",
+     "confidence": "inferred"
+    },
+    {
+     "name": "partyUseOption",
+     "label": "Party-screen option",
+     "offset": 15,
+     "type": "u8",
+     "confidence": "inferred"
+    },
+    {
+     "name": "extByte",
+     "label": "Plain value (extType 0)",
+     "offset": 16,
+     "type": "u8",
+     "when": {
+      "field": "extType",
+      "equals": 0
+     },
+     "confidence": "verified",
+     "note": "read only when extType is 0"
+    },
+    {
+     "name": "cureSleep",
+     "label": "Cures sleep",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "curePoison",
+     "label": "Cures poison",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "cureBurn",
+     "label": "Cures burn",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "cureFreeze",
+     "label": "Cures freeze",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "cureParalysis",
+     "label": "Cures paralysis",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "cureConfusion",
+     "label": "Cures confusion",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 5,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "cureInfatuation",
+     "label": "Cures infatuation",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "guardSpec",
+     "label": "Guard Spec.",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "revive",
+     "label": "Revives",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "reviveAll",
+     "label": "Revives all",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "levelUp",
+     "label": "Raises level",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "evolve",
+     "label": "Evolution stone effect",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "atkStage",
+     "label": "Attack stage boost",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "defStage",
+     "label": "Defense stage boost",
+     "offset": 18,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spAtkStage",
+     "label": "Sp. Atk stage boost",
+     "offset": 18,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spDefStage",
+     "label": "Sp. Def stage boost",
+     "offset": 19,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "accStage",
+     "label": "Accuracy stage boost",
+     "offset": 19,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "critStage",
+     "label": "Crit stage boost",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "ppRestoreKind",
+     "label": "PP restore kind",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 2,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "inferred"
+    },
+    {
+     "name": "ppUp",
+     "label": "PP Up",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "ppUpMax",
+     "label": "PP Max",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "ppRestore",
+     "label": "Restores PP (one move)",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "ppRestoreAll",
+     "label": "Restores PP (all moves)",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "hpRestore",
+     "label": "Restores HP",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "hpEvUp",
+     "label": "HP EV up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "atkEvUp",
+     "label": "Attack EV up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "defEvUp",
+     "label": "Defense EV up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 5,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "speedEvUp",
+     "label": "Speed EV up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spAtkEvUp",
+     "label": "Sp. Atk EV up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spDefEvUp",
+     "label": "Sp. Def EV up",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipLow",
+     "label": "Friendship change (low tier)",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipMid",
+     "label": "Friendship change (mid tier)",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipHigh",
+     "label": "Friendship change (high tier)",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "evLimitIgnore",
+     "label": "Ignores EV cap",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "hpEv",
+     "label": "HP EV change",
+     "offset": 23,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "atkEv",
+     "label": "Attack EV change",
+     "offset": 24,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "defEv",
+     "label": "Defense EV change",
+     "offset": 25,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "speedEv",
+     "label": "Speed EV change",
+     "offset": 26,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spAtkEv",
+     "label": "Sp. Atk EV change",
+     "offset": 27,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "spDefEv",
+     "label": "Sp. Def EV change",
+     "offset": 28,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "hpRestoreAmount",
+     "label": "HP restored",
+     "offset": 29,
+     "type": "u8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "note": "255 = full restore; Potion 20, Super Potion 50, Hyper Potion 200 verified in data"
+    },
+    {
+     "name": "ppRestoreAmount",
+     "label": "PP restored",
+     "offset": 30,
+     "type": "u8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipDeltaLow",
+     "label": "Friendship delta (low)",
+     "offset": 31,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipDeltaMid",
+     "label": "Friendship delta (mid)",
+     "offset": 32,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    },
+    {
+     "name": "friendshipDeltaHigh",
+     "label": "Friendship delta (high)",
+     "offset": 33,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified"
+    }
+   ]
+  },
+  {
+   "id": "evolutions",
+   "label": "Evolutions",
+   "archive": 19,
+   "path": "a/0/1/9",
+   "members": "one member per species or form record (same index as personal data); member 0 is zero",
+   "memberCount": 668,
+   "recordSize": 42,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 70
+   },
+   "src": "shinka_check.c:35, shinka_check.c:408",
+   "fields": [
+    {
+     "name": "method",
+     "label": "Method",
+     "offset": 0,
+     "type": "u16",
+     "enum": "evolutionMethod",
+     "repeat": {
+      "count": 7,
+      "stride": 6
+     },
+     "confidence": "verified",
+     "note": "enum evolutionMethod; row is unused when species is 0"
+    },
+    {
+     "name": "param",
+     "label": "Parameter",
+     "offset": 2,
+     "type": "u16",
+     "repeat": {
+      "count": 7,
+      "stride": 6
+     },
+     "confidence": "verified",
+     "note": "level, item id, move id, species id, friendship/beauty threshold, depending on method (table below)"
+    },
+    {
+     "name": "species",
+     "label": "Target species",
+     "offset": 4,
+     "type": "u16",
+     "enum": "species",
+     "repeat": {
+      "count": 7,
+      "stride": 6
+     },
+     "confidence": "verified",
+     "note": "species id, 0 = no row"
+    }
+   ]
+  },
+  {
+   "id": "trainers",
+   "label": "Trainers",
+   "archive": 92,
+   "path": "a/0/9/2",
+   "members": "one member per trainer id (member 0 is a 16-byte sentinel)",
+   "memberCount": 616,
+   "recordSize": 20,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 190
+   },
+   "src": "tpoke_data_types.h (TpokeDataRecord), tpoke_data.c:328, tr_tool.c:146",
+   "fields": [
+    {
+     "name": "partyType",
+     "label": "Party type",
+     "offset": 0,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "bit 0 = custom moves, bit 1 = held item (0 plain, 1 moves, 2 item, 3 item and moves); selects the party entry size"
+    },
+    {
+     "name": "trainerClass",
+     "label": "Trainer class",
+     "offset": 1,
+     "type": "u8",
+     "enum": "trainerClass",
+     "confidence": "verified",
+     "note": "class id, 2..102 in data; indexes the class-name bank, the class graphics table and the gender table (named genderClass in the decompilation)"
+    },
+    {
+     "name": "battleFormat",
+     "label": "Battle format",
+     "offset": 2,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "0 single, 1 double, 2 triple, 3 rotation (values 0..3 in data; named pad02 in the decompilation)"
+    },
+    {
+     "name": "partyCount",
+     "label": "Party size",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "1..6"
+    },
+    {
+     "name": "item1",
+     "label": "Bag item 1",
+     "offset": 4,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "note": "AI-usable battle items"
+    },
+    {
+     "name": "item2",
+     "label": "Bag item 2",
+     "offset": 6,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified"
+    },
+    {
+     "name": "item3",
+     "label": "Bag item 3",
+     "offset": 8,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified"
+    },
+    {
+     "name": "item4",
+     "label": "Bag item 4",
+     "offset": 10,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified"
+    },
+    {
+     "name": "aiFlags",
+     "label": "AI flags",
+     "offset": 12,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "battle AI bit set; common values 1, 7, 5, 0, 3, 129"
+    },
+    {
+     "name": "flag10",
+     "label": "Flag at 0x10",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "confidence": "inferred",
+     "note": "0 or 1 (6 records); meaning not established"
+    },
+    {
+     "name": "byte11",
+     "label": "Byte at 0x11",
+     "offset": 17,
+     "type": "u8",
+     "confidence": "inferred",
+     "note": "values 8, 10, 25 ... (looks like a prize-money factor)"
+    },
+    {
+     "name": "half12",
+     "label": "Value at 0x12",
+     "offset": 18,
+     "type": "u16",
+     "confidence": "inferred",
+     "note": "0 except 10 records holding an item-id-sized value (151, 158)"
+    }
+   ]
+  },
+  {
+   "id": "zoneHeaders",
+   "label": "Map headers (zones)",
+   "archive": 12,
+   "path": "a/0/1/2",
+   "members": "ONE member (0) holding 427 consecutive 48-byte records; record index = zone id",
+   "memberCount": 1,
+   "recordsPerMember": 427,
+   "recordSize": 48,
+   "compressed": false,
+   "src": "zonedata.c:54, zonedata.c:385",
+   "fields": [
+    {
+     "name": "mapType",
+     "label": "Map type",
+     "offset": 0,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "mapSubType",
+     "label": "Map sub-type",
+     "offset": 1,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "areaId",
+     "label": "Area id",
+     "offset": 2,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "record index in the area table a/0/1/3 (0..273 in data)"
+    },
+    {
+     "name": "matrixId",
+     "label": "Matrix id",
+     "offset": 4,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member of a/0/0/9 (the map matrix); 0..254 in data"
+    },
+    {
+     "name": "scriptArcId",
+     "label": "Script id",
+     "offset": 6,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member of the script archive a/0/5/7"
+    },
+    {
+     "name": "initScriptArcId",
+     "label": "Init script id",
+     "offset": 8,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member of the script archive a/0/5/7"
+    },
+    {
+     "name": "msgArcId",
+     "label": "Message bank id",
+     "offset": 10,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "message file id in a/0/0/3"
+    },
+    {
+     "name": "bgmSpring",
+     "label": "BGM (season 0)",
+     "offset": 12,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "SDAT sequence number (1000..1178 are BGM sequences)"
+    },
+    {
+     "name": "bgmSummer",
+     "label": "BGM (season 1)",
+     "offset": 14,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "bgmAutumn",
+     "label": "BGM (season 2)",
+     "offset": 16,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "bgmWinter",
+     "label": "BGM (season 3)",
+     "offset": 18,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "encountId",
+     "label": "Wild encounter table",
+     "offset": 20,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member of a/1/2/6; 0xFFFF = none"
+    },
+    {
+     "name": "eventDataId",
+     "label": "Event data",
+     "offset": 22,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "member of a/1/2/5"
+    },
+    {
+     "name": "parentZoneId",
+     "label": "Parent zone",
+     "offset": 24,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "placeNameId",
+     "label": "Place name",
+     "offset": 26,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 10,
+     "confidence": "verified",
+     "note": "index into text bank 89"
+    },
+    {
+     "name": "placeNameWindow",
+     "label": "Place name window style",
+     "offset": 26,
+     "type": "bits",
+     "size": 2,
+     "bit": 10,
+     "width": 6,
+     "confidence": "verified"
+    },
+    {
+     "name": "weatherId",
+     "label": "Weather",
+     "offset": 28,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 6,
+     "confidence": "verified"
+    },
+    {
+     "name": "mapChangeType",
+     "label": "Map change type",
+     "offset": 28,
+     "type": "bits",
+     "size": 2,
+     "bit": 6,
+     "width": 3,
+     "confidence": "verified"
+    },
+    {
+     "name": "cameraId",
+     "label": "Camera",
+     "offset": 28,
+     "type": "bits",
+     "size": 2,
+     "bit": 9,
+     "width": 7,
+     "confidence": "verified"
+    },
+    {
+     "name": "expObjSetId",
+     "label": "Object set",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 5,
+     "confidence": "verified"
+    },
+    {
+     "name": "fieldEffectSetId",
+     "label": "Field effect set",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 5,
+     "width": 5,
+     "confidence": "verified"
+    },
+    {
+     "name": "bikeEnabled",
+     "label": "Bike allowed",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 10,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "dashEnabled",
+     "label": "Running allowed",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 11,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "weatherEnabled",
+     "label": "Weather enabled",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 12,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "flyEnabled",
+     "label": "Fly allowed",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 13,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "rideBgmEnabled",
+     "label": "Bike music",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 14,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "palaceEnabled",
+     "label": "Palace allowed",
+     "offset": 30,
+     "type": "bits",
+     "size": 2,
+     "bit": 15,
+     "width": 1,
+     "confidence": "verified"
+    },
+    {
+     "name": "cameraAreaId",
+     "label": "Camera area",
+     "offset": 32,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "posX",
+     "label": "Start X",
+     "offset": 36,
+     "type": "s32",
+     "confidence": "inferred",
+     "note": "start position; small grid-style integers in the data (5, 0, 4 for zone 1); for rail maps a rail location, see ZONEDATA_GetStartRailPos"
+    },
+    {
+     "name": "posY",
+     "label": "Start Y",
+     "offset": 40,
+     "type": "s32",
+     "confidence": "verified"
+    },
+    {
+     "name": "posZ",
+     "label": "Start Z",
+     "offset": 44,
+     "type": "s32",
+     "confidence": "verified"
+    }
+   ]
+  },
+  {
+   "id": "areaData",
+   "label": "Map area data",
+   "archive": 13,
+   "path": "a/0/1/3",
+   "members": "NOT a NARC: a flat file of 282 records, replaced as a whole file",
+   "memberCount": 282,
+   "recordSize": 10,
+   "compressed": false,
+   "container": "flat",
+   "src": "zonedata.c:120, aletheia ASSETS.md (reader sub_0201407C)",
+   "fields": [
+    {
+     "name": "modelSetId",
+     "label": "Model set",
+     "offset": 0,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "0..43 in data"
+    },
+    {
+     "name": "texSetId",
+     "label": "Texture set",
+     "offset": 2,
+     "type": "u16",
+     "confidence": "inferred",
+     "note": "equals the record index in 280 of 282 records; names the texture member of a/0/1/4"
+    },
+    {
+     "name": "itaAnimeId",
+     "label": "Texture animation (ita)",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "0xFF = none"
+    },
+    {
+     "name": "itpAnimeId",
+     "label": "Palette animation (itp)",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "0xFF = none"
+    },
+    {
+     "name": "innerOuter",
+     "label": "Inside or outside",
+     "offset": 6,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "lightType",
+     "label": "Light type",
+     "offset": 7,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "edgeMarkType",
+     "label": "Edge mark type",
+     "offset": 8,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "billboardColor",
+     "label": "Billboard color",
+     "offset": 9,
+     "type": "u8",
+     "confidence": "verified"
+    }
+   ]
+  },
+  {
+   "id": "encounters",
+   "label": "Wild encounters",
+   "archive": 126,
+   "path": "a/1/2/6",
+   "members": "one member per encounter table (112); each is 232 bytes (all seasons) or 928 bytes (four 232-byte blocks, season index 0..3)",
+   "memberCount": 112,
+   "recordSize": 232,
+   "compressed": false,
+   "seasons": {
+    "blockSize": 232,
+    "counts": [
+     1,
+     4
+    ]
+   },
+   "src": "field_encount_types.h:30, field_encount_st.c:81, eventdata_system.c:248",
+   "fields": [
+    {
+     "name": "rate",
+     "label": "Encounter rate (per method)",
+     "offset": 0,
+     "type": "u8",
+     "repeat": {
+      "count": 7,
+      "stride": 1
+     },
+     "confidence": "verified",
+     "note": "index 0 grass, 1 double grass, 2 shaking grass/dust cloud, 3 surf, 4 surf ripple, 5 fishing, 6 fishing ripple"
+    },
+    {
+     "name": "effectKind",
+     "label": "Effect encounter kind",
+     "offset": 7,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 7,
+     "confidence": "verified",
+     "note": "0..2"
+    },
+    {
+     "name": "enabled",
+     "label": "Enabled (set by the loader)",
+     "offset": 7,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "confidence": "verified",
+     "note": "the loader ORs 0x80 into this byte (field_encount_st.c:99)"
+    }
+   ],
+   "groups": [
+    {
+     "name": "grass",
+     "label": "Grass slots",
+     "offset": 8,
+     "count": 12,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "doubleGrass",
+     "label": "Double-grass slots",
+     "offset": 56,
+     "count": 12,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "shakingGrass",
+     "label": "Shaking-grass slots",
+     "offset": 104,
+     "count": 12,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "surf",
+     "label": "Surf slots",
+     "offset": 152,
+     "count": 5,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "surfRipple",
+     "label": "Surf ripple slots",
+     "offset": 172,
+     "count": 5,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "fishing",
+     "label": "Fishing slots",
+     "offset": 192,
+     "count": 5,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    },
+    {
+     "name": "fishingRipple",
+     "label": "Fishing ripple slots",
+     "offset": 212,
+     "count": 5,
+     "stride": 4,
+     "fields": [
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 0,
+       "width": 11,
+       "enum": "species",
+       "confidence": "verified",
+       "note": "species id; 0 = empty slot"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 0,
+       "type": "bits",
+       "size": 2,
+       "bit": 11,
+       "width": 5,
+       "confidence": "verified",
+       "note": "31 = random form"
+      },
+      {
+       "name": "minLevel",
+       "label": "Min level",
+       "offset": 2,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "maxLevel",
+       "label": "Max level",
+       "offset": 3,
+       "type": "u8",
+       "confidence": "verified"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "learnsets",
+   "label": "Level-up learnsets",
+   "archive": 18,
+   "path": "a/0/1/8",
+   "members": "one member per species or form record (same index as personal data); member 0 is empty",
+   "memberCount": 668,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 70
+   },
+   "src": "poke_personal.c:139 (POKE_PERSONAL_LoadDataDirect), sodateya.c learnset walks",
+   "layout": "list",
+   "terminator": [
+    65535,
+    65535
+   ],
+   "note": "variable length, at most 22 moves plus the terminator pair in the data (buffers are 26 entries); the member length is 4 * (n + 1)",
+   "element": {
+    "size": 4,
+    "fields": [
+     {
+      "name": "move",
+      "label": "Move",
+      "offset": 0,
+      "type": "u16",
+      "enum": "move",
+      "confidence": "verified",
+      "note": "move id"
+     },
+     {
+      "name": "level",
+      "label": "Level",
+      "offset": 2,
+      "type": "u16",
+      "confidence": "verified",
+      "note": "level at which the move is learned"
+     }
+    ]
+   }
+  },
+  {
+   "id": "eggMoves",
+   "label": "Egg moves",
+   "archive": 123,
+   "path": "a/1/2/3",
+   "members": "one member per species id (member 0 empty); species only, not forms",
+   "memberCount": 650,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 70
+   },
+   "src": "sodateya.c:1304",
+   "layout": "countedList",
+   "note": "[u16 count][u16 move * count]; 260 of the 650 members hold moves",
+   "header": [
+    {
+     "name": "count",
+     "label": "Egg move count",
+     "offset": 0,
+     "type": "u16",
+     "confidence": "verified"
+    }
+   ],
+   "element": {
+    "size": 2,
+    "fields": [
+     {
+      "name": "move",
+      "label": "Move",
+      "offset": 0,
+      "type": "u16",
+      "enum": "move",
+      "confidence": "verified"
+     }
+    ]
+   }
+  },
+  {
+   "id": "trainerParties",
+   "label": "Trainer parties",
+   "archive": 93,
+   "path": "a/0/9/3",
+   "members": "one member per trainer id, paired with the trainers table (same index)",
+   "memberCount": 616,
+   "compressed": false,
+   "nameBank": {
+    "archive": 2,
+    "bank": 190
+   },
+   "src": "tr_tool.c:84, tpoke_data.c:333",
+   "layout": "variantList",
+   "countFrom": {
+    "table": "trainers",
+    "field": "partyCount"
+   },
+   "variantBy": {
+    "table": "trainers",
+    "field": "partyType",
+    "mask": 3
+   },
+   "note": "entry count is partyCount of the trainer record; every one of the 615 members equals count * stride in the data",
+   "variants": {
+    "0": {
+     "size": 8,
+     "label": "plain",
+     "fields": [
+      {
+       "name": "difficulty",
+       "label": "Difficulty value",
+       "offset": 0,
+       "type": "u8",
+       "confidence": "verified",
+       "note": "IV = value * 31 / 255 in all six stats (tr_tool.c)"
+      },
+      {
+       "name": "abilityFlags",
+       "label": "Ability / gender flags",
+       "offset": 1,
+       "type": "u8",
+       "confidence": "inferred",
+       "note": "low nibble gender adjust, high nibble ability slot choice (0x30 = special path)"
+      },
+      {
+       "name": "level",
+       "label": "Level",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 4,
+       "type": "u16",
+       "enum": "species",
+       "confidence": "verified"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified"
+      }
+     ]
+    },
+    "1": {
+     "size": 16,
+     "label": "custom moves",
+     "fields": [
+      {
+       "name": "difficulty",
+       "label": "Difficulty value",
+       "offset": 0,
+       "type": "u8",
+       "confidence": "verified",
+       "note": "IV = value * 31 / 255 in all six stats (tr_tool.c)"
+      },
+      {
+       "name": "abilityFlags",
+       "label": "Ability / gender flags",
+       "offset": 1,
+       "type": "u8",
+       "confidence": "inferred",
+       "note": "low nibble gender adjust, high nibble ability slot choice (0x30 = special path)"
+      },
+      {
+       "name": "level",
+       "label": "Level",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 4,
+       "type": "u16",
+       "enum": "species",
+       "confidence": "verified"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "move1",
+       "label": "Move 1",
+       "offset": 8,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move2",
+       "label": "Move 2",
+       "offset": 10,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move3",
+       "label": "Move 3",
+       "offset": 12,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move4",
+       "label": "Move 4",
+       "offset": 14,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      }
+     ]
+    },
+    "2": {
+     "size": 10,
+     "label": "held item",
+     "fields": [
+      {
+       "name": "difficulty",
+       "label": "Difficulty value",
+       "offset": 0,
+       "type": "u8",
+       "confidence": "verified",
+       "note": "IV = value * 31 / 255 in all six stats (tr_tool.c)"
+      },
+      {
+       "name": "abilityFlags",
+       "label": "Ability / gender flags",
+       "offset": 1,
+       "type": "u8",
+       "confidence": "inferred",
+       "note": "low nibble gender adjust, high nibble ability slot choice (0x30 = special path)"
+      },
+      {
+       "name": "level",
+       "label": "Level",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 4,
+       "type": "u16",
+       "enum": "species",
+       "confidence": "verified"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "item",
+       "label": "Held item",
+       "offset": 8,
+       "type": "u16",
+       "enum": "item",
+       "confidence": "verified"
+      }
+     ]
+    },
+    "3": {
+     "size": 18,
+     "label": "held item and moves",
+     "fields": [
+      {
+       "name": "difficulty",
+       "label": "Difficulty value",
+       "offset": 0,
+       "type": "u8",
+       "confidence": "verified",
+       "note": "IV = value * 31 / 255 in all six stats (tr_tool.c)"
+      },
+      {
+       "name": "abilityFlags",
+       "label": "Ability / gender flags",
+       "offset": 1,
+       "type": "u8",
+       "confidence": "inferred",
+       "note": "low nibble gender adjust, high nibble ability slot choice (0x30 = special path)"
+      },
+      {
+       "name": "level",
+       "label": "Level",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "species",
+       "label": "Species",
+       "offset": 4,
+       "type": "u16",
+       "enum": "species",
+       "confidence": "verified"
+      },
+      {
+       "name": "form",
+       "label": "Form",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "item",
+       "label": "Held item",
+       "offset": 8,
+       "type": "u16",
+       "enum": "item",
+       "confidence": "verified"
+      },
+      {
+       "name": "move1",
+       "label": "Move 1",
+       "offset": 10,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move2",
+       "label": "Move 2",
+       "offset": 12,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move3",
+       "label": "Move 3",
+       "offset": 14,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      },
+      {
+       "name": "move4",
+       "label": "Move 4",
+       "offset": 16,
+       "type": "u16",
+       "enum": "move",
+       "confidence": "verified"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "battleFacilityMons",
+   "label": "Battle facility Pokemon",
+   "archive": 214,
+   "path": "a/2/1/4",
+   "members": "one member per facility Pokemon set (1000 members)",
+   "memberCount": 1000,
+   "recordSize": 16,
+   "compressed": false,
+   "src": "ASSETS.md 'Archive readers traced by call graph' (fld_btl_inst_tool.c, func_021684E8)",
+   "layout": "records",
+   "fields": [
+    {
+     "name": "species",
+     "label": "Species",
+     "offset": 0,
+     "type": "u16",
+     "enum": "species",
+     "confidence": "verified",
+     "note": "11-bit species in the game's bitfield"
+    },
+    {
+     "name": "move1",
+     "label": "Move 1",
+     "offset": 2,
+     "type": "u16",
+     "enum": "move",
+     "confidence": "verified"
+    },
+    {
+     "name": "move2",
+     "label": "Move 2",
+     "offset": 4,
+     "type": "u16",
+     "enum": "move",
+     "confidence": "verified"
+    },
+    {
+     "name": "move3",
+     "label": "Move 3",
+     "offset": 6,
+     "type": "u16",
+     "enum": "move",
+     "confidence": "verified"
+    },
+    {
+     "name": "move4",
+     "label": "Move 4",
+     "offset": 8,
+     "type": "u16",
+     "enum": "move",
+     "confidence": "verified"
+    },
+    {
+     "name": "evMask",
+     "label": "EV spread mask",
+     "offset": 10,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "bit per stat that receives the 510 EVs"
+    },
+    {
+     "name": "nature",
+     "label": "Nature",
+     "offset": 11,
+     "type": "u8",
+     "enum": "nature",
+     "confidence": "verified"
+    },
+    {
+     "name": "item",
+     "label": "Held item",
+     "offset": 12,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified"
+    },
+    {
+     "name": "form",
+     "label": "Form",
+     "offset": 14,
+     "type": "u16",
+     "confidence": "verified"
+    }
+   ]
+  }
+ ],
+ "enums": {
+  "type": {
+   "source": {
+    "archive": 2,
+    "bank": 199
+   }
+  },
+  "species": {
+   "source": {
+    "archive": 2,
+    "bank": 70
+   }
+  },
+  "move": {
+   "source": {
+    "archive": 2,
+    "bank": 203
+   }
+  },
+  "item": {
+   "source": {
+    "archive": 2,
+    "bank": 54
+   }
+  },
+  "ability": {
+   "source": {
+    "archive": 2,
+    "bank": 182
+   }
+  },
+  "nature": {
+   "source": {
+    "archive": 2,
+    "bank": 24
+   }
+  },
+  "trainerClass": {
+   "source": {
+    "archive": 2,
+    "bank": 191
+   }
+  },
+  "damageClass": {
+   "values": [
+    "Status",
+    "Physical",
+    "Special"
+   ]
+  },
+  "growthRate": {
+   "values": [
+    "Medium Fast",
+    "Erratic",
+    "Fluctuating",
+    "Medium Slow",
+    "Fast",
+    "Slow"
+   ]
+  },
+  "eggGroup": {
+   "values": [
+    "",
+    "Monster",
+    "Water 1",
+    "Bug",
+    "Flying",
+    "Field",
+    "Fairy",
+    "Grass",
+    "Human-Like",
+    "Water 3",
+    "Mineral",
+    "Amorphous",
+    "Water 2",
+    "Ditto",
+    "Dragon",
+    "Undiscovered"
+   ]
+  },
+  "dexColor": {
+   "values": [
+    "Red",
+    "Blue",
+    "Yellow",
+    "Green",
+    "Black",
+    "Brown",
+    "Purple",
+    "Gray",
+    "White",
+    "Pink"
+   ]
+  },
+  "itemPocket": {
+   "values": [
+    "Items",
+    "Medicine",
+    "Machines",
+    "Berries",
+    "Key items"
+   ]
+  },
+  "evolutionMethod": {
+   "values": [
+    "None",
+    "Friendship",
+    "Friendship (day)",
+    "Friendship (night)",
+    "Level",
+    "Trade",
+    "Trade holding item",
+    "Trade with specific partner",
+    "Use item",
+    "Level, Attack > Defense",
+    "Level, Attack = Defense",
+    "Level, Attack < Defense",
+    "Level, personality low",
+    "Level, personality high",
+    "Level (spawns extra)",
+    "Level (extra spawn target)",
+    "Beauty",
+    "Use item (male)",
+    "Use item (female)",
+    "Hold item (day)",
+    "Hold item (night)",
+    "Know move",
+    "Species in party",
+    "Level (male)",
+    "Level (female)",
+    "Level in magnetic area",
+    "Level in moss area",
+    "Level in ice area",
+    "Level in extra area"
+   ]
+  }
+ },
+ "arm9Tables": [
+  {
+   "id": "machineMoves",
+   "label": "TM and HM move table",
+   "address": "0x0209EAA0",
+   "type": "u16",
+   "count": 101,
+   "note": "table[i] = move taught by machine i; i 0..91 TM01..TM92, 92..97 HM01..HM06, 98..100 TM93..TM95. The personal-data TM bit for a machine is: TM01..92 bits 0..91, TM93..95 bits 92..94, HM01..06 bits 95..100. Item ids: TM01..92 = 328 + n, HM01..06 = 420 + n, TM93..95 = 618 + n.",
+   "confidence": "verified",
+   "src": "file_util.c:699 (GetMachineMove), file_util.c:GetId"
+  },
+  {
+   "id": "itemIconMembers",
+   "label": "Item icon member pairs",
+   "address": "0x0209EB6C",
+   "type": "u16 pair",
+   "count": 627,
+   "note": "pair[item] = (tile member, palette member) in a/0/2/5",
+   "confidence": "verified",
+   "src": "file_util.c:400-406"
+  },
+  {
+   "id": "trainerGraphicIndex",
+   "label": "Trainer class to sprite graphic",
+   "address": "0x020A023C",
+   "type": "u8",
+   "count": 106,
+   "note": "value * 8 is the first member in a/0/7/2",
+   "confidence": "verified",
+   "src": "pokegra.c:546"
+  },
+  {
+   "id": "iconPalette",
+   "label": "Pokemon icon palette selector",
+   "address": "0x0209E474",
+   "type": "nibbles",
+   "count": 1300,
+   "note": "one byte per icon index: low nibble male sub-palette, high nibble female sub-palette",
+   "confidence": "verified",
+   "src": "poke_tool_ext.c:446-470"
+  }
+ ],
+ "arm9ImageBase": "0x02004000",
+ "graphics": [
+  {
+   "id": "pokemonBattleSprite",
+   "label": "Pokemon battle sprites",
+   "archive": 4,
+   "path": "a/0/0/4",
+   "memberCount": 14285,
+   "mapping": "block = 20 * blockIndex; blockIndex = species id; 650 = egg, 651 = Manaphy egg; forms with their own sprite: 652 + formSpriteIndex + form - 1 (formSpriteShared forms use the species block and only change the palette member); member = block + role offset",
+   "src": "pokegra.c:451, pokegra.c:86-195, mcss.c:3207",
+   "roles": [
+    {
+     "offset": 0,
+     "side": "front",
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "small 2D tile sheet (12x12 tiles); +1 holds the female variant when its member is non-empty"
+    },
+    {
+     "offset": 2,
+     "side": "front",
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "battle bitmap, 16384 bytes of 4bpp tiles (the 'texture' member the MCSS renderer loads); +3 holds the female variant"
+    },
+    {
+     "offset": 4,
+     "side": "front",
+     "kind": "NCER",
+     "compressed": "none",
+     "note": "cell bank"
+    },
+    {
+     "offset": 5,
+     "side": "front",
+     "kind": "NANR",
+     "compressed": "LZ11",
+     "note": "cell animation"
+    },
+    {
+     "offset": 6,
+     "side": "front",
+     "kind": "NMCR",
+     "compressed": "none",
+     "note": "multi-cell resource"
+    },
+    {
+     "offset": 7,
+     "side": "front",
+     "kind": "NMAR",
+     "compressed": "none",
+     "note": "multi-cell animation"
+    },
+    {
+     "offset": 8,
+     "side": "front",
+     "kind": "NCEC header",
+     "compressed": "none",
+     "note": "cell header record, no NITRO magic"
+    },
+    {
+     "offset": 9,
+     "side": "back",
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "as offset 0; +10 female"
+    },
+    {
+     "offset": 11,
+     "side": "back",
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "as offset 2; +12 female"
+    },
+    {
+     "offset": 13,
+     "side": "back",
+     "kind": "NCER",
+     "compressed": "none",
+     "note": ""
+    },
+    {
+     "offset": 14,
+     "side": "back",
+     "kind": "NANR",
+     "compressed": "LZ11",
+     "note": ""
+    },
+    {
+     "offset": 15,
+     "side": "back",
+     "kind": "NMCR",
+     "compressed": "none",
+     "note": ""
+    },
+    {
+     "offset": 16,
+     "side": "back",
+     "kind": "NMAR",
+     "compressed": "none",
+     "note": ""
+    },
+    {
+     "offset": 17,
+     "side": "back",
+     "kind": "NCEC header",
+     "compressed": "none",
+     "note": ""
+    },
+    {
+     "offset": 18,
+     "side": "both",
+     "kind": "NCLR",
+     "compressed": "none",
+     "note": "normal palette (16 colors); palette-only forms use member 14253 + (formSpriteIndex + form - 1) * 2 + shiny"
+    },
+    {
+     "offset": 19,
+     "side": "both",
+     "kind": "NCLR",
+     "compressed": "none",
+     "note": "shiny palette"
+    }
+   ]
+  },
+  {
+   "id": "trainerSprite",
+   "label": "Trainer battle sprites (front)",
+   "archive": 72,
+   "path": "a/0/7/2",
+   "memberCount": 760,
+   "mapping": "block = 8 * graphic; graphic = TrainerGraIndexTable[trainerClass] (106-byte table in the ARM9 image at 0x020A023C) for classes up to 0x69; 95 graphics",
+   "src": "pokegra.c:530-640, mcss.c:3231",
+   "roles": [
+    {
+     "offset": 0,
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "small tile sheet"
+    },
+    {
+     "offset": 1,
+     "kind": "NCGR",
+     "compressed": "LZ11",
+     "note": "battle bitmap (texture member)"
+    },
+    {
+     "offset": 2,
+     "kind": "NCER",
+     "compressed": "none"
+    },
+    {
+     "offset": 3,
+     "kind": "NANR",
+     "compressed": "LZ11"
+    },
+    {
+     "offset": 4,
+     "kind": "NMCR",
+     "compressed": "none"
+    },
+    {
+     "offset": 5,
+     "kind": "NMAR",
+     "compressed": "none"
+    },
+    {
+     "offset": 6,
+     "kind": "NCEC header",
+     "compressed": "none"
+    },
+    {
+     "offset": 7,
+     "kind": "NCLR",
+     "compressed": "none"
+    }
+   ]
+  },
+  {
+   "id": "trainerSpriteBack",
+   "label": "Trainer battle sprites (back, player characters)",
+   "archive": 73,
+   "path": "a/0/7/3",
+   "memberCount": 48,
+   "mapping": "block = 8 * graphic, 6 graphics selected directly by id (flag bit set); same eight roles as the front archive",
+   "src": "pokegra.c:530-640",
+   "roles": [
+    {
+     "offset": 0,
+     "kind": "NCGR"
+    },
+    {
+     "offset": 1,
+     "kind": "NCGR"
+    },
+    {
+     "offset": 2,
+     "kind": "NCER"
+    },
+    {
+     "offset": 3,
+     "kind": "NANR"
+    },
+    {
+     "offset": 4,
+     "kind": "NMCR"
+    },
+    {
+     "offset": 5,
+     "kind": "NMAR"
+    },
+    {
+     "offset": 6,
+     "kind": "NCEC header"
+    },
+    {
+     "offset": 7,
+     "kind": "NCLR"
+    }
+   ]
+  },
+  {
+   "id": "pokemonIcon",
+   "label": "Pokemon icons (party and box)",
+   "archive": 7,
+   "path": "a/0/0/7",
+   "memberCount": 1431,
+   "mapping": "member 0 = palette (3 sub-palettes of 16 colors); 1..6 = shared cell and animation files; icon tiles: 7 + 2 * n, n = species id, 650 egg, 651 Manaphy egg, forms with own icon (formSpriteIndex + form - 1) + 652; the odd member after each icon holds the female variant when non-empty (else size 0); sub-palette choice comes from a nibble table in the ARM9 image (0x0209E474): low nibble male, high nibble female, index = species (egg 650/651; form index formSpriteIndex + form + 651)",
+   "src": "poke_tool_ext.c:352-470, worldtrade_box.c:1303",
+   "roles": [
+    {
+     "offset": 0,
+     "kind": "NCLR",
+     "compressed": "none",
+     "note": "shared palette, 48 colors"
+    },
+    {
+     "offset": 1,
+     "kind": "NANR",
+     "compressed": "none",
+     "note": "shared animation (also 3, 5)"
+    },
+    {
+     "offset": 2,
+     "kind": "NCER",
+     "compressed": "none",
+     "note": "shared cell bank (also 4, 6)"
+    },
+    {
+     "offset": 7,
+     "kind": "NCGR",
+     "compressed": "none",
+     "note": "icon tiles for species 0, 1024 bytes = two 32x32 4bpp frames; species n at 7 + 2n"
+    }
+   ]
+  },
+  {
+   "id": "itemIcon",
+   "label": "Item icons (bag)",
+   "archive": 25,
+   "path": "a/0/2/5",
+   "memberCount": 1005,
+   "mapping": "item id -> (tileMember, paletteMember) from the u16 pair table item_gfx_member in the ARM9 image (0x0209EB6C, 627 entries); item 0 uses (1001, 1002); members 0 and 1 are the shared animation and cell bank",
+   "src": "file_util.c:400-406",
+   "roles": [
+    {
+     "offset": 0,
+     "kind": "NANR",
+     "compressed": "none",
+     "note": "shared"
+    },
+    {
+     "offset": 1,
+     "kind": "NCER",
+     "compressed": "none",
+     "note": "shared"
+    },
+    {
+     "offset": 2,
+     "kind": "NCGR",
+     "compressed": "none",
+     "note": "tile member: 512 bytes of 4bpp = one 32x32 icon"
+    },
+    {
+     "offset": 3,
+     "kind": "NCLR",
+     "compressed": "none",
+     "note": "palette member (tile member + 1 for the first items)"
+    }
+   ]
+  },
+  {
+   "id": "overworldObjectParams",
+   "label": "Overworld object parameters",
+   "archive": 48,
+   "path": "a/0/4/8",
+   "memberCount": 1,
+   "mapping": "single member: 4-byte header (u16 count = 799) then 799 records of 28 bytes; record = object code table index",
+   "src": "fldmmdl.c:2028, fldmmdl.c:2060, fldmmdl_types.h:32",
+   "roles": [],
+   "recordSize": 28,
+   "fields": [
+    {
+     "name": "code",
+     "label": "Object code",
+     "offset": 0,
+     "type": "u16",
+     "confidence": "verified"
+    },
+    {
+     "name": "drawType",
+     "label": "Draw type",
+     "offset": 2,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "drawProcNo",
+     "label": "Draw procedure",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "shadowSize",
+     "label": "Shadow size",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "footMarkType",
+     "label": "Footprint type",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "reflectType",
+     "label": "Reflection type",
+     "offset": 6,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "mdlSize",
+     "label": "Model size",
+     "offset": 7,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "texSize",
+     "label": "Texture size",
+     "offset": 8,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "animId",
+     "label": "Animation id",
+     "offset": 9,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "sex",
+     "label": "Gender",
+     "offset": 10,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "sizeWidth",
+     "label": "Footprint width",
+     "offset": 11,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "sizeDepth",
+     "label": "Footprint depth",
+     "offset": 12,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "offsetX",
+     "label": "Offset X",
+     "offset": 13,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "offsetY",
+     "label": "Offset Y",
+     "offset": 14,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "offsetZ",
+     "label": "Offset Z",
+     "offset": 15,
+     "type": "s8",
+     "confidence": "verified"
+    },
+    {
+     "name": "resource",
+     "label": "Resource ids",
+     "offset": 16,
+     "type": "u32",
+     "repeat": {
+      "count": 3,
+      "stride": 4
+     },
+     "confidence": "inferred",
+     "note": "three u32 member ids into a/0/4/9 (model/texture/animation), per aletheia; not verified"
+    }
+   ]
+  },
+  {
+   "id": "overworldObjectResources",
+   "label": "Overworld object models and textures",
+   "archive": 49,
+   "path": "a/0/4/9",
+   "memberCount": 764,
+   "mapping": "members are BMD0 models, BTX0 textures and animation files referenced by the resource ids of a/0/4/8; no pixel-level editor target (3D)",
+   "src": "fldmmdl.c:374",
+   "roles": []
+  },
+  {
+   "id": "mapChunks",
+   "label": "Map chunks (3D terrain, buildings, per-tile attributes)",
+   "archive": 8,
+   "path": "a/0/0/8",
+   "memberCount": 649,
+   "mapping": "member = chunk id taken from the map matrix (a/0/0/9) cells; each member is a small size-table wrapper (tags WB, GC, NG, RD) around a BMD0 model followed by a width x height grid of 8-byte tile records (u16 surface, u16 height index, u32 attribute: terrain id in bits 0..15, flags in bits 16..31)",
+   "src": "map_matrix.c:55, aletheia tools/assets/map_grid.py",
+   "roles": []
+  },
+  {
+   "id": "mapMatrix",
+   "label": "Map matrix",
+   "archive": 9,
+   "path": "a/0/0/9",
+   "memberCount": 255,
+   "mapping": "member = matrixId from the zone header; header u16 mode, u16 pad, u16 width, u16 height (width and height at most 30, product at most 900), then width*height u32 chunk ids (member of a/0/0/8, 0xFFFFFFFF = empty), then, when mode is 1, width*height u32 zone ids (member 0 is 6272 = 8 + 783 * 8 bytes)",
+   "src": "map_matrix.c:55-100",
+   "roles": []
+  },
+  {
+   "id": "mapAreaTextures",
+   "label": "Map area textures",
+   "archive": 14,
+   "path": "a/0/1/4",
+   "memberCount": 282,
+   "mapping": "BTX0 texture sets; member = texSetId of the area record (a/0/1/3), equal to the record index in 280 of 282 records [inferred]",
+   "src": "zonedata.c:120",
+   "roles": []
+  }
+ ],
+ "sounds": [
+  {
+   "id": "music",
+   "label": "Music (BGM)",
+   "container": "wb_sound_data.sdat (whole-file, not a NARC)",
+   "seq": [
+    1000,
+    1178
+   ],
+   "mapping": "SDAT sequence numbers 1000..1178 (names SEQ_BGM_* in the SYMB block); the zone header holds four of these per zone, one per season",
+   "src": "zonedata.c:62 (bgm[4] per season), SYMB table"
+  },
+  {
+   "id": "jingles",
+   "label": "Jingles (ME)",
+   "container": "wb_sound_data.sdat",
+   "seq": [
+    1300,
+    1331
+   ],
+   "mapping": "sequences named SEQ_ME_*",
+   "src": "SYMB table"
+  },
+  {
+   "id": "soundEffects",
+   "label": "Sound effects (SE)",
+   "container": "wb_sound_data.sdat",
+   "seq": [
+    1350,
+    2075
+   ],
+   "mapping": "sequences named SEQ_SE_*, 726 named plus unnamed slots",
+   "src": "SYMB table"
+  },
+  {
+   "id": "cries",
+   "label": "Pokemon cries",
+   "container": "wb_sound_data.sdat",
+   "mapping": "wave archive (SWAR) number = cry index: species id 1..649; 650 = Sky Forme Shaymin (species 492 form 1); each archive holds one PCM or ADPCM wave; wave archive names are WAVE_ARC_PV### (first 494) and WAVE_ARC_PMWB_### (remaining); per-species playback parameters in a/1/9/4 (652 x 4 bytes: u16 rate, u8 volume 97..127, u8 pad); Chatot (441) can play a recorded sample instead",
+   "waveArchive": [
+    1,
+    650
+   ],
+   "paramArchive": 194,
+   "src": "pm_voice.c:442-481, pm_voice.c:772, pm_voice.c:801"
+  }
+ ],
+ "textBanks": [
+  {
+   "id": "speciesName",
+   "archive": 2,
+   "bank": 70,
+   "entries": 652,
+   "confidence": "verified",
+   "note": "species names, index = species id"
+  },
+  {
+   "id": "speciesNameUpper",
+   "archive": 2,
+   "bank": 284,
+   "entries": 652,
+   "confidence": "inferred",
+   "note": "same in capitals"
+  },
+  {
+   "id": "moveName",
+   "archive": 2,
+   "bank": 203,
+   "entries": 560,
+   "confidence": "verified",
+   "note": "move names, index = move id"
+  },
+  {
+   "id": "moveDescription",
+   "archive": 2,
+   "bank": 202,
+   "entries": 560,
+   "confidence": "inferred",
+   "note": "move descriptions"
+  },
+  {
+   "id": "moveNameUpper",
+   "archive": 2,
+   "bank": 286,
+   "entries": 560,
+   "confidence": "inferred",
+   "note": "capitals"
+  },
+  {
+   "id": "itemName",
+   "archive": 2,
+   "bank": 54,
+   "entries": 627,
+   "confidence": "verified",
+   "note": "item names, index = item id"
+  },
+  {
+   "id": "itemDescription",
+   "archive": 2,
+   "bank": 53,
+   "entries": 627,
+   "confidence": "inferred",
+   "note": "item descriptions"
+  },
+  {
+   "id": "itemNameWithArticle",
+   "archive": 2,
+   "bank": 279,
+   "entries": 627,
+   "confidence": "inferred",
+   "note": "article and name templates"
+  },
+  {
+   "id": "itemNamePlural",
+   "archive": 2,
+   "bank": 280,
+   "entries": 627,
+   "confidence": "inferred",
+   "note": "plural names"
+  },
+  {
+   "id": "abilityName",
+   "archive": 2,
+   "bank": 182,
+   "entries": 165,
+   "confidence": "inferred",
+   "note": "ability names, index = ability id"
+  },
+  {
+   "id": "abilityDescription",
+   "archive": 2,
+   "bank": 183,
+   "entries": 165,
+   "confidence": "inferred",
+   "note": "ability descriptions"
+  },
+  {
+   "id": "abilityNameUpper",
+   "archive": 2,
+   "bank": 285,
+   "entries": 165,
+   "confidence": "inferred",
+   "note": "capitals"
+  },
+  {
+   "id": "typeName",
+   "archive": 2,
+   "bank": 199,
+   "entries": 17,
+   "confidence": "verified",
+   "note": "type names, index = type id (17 entries, 0 Normal ... 16 Dark)"
+  },
+  {
+   "id": "typeNameUpper",
+   "archive": 2,
+   "bank": 287,
+   "entries": 17,
+   "confidence": "inferred",
+   "note": "capitals"
+  },
+  {
+   "id": "natureName",
+   "archive": 2,
+   "bank": 24,
+   "entries": 25,
+   "confidence": "inferred",
+   "note": "nature names"
+  },
+  {
+   "id": "trainerName",
+   "archive": 2,
+   "bank": 190,
+   "entries": 616,
+   "confidence": "verified",
+   "note": "trainer names, index = trainer id (tr_tool.c:146)"
+  },
+  {
+   "id": "trainerClassName",
+   "archive": 2,
+   "bank": 191,
+   "entries": 105,
+   "confidence": "verified",
+   "note": "trainer class names, index = class id"
+  },
+  {
+   "id": "trainerClassNameWithArticle",
+   "archive": 2,
+   "bank": 283,
+   "entries": 105,
+   "confidence": "inferred",
+   "note": "article forms"
+  },
+  {
+   "id": "placeName",
+   "archive": 2,
+   "bank": 89,
+   "entries": 117,
+   "confidence": "verified",
+   "note": "place names, zone header placeNameId (10 bits) indexes this bank"
+  },
+  {
+   "id": "pokedexEntry",
+   "archive": 2,
+   "bank": 235,
+   "entries": 650,
+   "confidence": "inferred",
+   "note": "Pokedex flavor text (banks 235..243 are the per-version and per-language copies)"
+  },
+  {
+   "id": "pokedexCategory",
+   "archive": 2,
+   "bank": 260,
+   "entries": 650,
+   "confidence": "inferred",
+   "note": "species category text, for example 'Seed Pokemon' style; banks 260..267 per language"
+  },
+  {
+   "id": "pokedexHeight",
+   "archive": 2,
+   "bank": 244,
+   "entries": 727,
+   "confidence": "inferred",
+   "note": "height strings (245..252 per unit and language)"
+  },
+  {
+   "id": "pokedexWeight",
+   "archive": 2,
+   "bank": 268,
+   "entries": 727,
+   "confidence": "inferred",
+   "note": "weight strings (269..275 per unit and language)"
+  }
+ ]
+}

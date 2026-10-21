@@ -561,17 +561,34 @@ fn catalog_and_edits() {
 
     // Palette: the menu frame palette, first colour set to red.
     let pal = Member { arc: 5, index: 3 };
-    let sheet = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal).unwrap();
+    let grid = catalog::Layout::Grid { cols: None };
+    let sheet = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal, &grid).unwrap();
     let mut colors = sheet.colors.clone();
     colors[1] = 0xFF0000;
     catalog::save_palette(&bridge, pal, &colors).unwrap();
-    let again = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal).unwrap();
+    let again = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal, &grid).unwrap();
     assert_eq!(again.colors[1], 0xFF0000);
     assert_eq!(project.changes().len(), 2);
 
     catalog::revert(&bridge, pal).unwrap();
+
+    // Sprite sheets pick their cell bank: the ball icon (a/0/8/3 #112) is
+    // drawn by a ball bank (#81-83 closed, #137-139 opening; both use its
+    // tiles), the touch bar buttons (#20) by
+    // #21-23.
+    let ball = catalog::best_cell_bank(
+        &bridge,
+        Member {
+            arc: 83,
+            index: 112,
+        },
+    )
+    .unwrap();
+    assert!(matches!(ball, Some(81..=83 | 137..=139)), "{ball:?}");
+    let bar = catalog::best_cell_bank(&bridge, Member { arc: 83, index: 20 }).unwrap();
+    assert!(matches!(bar, Some(21..=23)), "{bar:?}");
     assert_eq!(
-        catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal)
+        catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal, &grid)
             .unwrap()
             .colors,
         sheet.colors

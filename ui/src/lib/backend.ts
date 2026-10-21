@@ -54,12 +54,21 @@ export interface SoundInfo {
 }
 
 export interface SheetData {
-  tilesWide: number | null;
-  tilesHigh: number | null;
   bpp: 4 | 8;
+  /// One 64-entry array of colour indices per tile.
   tiles: number[][];
+  /// The palette as 0xRRGGBB.
   colors: number[];
+  /// The picture: width * height entries of tile * 64 + pixel, or -1.
+  width: number;
+  height: number;
+  map: number[];
+  /// The palette bank of each pixel.
+  banks: number[];
+  tilesWide: number | null;
 }
+
+export type Layout = { kind: "grid"; cols: number | null } | { kind: "cells"; cer: Ref };
 
 /// A member reference: [archive id, member index].
 export type Ref = [number, number];
@@ -75,7 +84,8 @@ export const sounds = () => invoke<SoundInfo[]>("sounds");
 export const textBank = (arc: number, bank: number) => invoke<string[]>("text_bank", { arc, bank });
 export const saveTextBank = (arc: number, bank: number, strings: string[]) =>
   invoke<void>("save_text_bank", { arc, bank, strings });
-export const sheetData = (chr: Ref, pal: Ref) => invoke<SheetData>("sheet_data", { chr, pal });
+export const sheetData = (chr: Ref, pal: Ref, layout: Layout) => invoke<SheetData>("sheet_data", { chr, pal, layout });
+export const cellBank = (chr: Ref) => invoke<number | null>("cell_bank", { chr });
 export const saveSheet = (chr: Ref, tiles: number[][]) => invoke<void>("save_sheet", { chr, tiles });
 export const savePalette = (pal: Ref, colors: number[]) => invoke<void>("save_palette", { pal, colors });
 export const revert = (m: Ref) => invoke<void>("revert", { m });

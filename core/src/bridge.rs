@@ -26,6 +26,9 @@
 //!                                          data; index 15 is transparent)
 //! table/{name}                             JSON: a UI table read from code
 //!                                          (see `UI_TABLES`)
+//! preview/{chr}/{pal}                      a sheet as the game shows it: its
+//!                                          cells assembled when the archive
+//!                                          has a cell bank for it, else tiles
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
 //! ```
@@ -127,6 +130,8 @@ pub struct Bridge {
     code: Option<CodeImages>,
     archives: Mutex<HashMap<u16, Arc<narc::Narc>>>,
     sdat: std::sync::OnceLock<Option<Arc<crate::sdat::Sdat>>>,
+    /// The cell bank that assembles each sheet, once found.
+    cell_banks: Mutex<HashMap<Member, Option<usize>>>,
     fonts: Mutex<HashMap<Member, Arc<Font>>>,
     served: Mutex<HashMap<String, Arc<Asset>>>,
 }
@@ -139,6 +144,7 @@ impl Bridge {
             source,
             project: None,
             sdat: std::sync::OnceLock::new(),
+            cell_banks: Mutex::new(HashMap::new()),
             archives: Mutex::new(HashMap::new()),
             fonts: Mutex::new(HashMap::new()),
             served: Mutex::new(HashMap::new()),
@@ -167,6 +173,17 @@ impl Bridge {
                 crate::sdat::Sdat::parse(bytes).ok().map(Arc::new)
             })
             .clone()
+    }
+
+    /// The cell bank that assembles a sheet (see `catalog::best_cell_bank`),
+    /// remembered per sheet.
+    pub fn cell_bank(&self, chr: Member) -> Result<Option<usize>, Error> {
+        if let Some(found) = lock(&self.cell_banks).get(&chr) {
+            return Ok(*found);
+        }
+        let found = crate::catalog::best_cell_bank(self, chr)?;
+        lock(&self.cell_banks).insert(chr, found);
+        Ok(found)
     }
 
     /// Forgets cached results, after the project changed something.
@@ -379,6 +396,19 @@ impl Bridge {
                     .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
                 let values: Vec<String> = bytes.iter().map(u8::to_string).collect();
                 Ok(json(format!("[{}]", values.join(","))))
+            }
+            Some("preview") if parts.len() == 3 => {
+                let chr = member(1)?;
+                let layout = match self.cell_bank(chr)? {
+                    Some(cer) => crate::catalog::Layout::Cells {
+                        cer: [chr.arc as usize, cer],
+                    },
+                    None => crate::catalog::Layout::Grid {
+                        cols: query_number("cols"),
+                    },
+                };
+                let data = crate::catalog::sheet_data(self, chr, member(2)?, &layout)?;
+                Ok(png(data.render()))
             }
             Some("sound") if parts.len() == 2 => {
                 let sdat = self

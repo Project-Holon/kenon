@@ -66,7 +66,7 @@
 
   const thumb = (index: number) =>
     palette !== null || palettes.length > 0
-      ? asset(`sheet/${arc}:${index}/${arc}:${pairedPalette(index) ?? 0}/0?cols=8`, version)
+      ? asset(`preview/${arc}:${index}/${arc}:${pairedPalette(index) ?? 0}?cols=8`, version)
       : "";
 
   const chr = $derived<Ref | null>(arc !== null && selected !== null ? [arc, selected] : null);

@@ -4,9 +4,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::bridge::{Bridge, Error, Member};
+use crate::ncer::Ncer;
 use crate::ncgr::Ncgr;
 use crate::nclr::Palette;
 use crate::sdat::{Kind, Sdat};
@@ -137,32 +138,113 @@ pub fn text_bank(bridge: &Bridge, arc: u16, bank: usize) -> Result<Vec<String>, 
         .collect())
 }
 
-/// The data the pixel editor works on: a sheet's colour indices tile by
-/// tile and its palette.
+/// How a sheet is laid out for viewing and editing.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Layout {
+    /// Plain tiles in rows (the sheet's own width, else `cols`).
+    Grid { cols: Option<usize> },
+    /// The cells of a cell bank, assembled as the game draws them, side
+    /// by side. A 1D sheet only makes a picture this way: its tiles are
+    /// stored OBJ by OBJ.
+    Cells { cer: [usize; 2] },
+}
+
+/// The data the pixel editor works on.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SheetData {
-    pub tiles_wide: Option<u16>,
-    pub tiles_high: Option<u16>,
     pub bpp: u8,
     /// One 64-entry array of colour indices per tile.
     pub tiles: Vec<Vec<u8>>,
     /// The palette as 0xRRGGBB.
     pub colors: Vec<u32>,
+    /// The picture: `width * height` entries of `tile * 64 + pixel`, or -1
+    /// where nothing is drawn.
+    pub width: usize,
+    pub height: usize,
+    pub map: Vec<i32>,
+    /// The palette bank of each pixel (4bpp OBJs carry their own).
+    pub banks: Vec<u8>,
+    /// The sheet's own width in tiles, when it gives one.
+    pub tiles_wide: Option<u16>,
 }
 
-pub fn sheet_data(bridge: &Bridge, chr: Member, pal: Member) -> Result<SheetData, Error> {
+pub fn sheet_data(
+    bridge: &Bridge,
+    chr: Member,
+    pal: Member,
+    layout: &Layout,
+) -> Result<SheetData, Error> {
     let tiles = Ncgr::parse(&bridge.member(chr)?).map_err(|e| Error::Format(e.to_string()))?;
     let palette = Palette::parse(&bridge.member(pal)?).map_err(|e| Error::Format(e.to_string()))?;
+    let count = tiles.tile_count();
+    let (width, height, map, banks) = match layout {
+        Layout::Grid { cols } => {
+            let cols = match tiles.size_px() {
+                Some((w, _)) => w / 8,
+                None => cols.unwrap_or(16),
+            }
+            .clamp(1, count.max(1));
+            let rows = count.div_ceil(cols).max(1);
+            let (w, h) = (cols * 8, rows * 8);
+            let mut map = vec![-1; w * h];
+            for t in 0..count {
+                for p in 0..64 {
+                    let x = t % cols * 8 + p % 8;
+                    let y = t / cols * 8 + p / 8;
+                    map[y * w + x] = (t * 64 + p) as i32;
+                }
+            }
+            (w, h, map, vec![0; w * h])
+        }
+        Layout::Cells { cer } => {
+            let bank = Ncer::parse(&bridge.member(member_of(*cer))?)
+                .map_err(|e| Error::Format(e.to_string()))?;
+            let maps: Vec<_> = bank
+                .cells
+                .iter()
+                .map(|c| crate::image::cell_map(&bank, c, &tiles))
+                .filter(|m| m.width > 0)
+                .collect();
+            // Cells in rows no wider than 256 pixels, 8 pixels apart.
+            let gap = 8;
+            let mut placed = Vec::new();
+            let (mut x, mut y, mut row_h, mut w) = (0, 0, 0, 0);
+            for m in &maps {
+                if x > 0 && x + m.width > 256 {
+                    x = 0;
+                    y += row_h + gap;
+                    row_h = 0;
+                }
+                placed.push((x, y));
+                x += m.width + gap;
+                w = w.max(x - gap);
+                row_h = row_h.max(m.height);
+            }
+            let h = (y + row_h).max(1);
+            let w = w.max(1);
+            let mut map = vec![-1; w * h];
+            let mut banks = vec![0; w * h];
+            for (m, (px, py)) in maps.iter().zip(placed) {
+                for (i, entry) in m.pixels.iter().enumerate() {
+                    if let Some((src, b)) = entry {
+                        let at = (py + i / m.width) * w + px + i % m.width;
+                        map[at] = *src as i32;
+                        banks[at] = *b;
+                    }
+                }
+            }
+            (w, h, map, banks)
+        }
+    };
     let sized = |v: u16| (v != crate::ncgr::NO_SIZE).then_some(v);
     Ok(SheetData {
-        tiles_wide: sized(tiles.tiles_wide),
-        tiles_high: sized(tiles.tiles_high),
         bpp: match tiles.depth {
             crate::ncgr::Depth::Bpp4 => 4,
             crate::ncgr::Depth::Bpp8 => 8,
         },
-        tiles: (0..tiles.tile_count())
+        tiles: (0..count)
             .map(|t| tiles.tile(t, false, false).to_vec())
             .collect(),
         colors: palette
@@ -173,7 +255,95 @@ pub fn sheet_data(bridge: &Bridge, chr: Member, pal: Member) -> Result<SheetData
                 (r as u32) << 16 | (g as u32) << 8 | b as u32
             })
             .collect(),
+        width,
+        height,
+        map,
+        banks,
+        tiles_wide: sized(tiles.tiles_wide),
     })
+}
+
+impl SheetData {
+    /// The picture as RGBA, colour 0 transparent.
+    pub fn render(&self) -> crate::image::Rgba {
+        let mut img = crate::image::Rgba::new(self.width, self.height);
+        for (i, &src) in self.map.iter().enumerate() {
+            if src < 0 {
+                continue;
+            }
+            let v = self.tiles[src as usize / 64][src as usize % 64] as usize;
+            if v == 0 {
+                continue;
+            }
+            let base = if self.bpp == 4 {
+                self.banks[i] as usize * 16
+            } else {
+                0
+            };
+            let c = self.colors.get(base + v).copied().unwrap_or(0xFF00FF);
+            img.pixels[i * 4..i * 4 + 4].copy_from_slice(&[
+                (c >> 16) as u8,
+                (c >> 8) as u8,
+                c as u8,
+                255,
+            ]);
+        }
+        img
+    }
+}
+
+fn member_of([arc, index]: [usize; 2]) -> Member {
+    Member {
+        arc: arc as u16,
+        index,
+    }
+}
+
+/// The cell bank of the archive that best assembles a sheet: the one whose
+/// cells use the most of the sheet's tiles while their pieces stay inside
+/// it (the nearest such bank on a tie). `None` when no bank fits.
+pub fn best_cell_bank(bridge: &Bridge, chr: Member) -> Result<Option<usize>, Error> {
+    let tiles = Ncgr::parse(&bridge.member(chr)?).map_err(|e| Error::Format(e.to_string()))?;
+    let count = tiles.tile_count();
+    let archive = bridge.base_archive(chr.arc)?;
+    let mut best: Option<(usize, usize, usize)> = None;
+    for (index, raw) in archive.iter_raw().enumerate() {
+        let bytes = lz::decompress_if_compressed(raw);
+        if !bytes.starts_with(b"RECN") {
+            continue;
+        }
+        let Ok(bank) = Ncer::parse(&bytes) else {
+            continue;
+        };
+        let mut used = vec![false; count];
+        let mut fits = true;
+        for cell in &bank.cells {
+            let map = crate::image::cell_map(&bank, cell, &tiles);
+            let drawn = map.pixels.iter().flatten().count();
+            for &(src, _) in map.pixels.iter().flatten() {
+                used[src / 64] = true;
+            }
+            // cell_map drops pieces that reach past the sheet: a bank that
+            // loses most of a cell does not belong to this sheet.
+            let area: usize = cell
+                .objs
+                .iter()
+                .map(|o| o.width as usize * o.height as usize)
+                .sum();
+            if drawn * 2 < area {
+                fits = false;
+            }
+        }
+        if !fits {
+            continue;
+        }
+        let score = used.iter().filter(|&&u| u).count();
+        let distance = index.abs_diff(chr.index);
+        if score > 0 && best.is_none_or(|(s, d, _)| score > s || (score == s && distance < d)) {
+            best = Some((score, distance, index));
+        }
+    }
+    Ok(best.map(|(_, _, i)| i))
 }
 
 fn project_of(bridge: &Bridge) -> Result<&Arc<crate::project::Project>, Error> {

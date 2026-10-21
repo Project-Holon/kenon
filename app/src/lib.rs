@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
 use kenon_core::bridge::{Bridge, Member};
-use kenon_core::catalog::{self, ArchiveInfo, MemberInfo, SheetData, SoundInfo};
+use kenon_core::catalog::{self, ArchiveInfo, Layout, MemberInfo, SheetData, SoundInfo};
 use kenon_core::data_root;
 use kenon_core::project::{Change, Project};
 use kenon_core::source::{self, GameCheck, Source};
@@ -226,9 +226,17 @@ async fn sheet_data(
     state: State<'_, AppState>,
     chr: [usize; 2],
     pal: [usize; 2],
+    layout: Layout,
 ) -> Result<SheetData, String> {
     let bridge = state.need_bridge()?;
-    catalog::sheet_data(&bridge, member(chr), member(pal)).map_err(|e| e.to_string())
+    catalog::sheet_data(&bridge, member(chr), member(pal), &layout).map_err(|e| e.to_string())
+}
+
+/// The cell bank that assembles a sheet, if the archive has one.
+#[tauri::command]
+async fn cell_bank(state: State<'_, AppState>, chr: [usize; 2]) -> Result<Option<usize>, String> {
+    let bridge = state.need_bridge()?;
+    bridge.cell_bank(member(chr)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -300,6 +308,7 @@ pub fn run() {
             text_bank,
             save_text_bank,
             sheet_data,
+            cell_bank,
             save_sheet,
             save_palette,
             revert,

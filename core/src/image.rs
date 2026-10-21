@@ -171,6 +171,82 @@ pub fn render_cell(
     }
 }
 
+/// Where each pixel of a drawn cell comes from: the tile and the pixel in
+/// it (`tile * 64 + pixel`, flips applied), and the palette bank, or
+/// `None` where no OBJ covers it. The editor paints through this map, so a
+/// sprite is edited as the game shows it.
+pub struct CellMap {
+    pub width: usize,
+    pub height: usize,
+    pub origin: (i32, i32),
+    pub pixels: Vec<Option<(usize, u8)>>,
+}
+
+/// The pixel map of a cell, with the same placement and drawing order as
+/// [`render_cell`].
+pub fn cell_map(bank: &Ncer, cell: &Cell, tiles: &Ncgr) -> CellMap {
+    if cell.objs.is_empty() {
+        return CellMap {
+            width: 0,
+            height: 0,
+            origin: (0, 0),
+            pixels: Vec::new(),
+        };
+    }
+    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+    for obj in &cell.objs {
+        let (x, y) = obj.origin();
+        x0 = x0.min(x);
+        y0 = y0.min(y);
+        x1 = x1.max(x + obj.width as i32);
+        y1 = y1.max(y + obj.height as i32);
+    }
+    let (width, height) = ((x1 - x0) as usize, (y1 - y0) as usize);
+    let mut pixels = vec![None; width * height];
+    let tile_size = tiles.depth.bytes_per_tile();
+    let row_2d = match tiles.size_px() {
+        Some((w, _)) => w / 8 * tile_size,
+        None => 32 * tile_size,
+    };
+    let mut order: Vec<usize> = (0..cell.objs.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse((cell.objs[i].priority, i)));
+    for i in order {
+        let obj = &cell.objs[i];
+        let (ox, oy) = obj.origin();
+        let start = obj.tile as usize * bank.name_unit();
+        let (tw, th) = (obj.width as usize / 8, obj.height as usize / 8);
+        for ty in 0..th {
+            for tx in 0..tw {
+                let at = if bank.is_1d() {
+                    start + (ty * tw + tx) * tile_size
+                } else {
+                    start + ty * row_2d + tx * tile_size
+                };
+                let tile = at / tile_size;
+                if tile >= tiles.tile_count() {
+                    continue;
+                }
+                let dx = if obj.hflip { tw - 1 - tx } else { tx };
+                let dy = if obj.vflip { th - 1 - ty } else { ty };
+                for p in 0..64 {
+                    let (lx, ly) = (p % 8, p / 8);
+                    let sx = if obj.hflip { 7 - lx } else { lx };
+                    let sy = if obj.vflip { 7 - ly } else { ly };
+                    let px = (ox - x0) as usize + dx * 8 + lx;
+                    let py = (oy - y0) as usize + dy * 8 + ly;
+                    pixels[py * width + px] = Some((tile * 64 + sy * 8 + sx, obj.palette));
+                }
+            }
+        }
+    }
+    CellMap {
+        width,
+        height,
+        origin: (-x0, -y0),
+        pixels,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,5 +307,23 @@ mod tests {
         assert_eq!(cell.image.get(15, 0), palette.rgba(1));
         assert_eq!(cell.image.get(8, 8), palette.rgba(4));
         assert_eq!(cell.image.get(0, 15), [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn cell_map_matches_render() {
+        let data: Vec<u8> = (0..4u8).flat_map(|t| [(t + 1) * 0x11; 32]).collect();
+        let tiles = Ncgr::parse(&ncgr::build(4, 1, Depth::Bpp4, &data)).unwrap();
+        let bank = Ncer::parse(&ncer::build(
+            0,
+            &[&[[0x4000 | 0xFC, 0x1000 | 0x1F8, 0], [4, 0, 3]]],
+        ))
+        .unwrap();
+        let map = cell_map(&bank, &bank.cells[0], &tiles);
+        assert_eq!((map.width, map.height, map.origin), (16, 16, (8, 4)));
+        // hflip: the left half of OBJ 0 comes from tile 1, mirrored.
+        assert_eq!(map.pixels[0], Some((64 + 7, 0)));
+        assert_eq!(map.pixels[15], Some((0, 0)));
+        assert_eq!(map.pixels[8 * 16 + 8], Some((3 * 64, 0)));
+        assert_eq!(map.pixels[15 * 16], None);
     }
 }
