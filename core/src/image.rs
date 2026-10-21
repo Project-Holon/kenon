@@ -228,13 +228,19 @@ pub fn cell_map(bank: &Ncer, cell: &Cell, tiles: &Ncgr) -> CellMap {
                 }
                 let dx = if obj.hflip { tw - 1 - tx } else { tx };
                 let dy = if obj.vflip { th - 1 - ty } else { ty };
+                let raw = tiles.tile(tile, false, false);
                 for p in 0..64 {
                     let (lx, ly) = (p % 8, p / 8);
                     let sx = if obj.hflip { 7 - lx } else { lx };
                     let sy = if obj.vflip { 7 - ly } else { ly };
                     let px = (ox - x0) as usize + dx * 8 + lx;
                     let py = (oy - y0) as usize + dy * 8 + ly;
-                    pixels[py * width + px] = Some((tile * 64 + sy * 8 + sx, obj.palette));
+                    // Colour 0 is see-through: an OBJ in front only takes a
+                    // pixel it draws, or one nothing behind it draws.
+                    let at = &mut pixels[py * width + px];
+                    if raw[sy * 8 + sx] != 0 || at.is_none() {
+                        *at = Some((tile * 64 + sy * 8 + sx, obj.palette));
+                    }
                 }
             }
         }

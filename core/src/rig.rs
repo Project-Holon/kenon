@@ -77,6 +77,10 @@ pub type Source = Option<(usize, u8)>;
 /// One placed piece of a pose: a cell's pixel map, relative to the rig
 /// origin.
 struct Piece {
+    /// Draw order key: the cell's front-most OBJ priority (lower is in
+    /// front), then emission order (earlier is in front).
+    priority: u8,
+    order: usize,
     x: i32,
     y: i32,
     w: usize,
@@ -103,8 +107,12 @@ fn pose(sheet: &Ncgr, cells: &Ncer, anims: &Nanr, nodes: &[Node], t: u32) -> Vec
             node.y as i32 + frame.offset.1 as i32,
         );
         let identity = frame.rotation == 0 && frame.scale == (4096, 4096);
+        let priority = cell.objs.iter().map(|o| o.priority).min().unwrap_or(0);
+        let order = pieces.len();
         pieces.push(if identity {
             Piece {
+                priority,
+                order,
                 x: ax - m.origin.0,
                 y: ay - m.origin.1,
                 w: m.width,
@@ -112,11 +120,16 @@ fn pose(sheet: &Ncgr, cells: &Ncer, anims: &Nanr, nodes: &[Node], t: u32) -> Vec
                 map: m.pixels,
             }
         } else {
-            transform(&m, frame.rotation, frame.scale, ax, ay)
+            Piece {
+                priority,
+                order,
+                ..transform(&m, frame.rotation, frame.scale, ax, ay)
+            }
         });
     }
-    // Earlier nodes draw in front: paint them last.
-    pieces.reverse();
+    // Painted back to front: priority outranks order, and an earlier node
+    // draws in front (rig.py's composer, func_020643CC's emission order).
+    pieces.sort_by_key(|p| std::cmp::Reverse((p.priority, p.order)));
     pieces
 }
 
@@ -150,6 +163,8 @@ fn transform(m: &CellMap, rot: u16, scale: (i32, i32), ax: i32, ay: i32) -> Piec
         }
     }
     Piece {
+        priority: 0,
+        order: 0,
         x: ax + x0,
         y: ay + y0,
         w,
