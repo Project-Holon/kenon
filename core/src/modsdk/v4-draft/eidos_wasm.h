@@ -98,6 +98,7 @@ enum {
     EIDOS_EVENT_SHOP_BUY = 92,
     EIDOS_EVENT_MONEY_CHANGE = 93,
     EIDOS_EVENT_HEAL = 94,
+    EIDOS_EVENT_HEAL_HP = 95, /* draft: api 4, payload BwHealHp */
 
     /* progress */
     EIDOS_EVENT_BADGE_GET = 110,
@@ -116,6 +117,18 @@ EIDOS_IMPORT("on") int32_t eidos_on(uint32_t kind, EidosHandler handler);
 /* Replaces a declared game function with `handler`. `key` names the
    function. Returns 0 when it is set. */
 EIDOS_IMPORT("override") int32_t eidos_override(uint32_t key, void *handler);
+
+/* The bag (draft: the names follow the state table of sdk/mod_state.h).
+   Returns how many of an item the bag holds, or a negative number when there
+   is no bag yet. */
+EIDOS_IMPORT("item_count") int32_t eidos_item_count(uint32_t item);
+
+/* Puts `count` of an item in the bag at once. Returns 0, or non-zero when
+   the add is refused. */
+EIDOS_IMPORT("item_add") int32_t eidos_item_add(uint32_t item, uint32_t count);
+
+/* mon_release takes a Pokemon reference, which the draft has no handle for
+   yet; it is not declared here. */
 
 /* Exports: functions the mod must define. */
 

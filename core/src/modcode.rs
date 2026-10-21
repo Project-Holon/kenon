@@ -8,12 +8,11 @@
 //! the name tables). Where `docs/mod-rules-language.md` differs from that
 //! code, the code wins:
 //!
-//! - the port knows 51 events (`modnames/rules.txt`), not the 359 entries of
+//! - the port knows 52 events (`modnames/rules.txt`), not the 359 entries of
 //!   `docs/mod-events.md`, which count raw hooks too;
 //! - a rule file holds exactly one rule;
 //! - an operator is read as two characters at most, so `a<-1` is an error;
-//! - `item_count` is in the language but the port cannot read it yet, and
-//!   `battle_style` cannot be written yet.
+//! - `battle_style` cannot be written yet.
 //!
 //! A mod's "hook code" is a native library named by `code`, built outside
 //! kenon. The text kenon edits for it is the `override` lines of the
@@ -692,6 +691,19 @@ impl<'a> Parser<'a> {
             self.cell()?;
             return Ok(Ty::Int);
         }
+        if self.is_ident("setting") {
+            // setting.<key>: one of the mod's own options, read when the rule runs.
+            self.advance()?;
+            if self.tok.kind != Tk::Dot {
+                return self.fail("a '.' was expected after 'setting'");
+            }
+            self.advance()?;
+            if self.tok.kind != Tk::Ident {
+                return self.fail("a setting's key was expected");
+            }
+            self.advance()?;
+            return Ok(Ty::Int);
+        }
         self.state_field(false)?;
         Ok(Ty::Int)
     }
@@ -756,6 +768,23 @@ impl<'a> Parser<'a> {
                 self.at_end("the action has more than it needs")?;
                 if t != Ty::Text && t != Ty::Int {
                     return self.fail("the value must be a text or a number");
+                }
+                Ok(())
+            }
+            "release" => {
+                let t = self.expr()?;
+                self.at_end("the action has more than it needs")?;
+                if t != Ty::Mon && t != Ty::Int {
+                    return self.fail("the value must be a Pokemon or a party position");
+                }
+                Ok(())
+            }
+            "give" => {
+                let item = self.expr()?;
+                let count = self.expr()?;
+                self.at_end("the action has more than it needs")?;
+                if !item.is_number() || !count.is_number() {
+                    return self.fail("the item and the count must be numbers");
                 }
                 Ok(())
             }

@@ -239,7 +239,7 @@ for (const ev of events.values()) {
     pf.cName = cf.cName;
     pf.cType = cf.cType;
     if (/\*mod/.test(cf.comment) !== pf.writable) warn(`${ev.name}.${pf.name}: docs and header disagree on *mod*`);
-    const en = cf.comment.match(/(BW_[A-Z0-9]+_)\*/);
+    const en = cf.comment.match(/(BW_[A-Z0-9_]+_)\*/);
     if (en && enums.some((e) => e.prefix === en[1])) pf.enum = en[1];
   }
   for (const cf of st.fields) {
@@ -357,10 +357,18 @@ for (const f of ["build32/boot/gen/boot_link.c", "build32/ovl/boot/ovl_dispatch.
     if (m[4]) protos.set(`${m[1] ? "ov" + m[1].padStart(3, "0") : "arm9"}:${parseInt(m[2], 16)}`, m[4]);
   }
 }
+// A checkout of a commit has no build output. Keep the prototypes the last
+// api.json carried for the hooks, so a run against a worktree loses none.
+const previous = new Map();
+if (!protos.size && existsSync(join(outDir, "api.json"))) {
+  for (const h of JSON.parse(readFileSync(join(outDir, "api.json"), "utf8")).hooks ?? []) {
+    if (h.proto) previous.set(h.key, h.proto);
+  }
+}
 const hooks = declared.map((d) => {
   const n = parseInt(d.addr, 16);
   const h = { id: `hook:${d.region}:${d.addr}`, name: d.name, region: d.region, addr: d.addr, key: `${d.region}:${d.addr}`, events: d.events };
-  const proto = protos.get(`${d.region}:${n}`);
+  const proto = protos.get(`${d.region}:${n}`) ?? previous.get(`${d.region}:${d.addr}`);
   if (proto) {
     h.proto = proto;
     h.protoFromC = true;
@@ -396,7 +404,7 @@ const eventList = [...events.values()]
   .map((e) => {
     const c = curated.events[e.name] ?? {};
     need(c.when, `no 'when' text for ${e.name}`);
-    return { ...e, notes: [...e.notes, ...(c.facts ?? [])], id: `event:${e.name}`, name: e.name, numId: e.id, when: c.when ?? null, functions: c.functions ?? defaultFns(e), recipes: [] };
+    return { ...e, category: c.category ?? e.category, notes: [...e.notes, ...(c.facts ?? [])], id: `event:${e.name}`, name: e.name, numId: e.id, when: c.when ?? null, functions: c.functions ?? defaultFns(e), recipes: [] };
   });
 
 const functions = [];

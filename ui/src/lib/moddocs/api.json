@@ -1,8 +1,8 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "6b7a673",
-  "apiVersion": 3,
+  "eidosRevision": "91d4c44",
+  "apiVersion": 4,
   "sources": [
    "docs/mod-events.md",
    "docs/mod-payloads.md",
@@ -297,7 +297,9 @@
     "flag_set",
     "message"
    ],
-   "recipes": []
+   "recipes": [
+    "gift-on-map"
+   ]
   },
   {
    "name": "map.warp",
@@ -1322,6 +1324,7 @@
      "writable": false,
      "cName": "source",
      "cType": "u8",
+     "enum": "BW_MOVE_SOURCE_",
      "ruleKind": "int"
     },
     {
@@ -2231,6 +2234,7 @@
    ],
    "recipes": [
     "faint-penalty",
+    "release-on-faint",
     "faint-counter"
    ]
   },
@@ -2742,6 +2746,83 @@
    "recipes": []
   },
   {
+   "name": "heal.hp",
+   "category": "Pokemon",
+   "binding": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle)",
+   "region": "-",
+   "refuse": "no HP is added",
+   "modifyText": "the HP added",
+   "notes": [
+    "source is 0 (BW_HEAL_HP_FIELD) on the field and 1 (BW_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
+    "On the field the item is used up even when the restore is refused: refuse item.use to keep it."
+   ],
+   "caveats": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "BwMonRef",
+     "meaning": "the Pokemon that gets HP back",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "hp",
+     "type": "u16",
+     "meaning": "the HP before the restore",
+     "writable": false,
+     "cName": "hp",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "max_hp",
+     "type": "u16",
+     "meaning": "the max HP",
+     "writable": false,
+     "cName": "max_hp",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "amount",
+     "type": "u16",
+     "meaning": "the HP to add, before the cap at max HP",
+     "writable": true,
+     "cName": "amount",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "source",
+     "type": "u8",
+     "meaning": "field (an item from the bag or the party screen) or battle (any restore: bag item, held item, move, ability)",
+     "writable": false,
+     "cName": "source",
+     "cType": "u8",
+     "enum": "BW_HEAL_HP_",
+     "ruleKind": "int"
+    }
+   ],
+   "id": "event:heal.hp",
+   "cStruct": "BwHealHp",
+   "ruleEvent": true,
+   "refusable": true,
+   "numId": 95,
+   "when": "The game is about to add HP to a Pokemon. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore, through BTL_SERVER_FLOW_ApplyHpRecover: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing.",
+   "functions": [
+    "party_get",
+    "battle_get",
+    "item_count",
+    "message"
+   ],
+   "recipes": [
+    "halve-healing",
+    "no-battle-healing"
+   ]
+  },
+  {
    "name": "badge.get",
    "category": "Progress",
    "binding": "the return of BEACON_SetFlag 0x0200C248",
@@ -3101,6 +3182,21 @@
    "fromC": true
   },
   {
+   "title": "Where an HP restore happens (heal.hp).",
+   "prefix": "BW_HEAL_HP_",
+   "members": [
+    {
+     "name": "BW_HEAL_HP_FIELD",
+     "value": 0
+    },
+    {
+     "name": "BW_HEAL_HP_BATTLE",
+     "value": 1
+    }
+   ],
+   "fromC": true
+  },
+  {
    "title": "What a script handler answers.",
    "prefix": "BW_SCRIPT_",
    "members": [
@@ -3384,12 +3480,11 @@
    "name": "item_count",
    "sub": "int",
    "writable": false,
-   "readable": false,
+   "readable": true,
    "writableOk": false,
    "subscript": "a number",
    "value": "how many of item i the bag holds",
-   "fromC": true,
-   "note": "The port cannot read this yet."
+   "fromC": true
   },
   {
    "name": "battle_style",
@@ -3449,6 +3544,18 @@
    "syntax": "do send <expr>",
    "what": "Sends a value to the peers of the current session.",
    "example": "do send event.species"
+  },
+  {
+   "name": "release",
+   "syntax": "do release <mon or party position>",
+   "what": "Releases a Pokemon of the player's party for good. It is applied at the first player step on the field after a battle, and not when it would leave only eggs.",
+   "example": "do release event.mon"
+  },
+  {
+   "name": "give",
+   "syntax": "do give <item> <count>",
+   "what": "Puts a number of an item in the bag at once. Nothing happens when the bag cannot take it, and the rule stops for that firing.",
+   "example": "do give 17 5"
   }
  ],
  "functions": [
@@ -3562,7 +3669,8 @@
     "mon.helditem",
     "egg.hatch",
     "trade.ingame",
-    "item.use"
+    "item.use",
+    "heal.hp"
    ],
    "fromC": true
   },
@@ -3749,7 +3857,8 @@
     "catch.attempt",
     "catch.result",
     "battle.end",
-    "whiteout"
+    "whiteout",
+    "heal.hp"
    ],
    "fromC": true
   },
@@ -4043,7 +4152,7 @@
    "id": "fn:player_pos",
    "kind": "state",
    "name": "player_pos",
-   "group": "The map and the player",
+   "group": "Miscellaneous",
    "signature": "int (*player_pos)(s16 *x, s16 *y, s16 *z)",
    "params": [
     "s16 *x",
@@ -4064,7 +4173,7 @@
    "id": "fn:battle_style",
    "kind": "state",
    "name": "battle_style",
-   "group": "The map and the player",
+   "group": "Miscellaneous",
    "signature": "u8 (*battle_style)()",
    "params": [],
    "what": "The battle style option: shift or set.",
@@ -4115,6 +4224,69 @@
     "c"
    ],
    "rule": null,
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:mon_release",
+   "kind": "state",
+   "name": "mon_release",
+   "group": "Moves between places",
+   "signature": "int (*mon_release)(BwMonRef mon)",
+   "params": [
+    "BwMonRef mon"
+   ],
+   "what": "Releases a Pokemon of the player's party for good. It takes a party reference or a reference to one of the player's Pokemon in battle. The release is queued and applied at the first player step on the field after the battle; the Pokemon is found by its personality value then, so a switch or a compaction cannot hit the wrong one. It is refused when it would leave the party with no Pokemon that is not an egg. The party compacts and the next member becomes the lead.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "do release event.mon",
+   "events": [],
+   "fromC": true
+  },
+  {
+   "id": "fn:item_count",
+   "kind": "state",
+   "name": "item_count",
+   "group": "Miscellaneous",
+   "signature": "s32 (*item_count)(u16 item)",
+   "params": [
+    "u16 item"
+   ],
+   "what": "How many of an item the bag holds.",
+   "result": "The count, or a negative number when there is no bag yet.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "item_count[i]",
+   "events": [
+    "heal.hp"
+   ],
+   "fromC": true
+  },
+  {
+   "id": "fn:item_add",
+   "kind": "state",
+   "name": "item_add",
+   "group": "Miscellaneous",
+   "signature": "int (*item_add)(u16 item, u16 count)",
+   "params": [
+    "u16 item",
+    "u16 count"
+   ],
+   "what": "Puts a number of an item in the bag at once.",
+   "result": "0 on success. Non-zero when the item is past the item limit, the count is 0 or the pocket is full; a refused add puts nothing in.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "do give item count",
    "events": [],
    "fromC": true
   },
@@ -4184,6 +4356,7 @@
     "shop.buy",
     "money.change",
     "heal",
+    "heal.hp",
     "badge.get",
     "flag.set",
     "dex.register"
@@ -4694,7 +4867,7 @@
    "id": "fn:setting_get",
    "kind": "service",
    "name": "setting_get",
-   "group": "Settings and saved data",
+   "group": "Miscellaneous",
    "signature": "int (*setting_get)(const char *key)",
    "params": [
     "const char *key"
@@ -4703,9 +4876,10 @@
    "result": "0 or 1 for a bool, the index for a choice.",
    "notes": [],
    "tiers": [
+    "rules",
     "c"
    ],
-   "rule": null,
+   "rule": "setting.key",
    "events": [],
    "fromC": true
   },
@@ -4713,7 +4887,7 @@
    "id": "fn:state_load",
    "kind": "service",
    "name": "state_load",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "s32 (*state_load)(void *buf, u32 size)",
    "params": [
     "void *buf",
@@ -4739,7 +4913,7 @@
    "id": "fn:state_store",
    "kind": "service",
    "name": "state_store",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "int (*state_store)(const void *buf, u32 size)",
    "params": [
     "const void *buf",
@@ -4765,7 +4939,7 @@
    "id": "fn:state_clear",
    "kind": "service",
    "name": "state_clear",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "int (*state_clear)()",
    "params": [],
    "what": "Deletes the mod's saved data.",
@@ -4782,7 +4956,7 @@
    "id": "fn:state_info",
    "kind": "service",
    "name": "state_info",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "int (*state_info)(BwModStateHeader *out)",
    "params": [
     "BwModStateHeader *out"
@@ -4801,7 +4975,7 @@
    "id": "fn:state_dir",
    "kind": "service",
    "name": "state_dir",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "int (*state_dir)(char *out, u32 out_size)",
    "params": [
     "char *out",
@@ -4821,7 +4995,7 @@
    "id": "fn:state_in_step",
    "kind": "service",
    "name": "state_in_step",
-   "group": "Settings and saved data",
+   "group": "Saved data",
    "signature": "int (*state_in_step)()",
    "params": [],
    "what": "Whether the mod's saved data was written together with the game save now in force.",
@@ -4891,16 +5065,15 @@
   {
    "title": "The map and the player",
    "fns": [
-    "zone",
-    "player_pos",
-    "battle_style"
+    "zone"
    ]
   },
   {
    "title": "Moves between places",
    "fns": [
     "mon_to_box",
-    "mon_take_item"
+    "mon_take_item",
+    "mon_release"
    ]
   },
   {
@@ -4908,6 +5081,16 @@
    "fns": [
     "message",
     "confirm"
+   ]
+  },
+  {
+   "title": "Miscellaneous",
+   "fns": [
+    "item_count",
+    "item_add",
+    "setting_get",
+    "player_pos",
+    "battle_style"
    ]
   },
   {
@@ -4966,9 +5149,8 @@
    ]
   },
   {
-   "title": "Settings and saved data",
+   "title": "Saved data",
    "fns": [
-    "setting_get",
     "state_load",
     "state_store",
     "state_clear",
@@ -7024,6 +7206,16 @@
    ]
   },
   {
+   "id": "hook:ov091:0x021BE914",
+   "name": "PLIST_DEMO_RestoreHp",
+   "region": "ov091",
+   "addr": "0x021BE914",
+   "key": "ov091:0x021BE914",
+   "events": [
+    "heal.hp"
+   ]
+  },
+  {
    "id": "hook:ov092:0x021B9614",
    "name": "EVENT_BATTLE_RETURN_Main",
    "region": "ov092",
@@ -7127,6 +7319,16 @@
    "key": "ov093:0x021C1E74",
    "events": [
     "battle.damage"
+   ]
+  },
+  {
+   "id": "hook:ov093:0x021C33E8",
+   "name": "BTL_SERVER_FLOW_ApplyHpRecover",
+   "region": "ov093",
+   "addr": "0x021C33E8",
+   "key": "ov093:0x021C33E8",
+   "events": [
+    "heal.hp"
    ]
   },
   {
@@ -7741,7 +7943,7 @@
     {
      "t": "list",
      "items": [
-      "The snippets in these docs use the native header (mod_api.h and mod_state.h, api 3), which is what the port loads today.",
+      "The snippets in these docs use the native header (mod_api.h and mod_state.h, api 4), which is what the port loads today. A mod built for api 3 still loads.",
       "The WebAssembly build (api 4) keeps the same event, payload and service names. Its headers come with eidos's published api, and the build in the Code view uses the current draft header until then.",
       "No libc and no WASI in the wasm build: a mod reaches nothing outside the game except through the port's imports."
      ]
@@ -8054,6 +8256,7 @@
    "title": "A setting that switches a feature",
    "goal": "Halve all experience when the player turns on an option in the port's settings screen.",
    "tier": [
+    "rules",
     "c"
    ],
    "events": [
@@ -8065,13 +8268,108 @@
    ],
    "steps": [
     "Declare the option in a settings file and name it in the manifest with `settings = settings.txt`.",
-    "In the handler for `mon.exp`, read the option with `setting_get`. It returns 0 or 1 for a bool.",
-    "`amount` is writable, so the handler halves it before the game uses it.",
-    "Rules cannot read options yet; this needs code."
+    "A rule reads the option as `setting.<key>`. It is 0 or 1 for a bool, the index for a choice.",
+    "In C, the handler for `mon.exp` reads the option with `setting_get`.",
+    "`amount` is writable, so both halve it before the game uses it."
    ],
-   "settings": "option mymod.slow_exp bool \"Slow experience\" off\n",
-   "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\n\nstatic int on_exp(void *mod, BwEvent *event)\n{\n    BwMonExp *e = (BwMonExp *)event;\n    (void)mod;\n    if (g_host->services->setting_get(\"mymod.slow_exp\") == 1) {\n        e->amount /= 2;\n    }\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_MON_EXP, on_exp);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
+   "rule": "language 1\nrule slow_exp on mon.exp\n    when setting.slow_exp == 1\n    do set event.amount event.amount / 2\n",
+   "settings": "option slow_exp bool \"Slow experience\" off\n",
+   "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\n\nstatic int on_exp(void *mod, BwEvent *event)\n{\n    BwMonExp *e = (BwMonExp *)event;\n    (void)mod;\n    if (g_host->services->setting_get(\"slow_exp\") == 1) {\n        e->amount /= 2;\n    }\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_MON_EXP, on_exp);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
    "id": "recipe:setting-toggle"
+  },
+  {
+   "slug": "release-on-faint",
+   "title": "Release a Pokemon when it faints",
+   "goal": "A fainted Pokemon of the player is released for good (a Nuzlocke rule).",
+   "tier": [
+    "rules",
+    "c"
+   ],
+   "events": [
+    "battle.faint"
+   ],
+   "functions": [
+    "mon_release",
+    "message"
+   ],
+   "steps": [
+    "`battle.faint` fires when a Pokemon faints. `event.side` is 0 for the player's side and `event.mon` is the fainted Pokemon.",
+    "`release` (in C, `mon_release`) queues the release. It is applied at the first player step on the field after the battle, so the battle is not disturbed.",
+    "It does nothing if the Pokemon is the last one that is not an egg."
+   ],
+   "rule": "language 1\nrule nuzlocke on battle.faint\n    when event.side == 0\n    do release event.mon\n",
+   "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\n\nstatic int on_faint(void *mod, BwEvent *event)\n{\n    BwBattleFaint *e = (BwBattleFaint *)event;\n    (void)mod;\n    if (e->side == 0) {\n        g_host->state->mon_release(e->mon);\n    }\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_BATTLE_FAINT, on_faint);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
+   "notes": [
+    "Whiteout is a separate event, `whiteout`. Poison on the field does not faint a Pokemon in this game."
+   ],
+   "id": "recipe:release-on-faint"
+  },
+  {
+   "slug": "gift-on-map",
+   "title": "Give an item on entering a map",
+   "goal": "Give 5 Potions the first time the player enters a zone.",
+   "tier": [
+    "rules",
+    "c"
+   ],
+   "events": [
+    "route.change"
+   ],
+   "functions": [
+    "item_add",
+    "item_count"
+   ],
+   "steps": [
+    "`route.change` fires on every map change; `event.zone` is the zone entered. Replace 115 with the zone you want.",
+    "`give <item> <count>` puts the items in the bag at once. If the bag cannot take them, the rule stops for that firing and tries again on the next entry.",
+    "The cell `state.gift_given` is saved with the game and reads 0 until it is set, so the gift is given once. The `give` line comes first, so the cell is set only after a successful gift."
+   ],
+   "rule": "language 1\nrule potion_gift on route.change\n    when event.zone == 115 && state.gift_given == 0\n    do give 17 5\n    do set state.gift_given 1\n",
+   "c": "#include \"mod_api.h\"\n#include \"mod_state.h\"\n\nstatic const BwModHost *g_host;\nstatic int g_given;\n\nstatic int on_route(void *mod, BwEvent *event)\n{\n    BwRouteChange *e = (BwRouteChange *)event;\n    (void)mod;\n    if (e->zone == 115 && !g_given && g_host->state->item_add(17, 5) == 0) {\n        g_given = 1;\n    }\n    return BW_EVENT_CONTINUE;\n}\n\nint eidos_mod_start(const BwModHost *host, void **mod_state)\n{\n    g_host = host;\n    *mod_state = 0;\n    return host->on(BW_EVENT_ROUTE_CHANGE, on_route);\n}\n\nvoid eidos_mod_stop(void *mod_state)\n{\n    (void)mod_state;\n}\n",
+   "notes": [
+    "The C version keeps its flag in memory only. Save it with `state_store` to keep it across runs. `item_count[17]` reads the Potions the bag holds, for a rule that gives only when the bag has none."
+   ],
+   "id": "recipe:gift-on-map"
+  },
+  {
+   "slug": "halve-healing",
+   "title": "Halve all healing",
+   "goal": "Every HP restore gives half the HP, on the field and in battle.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "heal.hp"
+   ],
+   "functions": [],
+   "steps": [
+    "`heal.hp` fires before HP is added. `event.amount` is the HP to add and is writable.",
+    "The amount is capped at max HP after the rule runs.",
+    "`event.source` is 0 on the field and 1 in battle, so a `when` line can limit the rule to one of them."
+   ],
+   "rule": "language 1\nrule half_healing on heal.hp\n    do set event.amount event.amount / 2\n",
+   "id": "recipe:halve-healing"
+  },
+  {
+   "slug": "no-battle-healing",
+   "title": "No HP restores in battle",
+   "goal": "No Pokemon gets HP back during a battle, from any source.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "heal.hp"
+   ],
+   "functions": [],
+   "steps": [
+    "`heal.hp` can be refused; a refusal adds no HP. In battle it fires for every restore: bag items, berries, Leftovers, moves and abilities.",
+    "`event.source` is 1 for a battle."
+   ],
+   "rule": "language 1\nrule no_battle_healing on heal.hp\n    when event.source == 1\n    do refuse\n",
+   "notes": [
+    "A bag item is still used up when its restore is refused. To stop the item from being used, refuse `battle.item`: the player returns to the action menu."
+   ],
+   "id": "recipe:no-battle-healing"
   },
   {
    "slug": "faint-counter",
