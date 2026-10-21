@@ -50,6 +50,11 @@
   const rateOf = (i: number) => rates.find((v) => v.key.startsWith("rate") && v.key.endsWith(String(i + 1))) ?? rates[i];
   const used = (l: List) => l.rows.some((r) => r[0] > 0);
   const dirty = $derived(record !== null && JSON.stringify(record) !== original);
+  // Slot odds where they are known: land and surfing slots.
+  const odds = (l: List, i: number) => {
+    const t = l.rows.length === 12 ? LAND : l.key.startsWith("surf") ? WATER : null;
+    return t ? `${t[i]}%` : "";
+  };
   const NAMES: Record<string, string> = {
     grass: "Grass",
     doubleGrass: "Dark grass",
@@ -127,7 +132,7 @@
       <ul class="slots">
         {#each l.rows as row, i}
           <li>
-            <span class="pct">{(l.rows.length === 12 ? LAND : WATER)[i] ?? ""}%</span>
+            <span class="pct">{odds(l, i)}</span>
             {#if icon(row[sp])}<img class="px icon" src={icon(row[sp])} alt="" />{:else}<span class="icon"></span>{/if}
             <select bind:value={row[sp]} disabled={readOnly} aria-label="Species">
               {#each species as n, k}<option value={k}>{n || "None"}</option>{/each}
