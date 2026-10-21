@@ -168,6 +168,22 @@
       .catch(() => (locations = []));
   });
 
+  // A small map around the trainer's first spot, from the in-game render.
+  const MINI_PX = 8;
+  let mini = $state<{ zone: number; x: number; z: number; w: number; h: number } | null>(null);
+  $effect(() => {
+    const l = locations?.find((l) => l.tile);
+    mini = null;
+    if (!l || !l.tile) return;
+    const at = l.tile;
+    fetch(asset(`maprender/${l.zone}/info?px=${MINI_PX}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((info) => {
+        if (info) mini = { zone: l.zone, x: at[0] - info.originX, z: at[1] - info.originZ, w: info.width, h: info.height };
+      })
+      .catch(() => {});
+  });
+
   const portrait = $derived.by(() => {
     if (current === null) return null;
     switch (tables[0]) {
@@ -217,6 +233,16 @@
   <section class="record">
     <div class="head">
       {#if portrait}<img class="px portrait" src={portrait} alt="" />{/if}
+      {#if mini}
+        <div class="mini" title="Where this trainer stands">
+          <img
+            src={asset(`maprender/${mini.zone}?px=${MINI_PX}`)}
+            alt=""
+            style="width: {mini.w * MINI_PX}px; left: {48 - (mini.x + 0.5) * MINI_PX}px; top: {32 - (mini.z + 0.5) * MINI_PX}px"
+          />
+          <span class="pin"></span>
+        </div>
+      {/if}
       <div class="title">
         <h2>{entries.find((e) => e.index === current)?.name ?? ""}</h2>
         {#if tables[0] === "trainers" && locations}
@@ -367,6 +393,31 @@
     background: var(--bg);
     border: 2px solid var(--outline);
     border-radius: var(--radius-s);
+  }
+  .mini {
+    position: relative;
+    flex: none;
+    width: 96px;
+    height: 64px;
+    overflow: hidden;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    background: var(--bg);
+  }
+  .mini img {
+    position: absolute;
+    max-width: none;
+  }
+  .pin {
+    position: absolute;
+    left: 42px;
+    top: 26px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ff4d4d;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #0008;
   }
   .title {
     display: flex;
