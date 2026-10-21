@@ -11,6 +11,7 @@ pub mod catalog;
 pub mod changes;
 pub mod characters;
 pub mod code;
+pub mod codemod;
 pub mod data_root;
 pub mod fielditems;
 pub mod g3d;

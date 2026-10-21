@@ -113,3 +113,61 @@ export const modGetPaths = () => invoke<ModPaths>("mod_get_paths");
 export const modSetPaths = (modsFolder: string | null, declaredSet: string | null) =>
   invoke<ModPaths>("mod_set_paths", { modsFolder, declaredSet });
 export const modConflicts = () => invoke<ConflictReport>("mod_conflicts");
+
+// Code mods in C (core/src/codemod.rs).
+export interface SourceFile {
+  path: string;
+  bytes: number;
+}
+
+export interface BuildDiagnostic {
+  /// Relative to the mod; empty for a message about the whole build.
+  file: string;
+  /// 1-based; 0 when unknown.
+  line: number;
+  column: number;
+  severity: "error" | "warning" | "note";
+  message: string;
+}
+
+export interface BuildResult {
+  ok: boolean;
+  wasmPath: string | null;
+  size: number;
+  millis: number;
+  diagnostics: BuildDiagnostic[];
+  log: string;
+}
+
+export interface ZigStatus {
+  path: string | null;
+  source: "own" | "downloaded" | "path" | null;
+  version: string | null;
+  pinned: string;
+  downloadMb: number | null;
+  chosen: string | null;
+}
+
+export interface ZigProgress {
+  phase: "download" | "check" | "unpack";
+  done: number;
+  total: number;
+}
+
+export interface CodeApi {
+  functions: { name: string; signature: string; doc: string }[];
+  constants: { name: string; value: string; group: string }[];
+}
+
+export const zigStatus = () => invoke<ZigStatus>("zig_status");
+export const setZigPath = (path: string | null) => invoke<ZigStatus>("set_zig_path", { path });
+export const fetchZig = () => invoke<ZigStatus>("fetch_zig");
+export const newCodeMod = () => invoke<string[]>("new_code_mod");
+export const buildCodeMod = () => invoke<BuildResult>("build_code_mod");
+export const modCodeFiles = () => invoke<SourceFile[]>("mod_code_files");
+export const modCodeRead = (path: string) => invoke<string>("mod_code_read", { path });
+export const modCodeWrite = (path: string, text: string) => invoke<void>("mod_code_write", { path, text });
+export const modCodeNew = (path: string) => invoke<void>("mod_code_new", { path });
+export const modCodeRename = (from: string, to: string) => invoke<void>("mod_code_rename", { from, to });
+export const modCodeDelete = (path: string) => invoke<void>("mod_code_delete", { path });
+export const modCodeApi = () => invoke<CodeApi>("mod_code_api");

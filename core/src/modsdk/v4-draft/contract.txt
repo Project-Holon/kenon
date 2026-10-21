@@ -1,0 +1,26 @@
+# The wasm contract kenon builds and checks against (draft, api 4).
+# One line per entry: key = value. Swapped together with eidos_wasm.h when
+# eidos publishes sdk/api/v4.
+api = 4
+target = wasm32-freestanding
+import_module = eidos
+output = mod.wasm
+# Compiler and linker flags, in order.
+flag = -mcpu=mvp
+flag = -O2
+flag = -g0
+flag = -ffreestanding
+flag = -nostdlib
+flag = -fno-builtin
+flag = -Wall
+flag = -Wextra
+flag = -Wl,--no-entry
+flag = -Wl,--export-table
+flag = -Wl,--strip-debug
+flag = -Wl,-z,stack-size=65536
+# What the finished module must export.
+# name:result types (i32 or none).
+export_func = eidos_mod_start:i32
+export_func = eidos_mod_stop:none
+export_memory = memory
+export_table = yes

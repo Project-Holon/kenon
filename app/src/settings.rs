@@ -20,6 +20,8 @@ pub struct Settings {
     /// eidos's `mod/declared_set.txt`, when it is not found beside the mods
     /// folder.
     pub declared_set: Option<PathBuf>,
+    /// A Zig compiler the user chose for code mods, over the downloaded one.
+    pub zig_path: Option<PathBuf>,
     /// Where the window was and how big, so it opens the same way.
     pub window: Option<WindowPlace>,
 }
@@ -72,6 +74,7 @@ mod tests {
             recent: vec![dir.path().join("mod")],
             mods_folder: Some(dir.path().join("mods")),
             declared_set: None,
+            zig_path: None,
             window: Some(WindowPlace {
                 width: 1200.0,
                 height: 800.0,

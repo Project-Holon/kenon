@@ -128,7 +128,7 @@
           <label for="mod-api">API version</label>
           <div class="field">
             <input id="mod-api" type="number" min="0" step="1" bind:value={form.api} />
-            <p class="hint muted">The interface version the code is built for. The game accepts {apiVersion}.</p>
+            <p class="hint muted">The interface version the code is built for. The game accepts 3 and 4. Use 4 for WebAssembly code.</p>
             {#each about("api") as p}<p class="bad">{p.message}</p>{/each}
           </div>
         {/if}

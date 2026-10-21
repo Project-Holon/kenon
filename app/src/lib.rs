@@ -10,13 +10,14 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use kenon_core::bridge::{Bridge, Member};
 use kenon_core::catalog::{self, ArchiveInfo, Layout, MemberInfo, SheetData, SoundInfo};
+use kenon_core::codemod;
 use kenon_core::data_root;
 use kenon_core::modcode;
 use kenon_core::project::{Change, Project};
 use kenon_core::source::{self, GameCheck, Source};
 use kenon_core::tables;
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 use settings::Settings;
 
@@ -1103,6 +1104,173 @@ fn mod_conflicts(state: State<AppState>) -> Result<modcode::ConflictReport, Stri
         .map_err(|e| format!("could not read the mods folder: {e}"))
 }
 
+// Code mods (core/src/codemod.rs): the C template, the Zig compiler and the
+// build.
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ZigStatus {
+    /// The compiler in use, if one is found.
+    path: Option<PathBuf>,
+    /// `own` (chosen by the user), `downloaded` or `path`.
+    source: Option<&'static str>,
+    version: Option<String>,
+    /// The release kenon downloads, and its size in MB (None when there is
+    /// no download for this system).
+    pinned: &'static str,
+    download_mb: Option<u64>,
+    /// The Zig the user chose, even when it is not found.
+    chosen: Option<PathBuf>,
+}
+
+fn app_data(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
+fn zig_status_of(state: &AppState, app: &tauri::AppHandle) -> Result<ZigStatus, String> {
+    let chosen = state.settings.lock().unwrap().zig_path.clone();
+    let found = codemod::zig_path(chosen.as_deref(), &app_data(app)?);
+    let release = codemod::zig_release(std::env::consts::OS, std::env::consts::ARCH);
+    Ok(ZigStatus {
+        version: found.as_ref().and_then(|(p, _)| codemod::zig_version(p)),
+        source: found.as_ref().map(|(_, s)| *s),
+        path: found.map(|(p, _)| p),
+        pinned: codemod::ZIG_VERSION,
+        download_mb: release.map(|r| r.size.div_ceil(1_000_000)),
+        chosen,
+    })
+}
+
+#[tauri::command]
+async fn zig_status(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<ZigStatus, String> {
+    zig_status_of(&state, &app)
+}
+
+/// Uses the Zig at `path` (or goes back to the downloaded one with `None`).
+#[tauri::command]
+async fn set_zig_path(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    path: Option<PathBuf>,
+) -> Result<ZigStatus, String> {
+    if let Some(path) = &path {
+        let exe = if path.is_dir() {
+            path.join(if cfg!(windows) { "zig.exe" } else { "zig" })
+        } else {
+            path.clone()
+        };
+        if codemod::zig_version(&exe).is_none() {
+            return Err("this file does not run as Zig".to_string());
+        }
+    }
+    {
+        let mut settings = state.settings.lock().unwrap();
+        settings.zig_path = path;
+        state.save_settings(&settings)?;
+    }
+    zig_status_of(&state, &app)
+}
+
+/// Downloads the pinned Zig. Progress goes to the `zig-progress` event.
+#[tauri::command]
+async fn fetch_zig(state: State<'_, AppState>, app: tauri::AppHandle) -> Result<ZigStatus, String> {
+    let data = app_data(&app)?;
+    let events = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        codemod::fetch_zig(&data, &mut |p| {
+            let _ = events.emit("zig-progress", p);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    // The downloaded one is used from now on.
+    {
+        let mut settings = state.settings.lock().unwrap();
+        if settings.zig_path.is_some() {
+            settings.zig_path = None;
+            state.save_settings(&settings)?;
+        }
+    }
+    zig_status_of(&state, &app)
+}
+
+fn code_project(state: &AppState) -> Result<Arc<Project>, String> {
+    state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or_else(|| "open a project first".to_string())
+}
+
+/// Writes the starting files of a code mod and sets the manifest.
+#[tauri::command]
+fn new_code_mod(state: State<AppState>) -> Result<Vec<String>, String> {
+    let project = code_project(&state)?;
+    let written = codemod::new_code_mod(&project).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(written)
+}
+
+#[tauri::command]
+async fn build_code_mod(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<codemod::BuildResult, String> {
+    let project = code_project(&state)?;
+    let chosen = state.settings.lock().unwrap().zig_path.clone();
+    let data = app_data(&app)?;
+    let (zig, _) = codemod::zig_path(chosen.as_deref(), &data)
+        .ok_or_else(|| "kenon needs the Zig compiler to build code".to_string())?;
+    let cache = data.join("zig-cache");
+    tauri::async_runtime::spawn_blocking(move || {
+        codemod::build_code_mod(&project, &zig, Some(&cache))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_code_files(state: State<AppState>) -> Result<Vec<codemod::SourceFile>, String> {
+    Ok(codemod::list_sources(&mod_root(&state)?))
+}
+
+#[tauri::command]
+fn mod_code_read(state: State<AppState>, path: String) -> Result<String, String> {
+    codemod::read_source(&mod_root(&state)?, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_code_write(state: State<AppState>, path: String, text: String) -> Result<(), String> {
+    codemod::write_source(&mod_root(&state)?, &path, &text).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_code_new(state: State<AppState>, path: String) -> Result<(), String> {
+    codemod::new_source(&mod_root(&state)?, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_code_rename(state: State<AppState>, from: String, to: String) -> Result<(), String> {
+    codemod::rename_source(&mod_root(&state)?, &from, &to).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_code_delete(state: State<AppState>, path: String) -> Result<(), String> {
+    codemod::delete_source(&mod_root(&state)?, &path).map_err(|e| e.to_string())
+}
+
+/// The names the C editor completes, from the mod's own header.
+#[tauri::command]
+fn mod_code_api(state: State<AppState>) -> Result<codemod::CodeApi, String> {
+    Ok(codemod::code_api(&mod_root(&state)?))
+}
+
 /// Writes the bytes of a bridge asset (a picture, a sound, JSON) to a file.
 #[tauri::command]
 async fn export_asset(
@@ -1339,6 +1507,18 @@ pub fn run() {
             mod_get_paths,
             mod_set_paths,
             mod_conflicts,
+            zig_status,
+            set_zig_path,
+            fetch_zig,
+            new_code_mod,
+            build_code_mod,
+            mod_code_files,
+            mod_code_read,
+            mod_code_write,
+            mod_code_new,
+            mod_code_rename,
+            mod_code_delete,
+            mod_code_api,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

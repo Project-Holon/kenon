@@ -30,9 +30,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::project::{Manifest, Project, KENON_FILE, MANIFEST, ORDER_LIMIT};
 
-/// The interface version the port is built against (eidos `sdk/mod_api.h`,
-/// `BW_MOD_API_VERSION`). The port refuses a manifest that states another.
-pub const API_VERSION: u32 = 3;
+/// The newest interface version the port is built against (eidos
+/// `sdk/mod_api.h`, `BW_MOD_API_VERSION`): 4 adds WebAssembly code.
+pub const API_VERSION: u32 = 4;
+/// Every interface version the port accepts. It refuses a manifest that
+/// states another.
+pub const API_VERSIONS: &[u32] = &[3, 4];
 /// The rule-language version the port reads.
 pub const RULE_LANGUAGE: i64 = 1;
 /// The longest namespace the saved-data layer accepts.
@@ -1524,11 +1527,11 @@ pub fn check_settings(s: &ModSettings, overrides: usize) -> Vec<Diagnostic> {
         ));
     }
     if let Some(api) = s.api {
-        if code && api != API_VERSION {
+        if code && !API_VERSIONS.contains(&api) {
             out.push(Diagnostic::field(
                 "api",
                 Error,
-                &format!("the port's api is {API_VERSION}; it refuses a mod built for {api}"),
+                &format!("the port accepts api 3 and 4; it refuses a mod built for {api}"),
             ));
         }
     }
