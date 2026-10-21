@@ -11,7 +11,10 @@ fn main() {
         let list = kenon_core::catalog::screens(&bridge, arc).unwrap();
         println!("a{arc}: {} screens", list.len());
         for s in list.iter().take(3) {
-            let path = format!("screen/{arc}:{}/{arc}:{}/{arc}:{}?zero=opaque", s.chr, s.pal, s.scr);
+            let path = format!(
+                "screen/{arc}:{}/{arc}:{}/{arc}:{}?zero=opaque",
+                s.chr, s.pal, s.scr
+            );
             let asset = bridge.serve(&path).unwrap();
             std::fs::write(format!("{}/{arc}_{}.png", a[2], s.scr), &asset.bytes).unwrap();
         }
