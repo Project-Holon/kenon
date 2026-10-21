@@ -19,7 +19,7 @@
 //! so. Nodes and their OBJs are emitted in order and an earlier one draws
 //! in front (priority first).
 
-use crate::image::{render_cell, Rgba};
+use crate::image::{cell_map, CellMap, Rgba};
 use crate::nanr::Nanr;
 use crate::ncer::Ncer;
 use crate::ncgr::Ncgr;
@@ -70,25 +70,22 @@ impl Nmcr {
     }
 }
 
-/// One drawn piece of a pose: a cell image and where its origin goes.
+/// Where a pixel of a pose comes from: `tile * 64 + pixel` of the sheet,
+/// and the palette bank of its OBJ.
+pub type Source = Option<(usize, u8)>;
+
+/// One placed piece of a pose: a cell's pixel map, relative to the rig
+/// origin.
 struct Piece {
-    image: Rgba,
-    /// Canvas position of the image's top-left corner, relative to the rig
-    /// origin.
     x: i32,
     y: i32,
+    w: usize,
+    h: usize,
+    map: Vec<Source>,
 }
 
-/// The pieces of group `group` at time `t` (60ths of a second), back to
-/// front.
-fn pose(
-    sheet: &Ncgr,
-    palette: &Palette,
-    cells: &Ncer,
-    anims: &Nanr,
-    nodes: &[Node],
-    t: u32,
-) -> Vec<Piece> {
+/// The pieces at time `t` (60ths of a second), back to front.
+fn pose(sheet: &Ncgr, cells: &Ncer, anims: &Nanr, nodes: &[Node], t: u32) -> Vec<Piece> {
     let mut pieces = Vec::new();
     for node in nodes {
         let Some(seq) = anims.sequences.get(node.sequence as usize) else {
@@ -100,91 +97,75 @@ fn pose(
         let Some(cell) = cells.cells.get(frame.cell as usize) else {
             continue;
         };
-        let drawn = render_cell(cells, cell, sheet, palette, 0);
+        let m = cell_map(cells, cell, sheet);
         let (ax, ay) = (
             node.x as i32 + frame.offset.0 as i32,
             node.y as i32 + frame.offset.1 as i32,
         );
         let identity = frame.rotation == 0 && frame.scale == (4096, 4096);
-        let piece = if identity {
+        pieces.push(if identity {
             Piece {
-                x: ax - drawn.origin.0,
-                y: ay - drawn.origin.1,
-                image: drawn.image,
+                x: ax - m.origin.0,
+                y: ay - m.origin.1,
+                w: m.width,
+                h: m.height,
+                map: m.pixels,
             }
         } else {
-            transform(
-                &drawn.image,
-                drawn.origin,
-                frame.rotation,
-                frame.scale,
-                ax,
-                ay,
-            )
-        };
-        pieces.push(piece);
+            transform(&m, frame.rotation, frame.scale, ax, ay)
+        });
     }
     // Earlier nodes draw in front: paint them last.
     pieces.reverse();
     pieces
 }
 
-/// A cell image rotated and scaled about its origin, placed at (ax, ay).
-fn transform(
-    img: &Rgba,
-    origin: (i32, i32),
-    rot: u16,
-    scale: (i32, i32),
-    ax: i32,
-    ay: i32,
-) -> Piece {
+/// A cell's pixel map rotated and scaled about its origin, placed at
+/// (ax, ay); each target pixel takes the source pixel under its centre.
+fn transform(m: &CellMap, rot: u16, scale: (i32, i32), ax: i32, ay: i32) -> Piece {
     let angle = rot as f64 / 65536.0 * std::f64::consts::TAU;
     let (sx, sy) = (scale.0 as f64 / 4096.0, scale.1 as f64 / 4096.0);
     let (c, s) = (angle.cos(), angle.sin());
+    let (ox, oy) = (m.origin.0 as f64, m.origin.1 as f64);
     // Forward: p' = R * S * (p - origin).
     let fwd = |x: f64, y: f64| (c * sx * x - s * sy * y, s * sx * x + c * sy * y);
-    let corners = [
-        (0.0, 0.0),
-        (img.width as f64, 0.0),
-        (0.0, img.height as f64),
-        (img.width as f64, img.height as f64),
-    ]
-    .map(|(x, y)| fwd(x - origin.0 as f64, y - origin.1 as f64));
+    let (wf, hf) = (m.width as f64, m.height as f64);
+    let corners = [(0.0, 0.0), (wf, 0.0), (0.0, hf), (wf, hf)].map(|(x, y)| fwd(x - ox, y - oy));
     let x0 = corners.iter().map(|p| p.0).fold(f64::MAX, f64::min).floor() as i32;
     let y0 = corners.iter().map(|p| p.1).fold(f64::MAX, f64::min).floor() as i32;
     let x1 = corners.iter().map(|p| p.0).fold(f64::MIN, f64::max).ceil() as i32;
     let y1 = corners.iter().map(|p| p.1).fold(f64::MIN, f64::max).ceil() as i32;
     let (w, h) = ((x1 - x0).max(1) as usize, (y1 - y0).max(1) as usize);
-    let mut out = Rgba::new(w, h);
-    let det = sx * sy;
-    if det.abs() > 1e-6 {
+    let mut map = vec![None; w * h];
+    if (sx * sy).abs() > 1e-6 {
         for py in 0..h {
             for px in 0..w {
-                // Inverse: p = S^-1 * R^-1 * p' + origin, sampled at centres.
                 let (qx, qy) = ((x0 + px as i32) as f64 + 0.5, (y0 + py as i32) as f64 + 0.5);
                 let (rx, ry) = (c * qx + s * qy, -s * qx + c * qy);
-                let (ux, uy) = (rx / sx + origin.0 as f64, ry / sy + origin.1 as f64);
-                if ux < 0.0 || uy < 0.0 || ux >= img.width as f64 || uy >= img.height as f64 {
-                    continue;
-                }
-                let px_src = img.get(ux as usize, uy as usize);
-                if px_src[3] != 0 {
-                    let i = (py * w + px) * 4;
-                    out.pixels[i..i + 4].copy_from_slice(&px_src);
+                let (ux, uy) = (rx / sx + ox, ry / sy + oy);
+                if ux >= 0.0 && uy >= 0.0 && ux < wf && uy < hf {
+                    map[py * w + px] = m.pixels[uy as usize * m.width + ux as usize];
                 }
             }
         }
     }
     Piece {
-        image: out,
         x: ax + x0,
         y: ay + y0,
+        w,
+        h,
+        map,
     }
 }
 
-/// An animated rig: its frames on one canvas and how long each shows.
+/// An animated rig on one canvas: each frame's picture and pixel map, and
+/// how long each frame shows.
 pub struct Animation {
+    pub width: usize,
+    pub height: usize,
     pub frames: Vec<Rgba>,
+    /// Per frame, where each canvas pixel comes from in the sheet.
+    pub maps: Vec<Vec<Source>>,
     /// Durations in 60ths of a second.
     pub durations: Vec<u32>,
 }
@@ -227,9 +208,6 @@ pub fn animate(
                     times.push(t);
                 }
             }
-            if total(seq) == 0 {
-                break;
-            }
         }
     }
     times.sort_unstable();
@@ -238,37 +216,63 @@ pub fn animate(
 
     let poses: Vec<Vec<Piece>> = times
         .iter()
-        .map(|&t| pose(sheet, palette, cells, anims, nodes, t))
+        .map(|&t| pose(sheet, cells, anims, nodes, t))
         .collect();
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     for p in poses.iter().flatten() {
         x0 = x0.min(p.x);
         y0 = y0.min(p.y);
-        x1 = x1.max(p.x + p.image.width as i32);
-        y1 = y1.max(p.y + p.image.height as i32);
+        x1 = x1.max(p.x + p.w as i32);
+        y1 = y1.max(p.y + p.h as i32);
     }
     if x0 > x1 {
         return None;
     }
     let (w, h) = ((x1 - x0) as usize, (y1 - y0) as usize);
-    let frames = poses
+    let tiles: Vec<[u8; 64]> = (0..sheet.tile_count())
+        .map(|t| sheet.tile(t, false, false))
+        .collect();
+    let value = |src: usize| tiles.get(src / 64).map_or(0, |t| t[src % 64]);
+    let maps: Vec<Vec<Source>> = poses
         .iter()
         .map(|pieces| {
-            let mut canvas = Rgba::new(w, h);
+            // A drawn pixel wins over what is behind it; a clear pixel of a
+            // piece still maps there when nothing is drawn, so painting can
+            // fill it.
+            let mut canvas: Vec<Source> = vec![None; w * h];
             for p in pieces {
-                for yy in 0..p.image.height {
-                    for xx in 0..p.image.width {
-                        let c = p.image.get(xx, yy);
-                        if c[3] == 0 {
+                for yy in 0..p.h {
+                    for xx in 0..p.w {
+                        let Some(src) = p.map[yy * p.w + xx] else {
                             continue;
+                        };
+                        let i = ((p.y - y0) as usize + yy) * w + (p.x - x0) as usize + xx;
+                        if value(src.0) != 0 || canvas[i].is_none() {
+                            canvas[i] = Some(src);
                         }
-                        let (cx, cy) = ((p.x - x0) as usize + xx, (p.y - y0) as usize + yy);
-                        let i = (cy * w + cx) * 4;
-                        canvas.pixels[i..i + 4].copy_from_slice(&c);
                     }
                 }
             }
             canvas
+        })
+        .collect();
+    let frames = maps
+        .iter()
+        .map(|map| {
+            let mut img = Rgba::new(w, h);
+            for (i, src) in map.iter().enumerate() {
+                let Some((s, bank)) = *src else { continue };
+                let v = value(s) as usize;
+                if v == 0 {
+                    continue;
+                }
+                let base = match sheet.depth {
+                    crate::ncgr::Depth::Bpp4 => bank as usize * 16,
+                    crate::ncgr::Depth::Bpp8 => 0,
+                };
+                img.pixels[i * 4..i * 4 + 4].copy_from_slice(&palette.rgba(base + v));
+            }
+            img
         })
         .collect();
     let durations = times
@@ -283,7 +287,13 @@ pub fn animate(
                 .max(1)
         })
         .collect();
-    Some(Animation { frames, durations })
+    Some(Animation {
+        width: w,
+        height: h,
+        frames,
+        maps,
+        durations,
+    })
 }
 
 #[cfg(test)]

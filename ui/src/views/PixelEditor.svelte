@@ -23,6 +23,7 @@
     paletteOffset = 0,
     cells,
     anims,
+    rigFrame,
     onPalette,
     onSaved,
   }: {
@@ -38,6 +39,8 @@
     cells?: number | null;
     /// The known animation bank (null: none; undefined: find it).
     anims?: number | null;
+    /// Edit one frame of a battle rig instead (the sheet is its picture).
+    rigFrame?: { cer: Ref; anr: Ref; mcr: Ref; frame: number } | null;
     onPalette: (index: number) => void;
     onSaved: () => void;
   } = $props();
@@ -79,8 +82,9 @@
   async function load(keepEdits: boolean) {
     error = null;
     try {
-      const layout: Layout =
-        view === "cells" && bankFor !== null
+      const layout: Layout = rigFrame
+        ? { kind: "rig", ...rigFrame }
+        : view === "cells" && bankFor !== null
           ? { kind: "cells", cer: [chr[0], bankFor] }
           : { kind: "grid", cols };
       const next = await sheetData(chr, pal, layout);
@@ -96,7 +100,23 @@
     }
   }
 
+  // A new rig frame keeps the edits and shows that frame.
+  let lastFrame = -1;
+  $effect(() => {
+    const f = rigFrame?.frame ?? -1;
+    if (f !== lastFrame && data && rigFrame) {
+      lastFrame = f;
+      load(true);
+    }
+  });
+
   onMount(async () => {
+    if (rigFrame) {
+      lastFrame = rigFrame.frame;
+      view = "cells";
+      await load(false);
+      return;
+    }
     if (cells !== undefined) {
       bankFor = cells;
     } else {
@@ -140,7 +160,7 @@
 
   function pixelBase(i: number): number {
     if (!data || data.bpp === 8) return 0;
-    return (view === "cells" ? data.banks[i] + paletteOffset : bank) * 16;
+    return (view === "cells" || rigFrame ? data.banks[i] + paletteOffset : bank) * 16;
   }
 
   // Redraw whenever the pixels, palette, layout or bank change.
@@ -312,7 +332,7 @@
         <button class:primary={tool === t} disabled={readOnly && t !== "picker"} onclick={() => ((tool = t as Tool), play("select"))}>{label}</button>
       {/each}
     </div>
-    {#if bankFor !== null}
+    {#if bankFor !== null && !rigFrame}
       <div class="group" role="radiogroup" aria-label="View">
         <button class:primary={view === "cells"} onclick={() => setView("cells")}>Sprite</button>
         <button class:primary={view === "grid"} onclick={() => setView("grid")}>Tiles</button>
@@ -343,7 +363,7 @@
     {/if}
   </div>
 
-  {#if view === "cells" && bankFor !== null && animFor !== null}
+  {#if view === "cells" && bankFor !== null && animFor !== null && !rigFrame}
     <!-- A new player for every picture: nothing carries over from the last. -->
     {#key `${chr.join(":")}/${pal.join(":")}/${bankFor}/${animFor}`}
       <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} version={tilesDirty || paletteDirty ? -1 : 0} />

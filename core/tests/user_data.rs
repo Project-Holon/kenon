@@ -708,6 +708,22 @@ fn tables_and_names() {
         .rig(&["4:502", "4:518", "4:504", "4:505", "4:506"])
         .unwrap();
     eprintln!("Pikachu rig: {} frames", pika.frames.len());
+    // Editing a rig frame: the map covers the frame's drawn pixels.
+    let layout = catalog::Layout::Rig {
+        cer: [4, 504],
+        anr: [4, 505],
+        mcr: [4, 506],
+        frame: 3,
+    };
+    let data = catalog::sheet_data(
+        &bridge,
+        kenon_core::bridge::Member { arc: 4, index: 502 },
+        kenon_core::bridge::Member { arc: 4, index: 518 },
+        &layout,
+    )
+    .unwrap();
+    assert_eq!((data.width, data.height), (pika.width, pika.height));
+    assert!(data.map.iter().filter(|&&m| m >= 0).count() > 500);
     assert!(!pika.frames.is_empty());
     if let Some(out) = std::env::var_os("KENON_RENDER_OUT") {
         for (i, f) in pika.frames.iter().enumerate().take(6) {

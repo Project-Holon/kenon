@@ -7,7 +7,11 @@
 
   // Plays a battle picture's rig: its parts move as in battle. Frames are
   // made by the back end once and loaded here in order.
-  let { path, label = "Battle animation" }: { path: string; label?: string } = $props();
+  let {
+    path,
+    label = "Battle animation",
+    onFrame,
+  }: { path: string; label?: string; onFrame?: (frame: number) => void } = $props();
 
   interface Info {
     frames: number;
@@ -38,6 +42,11 @@
       })
       .catch((e) => (error = String(e)));
     return () => controller.abort();
+  });
+
+  // Tell the editor which frame is showing.
+  $effect(() => {
+    onFrame?.(frame);
   });
 
   $effect(() => {

@@ -153,6 +153,15 @@ pub enum Layout {
     /// by side. A 1D sheet only makes a picture this way: its tiles are
     /// stored OBJ by OBJ.
     Cells { cer: [usize; 2] },
+    /// One frame of a battle rig's animation: the sheet is the large
+    /// battle picture, assembled as it moves (cells, animation and
+    /// multi-cell banks).
+    Rig {
+        cer: [usize; 2],
+        anr: [usize; 2],
+        mcr: [usize; 2],
+        frame: usize,
+    },
 }
 
 /// The data the pixel editor works on.
@@ -241,6 +250,32 @@ pub fn sheet_data(
                 }
             }
             (w, h, map, banks)
+        }
+        Layout::Rig {
+            cer,
+            anr,
+            mcr,
+            frame,
+        } => {
+            let refs = [
+                format!("{}:{}", chr.arc, chr.index),
+                format!("{}:{}", pal.arc, pal.index),
+                format!("{}:{}", cer[0], cer[1]),
+                format!("{}:{}", anr[0], anr[1]),
+                format!("{}:{}", mcr[0], mcr[1]),
+            ];
+            let parts: Vec<&str> = refs.iter().map(String::as_str).collect();
+            let anim = bridge.rig(&parts)?;
+            let frame_map = anim
+                .maps
+                .get(*frame)
+                .ok_or_else(|| Error::Missing(format!("rig frame {frame}")))?;
+            let map = frame_map
+                .iter()
+                .map(|s| s.map_or(-1, |(src, _)| src as i32))
+                .collect();
+            let banks = frame_map.iter().map(|s| s.map_or(0, |(_, b)| b)).collect();
+            (anim.width, anim.height, map, banks)
         }
     };
     let sized = |v: u16| (v != crate::ncgr::NO_SIZE).then_some(v);

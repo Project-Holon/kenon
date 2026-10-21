@@ -53,6 +53,9 @@
   let palette = $state<number | null>(null);
   let filter = $state("");
   let error = $state<string | null>(null);
+  // Battle sprites: edit the still picture, or the frame the animation shows.
+  let editMode = $state<"picture" | "animation">("picture");
+  let rigFrameIndex = $state(0);
   let changedSet = $state<Set<number>>(new Set());
 
   const palettes = $derived(list.filter((m) => m.kind === "NCLR"));
@@ -203,12 +206,22 @@
       {#if selected.rig && arc !== null}
         {@const [big, cer, anr, mcr] = selected.rig}
         {#key `${big}/${pal[1]}/${version}`}
-          <RigPlayer path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`} />
+          <RigPlayer
+            path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`}
+            onFrame={(f) => (rigFrameIndex = f)}
+          />
         {/key}
+        <div class="mode" role="radiogroup" aria-label="Edit">
+          <span class="muted">Edit</span>
+          <button class:primary={editMode === "picture"} onclick={() => ((editMode = "picture"), play("select"))}>Picture</button>
+          <button class:primary={editMode === "animation"} onclick={() => ((editMode = "animation"), play("select"))}>Animation</button>
+        </div>
       {/if}
-      {#key `${chr.join(":")}/${pal.join(":")}/${version}`}
+      {#key `${chr.join(":")}/${pal.join(":")}/${version}/${editMode}`}
+        {@const rig = editMode === "animation" && selected.rig && arc !== null ? selected.rig : null}
         <PixelEditor
-          {chr}
+          chr={rig ? [arc!, rig[0]] : chr}
+          rigFrame={rig ? { cer: [arc!, rig[1]], anr: [arc!, rig[2]], mcr: [arc!, rig[3]], frame: rigFrameIndex } : null}
           {pal}
           {readOnly}
           changed={changed(selected.chr)}
@@ -271,6 +284,13 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+  .mode {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.9rem;
+    border-bottom: 2px solid var(--outline);
   }
   .screen-view {
     display: flex;
