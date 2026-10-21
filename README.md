@@ -4,30 +4,47 @@ The modding suite for the native port of Pokémon Black and White.
 
 ## Status
 
-Step 1 of `docs/briefs/kenon-plan.md` is done: the app shell, the Rust core,
-the data folder setting and CI. The asset readers come next, in the order of
-`docs/ui-assets-inventory.md`, section 17.
+kenon opens the user's own ROM (`.nds`) and reads everything from it at run
+time; it ships no game data. Edits are saved as a mod folder that
+[eidos](https://github.com/Project-Holon/eidos) loads.
 
-kenon reads the same data folder as [eidos](https://github.com/Project-Holon/eidos):
-the extraction folder (with `data/` in it) or its `data/` folder. It reads
-the user's own data at run time and ships none. Without a data folder it
-uses a plain theme.
+## Milestones
 
-## Planned scope
-
-- A script assembler and disassembler for the field and battle effect VMs
-  (the opcode tables already exist in aletheia's tools).
-- Editors for the JSON tables (species, moves, items, encounters, zones)
-  and for sprite sheets and rigs, with validation against the engine.
-- Mod packaging: a folder is a mod, a `.bw` is its distribution. The port
-  manages mods in the game's own menu and unpacks or reads the `.bw`; the
-  port owns the mod list, enable and disable, the load order, conflict
-  reporting, display, controls and sound, and runs with no mods
-  (`docs/bw-format.md`).
-- Later: a rule surface over the engine's events for gameplay mods without
-  recompiling. A rule is a small language the port fixes, run by a small
-  interpreter in eidos; this repository writes rules in that grammar
-  (`docs/events-and-rules.md`).
+- [x] **Milestone 1**: App, ROM reading and mod folders
+  - [x] Desktop app (Tauri + Svelte), dark and light themes
+  - [x] ROM check, NitroFS, archives, compression
+  - [x] Mod folders: changes saved as member overrides, list of changes with undo
+- [x] **Milestone 2**: Graphics
+  - [x] Sprites, palettes, screens and animations as the game draws them
+  - [x] Pixel editor (also per animation frame)
+  - [x] Pictures named from the ROM (Pokémon, items, trainers)
+  - [x] Battle sprite, trainer and back sprite animations
+  - [x] 3D textures (view only)
+- [x] **Milestone 3**: Data and text
+  - [x] Tables: Pokémon, moves, items, trainers and parties, wild encounters
+  - [x] Wild encounters by Pokémon, on the game's slot odds
+  - [x] Text banks
+  - [x] Trainer speech
+- [x] **Milestone 4**: Map editor
+  - [x] World map with every place
+  - [x] Map drawn from the game's 3D data (lighting, time of day, seasons, camera preview)
+  - [x] Tile kinds: paint, fill, select, move, copy
+  - [x] People, trainers, signs, hidden items, warps and triggers
+  - [x] What events say and do, editable
+  - [x] Buildings and props: move, turn, add, remove
+  - [x] Music and wild Pokémon per map
+- [ ] **Milestone 5**: Mod packages and code
+  - [ ] `.bw` package (zip, lossless)
+  - [ ] Hook and rule editors (Monaco), checked against eidos
+  - [ ] Mod settings, load order, conflict hints
+- [ ] **Milestone 6**: Full map building
+  - [ ] Copy map pieces between places
+  - [ ] Paint the ground itself (new 3D map pieces)
+  - [ ] Water and other animated textures in the map view
+- [ ] **Milestone 7**: Remaining editors
+  - [ ] Sound editing
+  - [ ] 3D texture editing
+  - [ ] Undo for deleted map events
 
 ## Layout
 
