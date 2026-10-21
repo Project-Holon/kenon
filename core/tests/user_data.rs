@@ -333,3 +333,115 @@ fn bridge_assets() {
         Some((8, 0))
     );
 }
+
+/// The sound archive: names, every sequence, bank and wave archive parses,
+/// and the UI sound effects render to short, audible clips.
+#[test]
+fn sound_archive() {
+    use kenon_core::sdat::{self, Kind, Sbnk, Sdat, Sseq, Swar};
+    let Some(root) = data_root() else {
+        return;
+    };
+    let path = root.file("wb_sound_data.sdat");
+    if !path.is_file() {
+        return;
+    }
+    let sdat = Sdat::open(&path).unwrap();
+    assert_eq!(sdat.name(Kind::Seq, 1352), Some("SEQ_SE_SELECT1"));
+    assert_eq!(sdat.name(Kind::Seq, 1356), Some("SEQ_SE_DECIDE1"));
+    assert_eq!(sdat.name(Kind::Seq, 1361), Some("SEQ_SE_CANCEL1"));
+    assert_eq!(sdat.find(Kind::Seq, "SEQ_SE_SELECT1"), Some(1352));
+
+    let (mut seqs, mut banks, mut archives, mut waves) = (0, 0, 0, 0);
+    for i in 0..sdat.count(Kind::Seq) {
+        if sdat.seq_record(i).is_none() {
+            continue;
+        }
+        let file = sdat.seq_file(i).unwrap_or_else(|| panic!("SEQ {i} file"));
+        let sseq = Sseq::parse(file).unwrap_or_else(|e| panic!("SEQ {i}: {e}"));
+        assert!(!sseq.track_starts().is_empty());
+        seqs += 1;
+    }
+    for i in 0..sdat.count(Kind::Bank) {
+        if sdat.bank_record(i).is_none() {
+            continue;
+        }
+        let file = sdat.bank_file(i).unwrap_or_else(|| panic!("BANK {i} file"));
+        Sbnk::parse(file).unwrap_or_else(|e| panic!("BANK {i}: {e}"));
+        banks += 1;
+    }
+    for i in 0..sdat.count(Kind::WaveArc) {
+        if sdat.wave_archive_file_id(i).is_none() {
+            continue;
+        }
+        let file = sdat
+            .wave_archive_file(i)
+            .unwrap_or_else(|| panic!("WAVEARC {i} file"));
+        let swar = Swar::parse(file).unwrap_or_else(|e| panic!("WAVEARC {i}: {e}"));
+        for w in 0..swar.len() {
+            let wave = swar
+                .wave(w)
+                .unwrap_or_else(|e| panic!("WAVEARC {i} wave {w}: {e}"));
+            assert_eq!(wave.decode().len(), wave.decoded_len());
+            waves += 1;
+        }
+        archives += 1;
+    }
+    eprintln!("{seqs} sequences, {banks} banks, {archives} wave archives, {waves} waves");
+    assert!(seqs > 900 && banks > 900 && archives > 0 && waves > 0);
+
+    for n in [1351, 1352, 1356, 1357, 1361, 1362, 1366, 1368] {
+        let clip = sdat::render(&sdat, n, &sdat::Options::default()).unwrap();
+        eprintln!(
+            "SEQ {n} {}: {:.2} s, peak {}, {} notes, {} dropped",
+            sdat.name(Kind::Seq, n).unwrap_or("?"),
+            clip.seconds(),
+            clip.peak(),
+            clip.notes_rendered,
+            clip.notes_dropped
+        );
+        assert!(clip.peak() > 500, "SEQ {n} is silent");
+        assert!(clip.seconds() < 5.0, "SEQ {n} runs {} s", clip.seconds());
+        assert!(!clip.truncated, "SEQ {n} was cut");
+    }
+}
+
+/// Every sequence renders without a panic, and the numbers say how much of
+/// the bytecode and the banks the renderer covers.
+#[test]
+fn sound_archive_renders_everything() {
+    use kenon_core::sdat::{self, Kind, Sdat};
+    let Some(root) = data_root() else {
+        return;
+    };
+    let path = root.file("wb_sound_data.sdat");
+    if !path.is_file() {
+        return;
+    }
+    let sdat = Sdat::open(&path).unwrap();
+    let opts = sdat::Options {
+        max_seconds: 3.0,
+        ..sdat::Options::default()
+    };
+    let (mut ok, mut failed, mut silent, mut stopped, mut dropped, mut notes) = (0, 0, 0, 0, 0, 0);
+    for i in 0..sdat.count(Kind::Seq) {
+        if sdat.seq_record(i).is_none() {
+            continue;
+        }
+        match sdat::render(&sdat, i, &opts) {
+            Ok(clip) => {
+                ok += 1;
+                silent += (clip.peak() == 0) as usize;
+                stopped += clip.tracks_stopped_early;
+                dropped += clip.notes_dropped;
+                notes += clip.notes_rendered;
+            }
+            Err(_) => failed += 1,
+        }
+    }
+    eprintln!(
+        "{ok} rendered, {failed} failed, {silent} silent, {notes} notes sounded, \
+         {dropped} dropped, {stopped} tracks stopped at an unknown command"
+    );
+    assert_eq!(failed, 0);
+}

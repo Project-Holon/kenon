@@ -18,3 +18,4 @@ pub mod nclr;
 pub mod nftr;
 pub mod nitro;
 pub mod nscr;
+pub mod sdat;
