@@ -1113,3 +1113,147 @@ fn props_edit() {
     )
     .unwrap();
 }
+
+/// Work variables that hold a message id or trainer are followed along each
+/// path. Counts every message, trainer, item and warp operand of all scripts.
+#[test]
+fn script_operand_resolution() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    use kenon_core::scripts;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let started = std::time::Instant::now();
+    let s = scripts::resolve_stats(&bridge).unwrap();
+    eprintln!("{} scripts walked in {:?}", s.scripts, started.elapsed());
+    for (name, c) in [
+        ("messages", &s.messages),
+        ("trainers", &s.trainers),
+        ("items", &s.items),
+        ("warps", &s.warps),
+    ] {
+        eprintln!(
+            "{name}: {} operands, before {} ({:.1}%), now {} ({:.1}%), {} still unresolved",
+            c.total,
+            c.literal,
+            100.0 * c.literal as f64 / c.total.max(1) as f64,
+            c.literal + c.resolved,
+            100.0 * (c.literal + c.resolved) as f64 / c.total.max(1) as f64,
+            c.unresolved
+        );
+    }
+    assert!(s.messages.total > 1000);
+    assert!(s.messages.resolved > 0);
+    // Lines that depend on a branch are marked.
+    let zones = kenon_core::world::zones(&bridge).unwrap();
+    let (mut lines, mut conditional, mut shown) = (0, 0, 0);
+    for z in 0..zones.len() {
+        for sc in scripts::zone_scripts(&bridge, z).unwrap().scripts {
+            for m in sc.messages {
+                lines += 1;
+                if m.conditional {
+                    conditional += 1;
+                    if shown < 4 {
+                        shown += 1;
+                        eprintln!(
+                            "zone {z} script {}: bank {} msg {} (conditional): {:?}",
+                            sc.id, m.bank, m.id, m.text
+                        );
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("{lines} message lines in local scripts, {conditional} conditional");
+    assert!(conditional > 0 && conditional < lines);
+    // The trainer script shows its lines through variables, so a trainer
+    // NPC still starts exactly its battle and walks completely.
+    let ev = scripts::event_scripts(&bridge, 319).unwrap();
+    let jimmy = ev
+        .iter()
+        .find(|e| e.script.as_ref().is_some_and(|s| s.trainers.contains(&1)))
+        .unwrap();
+    assert!(jimmy.script.as_ref().unwrap().complete);
+}
+
+/// Trainer speech: the lookup tables give each trainer its lines, a line is
+/// saved through the text bank, and a new line leaves everyone else alone.
+#[test]
+fn trainer_speech() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    use kenon_core::{catalog, trainer_text};
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+
+    // Jimmy (trainer 1, Route 2) speaks before the battle and when beaten.
+    let jimmy = trainer_text::trainer_lines(&bridge, 1).unwrap();
+    for l in &jimmy {
+        eprintln!(
+            "trainer 1 kind {} ({}): bank {}/{} id {}: {:?}",
+            l.kind, l.label, l.bank_arc, l.bank, l.id, l.text
+        );
+    }
+    let kind = |k: u16| jimmy.iter().find(|l| l.kind == k);
+    assert!(kind(0).is_some_and(|l| !l.text.is_empty()));
+    assert!(kind(1).is_some_and(|l| !l.text.is_empty()));
+    assert_eq!(kind(0).unwrap().label, "Before battle");
+    assert_eq!(kind(1).unwrap().label, "Defeated");
+
+    // Every row of the table belongs to a trainer's list.
+    let all = |b: &Bridge| -> Vec<Vec<(u16, String)>> {
+        (0..616u16)
+            .map(|t| {
+                trainer_text::trainer_lines(b, t)
+                    .unwrap()
+                    .into_iter()
+                    .map(|l| (l.kind, l.text))
+                    .collect()
+            })
+            .collect()
+    };
+    let before = all(&bridge);
+    let rows: usize = before.iter().map(Vec::len).sum();
+    eprintln!("{rows} lines for {} trainers", before.len());
+    assert_eq!(rows, 1762);
+
+    // Saving goes through the bank.
+    let mut strings =
+        catalog::text_bank(&bridge, jimmy[0].bank_arc, jimmy[0].bank as usize).unwrap();
+    strings[jimmy[0].id as usize] = "Edited speech.".into();
+    catalog::save_text_bank(&bridge, jimmy[0].bank_arc, jimmy[0].bank as usize, &strings).unwrap();
+    assert_eq!(
+        trainer_text::trainer_lines(&bridge, 1).unwrap()[0].text,
+        "Edited speech."
+    );
+
+    // A new kind for a trainer with lines, and for one with none.
+    let none = before.iter().position(Vec::is_empty).unwrap() as u16;
+    for t in [1u16, none] {
+        let pre = all(&bridge);
+        let line = trainer_text::add_trainer_line(&bridge, t, 19, "A new line.").unwrap();
+        assert_eq!(line.text, "A new line.");
+        let post = all(&bridge);
+        for (n, (a, b)) in pre.iter().zip(&post).enumerate() {
+            if n as u16 == t {
+                let mut grown = a.clone();
+                grown.push((19, "A new line.".into()));
+                let mut got = b.clone();
+                got.sort();
+                grown.sort();
+                assert_eq!(got, grown, "trainer {t}");
+            } else {
+                assert_eq!(a, b, "trainer {n} changed when trainer {t} grew");
+            }
+        }
+        assert!(trainer_text::add_trainer_line(&bridge, t, 19, "again").is_err());
+        eprintln!("trainer {t}: kind 19 added at message {}", line.id);
+    }
+}

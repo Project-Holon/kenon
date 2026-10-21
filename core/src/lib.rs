@@ -32,5 +32,6 @@ pub mod scripts;
 pub mod sdat;
 pub mod source;
 pub mod tables;
+pub mod trainer_text;
 pub mod world;
 pub mod zonemap;

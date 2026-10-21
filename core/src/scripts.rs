@@ -22,7 +22,8 @@
 //! SCRIPT_SYS_CreateVm, SCRIPT_SYS_FindSpecialScript, FindSceneScript;
 //! ov010/script_work_cmd.c (jumps); ov021/scrcmd_*.c (operands).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -43,6 +44,7 @@ const RANGE_ROWS: usize = 46;
 const RANGE_ROW: usize = 10;
 const ZONE_BANK_MARK: u16 = 0x400;
 const LITERAL_LIMIT: u16 = 0x4000;
+const NO_WORK: u16 = 0xC000;
 const UNKNOWN: u8 = 255;
 const MAX_DEPTH: usize = 4;
 
@@ -104,6 +106,10 @@ pub struct MessageRef {
     pub bank: u16,
     pub id: u16,
     pub text: String,
+    /// True when every way the script reaches this line goes through a work
+    /// variable whose value was set after a branch, so which line shows
+    /// depends on a flag, badge or choice.
+    pub conditional: bool,
 }
 
 /// A warp a script starts. `x` and `z` are tiles; absent for a rail warp.
@@ -133,7 +139,9 @@ pub struct ItemGift {
 
 /// What one script says and does, found by walking its code (jumps and
 /// calls inside the file, and the scripts it calls, to a depth of four).
-/// Operands that are variables, not literals, are left out.
+/// A work variable operand is read from the values the walk knows on the
+/// path (set, copy, add, stack arithmetic); with no known value it is left
+/// out.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptInfo {
@@ -212,9 +220,336 @@ struct Loc {
     index: usize,
 }
 
+/// Counts of one kind of operand over a set of scripts (see
+/// `resolve_stats`): each distinct place in the code counts once.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperandCount {
+    pub total: usize,
+    /// The operand is a literal.
+    pub literal: usize,
+    /// The operand is a work variable with a known value on some path.
+    pub resolved: usize,
+    /// A work variable whose value no path fixes.
+    pub unresolved: usize,
+}
+
+/// How many operands of each kind the walk can name, over every script of
+/// the ROM. "Before" the variable tracking is `literal`; "after" is
+/// `literal + resolved`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveStats {
+    pub scripts: usize,
+    pub messages: OperandCount,
+    pub trainers: OperandCount,
+    pub items: OperandCount,
+    pub warps: OperandCount,
+}
+
+/// The kinds of operand the summary reads, for the counts.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Cat {
+    Message,
+    Bank,
+    Trainer,
+    Item,
+    Warp,
+    Other,
+}
+
+/// A script operand as the walk sees it: a literal, a work variable with a
+/// known value (and whether the value depends on a branch), or unknown.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Opnd {
+    Lit(u16),
+    Var(u16, bool),
+    Unknown,
+    /// 0xC000 and up names no work variable: the game reads the number
+    /// itself, and scripts use 0xFFFF for "none".
+    None,
+}
+
+impl Opnd {
+    fn value(self) -> Option<(u16, bool)> {
+        match self {
+            Opnd::Lit(v) => Some((v, false)),
+            Opnd::Var(v, c) => Some((v, c)),
+            Opnd::Unknown | Opnd::None => None,
+        }
+    }
+
+    fn rank(self) -> u8 {
+        match self {
+            Opnd::Unknown => 0,
+            Opnd::Var(..) => 1,
+            Opnd::Lit(_) | Opnd::None => 2,
+        }
+    }
+}
+
+/// The work variables known on the path being walked.
+///
+/// `vars` maps a work number to its value and a flag that is true when the
+/// value was set after a conditional branch (it then depends on the
+/// branch). `stack` is the VM's value stack, `None` for an unknown value.
+#[derive(Clone, Default, Hash, PartialEq, Eq)]
+struct State {
+    vars: BTreeMap<u16, (u16, bool)>,
+    stack: Vec<Option<u32>>,
+    branched: bool,
+}
+
+impl State {
+    fn resolve(&self, word: u16) -> Opnd {
+        if word < LITERAL_LIMIT {
+            Opnd::Lit(word)
+        } else if word >= NO_WORK {
+            Opnd::None
+        } else {
+            self.vars
+                .get(&word)
+                .map_or(Opnd::Unknown, |&(v, c)| Opnd::Var(v, c))
+        }
+    }
+
+    /// Sets a work variable; `None` forgets it. A literal number names no
+    /// variable (the game ignores the store).
+    fn set(&mut self, var: u16, value: Option<u16>) {
+        if var < LITERAL_LIMIT {
+            return;
+        }
+        match value {
+            Some(v) => {
+                self.vars.insert(var, (v, self.branched));
+            }
+            None => {
+                self.vars.remove(&var);
+            }
+        }
+    }
+
+    fn push(&mut self, v: Option<u32>) {
+        if self.stack.len() < STACK_LIMIT {
+            self.stack.push(v);
+        }
+    }
+
+    fn pop(&mut self) -> Option<u32> {
+        self.stack.pop().flatten()
+    }
+
+    fn clear(&mut self) {
+        self.vars.clear();
+        self.stack.clear();
+    }
+
+    /// Forgets what a called region may have written. A called script keeps
+    /// the local works 0x8020..=0x805E: the game saves and restores them.
+    fn forget(&mut self, w: &Writes, script_call: bool) {
+        let keep = |v: u16| script_call && (LOCAL_FIRST..=LOCAL_LAST).contains(&v);
+        if w.all {
+            self.vars.retain(|&v, _| keep(v));
+        } else {
+            self.vars.retain(|&v, _| keep(v) || !w.vars.contains(&v));
+        }
+    }
+}
+
+/// The work variables a region of code may write.
+#[derive(Clone, Default)]
+struct Writes {
+    vars: HashSet<u16>,
+    /// The region could not be followed to the end.
+    all: bool,
+}
+
+/// Opcodes whose operands are all read, never written: control flow,
+/// stack and register work, message windows, battles, music, warps.
+fn reads_only(op: u16) -> bool {
+    matches!(
+        op,
+        0..=9
+            | 11..=17
+            | 20..=33
+            | 35
+            | 36
+            | 46..=70
+            | 72..=75
+            | 133..=135
+            | 139
+            | 140
+            | 142
+            | 148
+            | 152
+            | 158..=162
+            | 166..=172
+            | 175
+            | 179
+            | 180
+            | 190..=196
+            | 602
+    )
+}
+
+/// The work variables an opcode may write. The set-work family names the
+/// variable first (`ReadWorkPointer`); for other opcodes every operand
+/// word that is a variable number counts, which can only lose a value, not
+/// invent one.
+fn written_by(op: u16, b: &[u8], at: usize, size: usize) -> Vec<u16> {
+    match op {
+        10 | 18 | 19 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 => rd16(b, at)
+            .into_iter()
+            .filter(|&v| v >= LITERAL_LIMIT)
+            .collect(),
+        _ if reads_only(op) => Vec::new(),
+        _ => (0..size / 2)
+            .filter_map(|i| rd16(b, at + i * 2))
+            .filter(|&v| v >= LITERAL_LIMIT)
+            .collect(),
+    }
+}
+
+/// The effect of a non-control opcode on the known values: the set-work
+/// family, the value stack, and a forget of every other written variable.
+fn step(op: u16, b: &[u8], at: usize, size: usize, st: &mut State) {
+    let w0 = rd16(b, at).unwrap_or(0);
+    let w1 = rd16(b, at + 2).unwrap_or(0);
+    match op {
+        // Set to a constant, to a value or variable, copy from a variable.
+        40 => st.set(w0, Some(w1)),
+        42 => {
+            let v = st.resolve(w1).value().map(|x| x.0);
+            st.set(w0, v);
+        }
+        41 => {
+            let v = (w1 >= LITERAL_LIMIT)
+                .then(|| st.vars.get(&w1).map(|x| x.0))
+                .flatten();
+            st.set(w0, v);
+        }
+        // var = var op value: add, sub, mul, div, mod; and, or.
+        38 | 39 | 43 | 44 | 45 | 18 | 19 => {
+            let cur = (w0 >= LITERAL_LIMIT)
+                .then(|| st.vars.get(&w0).map(|x| x.0))
+                .flatten();
+            let rhs = st.resolve(w1).value().map(|x| x.0);
+            let out = match (cur, rhs) {
+                (Some(a), Some(c)) => match op {
+                    38 => Some(a.wrapping_add(c)),
+                    39 => Some(a.wrapping_sub(c)),
+                    43 => Some(a.wrapping_mul(c)),
+                    44 => a.checked_div(c),
+                    45 => a.checked_rem(c),
+                    18 => Some(a & c),
+                    _ => Some(a | c),
+                },
+                _ => None,
+            };
+            st.set(w0, out);
+        }
+        // Stack: push constant, push value, pop to variable, discard.
+        8 => st.push(Some(w0 as u32)),
+        9 => {
+            let v = st.resolve(w0).value().map(|x| x.0 as u32);
+            st.push(v);
+        }
+        10 => {
+            let v = st.pop().map(|x| x as u16);
+            st.set(w0, v);
+        }
+        11 => {
+            st.pop();
+        }
+        12..=15 => {
+            let top = st.pop();
+            let below = st.pop();
+            let out = match (below, top) {
+                (Some(a), Some(c)) => match op {
+                    12 => Some(a.wrapping_add(c)),
+                    13 => Some(a.wrapping_sub(c)),
+                    14 => Some(a.wrapping_mul(c)),
+                    _ => a.checked_div(c),
+                },
+                _ => None,
+            };
+            st.push(out);
+        }
+        16 => st.push(None),
+        17 => {
+            let top = st.pop();
+            let below = st.pop();
+            let out = match (below, top) {
+                (Some(a), Some(c)) => match w0 {
+                    0 => Some(u32::from(a < c)),
+                    1 => Some(u32::from(a == c)),
+                    2 => Some(u32::from(a > c)),
+                    3 => Some(u32::from(a <= c)),
+                    4 => Some(u32::from(a >= c)),
+                    5 => Some(u32::from(a != c)),
+                    6 => Some(u32::from(a == 1 || c == 1)),
+                    7 => Some(u32::from(a == 1 && c == 1)),
+                    _ => Some(0),
+                },
+                _ => None,
+            };
+            st.push(out);
+        }
+        _ => {
+            for v in written_by(op, b, at, size) {
+                st.vars.remove(&v);
+            }
+        }
+    }
+}
+
+/// How many distinct states a code address may be walked in before the
+/// walk gives up tracking values there, and the instructions one script
+/// walk may take before it does the same everywhere.
+const STATES_PER_PC: usize = 16;
+const STEP_BUDGET: usize = 60_000;
+const STACK_LIMIT: usize = 16;
+const LOCAL_FIRST: u16 = 0x8020;
+const LOCAL_LAST: u16 = 0x805E;
+
+/// The (address, state) pairs a walk has taken, so each is walked once.
+/// Past a cap the state is dropped (all values unknown), which still
+/// reaches every address once: structure is never lost, only values.
+#[derive(Default)]
+struct Seen {
+    at: HashMap<(u16, usize), Vec<u64>>,
+    steps: usize,
+}
+
+impl Seen {
+    fn admit(&mut self, file: u16, pc: usize, st: &mut State) -> bool {
+        self.steps += 1;
+        if self.steps > STEP_BUDGET {
+            st.clear();
+        }
+        let known = self.at.entry((file, pc)).or_default();
+        let hash = |st: &State| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            st.hash(&mut h);
+            h.finish()
+        };
+        if known.len() >= STATES_PER_PC {
+            st.clear();
+        }
+        let key = hash(st);
+        if known.contains(&key) {
+            return false;
+        }
+        known.push(key);
+        true
+    }
+}
+
+/// What a walk collects.
 #[derive(Default)]
 struct Acc {
-    messages: Vec<(u16, u16)>,
+    /// Bank, id, and whether the value depends on a branch.
+    messages: Vec<(u16, u16, bool)>,
     trainers: Vec<u16>,
     items: Vec<ItemGift>,
     gifts: Vec<Gift>,
@@ -224,6 +559,8 @@ struct Acc {
     music: Vec<u16>,
     calls: Vec<u16>,
     incomplete: bool,
+    /// For `resolve_stats`: the best view of each operand place so far.
+    sites: Option<HashMap<(Cat, u16, usize, usize), Opnd>>,
 }
 
 fn push_new<T: PartialEq>(v: &mut Vec<T>, x: T) {
@@ -232,7 +569,75 @@ fn push_new<T: PartialEq>(v: &mut Vec<T>, x: T) {
     }
 }
 
-type Seen = HashSet<(u16, usize)>;
+impl Acc {
+    /// Reads operand `n` of the instruction in the state, and notes the
+    /// place for the counts.
+    fn operand(&mut self, cat: Cat, ops: &Operands, n: usize) -> Option<(u16, bool)> {
+        let o = ops.get(n);
+        if let Some(sites) = &mut self.sites {
+            let best = sites
+                .entry((cat, ops.file, ops.pc, n))
+                .or_insert(Opnd::Unknown);
+            if o.rank() > best.rank() {
+                *best = o;
+            }
+        }
+        o.value()
+    }
+
+    fn message(&mut self, bank: Option<(u16, bool)>, id: Option<(u16, bool)>) {
+        let (Some((bank, bc)), Some((id, ic))) = (bank, id) else {
+            return;
+        };
+        let cond = bc || ic;
+        match self.messages.iter_mut().find(|m| m.0 == bank && m.1 == id) {
+            Some(m) => m.2 = m.2 && cond,
+            None => self.messages.push((bank, id, cond)),
+        }
+    }
+}
+
+/// The operands of one instruction, read in the state of the path.
+struct Operands<'a> {
+    b: &'a [u8],
+    at: usize,
+    state: &'a State,
+    file: u16,
+    pc: usize,
+}
+
+impl Operands<'_> {
+    /// The `n`-th byte offset's u16: a literal, or a variable's known value.
+    fn get(&self, n: usize) -> Opnd {
+        rd16(self.b, self.at + n).map_or(Opnd::Unknown, |w| self.state.resolve(w))
+    }
+}
+
+/// An instruction's place and size.
+struct Insn {
+    op: u16,
+    at: usize,
+    size: usize,
+    next: usize,
+}
+
+/// Reads the instruction at `pc`; `None` for an opcode of unknown size or one
+/// that runs past the end of the file.
+fn decode(b: &[u8], pc: usize) -> Option<Insn> {
+    let op = rd16(b, pc)?;
+    let size = OPERAND_BYTES.get(op as usize).copied().unwrap_or(UNKNOWN);
+    let at = pc + 2;
+    let next = at + size as usize;
+    if size == UNKNOWN || next > b.len() {
+        return None;
+    }
+    Some(Insn {
+        op,
+        at,
+        size: size as usize,
+        next,
+    })
+}
 
 /// The zone's tables and the files read so far.
 struct Ctx<'a> {
@@ -242,10 +647,7 @@ struct Ctx<'a> {
     ranges: Vec<Range>,
     files: HashMap<u16, Arc<Vec<u8>>>,
     banks: HashMap<u16, Vec<String>>,
-}
-
-fn literal(v: Option<u16>) -> Option<u16> {
-    v.filter(|&x| x < LITERAL_LIMIT)
+    writes: HashMap<(u16, usize), Writes>,
 }
 
 impl<'a> Ctx<'a> {
@@ -264,6 +666,7 @@ impl<'a> Ctx<'a> {
             ranges: ranges(bridge),
             files: HashMap::new(),
             banks: HashMap::new(),
+            writes: HashMap::new(),
         })
     }
 
@@ -317,74 +720,196 @@ impl<'a> Ctx<'a> {
             .unwrap_or_default()
     }
 
-    fn walk(&mut self, loc: &Loc, start: usize, depth: usize, acc: &mut Acc, seen: &mut Seen) {
+    /// The variables the code at `start` (and everything it calls) may
+    /// write, found without values: every path, calls followed as jumps.
+    fn writes_from(&mut self, file: u16, start: usize, depth: usize) -> Writes {
+        if let Some(w) = self.writes.get(&(file, start)) {
+            return w.clone();
+        }
+        let mut w = Writes::default();
+        let Some(b) = self.file(file) else {
+            w.all = true;
+            return w;
+        };
+        let mut seen: HashSet<usize> = HashSet::new();
+        let mut pending = vec![start];
+        while let Some(mut pc) = pending.pop() {
+            loop {
+                if !seen.insert(pc) {
+                    break;
+                }
+                let Some(i) = decode(&b, pc) else {
+                    w.all = true;
+                    break;
+                };
+                let target = |from: usize| -> Option<usize> {
+                    let rel = rd32(&b, from)? as i32;
+                    usize::try_from(i.next as i64 + rel as i64).ok()
+                };
+                match i.op {
+                    OP_HALT | OP_RETURN | OP_END => break,
+                    OP_JUMP | OP_CALL => {
+                        match target(i.at) {
+                            Some(t) => pending.push(t),
+                            None => w.all = true,
+                        }
+                        if i.op == OP_JUMP {
+                            break;
+                        }
+                    }
+                    OP_IF_JUMP | OP_IF_CALL => match target(i.at + 1) {
+                        Some(t) => pending.push(t),
+                        None => w.all = true,
+                    },
+                    OP_CHANGE_SCRIPT | OP_CALL_SCRIPT => {
+                        let sub = match rd16(&b, i.at) {
+                            Some(id) if depth < MAX_DEPTH => self.script_writes(id, depth + 1),
+                            _ => Writes {
+                                all: true,
+                                ..Writes::default()
+                            },
+                        };
+                        // A called script restores the local works.
+                        let restore = i.op == OP_CALL_SCRIPT;
+                        let keep = |v: u16| restore && (LOCAL_FIRST..=LOCAL_LAST).contains(&v);
+                        w.all |= sub.all;
+                        w.vars.extend(sub.vars.into_iter().filter(|&v| !keep(v)));
+                        if i.op == OP_CHANGE_SCRIPT {
+                            break;
+                        }
+                    }
+                    op => w.vars.extend(written_by(op, &b, i.at, i.size)),
+                }
+                pc = i.next;
+            }
+        }
+        self.writes.insert((file, start), w.clone());
+        w
+    }
+
+    fn script_writes(&mut self, id: u16, depth: usize) -> Writes {
+        let unknown = Writes {
+            all: true,
+            ..Writes::default()
+        };
+        let Some(loc) = self.locate(id) else {
+            return unknown;
+        };
+        match self.entry(loc.file, loc.index) {
+            Some(start) => self.writes_from(loc.file, start, depth),
+            None => unknown,
+        }
+    }
+
+    fn walk(
+        &mut self,
+        loc: &Loc,
+        start: usize,
+        depth: usize,
+        acc: &mut Acc,
+        seen: &mut Seen,
+        init: State,
+    ) {
         let Some(b) = self.file(loc.file) else {
             acc.incomplete = true;
             return;
         };
-        let mut pending = vec![start];
-        while let Some(mut pc) = pending.pop() {
+        let mut pending = vec![(start, init)];
+        while let Some((mut pc, mut st)) = pending.pop() {
             loop {
-                if !seen.insert((loc.file, pc)) {
+                if !seen.admit(loc.file, pc, &mut st) {
                     break;
                 }
-                let Some(op) = rd16(&b, pc) else {
+                let Some(i) = decode(&b, pc) else {
                     acc.incomplete = true;
                     break;
                 };
-                let size = OPERAND_BYTES.get(op as usize).copied().unwrap_or(UNKNOWN);
-                let at = pc + 2;
-                let next = at + size as usize;
-                if size == UNKNOWN || next > b.len() {
-                    acc.incomplete = true;
-                    break;
-                }
-                let arg = |n: usize| literal(rd16(&b, at + n));
                 let target = |from: usize| -> Option<usize> {
                     let rel = rd32(&b, from)? as i32;
-                    usize::try_from(next as i64 + rel as i64).ok()
+                    usize::try_from(i.next as i64 + rel as i64).ok()
                 };
-                match op {
+                match i.op {
                     OP_HALT | OP_RETURN | OP_END => break,
                     OP_JUMP => {
-                        match target(at) {
-                            Some(t) => pending.push(t),
+                        match target(i.at) {
+                            Some(t) => pending.push((t, st.clone())),
                             None => acc.incomplete = true,
                         }
                         break;
                     }
-                    OP_CALL => match target(at) {
-                        Some(t) => pending.push(t),
-                        None => acc.incomplete = true,
-                    },
-                    OP_IF_JUMP | OP_IF_CALL => match target(at + 1) {
-                        Some(t) => pending.push(t),
-                        None => acc.incomplete = true,
-                    },
-                    OP_CHANGE_SCRIPT | OP_CALL_SCRIPT => {
-                        if let Some(id) = arg(0) {
-                            push_new(&mut acc.calls, id);
-                            self.follow(id, depth, acc, seen);
+                    OP_CALL => match target(i.at) {
+                        Some(t) => {
+                            pending.push((t, st.clone()));
+                            let w = self.writes_from(loc.file, t, depth);
+                            st.forget(&w, false);
                         }
-                        if op == OP_CHANGE_SCRIPT {
+                        None => acc.incomplete = true,
+                    },
+                    OP_IF_JUMP | OP_IF_CALL => {
+                        // Condition 0xFF takes its answer from the stack.
+                        if i.op == OP_IF_JUMP && b.get(i.at) == Some(&0xFF) {
+                            st.pop();
+                        }
+                        match target(i.at + 1) {
+                            Some(t) => {
+                                let mut taken = st.clone();
+                                taken.branched = true;
+                                pending.push((t, taken));
+                                if i.op == OP_IF_CALL {
+                                    let w = self.writes_from(loc.file, t, depth);
+                                    st.forget(&w, false);
+                                }
+                            }
+                            None => acc.incomplete = true,
+                        }
+                        st.branched = true;
+                    }
+                    OP_CHANGE_SCRIPT | OP_CALL_SCRIPT => {
+                        if let Some(id) = rd16(&b, i.at).filter(|&id| id < LITERAL_LIMIT) {
+                            push_new(&mut acc.calls, id);
+                            self.follow(id, depth, acc, seen, st.clone());
+                            if i.op == OP_CALL_SCRIPT {
+                                let w = self.script_writes(id, depth + 1);
+                                st.forget(&w, true);
+                            }
+                        } else if i.op == OP_CALL_SCRIPT {
+                            st.forget(
+                                &Writes {
+                                    all: true,
+                                    ..Writes::default()
+                                },
+                                true,
+                            );
+                        }
+                        if i.op == OP_CHANGE_SCRIPT {
                             break;
                         }
                     }
-                    _ => effect(op, loc.bank, &arg, acc),
+                    op => {
+                        let ops = Operands {
+                            b: &b,
+                            at: i.at,
+                            state: &st,
+                            file: loc.file,
+                            pc,
+                        };
+                        effect(op, loc.bank, &ops, acc);
+                        step(op, &b, i.at, i.size, &mut st);
+                    }
                 }
-                pc = next;
+                pc = i.next;
             }
         }
     }
 
     /// Walks a called script, within the depth limit.
-    fn follow(&mut self, id: u16, depth: usize, acc: &mut Acc, seen: &mut Seen) {
+    fn follow(&mut self, id: u16, depth: usize, acc: &mut Acc, seen: &mut Seen, st: State) {
         if depth >= MAX_DEPTH {
             return;
         }
         let Some(loc) = self.locate(id) else { return };
         match self.entry(loc.file, loc.index) {
-            Some(start) => self.walk(&loc, start, depth + 1, acc, seen),
+            Some(start) => self.walk(&loc, start, depth + 1, acc, seen, st),
             None => acc.incomplete = true,
         }
     }
@@ -421,15 +946,16 @@ impl<'a> Ctx<'a> {
         let loc = self.locate(id)?;
         let start = self.entry(loc.file, loc.index)?;
         let mut acc = Acc::default();
-        let mut seen = Seen::new();
-        self.walk(&loc, start, 0, &mut acc, &mut seen);
+        let mut seen = Seen::default();
+        self.walk(&loc, start, 0, &mut acc, &mut seen, State::default());
         let messages = acc
             .messages
             .iter()
-            .map(|&(bank, id)| MessageRef {
+            .map(|&(bank, id, conditional)| MessageRef {
                 bank,
                 id,
                 text: self.text(bank, id),
+                conditional,
             })
             .collect();
         Some(ScriptInfo {
@@ -453,83 +979,98 @@ impl<'a> Ctx<'a> {
 
 /// What one opcode with operands means for the summary. Argument offsets
 /// follow the handlers: ReadWorkValue and VM_ReadU16 are two bytes each, in
-/// the order the handler reads them.
-fn effect(op: u16, zone_bank: u16, arg: &dyn Fn(usize) -> Option<u16>, acc: &mut Acc) {
-    let bank_of = |a: Option<u16>| match a {
-        Some(ZONE_BANK_MARK) | None => zone_bank,
-        Some(b) => b,
-    };
-    let mut msg = |bank: u16, id: Option<u16>| {
-        if let Some(id) = id {
-            push_new(&mut acc.messages, (bank, id));
-        }
+/// the order the handler reads them. An operand that is a work variable is
+/// read from the state of the path.
+fn effect(op: u16, zone_bank: u16, ops: &Operands, acc: &mut Acc) {
+    // A bank operand: 0x400 is the zone's bank.
+    let bank = |acc: &mut Acc, n: usize| {
+        acc.operand(Cat::Bank, ops, n)
+            .map(|(b, c)| (if b == ZONE_BANK_MARK { zone_bank } else { b }, c))
     };
     match op {
         // Info, plain, sub, background and special windows: the message id
         // comes first, from the zone's bank.
-        52 | 53 | 56 | 58 | 67 | 69 | 74 => msg(zone_bank, arg(0)),
+        52 | 53 | 56 | 58 | 67 | 69 | 74 => {
+            let id = acc.operand(Cat::Message, ops, 0);
+            acc.message(Some((zone_bank, false)), id);
+        }
         // Menu item: text, then help text.
         175 => {
-            msg(zone_bank, arg(0));
-            msg(zone_bank, arg(2));
+            let id = acc.operand(Cat::Message, ops, 0);
+            acc.message(Some((zone_bank, false)), id);
+            let id = acc.operand(Cat::Message, ops, 2);
+            acc.message(Some((zone_bank, false)), id);
         }
         // Balloon window: file, message.
-        60 | 61 => msg(bank_of(arg(0)), arg(2)),
+        60 | 61 => {
+            let b = bank(acc, 0);
+            let id = acc.operand(Cat::Message, ops, 2);
+            acc.message(b, id);
+        }
         72 => {
-            let bank = bank_of(arg(0));
-            msg(bank, arg(2));
-            msg(bank, arg(4));
+            let b = bank(acc, 0);
+            let id = acc.operand(Cat::Message, ops, 2);
+            acc.message(b, id);
+            let id = acc.operand(Cat::Message, ops, 4);
+            acc.message(b, id);
         }
         // The second argument is skipped in the Black build.
-        73 => msg(bank_of(arg(0)), arg(4)),
+        73 => {
+            let b = bank(acc, 0);
+            let id = acc.operand(Cat::Message, ops, 4);
+            acc.message(b, id);
+        }
         // Trainer battles: single, multi (ally first), with a Pokemon.
         133 | 134 | 148 => {
             let first = usize::from(op == 134);
             let n = if op == 148 { 4 } else { 3 };
             for i in first..first + n {
-                if let Some(t) = arg(i * 2).filter(|&t| t != 0) {
+                if let Some((t, _)) = acc.operand(Cat::Trainer, ops, i * 2).filter(|v| v.0 != 0) {
                     push_new(&mut acc.trainers, t);
                 }
             }
         }
         // Item, count, result variable.
         181 => {
-            if let Some(item) = arg(0) {
-                let count = arg(2).unwrap_or(1);
+            if let Some((item, _)) = acc.operand(Cat::Item, ops, 0) {
+                let count = acc.operand(Cat::Other, ops, 2).map_or(1, |v| v.0);
                 push_new(&mut acc.items, ItemGift { item, count });
             }
         }
         // Party Pokemon: result variable, species, form, level.
         268 => {
-            if let (Some(species), Some(level)) = (arg(2), arg(6)) {
+            if let (Some((species, _)), Some((level, _))) = (
+                acc.operand(Cat::Other, ops, 2),
+                acc.operand(Cat::Other, ops, 6),
+            ) {
                 push_new(&mut acc.gifts, Gift { species, level });
             }
         }
         OP_SET_FLAG => {
-            if let Some(f) = arg(0) {
+            if let Some((f, _)) = acc.operand(Cat::Other, ops, 0) {
                 push_new(&mut acc.flags_set, f);
             }
         }
         OP_RESET_FLAG => {
-            if let Some(f) = arg(0) {
+            if let Some((f, _)) = acc.operand(Cat::Other, ops, 0) {
                 push_new(&mut acc.flags_cleared, f);
             }
         }
         // Warps: zone, then x, z (190, 191, 193, 194), a rail position
         // (192, 602) or x, y, z (196).
         190 | 191 | 193 | 194 | 196 => {
-            if let Some(zone) = arg(0) {
+            if let Some((zone, _)) = acc.operand(Cat::Warp, ops, 0) {
                 let z_at = if op == 196 { 6 } else { 4 };
                 let w = ScriptWarp {
                     zone,
-                    x: arg(2),
-                    z: arg(z_at),
+                    x: acc.operand(Cat::Other, ops, 2).map(|v| v.0),
+                    z: acc.operand(Cat::Other, ops, z_at).map(|v| v.0),
                 };
                 push_new(&mut acc.warps, w);
             }
         }
         192 | 602 => {
-            if let Some(zone) = arg(0) {
+            if let Some((zone, _)) = acc.operand(Cat::Warp, ops, 0) {
                 let w = ScriptWarp {
                     zone,
                     x: None,
@@ -540,7 +1081,7 @@ fn effect(op: u16, zone_bank: u16, arg: &dyn Fn(usize) -> Option<u16>, acc: &mut
         }
         // BGM: fade out and play, push and play (wait), push and play.
         152 | 159 | 169 => {
-            if let Some(m) = arg(0) {
+            if let Some((m, _)) = acc.operand(Cat::Other, ops, 0) {
                 push_new(&mut acc.music, m);
             }
         }
@@ -613,6 +1154,54 @@ pub fn script_info(
     script_id: u16,
 ) -> Result<Option<ScriptInfo>, Error> {
     Ok(Ctx::new(bridge, zone)?.info(script_id))
+}
+
+/// Counts the operands of the summary kinds over every script of the ROM
+/// (each script of each member of a/0/5/7, walked from its entry), each
+/// distinct place in the code once. `literal` is what the walk named before
+/// it tracked work variables; `literal + resolved` is what it names now.
+pub fn resolve_stats(bridge: &Bridge) -> Result<ResolveStats, Error> {
+    let mut ctx = Ctx::new(bridge, 0)?;
+    let files = catalog::members(bridge, SCRIPT_ARCHIVE)?.len();
+    let mut stats = ResolveStats::default();
+    let mut sites = HashMap::new();
+    for file in 0..files as u16 {
+        for index in 0..ctx.count(file) {
+            let Some(start) = ctx.entry(file, index) else {
+                continue;
+            };
+            stats.scripts += 1;
+            let loc = Loc {
+                file,
+                bank: 0,
+                index,
+            };
+            let mut acc = Acc {
+                sites: Some(std::mem::take(&mut sites)),
+                ..Acc::default()
+            };
+            let mut seen = Seen::default();
+            ctx.walk(&loc, start, 0, &mut acc, &mut seen, State::default());
+            sites = acc.sites.take().unwrap_or_default();
+        }
+    }
+    for ((cat, ..), operand) in sites {
+        let count = match cat {
+            Cat::Message => &mut stats.messages,
+            Cat::Trainer => &mut stats.trainers,
+            Cat::Item => &mut stats.items,
+            Cat::Warp => &mut stats.warps,
+            Cat::Bank | Cat::Other => continue,
+        };
+        count.total += 1;
+        match operand {
+            Opnd::Lit(_) => count.literal += 1,
+            Opnd::Var(..) => count.resolved += 1,
+            Opnd::Unknown => count.unresolved += 1,
+            Opnd::None => count.total -= 1,
+        }
+    }
+    Ok(stats)
 }
 
 fn event_file(bridge: &Bridge, zone: usize) -> Result<Vec<u8>, Error> {
