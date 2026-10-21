@@ -4,11 +4,14 @@ The modding suite for the native port of Pokémon Black and White.
 
 ## Status
 
-Not started. It begins once [eidos](https://github.com/Project-Holon/eidos)
-runs the game from the unpacked data folder. The design it will build on is
-in aletheia's `docs/DISTRIBUTION.md`: a human-readable data root, per-file
-mod overlays with a load order, script text that round-trips, and a
-documented C API for the engine's loaders.
+Step 1 of `docs/briefs/kenon-plan.md` is done: the app shell, the Rust core,
+the data folder setting and CI. The asset readers come next, in the order of
+`docs/ui-assets-inventory.md`, section 17.
+
+kenon reads the same data folder as [eidos](https://github.com/Project-Holon/eidos):
+the extraction folder (with `data/` in it) or its `data/` folder. It reads
+the user's own data at run time and ships none. Without a data folder it
+uses a plain theme.
 
 ## Planned scope
 
@@ -25,6 +28,28 @@ documented C API for the engine's loaders.
   recompiling. A rule is a small language the port fixes, run by a small
   interpreter in eidos; this repository writes rules in that grammar
   (`docs/events-and-rules.md`).
+
+## Layout
+
+| Path | What it is |
+| --- | --- |
+| `core/` | `kenon-core`: every file format and the data folder rules. Pure Rust, no Tauri, so tests and tools use it directly |
+| `app/` | The Tauri 2 shell: settings and commands. It parses no game formats |
+| `ui/` | The Svelte 5 + TypeScript front end. It asks the shell for everything |
+| `docs/` | The mod contract, the `.bw` format, events and rules, the UI asset inventory, briefs |
+
+## Building
+
+Needs Rust (stable), Node 22 or later, and the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your
+platform.
+
+```sh
+npm ci
+npm run tauri dev       # run the app
+npm run check           # front-end type check
+cargo test --workspace  # Rust tests
+```
 
 ## Relationship to the other repositories
 

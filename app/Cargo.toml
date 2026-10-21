@@ -1,0 +1,24 @@
+[package]
+name = "kenon"
+description = "The modding suite for the native port of Pokemon Black and White"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "kenon_app"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+kenon-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile.workspace = true

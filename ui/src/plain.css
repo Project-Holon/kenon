@@ -1,0 +1,87 @@
+/* The plain theme: used when no data folder is set, and the base the
+   game-styled skin will sit on. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --border: #d3d7de;
+  --text: #1c2026;
+  --muted: #5d6573;
+  --accent: #2f5fb3;
+  --accent-text: #ffffff;
+  --ok: #1d7a3d;
+  --bad: #b3261e;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181d;
+    --surface: #1d2128;
+    --surface-2: #1a1d23;
+    --border: #343a45;
+    --text: #e4e7ec;
+    --muted: #9aa2b1;
+    --accent: #6f9be8;
+    --accent-text: #0d1117;
+    --ok: #6cc98b;
+    --bad: #f08a80;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, sans-serif;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.25rem;
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.muted {
+  color: var(--muted);
+}
