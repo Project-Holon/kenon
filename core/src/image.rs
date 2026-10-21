@@ -102,8 +102,15 @@ pub struct CellImage {
 /// a row, a 2D bank in rows of the sheet's width (32 tiles when the sheet
 /// gives none). A lower OBJ priority value, then a lower OBJ index, draws
 /// in front, as on hardware. Colour 0 is transparent. 4bpp OBJs use their
-/// palette bank. Affine OBJs are drawn unrotated.
-pub fn render_cell(bank: &Ncer, cell: &Cell, tiles: &Ncgr, palette: &Palette) -> CellImage {
+/// palette bank plus `palette_offset` (the offset a sprite actor adds, for
+/// example per type for the type icons). Affine OBJs are drawn unrotated.
+pub fn render_cell(
+    bank: &Ncer,
+    cell: &Cell,
+    tiles: &Ncgr,
+    palette: &Palette,
+    palette_offset: usize,
+) -> CellImage {
     if cell.objs.is_empty() {
         return CellImage {
             image: Rgba::new(0, 0),
@@ -133,7 +140,7 @@ pub fn render_cell(bank: &Ncer, cell: &Cell, tiles: &Ncgr, palette: &Palette) ->
         let start = obj.tile as usize * bank.name_unit();
         let (tw, th) = (obj.width as usize / 8, obj.height as usize / 8);
         let base = match tiles.depth {
-            Depth::Bpp4 => obj.palette as usize * 16,
+            Depth::Bpp4 => (obj.palette as usize + palette_offset) * 16,
             Depth::Bpp8 => 0,
         };
         for ty in 0..th {
@@ -212,11 +219,11 @@ mod tests {
         // 1D 32K: OBJ 0 is 16x8 at (-8, -4) from tile 0 with hflip;
         // OBJ 1 is 8x8 at (0, 4) from tile 3, behind OBJ 0.
         let bank = Ncer::parse(&ncer::build(
-            1,
+            0,
             &[&[[0x4000 | 0xFC, 0x1000 | 0x1F8, 0], [4, 0, 3]]],
         ))
         .unwrap();
-        let cell = render_cell(&bank, &bank.cells[0], &tiles, &palette);
+        let cell = render_cell(&bank, &bank.cells[0], &tiles, &palette, 0);
         assert_eq!((cell.image.width, cell.image.height), (16, 16));
         assert_eq!(cell.origin, (8, 4));
         // hflip: tile 1 (colour 2) now on the left, tile 0 (colour 1) right.

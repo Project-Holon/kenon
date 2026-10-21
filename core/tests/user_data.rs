@@ -259,7 +259,7 @@ fn render_options_cells() {
         let tiles = Ncgr::parse(&get(char_index)).unwrap();
         let bank = Ncer::parse(&get(cell_index)).unwrap();
         for (i, cell) in bank.cells.iter().enumerate() {
-            let img = render_cell(&bank, cell, &tiles, &palette).image;
+            let img = render_cell(&bank, cell, &tiles, &palette, 0).image;
             let path = PathBuf::from(&out)
                 .join(format!("cell_{name}_{i}_{}x{}.rgba", img.width, img.height));
             std::fs::write(path, &img.pixels).unwrap();
@@ -444,4 +444,80 @@ fn sound_archive_renders_everything() {
          {dropped} dropped, {stopped} tracks stopped at an unknown command"
     );
     assert_eq!(failed, 0);
+}
+
+/// Reading straight from the ROM named by KENON_ROM: it is a known dump,
+/// and when KENON_DATA_ROOT names an extraction of it, every NitroFS file,
+/// the ARM9 binary and every overlay match the extracted copies.
+#[test]
+fn rom_matches_extraction() {
+    use kenon_core::rom::{Game, Rom};
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        eprintln!("KENON_ROM not set; skipped");
+        return;
+    };
+    let rom = Rom::open(path.as_ref()).unwrap();
+    assert_ne!(rom.identity.game, Game::Other);
+    assert!(rom.is_known_dump().unwrap(), "{:?}", rom.identity);
+    let Some(root) = data_root() else {
+        return;
+    };
+    let mut files = 0;
+    for rel in rom.paths().map(str::to_string).collect::<Vec<_>>() {
+        let extracted = std::fs::read(root.file(&rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+        assert!(rom.file(&rel).unwrap() == extracted, "{rel}");
+        files += 1;
+    }
+    eprintln!("{files} files match");
+    let Some(dir) = root.extraction_dir.as_deref().filter(|_| root.has_arm9) else {
+        return;
+    };
+    assert!(rom.arm9().unwrap() == std::fs::read(dir.join("arm9_dec.bin")).unwrap());
+    for n in 0..rom.overlays().len() as u16 {
+        let name = format!("y9_{n:04}.bin");
+        let extracted = std::fs::read(dir.join("overlays_dec").join(&name))
+            .or_else(|_| std::fs::read(dir.join("overlays").join(&name)))
+            .unwrap();
+        assert!(rom.overlay(n).unwrap() == extracted, "overlay {n}");
+    }
+}
+
+/// The bridge straight from the ROM: animation frames, a message, the
+/// cursor tile and a code table all need the ROM's files or code.
+#[test]
+fn bridge_from_rom() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    // Touch bar back button: idle (sequence 1) and pressed (sequence 9).
+    for seq in [1, 9] {
+        let asset = bridge
+            .serve(&format!("anim/83:20/83:19/83:21/83:24/{seq}/0"))
+            .unwrap();
+        assert!(asset.bytes.starts_with(b"\x89PNG"));
+        if let Some(out) = std::env::var_os("KENON_RENDER_OUT") {
+            std::fs::write(
+                PathBuf::from(out).join(format!("back_{seq}.png")),
+                &asset.bytes,
+            )
+            .unwrap();
+        }
+    }
+    let info = String::from_utf8(bridge.serve("animinfo/83:24").unwrap().bytes.clone()).unwrap();
+    assert!(info.starts_with("[{\"loopStart\""), "{info}");
+    // a/0/0/2 bank 0xE9 (233): the yes/no labels.
+    let yes = String::from_utf8(bridge.serve("msg/2/233/0").unwrap().bytes.clone()).unwrap();
+    assert!(!yes.is_empty());
+    eprintln!("bank 233 message 0: {yes}");
+    assert!(bridge
+        .serve("cursor/5:3/0")
+        .unwrap()
+        .bytes
+        .starts_with(b"\x89PNG"));
+    let types =
+        String::from_utf8(bridge.serve("table/type_palette").unwrap().bytes.clone()).unwrap();
+    assert_eq!(types.matches(',').count(), 17, "{types}");
 }

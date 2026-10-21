@@ -1,16 +1,15 @@
 <script lang="ts">
+  import { gameStatus, isReady, type GameStatus } from "../lib/backend";
   import { onMount } from "svelte";
-  import { dataFolderStatus, type DataFolderStatus } from "../lib/backend";
 
-  let { onOpenSettings }: { onOpenSettings: () => void } = $props();
+  let { onOpenSettings, onOpenGallery }: { onOpenSettings: () => void; onOpenGallery: () => void } =
+    $props();
 
-  let status = $state<DataFolderStatus | null>(null);
+  let status = $state<GameStatus | null>(null);
 
   onMount(async () => {
-    status = await dataFolderStatus();
+    status = await gameStatus();
   });
-
-  const ready = $derived(status?.check?.state === "ready");
 </script>
 
 <h1>kenon</h1>
@@ -18,12 +17,13 @@
 
 {#if status === null}
   <p class="muted">Loading the settings...</p>
-{:else if ready}
-  <p>The game data folder is set. The game-styled theme comes with the asset readers.</p>
+{:else if isReady(status)}
+  <p>Your game is set. The component gallery shows the game-styled pieces built so far.</p>
+  <button class="primary" onclick={onOpenGallery}>Open the gallery</button>
 {:else}
   <p>
-    kenon reads graphics, fonts and sounds from your own unpacked game data. It ships none.
-    Until you choose a data folder, it uses this plain theme.
+    kenon reads graphics, fonts and sounds from your own ROM. It ships none. Until you choose one, it
+    uses this plain theme.
   </p>
-  <button class="primary" onclick={onOpenSettings}>Choose the data folder</button>
+  <button class="primary" onclick={onOpenSettings}>Choose your ROM</button>
 {/if}

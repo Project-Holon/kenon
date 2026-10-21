@@ -6,7 +6,7 @@
 //! ```text
 //! 0x00 u16 cell count   0x02 u16 cell record kind (0: 8 bytes, 1: 16 bytes)
 //! 0x04 u32 cell records offset (from this body)
-//! 0x08 u32 OBJ mapping (0: 2D; 1-4: 1D with 32, 64, 128, 256 KB reach)
+//! 0x08 u32 OBJ mapping (0-3: 1D with a 32, 64, 128, 256 KB reach; 4: 2D)
 //! cell record: u16 OBJ count, u16 attribute, u32 offset of its OBJ entries
 //!   (from the end of the cell records); kind 1 adds s16 max x, max y,
 //!   min x, min y
@@ -103,7 +103,9 @@ pub struct Cell {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ncer {
-    /// 0: 2D mapping; 1-4: 1D mapping with a 32, 64, 128 or 256 KB reach.
+    /// 0-3: 1D mapping with a 32, 64, 128 or 256 KB reach; 4: 2D. The
+    /// touch bar banks (a/0/8/3 #21-23, mappings 0-2) step their 32x32
+    /// buttons by 16, 8 and 4 character names, which pins the units.
     pub mapping: u32,
     pub cells: Vec<Cell>,
 }
@@ -153,11 +155,15 @@ impl Ncer {
     /// Bytes per character-name unit: 32 for 2D and 1D 32 KB mapping,
     /// doubling with each larger 1D reach.
     pub fn name_unit(&self) -> usize {
-        32 << self.mapping.saturating_sub(1).min(3)
+        if self.is_1d() {
+            32 << self.mapping
+        } else {
+            32
+        }
     }
 
     pub fn is_1d(&self) -> bool {
-        self.mapping != 0
+        self.mapping < 4
     }
 }
 
@@ -212,7 +218,7 @@ mod tests {
         assert_eq!(ncer.cells.len(), 2);
         assert_eq!(ncer.cells[1].objs[1].tile, 3);
         assert_eq!(ncer.cells[1].objs[1].width, 32);
-        assert_eq!(ncer.name_unit(), 64);
+        assert_eq!(ncer.name_unit(), 128);
         assert!(ncer.is_1d());
     }
 }

@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
 use kenon_core::bridge::Bridge;
-use kenon_core::data_root::{self, DataRootCheck};
+use kenon_core::data_root;
+use kenon_core::source::{self, GameCheck};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -17,7 +18,7 @@ use settings::Settings;
 struct AppState {
     settings: Mutex<Settings>,
     settings_path: PathBuf,
-    /// The asset bridge over the data folder, when the folder holds game data.
+    /// The asset bridge over the chosen game, when it can be used.
     bridge: RwLock<Option<Arc<Bridge>>>,
 }
 
@@ -27,53 +28,54 @@ impl AppState {
     }
 }
 
-fn bridge_for(folder: Option<&Path>) -> Option<Arc<Bridge>> {
-    match data_root::check(folder?) {
-        DataRootCheck::Ready(root) => Some(Arc::new(Bridge::new(root))),
-        _ => None,
-    }
-}
-
-/// What the settings screen shows about the data folder.
+/// What the settings screen shows about the chosen game.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct DataFolderStatus {
-    /// The folder saved in the settings, if any.
-    folder: Option<PathBuf>,
-    /// The check of that folder, if one is set.
-    check: Option<DataRootCheck>,
-    /// The eidos default extraction folder, offered as a suggestion.
+struct GameStatus {
+    /// The ROM or folder saved in the settings, if any.
+    path: Option<PathBuf>,
+    /// The check of it, if one is set.
+    check: Option<GameCheck>,
+    /// The eidos extraction folder, offered when it exists.
     suggestion: Option<PathBuf>,
 }
 
-fn status(folder: Option<PathBuf>) -> DataFolderStatus {
-    DataFolderStatus {
-        check: folder.as_deref().map(data_root::check),
-        folder,
+/// Opens the chosen game: its check, and a bridge when it can be used.
+fn open(path: Option<&Path>) -> (Option<GameCheck>, Option<Arc<Bridge>>) {
+    let Some(path) = path else {
+        return (None, None);
+    };
+    let (check, source) = source::open(path);
+    (Some(check), source.map(|s| Arc::new(Bridge::new(s))))
+}
+
+fn status(path: Option<PathBuf>, check: Option<GameCheck>) -> GameStatus {
+    GameStatus {
+        path,
+        check,
         suggestion: data_root::eidos_default().filter(|dir| dir.is_dir()),
     }
 }
 
 #[tauri::command]
-fn data_folder_status(state: State<AppState>) -> DataFolderStatus {
-    let folder = state.settings.lock().unwrap().data_folder.clone();
-    status(folder)
+fn game_status(state: State<AppState>) -> GameStatus {
+    let path = state.settings.lock().unwrap().game.clone();
+    let (check, _) = open(path.as_deref());
+    status(path, check)
 }
 
-/// Saves the data folder (or clears it with `None`) and returns its check.
-/// A folder that fails the check is still saved, so the user sees why.
+/// Saves the chosen ROM or folder (or clears it with `None`) and returns its
+/// check. A choice that fails the check is still saved, so the user sees why.
 #[tauri::command]
-fn set_data_folder(
-    state: State<AppState>,
-    folder: Option<PathBuf>,
-) -> Result<DataFolderStatus, String> {
+fn set_game(state: State<AppState>, path: Option<PathBuf>) -> Result<GameStatus, String> {
     let mut settings = state.settings.lock().unwrap();
-    settings.data_folder = folder.clone();
+    settings.game = path.clone();
     settings
         .save(&state.settings_path)
         .map_err(|err| format!("could not save the settings: {err}"))?;
-    *state.bridge.write().unwrap() = bridge_for(folder.as_deref());
-    Ok(status(folder))
+    let (check, bridge) = open(path.as_deref());
+    *state.bridge.write().unwrap() = bridge;
+    Ok(status(path, check))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -83,7 +85,7 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("settings.json");
             let settings = Settings::load(&settings_path);
-            let bridge = bridge_for(settings.data_folder.as_deref());
+            let (_, bridge) = open(settings.game.as_deref());
             app.manage(AppState {
                 settings: Mutex::new(settings),
                 settings_path,
@@ -99,10 +101,7 @@ pub fn run() {
                 responder.respond(protocol::respond(bridge, uri.path(), uri.query()));
             });
         })
-        .invoke_handler(tauri::generate_handler![
-            data_folder_status,
-            set_data_folder
-        ])
+        .invoke_handler(tauri::generate_handler![game_status, set_game])
         .run(tauri::generate_context!())
         .expect("error while running kenon");
 }

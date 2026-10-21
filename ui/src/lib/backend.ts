@@ -1,30 +1,37 @@
 // Typed wrappers for the commands in app/src/lib.rs.
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
-export interface DataRoot {
-  chosen: string;
-  dataDir: string;
-  extractionDir: string | null;
-  hasManifest: boolean;
-  hasArm9: boolean;
+export interface Identity {
+  title: string;
+  gameCode: string;
+  game: "black" | "white" | "other";
+  size: number;
 }
 
-export type DataRootCheck =
-  | { state: "missing"; path: string }
-  | { state: "notAFolder"; path: string }
-  | { state: "noGameData"; path: string }
-  | ({ state: "ready" } & DataRoot);
+export type GameCheck =
+  | { state: "rom"; identity: Identity; supported: boolean }
+  | { state: "folder"; hasArm9: boolean }
+  | { state: "problem"; message: string };
 
-export interface DataFolderStatus {
-  folder: string | null;
-  check: DataRootCheck | null;
+export interface GameStatus {
+  path: string | null;
+  check: GameCheck | null;
   suggestion: string | null;
 }
 
-export function dataFolderStatus(): Promise<DataFolderStatus> {
-  return invoke("data_folder_status");
+export function gameStatus(): Promise<GameStatus> {
+  return invoke("game_status");
 }
 
-export function setDataFolder(folder: string | null): Promise<DataFolderStatus> {
-  return invoke("set_data_folder", { folder });
+export function setGame(path: string | null): Promise<GameStatus> {
+  return invoke("set_game", { path });
+}
+
+export function isReady(status: GameStatus | null): boolean {
+  return status?.check?.state === "rom" || status?.check?.state === "folder";
+}
+
+/// The URL of an asset bridge path (see core/src/bridge.rs).
+export function asset(path: string): string {
+  return convertFileSrc(path, "kenon");
 }

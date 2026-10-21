@@ -17,7 +17,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
+
+use crate::rom::Rom;
 
 /// Where the ARM9 image is loaded.
 pub const ARM9_ADDRESS: u32 = 0x0200_4000;
@@ -58,9 +60,17 @@ pub fn parse_overlay_table(bytes: &[u8]) -> Vec<OverlayEntry> {
         .collect()
 }
 
-/// The code images of one extraction, loaded on first use.
+/// Where the images come from.
+enum Backing {
+    /// An extraction folder (the one that holds `data/`).
+    Dir(PathBuf),
+    /// The ROM itself.
+    Rom(Arc<Rom>),
+}
+
+/// The code images of one game, loaded on first use.
 pub struct CodeImages {
-    dir: PathBuf,
+    backing: Backing,
     table: Vec<OverlayEntry>,
     loaded: HashMap<Image, OnceLock<Vec<u8>>>,
 }
@@ -71,15 +81,28 @@ impl CodeImages {
     /// are read when first asked for.
     pub fn open(extraction_dir: &Path) -> io::Result<Self> {
         let table = parse_overlay_table(&fs::read(extraction_dir.join("y9.bin"))?);
+        Ok(Self::with(
+            Backing::Dir(extraction_dir.to_path_buf()),
+            table,
+        ))
+    }
+
+    /// The images inside a ROM.
+    pub fn from_rom(rom: Arc<Rom>) -> Self {
+        let table = rom.overlays().to_vec();
+        Self::with(Backing::Rom(rom), table)
+    }
+
+    fn with(backing: Backing, table: Vec<OverlayEntry>) -> Self {
         let loaded = std::iter::once(Image::Arm9)
             .chain((0..table.len()).map(|n| Image::Overlay(n as u16)))
             .map(|image| (image, OnceLock::new()))
             .collect();
-        Ok(CodeImages {
-            dir: extraction_dir.to_path_buf(),
+        CodeImages {
+            backing,
             table,
             loaded,
-        })
+        }
     }
 
     pub fn overlays(&self) -> &[OverlayEntry] {
@@ -103,13 +126,15 @@ impl CodeImages {
         if let Some(bytes) = cell.get() {
             return Ok(bytes);
         }
-        let bytes = match image {
-            Image::Arm9 => fs::read(self.dir.join("arm9_dec.bin"))?,
-            Image::Overlay(n) => {
+        let bytes = match (&self.backing, image) {
+            (Backing::Dir(dir), Image::Arm9) => fs::read(dir.join("arm9_dec.bin"))?,
+            (Backing::Dir(dir), Image::Overlay(n)) => {
                 let name = format!("y9_{n:04}.bin");
-                fs::read(self.dir.join("overlays_dec").join(&name))
-                    .or_else(|_| fs::read(self.dir.join("overlays").join(&name)))?
+                fs::read(dir.join("overlays_dec").join(&name))
+                    .or_else(|_| fs::read(dir.join("overlays").join(&name)))?
             }
+            (Backing::Rom(rom), Image::Arm9) => rom.arm9().map_err(io::Error::other)?,
+            (Backing::Rom(rom), Image::Overlay(n)) => rom.overlay(n).map_err(io::Error::other)?,
         };
         Ok(cell.get_or_init(|| bytes))
     }

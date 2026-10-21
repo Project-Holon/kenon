@@ -1666,6 +1666,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "serde_json",
+ "sha1_smol",
  "tempfile",
 ]
 
@@ -2835,6 +2836,12 @@ checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
 dependencies = [
  "stable_deref_trait",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sha2"

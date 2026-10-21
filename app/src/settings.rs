@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
-    /// The folder with the game's unpacked data. Never a constant in code.
-    pub data_folder: Option<PathBuf>,
+    /// The user's ROM (a `.nds` file) or a folder unpacked from it. Never a
+    /// constant in code. Older settings called it `dataFolder`.
+    #[serde(alias = "dataFolder")]
+    pub game: Option<PathBuf>,
 }
 
 impl Settings {
@@ -43,7 +45,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config/settings.json");
         let settings = Settings {
-            data_folder: Some(dir.path().join("extract")),
+            game: Some(dir.path().join("black.nds")),
         };
         settings.save(&path).unwrap();
         assert_eq!(Settings::load(&path), settings);
@@ -62,7 +64,9 @@ mod tests {
     fn unknown_keys_are_ignored() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        fs::write(&path, r#"{"dataFolder": null, "later": 1}"#).unwrap();
+        fs::write(&path, r#"{"game": null, "later": 1}"#).unwrap();
         assert_eq!(Settings::load(&path), Settings::default());
+        fs::write(&path, r#"{"dataFolder": "x"}"#).unwrap();
+        assert_eq!(Settings::load(&path).game, Some(PathBuf::from("x")));
     }
 }

@@ -12,25 +12,40 @@
 //!                                          `-` leaves a tile blank
 //! screen/{chr}/{pal}/{scr}                 an NSCR over its tiles
 //! cell/{chr}/{pal}/{cer}/{cell}            one cell of an NCER
+//! anim/{chr}/{pal}/{cer}/{anr}/{seq}/{n}   the cell shown by frame n of an
+//!                                          NANR sequence
+//! animinfo/{anr}                           JSON: per sequence, the loop
+//!                                          start, play mode, and each
+//!                                          frame's cell and duration
 //! text/{font}/{pal}/{bank}/{colors}/{text} text in a game font; `colors` is
 //!                                          three palette indices `1,2,0`
+//! msg/{arc}/{bank}/{index}                 a message in the display form
+//!                                          of `msg::Display`, as text
+//! cursor/{pal}/{bank}                      the list-menu cursor tile (ARM9
+//!                                          data; index 15 is transparent)
+//! table/{name}                             JSON: a UI table read from code
+//!                                          (see `UI_TABLES`)
 //! ```
 //!
 //! Every image is a PNG with colour 0 transparent. `screen` takes
-//! `?zero=opaque` to draw colour 0 as a backdrop. Members are LZ-decompressed
-//! when they are compressed.
+//! `?zero=opaque` to draw colour 0 as a backdrop; `cell` and `anim` take
+//! `?paloffset=N`. Members are LZ-decompressed when they are compressed.
+//! `cursor` and `table` need the game's code images.
 
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::data_root::DataRoot;
+use crate::code::{CodeImages, Image};
 use crate::image::{self, Rgba, Zero};
+use crate::msg;
+use crate::nanr::Nanr;
 use crate::ncer::Ncer;
 use crate::ncgr::Ncgr;
 use crate::nclr::Palette;
 use crate::nftr::Font;
 use crate::nscr::Nscr;
+use crate::source::Source;
 use crate::{lz, narc};
 
 /// A served resource.
@@ -83,29 +98,46 @@ impl std::str::FromStr for Member {
     }
 }
 
+/// UI tables that live in code (inventory section 14): name, image,
+/// address, length in bytes.
+pub const UI_TABLES: &[(&str, Image, u32, usize)] = &[
+    // _PokeTypePltOffset: the palette offset of each type icon.
+    ("type_palette", Image::Arm9, 0x0209_FCF8, 18),
+    // _WazaKindPltOffset: the palette offset of each move-kind icon.
+    ("move_kind_palette", Image::Arm9, 0x0209_FCEC, 3),
+    // The text speed table.
+    ("text_speed", Image::Arm9, 0x0209_DFB0, 5),
+];
+
+/// The list-menu cursor tile (BMP_CURSOR_SetTileBitmap), one 4bpp tile.
+const CURSOR_TILE: (Image, u32) = (Image::Arm9, 0x0209_E8CC);
+
 /// The entries a cache keeps before it starts over.
 const CACHE_LIMIT: usize = 1024;
 
 /// Serves assets from one data folder, caching archives, fonts and results.
 pub struct Bridge {
-    root: DataRoot,
+    source: Source,
+    code: Option<CodeImages>,
     archives: Mutex<HashMap<u16, Arc<narc::Narc>>>,
     fonts: Mutex<HashMap<Member, Arc<Font>>>,
     served: Mutex<HashMap<String, Arc<Asset>>>,
 }
 
 impl Bridge {
-    pub fn new(root: DataRoot) -> Self {
+    pub fn new(source: impl Into<Source>) -> Self {
+        let source = source.into();
         Bridge {
-            root,
+            code: source.code(),
+            source,
             archives: Mutex::new(HashMap::new()),
             fonts: Mutex::new(HashMap::new()),
             served: Mutex::new(HashMap::new()),
         }
     }
 
-    pub fn root(&self) -> &DataRoot {
-        &self.root
+    pub fn source(&self) -> &Source {
+        &self.source
     }
 
     /// Serves a path (with an optional `?query`), from the cache when it can.
@@ -137,6 +169,17 @@ impl Bridge {
                 .get(i)
                 .and_then(|s| s.parse().ok())
                 .ok_or_else(|| Error::BadPath(path.to_string()))
+        };
+        let query_number = |key: &str| {
+            query
+                .split('&')
+                .find_map(|q| q.strip_prefix(key)?.strip_prefix('='))
+                .and_then(|v| v.parse::<usize>().ok())
+        };
+        let json = |body: String| Asset {
+            mime: "application/json",
+            bytes: body.into_bytes(),
+            origin: None,
         };
         let png = |img: Rgba| Asset {
             mime: "image/png",
@@ -188,11 +231,105 @@ impl Bridge {
                     .cells
                     .get(number(4)?)
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
-                let drawn = image::render_cell(&bank, cell, &tiles, &palette);
+                let offset = query_number("paloffset").unwrap_or(0);
+                let drawn = image::render_cell(&bank, cell, &tiles, &palette, offset);
                 Ok(Asset {
                     origin: Some(drawn.origin),
                     ..png(drawn.image)
                 })
+            }
+            Some("anim") if parts.len() == 7 => {
+                let tiles = self.ncgr(member(1)?)?;
+                let palette = self.nclr(member(2)?)?;
+                let bank = Ncer::parse(&self.member(member(3)?)?)
+                    .map_err(|e| Error::Format(format!("{path}: {e}")))?;
+                let anims = Nanr::parse(&self.member(member(4)?)?)
+                    .map_err(|e| Error::Format(format!("{path}: {e}")))?;
+                let frame = anims
+                    .sequences
+                    .get(number(5)?)
+                    .and_then(|s| s.frames.get(number(6).unwrap_or(0)))
+                    .ok_or_else(|| Error::Missing(path.to_string()))?;
+                let cell = bank
+                    .cells
+                    .get(frame.cell as usize)
+                    .ok_or_else(|| Error::Missing(format!("{path}: cell {}", frame.cell)))?;
+                let offset = query_number("paloffset").unwrap_or(0);
+                let drawn = image::render_cell(&bank, cell, &tiles, &palette, offset);
+                Ok(Asset {
+                    origin: Some((
+                        drawn.origin.0 + frame.offset.0 as i32,
+                        drawn.origin.1 + frame.offset.1 as i32,
+                    )),
+                    ..png(drawn.image)
+                })
+            }
+            Some("animinfo") if parts.len() == 2 => {
+                let anims = Nanr::parse(&self.member(member(1)?)?)
+                    .map_err(|e| Error::Format(format!("{path}: {e}")))?;
+                let sequences: Vec<String> = anims
+                    .sequences
+                    .iter()
+                    .map(|s| {
+                        let frames: Vec<String> = s
+                            .frames
+                            .iter()
+                            .map(|f| format!(r#"{{"cell":{},"duration":{}}}"#, f.cell, f.duration))
+                            .collect();
+                        format!(
+                            r#"{{"loopStart":{},"playMode":{},"frames":[{}]}}"#,
+                            s.loop_start,
+                            s.play_mode,
+                            frames.join(",")
+                        )
+                    })
+                    .collect();
+                Ok(json(format!("[{}]", sequences.join(","))))
+            }
+            Some("msg") if parts.len() == 4 => {
+                let bank = msg::Bank::parse(&self.member(Member {
+                    arc: number(1)? as u16,
+                    index: number(2)?,
+                })?)
+                .map_err(|e| Error::Format(format!("{path}: {e}")))?;
+                let message = bank
+                    .messages()
+                    .get(number(3)?)
+                    .ok_or_else(|| Error::Missing(path.to_string()))?;
+                Ok(Asset {
+                    mime: "text/plain; charset=utf-8",
+                    bytes: msg::Display(&message.units).to_string().into_bytes(),
+                    origin: None,
+                })
+            }
+            Some("cursor") if parts.len() == 3 => {
+                let palette = self.nclr(member(1)?)?;
+                let raw = self
+                    .code_bytes(CURSOR_TILE.0, CURSOR_TILE.1, 32)
+                    .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
+                let base = number(2)? * 16;
+                let mut img = Rgba::new(8, 8);
+                for (i, b) in raw.iter().enumerate() {
+                    for (k, ci) in [b & 0xF, b >> 4].into_iter().enumerate() {
+                        // BMP_CURSOR_Draw blits with 15 as the transparent index.
+                        if ci != 0xF {
+                            let p = (i * 2 + k) * 4;
+                            img.pixels[p..p + 4].copy_from_slice(&palette.rgba(base + ci as usize));
+                        }
+                    }
+                }
+                Ok(png(img))
+            }
+            Some("table") if parts.len() == 2 => {
+                let &(_, image, address, len) = UI_TABLES
+                    .iter()
+                    .find(|t| t.0 == parts[1])
+                    .ok_or_else(|| Error::BadPath(path.to_string()))?;
+                let bytes = self
+                    .code_bytes(image, address, len)
+                    .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
+                let values: Vec<String> = bytes.iter().map(u8::to_string).collect();
+                Ok(json(format!("[{}]", values.join(","))))
             }
             Some("text") if parts.len() >= 6 => {
                 let font = self.font(member(1)?)?;
@@ -209,16 +346,22 @@ impl Bridge {
         }
     }
 
+    fn code_bytes(&self, image: Image, address: u32, len: usize) -> Option<Vec<u8>> {
+        Some(self.code.as_ref()?.read(image, address, len)?.to_vec())
+    }
+
     fn archive(&self, arc: u16) -> Result<Arc<narc::Narc>, Error> {
         if let Some(a) = lock(&self.archives).get(&arc) {
             return Ok(a.clone());
         }
         let rel =
             narc::archive_path(arc).ok_or_else(|| Error::BadPath(format!("archive {arc}")))?;
-        let archive = Arc::new(
-            narc::Narc::open(&self.root.file(&rel))
-                .map_err(|e| Error::Missing(format!("{rel}: {e}")))?,
-        );
+        let bytes = self
+            .source
+            .read(&rel)
+            .map_err(|e| Error::Missing(format!("{rel}: {e}")))?;
+        let archive =
+            Arc::new(narc::Narc::parse(bytes).map_err(|e| Error::Format(format!("{rel}: {e}")))?);
         lock(&self.archives).insert(arc, archive.clone());
         Ok(archive)
     }
