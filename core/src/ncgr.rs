@@ -98,6 +98,17 @@ impl Ncgr {
     pub fn set_pixel(&mut self, index: usize, x: usize, y: usize, value: u8) {
         let size = self.depth.bytes_per_tile();
         let p = y * 8 + x;
+        if let Some(width) = self.linear_width() {
+            let (byte, high) = self.linear_at(index, p, width);
+            if let Some(b) = self.data.get_mut(byte) {
+                *b = match (self.depth, high) {
+                    (Depth::Bpp8, _) => value,
+                    (Depth::Bpp4, false) => (*b & 0xF0) | (value & 0x0F),
+                    (Depth::Bpp4, true) => (*b & 0x0F) | (value << 4),
+                };
+            }
+            return;
+        }
         match self.depth {
             Depth::Bpp8 => {
                 if let Some(b) = self.data.get_mut(index * size + p) {
@@ -139,7 +150,13 @@ impl Ncgr {
     pub fn tile_at(&self, offset: usize, hflip: bool, vflip: bool) -> [u8; 64] {
         let mut raw = [0u8; 64];
         let size = self.depth.bytes_per_tile();
-        if let Some(src) = self.data.get(offset..offset + size) {
+        if let Some(width) = self.linear_width() {
+            // A linear bitmap: tile b is the 8x8 square at column b % w,
+            // row b / w of the picture (the battle pictures are stored so).
+            for (p, v) in raw.iter_mut().enumerate() {
+                *v = self.linear_pixel(offset / size, p, width);
+            }
+        } else if let Some(src) = self.data.get(offset..offset + size) {
             match self.depth {
                 Depth::Bpp8 => raw.copy_from_slice(src),
                 Depth::Bpp4 => {
@@ -159,6 +176,33 @@ impl Ncgr {
             }
         }
         out
+    }
+
+    /// The width in tiles of a linear bitmap sheet, when this is one.
+    fn linear_width(&self) -> Option<usize> {
+        (self.linear && self.tiles_wide != NO_SIZE && self.tiles_wide > 0)
+            .then_some(self.tiles_wide as usize)
+    }
+
+    /// Where pixel `p` of tile `b` sits in a linear bitmap: (byte, nibble).
+    fn linear_at(&self, b: usize, p: usize, width: usize) -> (usize, bool) {
+        let x = b % width * 8 + p % 8;
+        let y = b / width * 8 + p / 8;
+        let i = y * width * 8 + x;
+        match self.depth {
+            Depth::Bpp8 => (i, false),
+            Depth::Bpp4 => (i / 2, i % 2 == 1),
+        }
+    }
+
+    fn linear_pixel(&self, b: usize, p: usize, width: usize) -> u8 {
+        let (byte, high) = self.linear_at(b, p, width);
+        let v = self.data.get(byte).copied().unwrap_or(0);
+        match (self.depth, high) {
+            (Depth::Bpp8, _) => v,
+            (Depth::Bpp4, false) => v & 0x0F,
+            (Depth::Bpp4, true) => v >> 4,
+        }
     }
 
     /// The whole sheet as colour indices, `width * height`, when it has a

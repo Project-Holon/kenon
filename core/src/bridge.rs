@@ -31,6 +31,9 @@
 //!                                          has a cell bank for it, else tiles
 //! textures/{m}                             JSON: the 3D textures of a member
 //! texture/{m}/{block}/{i}                  one 3D texture as PNG
+//! riginfo/{sheet}/{pal}/{cer}/{anr}/{mcr}  JSON: a battle rig's animation
+//!                                          (frame count, durations, size)
+//! rigframe/{sheet}/{pal}/{cer}/{anr}/{mcr}/{i}  one frame of it as PNG
 //! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
@@ -197,6 +200,22 @@ impl Bridge {
         let found = crate::catalog::best_cell_bank(self, chr)?;
         lock(&self.cell_banks).insert(chr, found);
         Ok(found)
+    }
+
+    /// A battle rig's animation, made once (members: sheet, palette, cell
+    /// bank, animation bank, multi-cell bank).
+    pub fn rig(&self, parts: &[&str]) -> Result<Arc<crate::rig::Animation>, Error> {
+        let m: Vec<Member> = parts.iter().map(|p| p.parse()).collect::<Result<_, _>>()?;
+        self.cached(&format!("rig/{}", parts.join("/")), || {
+            let fmt = |e: crate::nitro::Error| Error::Format(e.to_string());
+            let sheet = Ncgr::parse(&self.member(m[0])?).map_err(fmt)?;
+            let palette = Palette::parse(&self.member(m[1])?).map_err(fmt)?;
+            let cells = Ncer::parse(&self.member(m[2])?).map_err(fmt)?;
+            let anims = Nanr::parse(&self.member(m[3])?).map_err(fmt)?;
+            let rig = crate::rig::Nmcr::parse(&self.member(m[4])?).map_err(fmt)?;
+            crate::rig::animate(&sheet, &palette, &cells, &anims, &rig)
+                .ok_or_else(|| Error::Format("the rig draws nothing".into()))
+        })
     }
 
     /// Forgets cached results, after the project changed something.
@@ -485,6 +504,23 @@ impl Bridge {
                     .decode(number(3)?)
                     .ok_or_else(|| Error::Format(format!("{path}: does not decode")))?;
                 Ok(png(img))
+            }
+            Some("riginfo") if parts.len() == 6 => {
+                let anim = self.rig(&parts[1..6])?;
+                let (w, h) = anim.frames.first().map_or((0, 0), |f| (f.width, f.height));
+                Ok(json(format!(
+                    r#"{{"frames":{},"durations":{:?},"width":{w},"height":{h}}}"#,
+                    anim.frames.len(),
+                    anim.durations
+                )))
+            }
+            Some("rigframe") if parts.len() == 7 => {
+                let anim = self.rig(&parts[1..6])?;
+                let frame = anim
+                    .frames
+                    .get(number(6)?)
+                    .ok_or_else(|| Error::Missing(path.to_string()))?;
+                Ok(png(frame.clone()))
             }
             Some("cry") if parts.len() == 2 => {
                 // A Pokemon cry: wave archive n holds its one wave

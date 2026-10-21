@@ -703,6 +703,21 @@ fn tables_and_names() {
     let trainers = (*catalog::named_sheets(&bridge, 72).unwrap())
         .clone()
         .unwrap();
+    // Battle rigs animate: Pikachu's front picture (block 500).
+    let pika = bridge
+        .rig(&["4:502", "4:518", "4:504", "4:505", "4:506"])
+        .unwrap();
+    eprintln!("Pikachu rig: {} frames", pika.frames.len());
+    assert!(!pika.frames.is_empty());
+    if let Some(out) = std::env::var_os("KENON_RENDER_OUT") {
+        for (i, f) in pika.frames.iter().enumerate().take(6) {
+            std::fs::write(
+                PathBuf::from(&out).join(format!("rig_{i}_{}x{}.rgba", f.width, f.height)),
+                &f.pixels,
+            )
+            .unwrap();
+        }
+    }
     eprintln!(
         "first trainer sprites: {:?}",
         trainers

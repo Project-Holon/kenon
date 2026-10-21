@@ -304,6 +304,87 @@ fn member_of([arc, index]: [usize; 2]) -> Member {
     }
 }
 
+/// A background screen of an archive with the tiles and palette that draw
+/// it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenInfo {
+    pub scr: usize,
+    pub chr: usize,
+    pub pal: usize,
+    pub width: u16,
+    pub height: u16,
+}
+
+/// Every screen of an archive, paired as aletheia's background.py pairs
+/// them: the nearest tile sheet (before it, else after) that holds every
+/// tile the screen uses, and the nearest palette with every bank it uses.
+pub fn screens(bridge: &Bridge, arc: u16) -> Result<Arc<Vec<ScreenInfo>>, Error> {
+    bridge.cached(&format!("screens/{arc}"), || {
+        let archive = bridge.base_archive(arc)?;
+        let mut sheets = Vec::new();
+        let mut palettes = Vec::new();
+        let mut screens = Vec::new();
+        for (i, raw) in archive.iter_raw().enumerate() {
+            let bytes = lz::decompress_if_compressed(raw);
+            match bytes.get(..4) {
+                Some(b"RGCN") => {
+                    if let Ok(t) = Ncgr::parse(&bytes) {
+                        sheets.push((i, t.tile_count()));
+                    }
+                }
+                Some(b"RLCN") => {
+                    if let Ok(p) = Palette::parse(&bytes) {
+                        palettes.push((i, p.banks().max(1)));
+                    }
+                }
+                Some(b"RCSN") => {
+                    if let Ok(s) = crate::nscr::Nscr::parse(&bytes) {
+                        let tiles = s
+                            .entries
+                            .iter()
+                            .map(|&e| (e & 0x3FF) as usize)
+                            .max()
+                            .unwrap_or(0);
+                        let bank = s
+                            .entries
+                            .iter()
+                            .map(|&e| (e >> 12) as usize)
+                            .max()
+                            .unwrap_or(0);
+                        screens.push((i, s.width, s.height, tiles, bank));
+                    }
+                }
+                _ => {}
+            }
+        }
+        let nearest = |list: &[(usize, usize)], at: usize, need: usize| -> Option<usize> {
+            let fits: Vec<usize> = list
+                .iter()
+                .filter(|(_, n)| *n > need)
+                .map(|(i, _)| *i)
+                .collect();
+            fits.iter()
+                .rev()
+                .find(|&&i| i < at)
+                .or_else(|| fits.iter().find(|&&i| i > at))
+                .copied()
+        };
+        Ok(screens
+            .into_iter()
+            .filter_map(|(scr, width, height, tiles, bank)| {
+                Some(ScreenInfo {
+                    scr,
+                    chr: nearest(&sheets, scr, tiles)?,
+                    pal: nearest(&palettes, scr, bank)?,
+                    width,
+                    height,
+                })
+            })
+            .collect())
+    })
+}
+
 /// The animation bank that plays a cell bank: the nearest animation bank
 /// after it (else before it, within 8 members) whose frames only name
 /// cells the bank has.
@@ -480,6 +561,9 @@ pub struct NamedSheet {
     pub cells: Option<usize>,
     /// The animation bank that plays its cells, when it has one.
     pub anims: Option<usize>,
+    /// A battle rig that animates the large picture: sheet, cell bank,
+    /// animation bank, multi-cell bank (members of the same archive).
+    pub rig: Option<[usize; 4]>,
 }
 
 /// Named pictures for the archives whose member layout is known
@@ -532,6 +616,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     palette_offset: (nibble & 0xF) as usize,
                     cells: Some(2),
                     anims: Some(1),
+                    rig: None,
                 });
                 if size(8 + 2 * n) > 0 {
                     out.push(NamedSheet {
@@ -542,6 +627,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                         palette_offset: (nibble >> 4) as usize,
                         cells: Some(2),
                         anims: Some(1),
+                        rig: None,
                     });
                 }
                 n += 1;
@@ -569,6 +655,13 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                         // per-species banks at +4 and +13 cut the large
                         // battle texture into animated parts instead.
                         let cells = if role < 9 { 4 } else { 13 };
+                        // The large picture (+2 front, +11 back; female
+                        // +3, +12 when present) and its rig: cells +4,
+                        // animation +5, multi-cell +6 (back +13..+15).
+                        let female = role == 1 || role == 10;
+                        let big = if role < 9 { block + 2 } else { block + 11 } + female as usize;
+                        let parts = if role < 9 { block + 4 } else { block + 13 };
+                        let rig = (size(big) > 0).then_some([big, parts, parts + 1, parts + 2]);
                         out.push(NamedSheet {
                             label: format!("{} ({side})", name(n)),
                             chr: block + role,
@@ -577,6 +670,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                             palette_offset: 0,
                             cells: Some(cells),
                             anims: None,
+                            rig,
                         });
                     }
                 }
@@ -623,6 +717,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     palette_offset: 0,
                     cells: Some(1),
                     anims: Some(0),
+                    rig: None,
                 })
                 .collect()
         }
@@ -663,6 +758,9 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     // it or, for some (N), the rig of the battle texture.
                     cells: Some(2),
                     anims: None,
+                    // The battle picture +1 with cells +2, animation +3,
+                    // multi-cell +4.
+                    rig: Some([8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
                 })
                 .collect()
         }

@@ -22,6 +22,7 @@ pub mod nftr;
 pub mod nitro;
 pub mod nscr;
 pub mod project;
+pub mod rig;
 pub mod rom;
 pub mod sdat;
 pub mod source;

@@ -6,6 +6,7 @@
     changedMembers,
     members,
     namedSheets,
+    screens,
     type ArchiveInfo,
     type MemberInfo,
     type NamedSheet,
@@ -13,6 +14,7 @@
   } from "../lib/backend";
   import { play } from "../lib/sfx";
   import PixelEditor from "./PixelEditor.svelte";
+  import RigPlayer from "./RigPlayer.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { debounced } from "../lib/cache.svelte";
@@ -36,6 +38,9 @@
     /// Known layout: a cell bank, null for a plain picture, undefined to find.
     cells?: number | null;
     anims?: number | null;
+    rig?: [number, number, number, number] | null;
+    /// A background screen drawn with this sheet.
+    scr?: number;
   }
 
   // The archive shown; fixed per category (the view is rebuilt on a new one).
@@ -81,7 +86,19 @@
       // member listing (to find its sheets and palettes).
       const named = await namedSheets(id);
       const ms = named ? [] : await members(id);
+      const scrs = named ? [] : await screens(id);
       list = ms;
+      // Bare archives: the assembled screens first (menus are built from
+      // them), then each sheet on its own.
+      const screenItems: Item[] = scrs.map((s) => ({
+        key: `s${s.scr}`,
+        label: `Screen #${s.scr} (${s.width}x${s.height})`,
+        chr: s.chr,
+        pal: s.pal,
+        palettes: [],
+        offset: 0,
+        scr: s.scr,
+      }));
       items = named
         ? named.map((n: NamedSheet) => ({
             key: `${n.chr}:${n.label}`,
@@ -92,6 +109,7 @@
             offset: n.paletteOffset,
             cells: n.cells,
             anims: n.anims,
+            rig: n.rig,
           }))
         : ms
             .filter((m) => m.kind === "NCGR")
@@ -103,6 +121,7 @@
               palettes: [],
               offset: 0,
             }));
+      if (!named) items = [...screenItems, ...items];
       if (items[0]) choose(items[0], false);
     } catch (e) {
       error = String(e);
@@ -124,7 +143,9 @@
   });
 
   const thumb = (i: Item) =>
-    i.pal === null
+    i.scr !== undefined
+      ? asset(`screen/${arc}:${i.chr}/${arc}:${i.pal}/${arc}:${i.scr}`, version)
+      : i.pal === null
       ? ""
       : asset(
           `preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}` +
@@ -173,6 +194,18 @@
 
   <section class="editor">
     {#if chr && pal && selected}
+      {#if selected.scr !== undefined && arc !== null}
+        <div class="screen-view window">
+          <img class="px" src={asset(`screen/${arc}:${selected.chr}/${arc}:${pal[1]}/${arc}:${selected.scr}`, version)} alt="Screen {selected.scr}" />
+          <p class="muted">Screen #{selected.scr}, drawn with tiles #{selected.chr}. Edit its tiles below.</p>
+        </div>
+      {/if}
+      {#if selected.rig && arc !== null}
+        {@const [big, cer, anr, mcr] = selected.rig}
+        {#key `${big}/${pal[1]}/${version}`}
+          <RigPlayer path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`} />
+        {/key}
+      {/if}
       {#key `${chr.join(":")}/${pal.join(":")}/${version}`}
         <PixelEditor
           {chr}
@@ -236,5 +269,24 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen-view {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    margin: 0.6rem 0.9rem;
+    padding: 0.6rem;
+  }
+  .screen-view img {
+    max-width: min(512px, 60%);
+    width: 512px;
+    height: auto;
+    background: var(--bg);
+  }
+  .editor > :global(.pixel-editor) {
+    flex: 1;
+    min-height: 0;
   }
 </style>
