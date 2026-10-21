@@ -4,6 +4,7 @@
   import VirtualList from "../lib/VirtualList.svelte";
   import { debounced, once } from "../lib/cache.svelte";
   import { asset } from "../lib/backend";
+  import { invoke } from "@tauri-apps/api/core";
   import {
     enumValues,
     saveRecord,
@@ -136,6 +137,25 @@
     return null;
   }
 
+  // Where a trainer stands, from the maps' event data.
+  interface Location {
+    zone: number;
+    place: string;
+    tile: [number, number] | null;
+    pair: boolean;
+  }
+  let locations = $state<Location[] | null>(null);
+  $effect(() => {
+    const index = current;
+    locations = null;
+    if (tables[0] !== "trainers" || index === null) return;
+    invoke<Location[]>("trainer_locations", { trainer: index })
+      .then((l) => {
+        if (current === index) locations = l;
+      })
+      .catch(() => (locations = []));
+  });
+
   const portrait = $derived.by(() => {
     if (current === null) return null;
     switch (tables[0]) {
@@ -183,7 +203,20 @@
   <section class="record">
     <div class="head">
       {#if portrait}<img class="px portrait" src={portrait} alt="" />{/if}
-      <h2>{entries.find((e) => e.index === current)?.name ?? ""}</h2>
+      <div class="title">
+        <h2>{entries.find((e) => e.index === current)?.name ?? ""}</h2>
+        {#if tables[0] === "trainers" && locations}
+          <p class="muted where">
+            {#if locations.length === 0}
+              Not standing on a map: a scripted battle or a battle facility trainer.
+            {:else}
+              {#each locations as l, i}
+                {i > 0 ? " \u00b7 " : ""}{l.place}{l.tile ? ` (tile ${l.tile[0]}, ${l.tile[1]})` : ""}{l.pair ? ", double battle partner" : ""}
+              {/each}
+            {/if}
+          </p>
+        {/if}
+      </div>
       {#if (records[0]?.seasons ?? 1) > 1}
         <select bind:value={season} onchange={reload} aria-label="Season">
           {#each SEASONS.slice(0, records[0]?.seasons ?? 1) as s, i}<option value={i}>{s}</option>{/each}
@@ -318,6 +351,17 @@
     background: var(--bg);
     border: 2px solid var(--outline);
     border-radius: var(--radius-s);
+  }
+  .title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .where {
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .head h2 {
     overflow: hidden;

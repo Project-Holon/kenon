@@ -349,6 +349,18 @@ async fn enum_values(state: State<'_, AppState>, name: String) -> Result<Arc<Vec
     tables::enum_values(&bridge, &name).map_err(|e| e.to_string())
 }
 
+/// Where a trainer stands in the world (zones and tiles), from the maps'
+/// event data.
+#[tauri::command]
+async fn trainer_locations(
+    state: State<'_, AppState>,
+    trainer: u16,
+) -> Result<Vec<kenon_core::world::Location>, String> {
+    let bridge = state.need_bridge()?;
+    let all = kenon_core::world::trainer_locations(&bridge).map_err(|e| e.to_string())?;
+    Ok(all.get(&trainer).cloned().unwrap_or_default())
+}
+
 fn member([arc, index]: [usize; 2]) -> Member {
     Member {
         arc: arc as u16,
@@ -403,6 +415,7 @@ pub fn run() {
             table_record,
             save_record,
             enum_values,
+            trainer_locations,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

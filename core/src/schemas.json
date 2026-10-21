@@ -2950,6 +2950,606 @@
      "confidence": "verified"
     }
    ]
+  },
+  {
+   "id": "eventData",
+   "label": "Zone event data",
+   "archive": 125,
+   "path": "a/1/2/5",
+   "members": "one member per eventDataId of a zone header (0..426, one zone each); member 427 is a 4-byte sentinel",
+   "memberCount": 428,
+   "compressed": false,
+   "src": "eventdata_system.c:362 (ReadEventFile), eventdata_system.c:48-148, fldmmdl_types.h:52",
+   "layout": "eventFile",
+   "note": "variable length file: header, then four arrays one after the other in the order background events, NPCs, warps, position events; 8 + 20*bg + 36*npc + 20*warp + 22*pos = 4 + trailerOffset in all 428 members; the trailer after the arrays is not decoded. Coordinates are in tiles of the zone map matrix (32 per chunk) except warp x/y/z and the y of triggers and signs, which are 1/16 tile",
+   "fields": [
+    {
+     "name": "trailerOffset",
+     "label": "Trailer offset",
+     "offset": 0,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "offset of the trailer counted from offset 4 of the file; 4 + this value is the end of the four arrays"
+    },
+    {
+     "name": "bgCount",
+     "label": "Background event count",
+     "offset": 4,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "npcCount",
+     "label": "NPC count",
+     "offset": 5,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "connectCount",
+     "label": "Warp count",
+     "offset": 6,
+     "type": "u8",
+     "confidence": "verified"
+    },
+    {
+     "name": "posCount",
+     "label": "Position event count",
+     "offset": 7,
+     "type": "u8",
+     "confidence": "verified"
+    }
+   ],
+   "arrays": [
+    {
+     "name": "bg",
+     "label": "Background events (signs, hidden items)",
+     "offset": 8,
+     "countField": "bgCount",
+     "recordSize": 20,
+     "fields": [
+      {
+       "name": "scriptId",
+       "label": "Script id",
+       "offset": 0,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "for type 2 the hidden item id"
+      },
+      {
+       "name": "type",
+       "label": "Type",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "2 = hidden item; 0 and 1 are other interactables (inferred)"
+      },
+      {
+       "name": "dir",
+       "label": "Facing mask",
+       "offset": 4,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 up, 1 down, 2 left, 3 right, 4 any, 5 left or right, 6 up or down"
+      },
+      {
+       "name": "posType",
+       "label": "Position type",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 grid, 1 rail"
+      },
+      {
+       "name": "x",
+       "label": "Grid x",
+       "offset": 8,
+       "type": "s32",
+       "confidence": "verified",
+       "note": "tile",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "z",
+       "label": "Grid z",
+       "offset": 12,
+       "type": "s32",
+       "confidence": "verified",
+       "note": "tile",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "y",
+       "label": "Height",
+       "offset": 16,
+       "type": "s32",
+       "confidence": "verified",
+       "note": "1/16 tile",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "railIndex",
+       "label": "Rail index",
+       "offset": 8,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "lineGrid",
+       "label": "Rail line grid",
+       "offset": 10,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "widthGrid",
+       "label": "Rail width grid",
+       "offset": 12,
+       "type": "s16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      }
+     ]
+    },
+    {
+     "name": "npc",
+     "label": "NPCs (objects)",
+     "countField": "npcCount",
+     "recordSize": 36,
+     "follows": "bg",
+     "fields": [
+      {
+       "name": "objId",
+       "label": "Object id",
+       "offset": 0,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "id inside the zone that scripts use"
+      },
+      {
+       "name": "objCode",
+       "label": "Object code",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "index into the 799 records of a/0/4/8"
+      },
+      {
+       "name": "moveCode",
+       "label": "Move code",
+       "offset": 4,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "eventType",
+       "label": "Event type",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "1 = trainer that sees the player; 4 to 8 and 11 to 13 count as 1; 0 = normal NPC"
+      },
+      {
+       "name": "eventFlag",
+       "label": "Event flag",
+       "offset": 8,
+       "type": "u16",
+       "confidence": "inferred",
+       "note": "appearance condition"
+      },
+      {
+       "name": "eventId",
+       "label": "Script id",
+       "offset": 10,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "trainer NPC: 3000 + trainer id (primary) or 5000 + trainer id (second of a pair)"
+      },
+      {
+       "name": "dirHeader",
+       "label": "Facing",
+       "offset": 12,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "param0",
+       "label": "Parameter 0",
+       "offset": 14,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "param1",
+       "label": "Parameter 1",
+       "offset": 16,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "param2",
+       "label": "Parameter 2",
+       "offset": 18,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "moveLimitX",
+       "label": "Move limit x",
+       "offset": 20,
+       "type": "s16",
+       "confidence": "verified"
+      },
+      {
+       "name": "moveLimitZ",
+       "label": "Move limit z",
+       "offset": 22,
+       "type": "s16",
+       "confidence": "verified"
+      },
+      {
+       "name": "posType",
+       "label": "Position type",
+       "offset": 24,
+       "type": "u32",
+       "confidence": "verified",
+       "note": "0 = grid position, other = rail position"
+      },
+      {
+       "name": "gridX",
+       "label": "Grid x",
+       "offset": 28,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tile in the zone map matrix (32 tiles per chunk); chunk = gridX / 32",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "gridZ",
+       "label": "Grid z",
+       "offset": 30,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tile in the zone map matrix; chunk = gridZ / 32",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "posY",
+       "label": "Height",
+       "offset": 32,
+       "type": "s32",
+       "confidence": "verified",
+       "note": "16.16 fixed point, tile height = value >> 16",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "railIndex",
+       "label": "Rail index",
+       "offset": 28,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "lineGrid",
+       "label": "Rail line grid",
+       "offset": 30,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "widthGrid",
+       "label": "Rail width grid",
+       "offset": 32,
+       "type": "s16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      }
+     ]
+    },
+    {
+     "name": "warp",
+     "label": "Warps (connections)",
+     "countField": "connectCount",
+     "recordSize": 20,
+     "follows": "npc",
+     "fields": [
+      {
+       "name": "zoneId",
+       "label": "Destination zone",
+       "offset": 0,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0xFFFF = disabled"
+      },
+      {
+       "name": "exitId",
+       "label": "Destination exit",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0x100 marks a special exit"
+      },
+      {
+       "name": "exitDir",
+       "label": "Exit direction",
+       "offset": 4,
+       "type": "u8",
+       "confidence": "verified",
+       "note": "0 to 4"
+      },
+      {
+       "name": "exitType",
+       "label": "Exit type",
+       "offset": 5,
+       "type": "u8",
+       "confidence": "verified"
+      },
+      {
+       "name": "posType",
+       "label": "Position type",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 grid, 1 rail"
+      },
+      {
+       "name": "x",
+       "label": "Area x",
+       "offset": 8,
+       "type": "s16",
+       "confidence": "verified",
+       "note": "1/16 tile (tile = value >> 4)",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "y",
+       "label": "Height",
+       "offset": 10,
+       "type": "s16",
+       "confidence": "verified",
+       "note": "1/16 tile",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "z",
+       "label": "Area z",
+       "offset": 12,
+       "type": "s16",
+       "confidence": "verified",
+       "note": "1/16 tile",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "sizeX",
+       "label": "Area width",
+       "offset": 14,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "sizeZ",
+       "label": "Area depth",
+       "offset": 16,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles",
+       "when": {
+        "field": "posType",
+        "equals": 0
+       }
+      },
+      {
+       "name": "railIndex",
+       "label": "Rail index",
+       "offset": 8,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "lineGrid",
+       "label": "Rail line grid",
+       "offset": 10,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "widthGrid",
+       "label": "Rail width grid",
+       "offset": 12,
+       "type": "s16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "lineSize",
+       "label": "Rail line size",
+       "offset": 14,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "widthSize",
+       "label": "Rail width size",
+       "offset": 16,
+       "type": "u16",
+       "confidence": "verified",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      },
+      {
+       "name": "flipMode",
+       "label": "Rail flip mode",
+       "offset": 18,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 flip line, 1 flip width, 2 both, 3 none",
+       "when": {
+        "field": "posType",
+        "equals": 1
+       }
+      }
+     ]
+    },
+    {
+     "name": "pos",
+     "label": "Position events (triggers)",
+     "countField": "posCount",
+     "recordSize": 22,
+     "follows": "warp",
+     "fields": [
+      {
+       "name": "scriptId",
+       "label": "Script id",
+       "offset": 0,
+       "type": "u16",
+       "confidence": "verified"
+      },
+      {
+       "name": "workValue",
+       "label": "Work value",
+       "offset": 2,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "fires when the event work variable equals this"
+      },
+      {
+       "name": "workId",
+       "label": "Work variable",
+       "offset": 4,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 = no check"
+      },
+      {
+       "name": "checkType",
+       "label": "Check type",
+       "offset": 6,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "1 to 4 facing up, down, left, right; 6 on stepping in; 0 also occurs"
+      },
+      {
+       "name": "posType",
+       "label": "Position type",
+       "offset": 8,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "0 grid, 1 rail"
+      },
+      {
+       "name": "x",
+       "label": "Area x",
+       "offset": 10,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles"
+      },
+      {
+       "name": "z",
+       "label": "Area z",
+       "offset": 12,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles"
+      },
+      {
+       "name": "sizeX",
+       "label": "Area width",
+       "offset": 14,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles"
+      },
+      {
+       "name": "sizeZ",
+       "label": "Area depth",
+       "offset": 16,
+       "type": "u16",
+       "confidence": "verified",
+       "note": "tiles"
+      },
+      {
+       "name": "y",
+       "label": "Height",
+       "offset": 18,
+       "type": "s16",
+       "confidence": "verified",
+       "note": "1/16 tile"
+      }
+     ]
+    }
+   ]
   }
  ],
  "enums": {
@@ -3825,5 +4425,74 @@
    "confidence": "inferred",
    "note": "weight strings (269..275 per unit and language)"
   }
- ]
+ ],
+ "trainerLocation": {
+  "note": "A trainer NPC is an NPC record of the zone event data (a/1/2/5) whose eventId equals scriptBase + trainer id; scriptBaseSecond + trainer id marks the second member of a pair. The zone owning the event file is the zone whose header eventDataId is that member; its place name is entry placeNameId (bits 0-9 of the u16 at 0x1A) of text bank 89 of archive 2. Scripted battles (gym leaders, rivals) have literal trainer ids in script opcodes 133 (single), 134 (multi, first operand is the ally) and 148 (with a Pokemon) of the zone script member (zone header scriptArcId in a/0/5/7); entry k of a zone script is script id k + 1. Verified in code (event_trainer.c:57-69, event_trainer_eye.c:683, scrcmd_trainer_audio_item.c:331-497, script_sys.c:624).",
+  "npcField": "eventId",
+  "scriptBase": 3000,
+  "scriptBaseSecond": 5000,
+  "scriptRangeEnd": 6999,
+  "defeatedFlagBase": 1420,
+  "eventTable": "eventData",
+  "eventArray": "npc",
+  "eventMember": {
+   "table": "zoneHeaders",
+   "field": "eventDataId"
+  },
+  "placeName": {
+   "table": "zoneHeaders",
+   "field": "placeNameId",
+   "archive": 2,
+   "bank": 89
+  },
+  "scriptMember": {
+   "table": "zoneHeaders",
+   "field": "scriptArcId",
+   "archive": 57
+  },
+  "scriptOpcodes": [
+   {
+    "opcode": 133,
+    "name": "StartTrainerBattle",
+    "operands": [
+     "trainer",
+     "second",
+     "third"
+    ],
+    "width": 6
+   },
+   {
+    "opcode": 134,
+    "name": "StartMultiTrainerBattle",
+    "operands": [
+     "ally",
+     "trainer",
+     "second",
+     "third"
+    ],
+    "width": 8
+   },
+   {
+    "opcode": 148,
+    "name": "StartTrainerBattleWithMon",
+    "operands": [
+     "trainer",
+     "second",
+     "third",
+     "fourth"
+    ],
+    "width": 8
+   }
+  ],
+  "literalBelow": 16384,
+  "coverage": {
+   "trainers": 615,
+   "npcRule": 327,
+   "scriptScan": 119,
+   "both": 1,
+   "placed": 445,
+   "withTile": 389,
+   "unplaced": 170
+  }
+ }
 }

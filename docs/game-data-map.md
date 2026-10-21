@@ -486,7 +486,7 @@ Data in the ARM9 image, not in a NARC. Addresses are Black addresses; `extract/a
 - **Battle facility.** `a/2/1/4` (id 214): 1000 records of 16 bytes (species u16, four u16 moves, EV spread mask u8, nature u8, item u16, form u16), the Pokemon sets of the battle facilities; `a/2/1/5` (id 215): 315 group lists `[u16 group][u16 count][u16 set id * count]` indexing `a/2/1/4`. The reader is `fld_btl_inst_tool.c` in ov010. `a/1/6/9` and `a/1/6/8` have the same shapes but no reader in the image. [V for 214/215]
 - **Cry parameters** `a/1/9/4`, see Sound. [V]
 - **Species base index** `a/0/2/0` (id 20): 650 members of one u16 each, read as an evolution-family base species index by an ov021 function; the meaning is not pinned. [I]
-- **Event data** `a/1/2/5` (id 125): 428 members, per-zone event tables (a u32 offset to a trailing block, then counts and arrays of 20, 36, 20 and a fourth record size of connections, object placements, position events and background events). Layout partially decoded by aletheia `tables.py`; placed-object records (`MmdlHeader`, 0x24 bytes) are in `fldmmdl_types.h`. Not given a schema here. [partly V]
+- **Event data** `a/1/2/5` (id 125): 428 members, per-zone event tables (a u32 offset to a trailing block, four u8 counts, then arrays of background events 20, NPCs 36, warps 20 and position events 22 bytes). Layouts and the trainer-to-location rule are in "Event data and trainer locations" and in `schemas.json` (`eventData`, `trainerLocation`). [V]
 - **Scripts** `a/0/5/7` (id 57): 899 members of field script bytecode; the instruction set is documented in aletheia `scripts.py` and eidos. Dialogue is in `a/0/0/3`. Gift, static, starter and shop contents live in scripts and overlay data. [V that scripts are here; contents not mapped]
 - **Battle visual effect scripts** `a/0/6/6` and `a/0/6/7` (ids 66, 67): bytecode run by the battle effect VM (`btlv_effvm.c:890`, `:899`); 601 and 98 members. Which of these a move's `effectSequence` selects is not established. [V that the VM loads them; I for the rest]
 - **Fonts**: `gfl_font.dat`; kenon reads it with `nftr.rs`.
@@ -495,6 +495,140 @@ Data in the ARM9 image, not in a NARC. Addresses are Black addresses; `extract/a
 ## eidos data-table catalogue
 
 `docs/mod-events.md` (appendix "data tables") lists 91 tables a mod replaces through the data layer. Mapping of the main ones to this document: wild encounters, fishing, surfing, swarm (Wild encounters; swarm data separate); base stats, types, abilities, hidden ability, catch rate, EV yield (Pokemon stats); evolution target and method (Evolutions); move properties and physical/special split (Moves, damage class); level-up learnset, egg moves (Learnsets and egg moves); TM contents (ARM9 table), TM and HM compatibility (personal flags), move tutor moves (gap); trainer party species, level, held items, movesets, AI flags, class, battle format (Trainers); shop price (Items `price`), ball modifier and held item effect (item hold effect, code); wild held item table (personal held items); area music (zone `bgm` fields); pokemon sprites, icons, trainer sprites, cries, music, SE (Graphics and Sound); message text (Text). Tables with no archive layout yet: hidden grotto, static and gift Pokemon, starter choice, in-game trade, ground items and hidden items (scripts and event data), shop inventory and the exchange corner, type chart, level cap, ban list.
+
+## Event data and trainer locations
+
+Everything here was read from the aletheia decompilation (source paths below are relative to its `src/game`) and cross-checked against the extracted archives (all 427 event files, the 899 script members, the 615 trainer records). Sources are given as `file:line`. [V] = verified in code and data, [I] = inferred.
+
+### Zone to event file to place name
+
+- A zone header (`a/0/1/2`, 48 bytes per zone) holds `scriptArcId` at 0x06, `eventDataId` at 0x16 and `placeNameId` in bits 0-9 of the u16 at 0x1A (`arm9/zonedata.c:54`). The event file of a zone is member `eventDataId` of `a/1/2/5` (id 125): the event system opens archive 0x7D (`ov010/eventdata_system.c:247`) and reads the member named by `ZONEDATA_GetEventDataId` (`ov010/eventdata_system.c:362`). [V]
+- In the data all 427 zones have distinct `eventDataId` values (0..426), so a zone and its event file are one to one. Member 427 of the archive is a 4-byte sentinel that no zone uses. [V, data]
+- Place names are entries of text bank 89 of `a/0/0/2` (117 entries). The field place-name popup opens it with `MSGDATA_CreateFromArchive(0, 2, 0x59, ...)` (`ov021/field_place_name.c:1081`; 0x59 is 89) and indexes it with `ZONEDATA_GetPlaceNameId` (`arm9/zonedata.c:1023`). The data uses ids 0..116 (111 distinct values; 3 zones have id 0). Reading the bank confirms the entries are place names (the zones of Black City, Driftveil City, Twist Mountain and Giant Chasm resolve to those names). One quirk in the Black build: ids 0x70 and 0x71 both display entry 0x70 (`arm9/zonedata.c:1023-1031`). [V]
+- Many zones share one place name (the rooms and floors of one building have the same `placeNameId`). A trainer's place is therefore the place name of the zone whose event file holds the NPC. [V]
+
+### Event file layout (`a/1/2/5` member)
+
+All integers are little-endian. The loader reads the whole member and splits it into four arrays that follow one another (`ov010/eventdata_system.c:362-404`, struct `EventFileData` at `:48`). [V]
+
+| Offset | Type | Name | Meaning |
+|---|---|---|---|
+| 0x00 | u32 | `trailerOffset` | Offset of the trailer, counted from offset 4 of the file. The trailer starts at `4 + trailerOffset` and runs to the end of the file (the `specialScripts` pointer, `:376`). |
+| 0x04 | u8 | `bgCount` | Number of background events (signs, hidden items). |
+| 0x05 | u8 | `npcCount` | Number of NPC (object) records. |
+| 0x06 | u8 | `connectCount` | Number of warps (connections). |
+| 0x07 | u8 | `posCount` | Number of position (trigger) events. |
+| 0x08 | | arrays | `bgCount` records of 0x14 bytes, then `npcCount` of 0x24, then `connectCount` of 0x14, then `posCount` of 0x16. |
+
+Check on the data: `8 + 20*bg + 36*npc + 20*connect + 22*pos` equals `4 + trailerOffset` in all 428 members (0 exceptions). The trailer is 4 bytes in 266 files and a few dozen bytes at most elsewhere; the game keeps a pointer to it (`EVENTDATA_SYSTEM_GetSpecialScriptData`) and its contents are not decoded here. [V for the split; the trailer is a gap]
+
+Totals in the game: 662 background events, 2257 NPCs, 886 warps, 373 position events. [V, data]
+
+Coordinate units. NPC, background and position events use grid cells (one cell is one tile of the 32 by 32 map chunk). Positions are in the zone's whole map matrix, not per chunk: the outdoor matrix 0 is 29 by 27 chunks and NPC `gridX` there reaches 818 and `gridZ` 764; 2215 of the 2217 grid NPCs lie inside `32 * matrixWidth` by `32 * matrixHeight` of their zone's matrix (`a/0/0/9`). The chunk of an NPC is `(gridX / 32, gridZ / 32)`; in a mode 1 matrix the zone id of that chunk can differ from the zone that owns the event file. Warps are the exception: their x, y and z are in 1/16 tile (tile = value >> 4; the hit tests compare `pos >> 12`, `:1051-1067`, and 806 of 809 grid warps fall inside the matrix when divided by 16). Heights: NPC `posY` is 16.16 fixed point, tile height = `posY >> 16` (`ov010/fldmmdl.c:585-610`; data range -6 to 9, 1623 of 2217 at 0). [V]
+
+### NPC (object) record, 0x24 bytes (`MmdlHeader`, `ov010/fldmmdl_types.h:52`)
+
+| Offset | Type | Name | Meaning |
+|---|---|---|---|
+| 0x00 | u16 | `objId` | Object id of the NPC inside the zone (the id scripts use to address it). [V] |
+| 0x02 | u16 | `objCode` | Object code (appearance); index into the 799 parameter records of `a/0/4/8` (`MmdlObjCodeParam`). [V] |
+| 0x04 | u16 | `moveCode` | Movement behaviour code. [V] |
+| 0x06 | u16 | `eventType` | How the object reacts. 1 is a trainer that sees the player; 4 to 8 and 11 to 13 count as 1 (`FLDMMDL_NormalizeEventType`, `ov010/fldmmdl.c:2178`); 0 is a normal NPC; 2, 10, 19, 20 occur on a few special objects. [V for the normalisation, I for the meaning of 2, 10, 19, 20] |
+| 0x08 | u16 | `eventFlag` | Event flag tied to the object (appearance condition). [I] |
+| 0x0A | u16 | `eventId` | Script id run when the player talks to the object or it sees the player. For trainers it encodes the trainer id, see below. [V] |
+| 0x0C | u16 | `dirHeader` | Initial facing. [V] |
+| 0x0E | u16 | `param0` | Movement parameter. [V] |
+| 0x10 | u16 | `param1` | Movement parameter. [V] |
+| 0x12 | u16 | `param2` | Movement parameter. [V] |
+| 0x14 | s16 | `moveLimitX` | Movement range in x. [V] |
+| 0x16 | s16 | `moveLimitZ` | Movement range in z. [V] |
+| 0x18 | s32 | `posType` | 0 = grid position (2217 records), other = rail position (40). [V] |
+| 0x1C | u16 | `gridX` | Grid x (when `posType` is 0). [V] |
+| 0x1E | u16 | `gridZ` | Grid z (the second horizontal axis; the game names it z). [V] |
+| 0x20 | s32 | `posY` | Height, 16.16 fixed point. [V] |
+
+For `posType` 1 the same bytes are `railIndex` (u16 at 0x1C), `lineGrid` (u16 at 0x1E) and `widthGrid` (s16 at 0x20), read by `FLDMMDL_MOVE_RequestRailMove` (`ov010/fldmmdl_move.c:1512`). Rail records have no tile on the chunk grid. [V]
+
+### Warp (connect) record, 0x14 bytes (`ConnectData`, `ov010/eventdata_system.c:82`)
+
+| Offset | Type | Name | Meaning |
+|---|---|---|---|
+| 0x00 | u16 | `zoneId` | Destination zone, 0xFFFF when disabled. All 886 data values are valid zone ids or 0xFFFF. [V] |
+| 0x02 | u16 | `exitId` | Destination exit (0x100 marks a special exit). [V] |
+| 0x04 | u8 | `exitDir` | Exit direction 0 to 4. [V] |
+| 0x05 | u8 | `exitType` | Exit type. [V] |
+| 0x06 | u16 | `posType` | 0 grid (809), 1 rail (77). [V] |
+| 0x08 | s16 | `x` | Grid area x, 1/16 tile. [V] |
+| 0x0A | s16 | `y` | Height, 1/16 tile. [V] |
+| 0x0C | s16 | `z` | Grid area z, 1/16 tile. [V] |
+| 0x0E | u16 | `sizeX` | Width of the trigger area in tiles. [V] |
+| 0x10 | u16 | `sizeZ` | Depth of the trigger area in tiles. [V] |
+
+For `posType` 1 the area words are `railIndex` (0x08), `lineGrid` (0x0A), `widthGrid` (0x0C), `lineSize` (0x0E), `widthSize` (0x10) and `flipMode` (0x12). [V]
+
+### Position event (trigger) record, 0x16 bytes (`EventRec`, `ov010/eventdata_system.c:53`)
+
+| Offset | Type | Name | Meaning |
+|---|---|---|---|
+| 0x00 | u16 | `scriptId` | Script id started by the trigger. [V] |
+| 0x02 | u16 | `workValue` | The trigger fires when the event work variable equals this. [V] |
+| 0x04 | u16 | `workId` | Event work variable to compare; 0 means no check. [V] |
+| 0x06 | u16 | `checkType` | 1 to 4 fire when the player faces up, down, left, right (`EVENTDATA_SYSTEM_DirToPosEventType`, `:650`); 6 fires on stepping in; 0 also occurs (232 of 373). [V for 1 to 4 and 6, I for 0] |
+| 0x08 | u16 | `posType` | 0 grid (363), 1 rail (10). [V] |
+| 0x0A | u16 | `x` | Area x in tiles. [V] |
+| 0x0C | u16 | `z` | Area z in tiles. [V] |
+| 0x0E | u16 | `sizeX` | Area width in tiles. [V] |
+| 0x10 | u16 | `sizeZ` | Area depth in tiles. [V] |
+| 0x12 | s16 | `y` | Height, 1/16 tile. [V] |
+| 0x14 | u16 | spare | Unused. [I] |
+
+The hit test is `IsPosEventGridHit` (`:1157-1173`). [V]
+
+### Background event (sign) record, 0x14 bytes (`BgEventData`, `ov010/eventdata_system.c:109`)
+
+| Offset | Type | Name | Meaning |
+|---|---|---|---|
+| 0x00 | u16 | `scriptId` | Script id run when the player interacts. [V] |
+| 0x02 | u16 | `type` | 2 = hidden item (184; the script id is the hidden item id, `:781`); 0 (351) and 1 (127) are other interactables such as signs. [V for 2, I for 0 and 1] |
+| 0x04 | u16 | `dir` | Which facings fire it: 0 up, 1 down, 2 left, 3 right, 4 any, 5 left or right, 6 up or down (`:786-816`). [V] |
+| 0x06 | u16 | `posType` | 0 grid (637), 1 rail (25). [V] |
+| 0x08 | s32 | `x` | Grid x (tile). [V] |
+| 0x0C | s32 | `z` | Grid z (tile). [V] |
+| 0x10 | s32 | `y` | Height, 1/16 tile. [V] |
+
+For `posType` 1: `railIndex` u16 at 0x08, `lineGrid` u16 at 0x0A, `widthGrid` s16 at 0x0C. [V]
+
+Correction to the older aletheia notes (`tables.py`, ASSETS.md): they label the four arrays warp (20), NPC (36), trigger (20), unknown (22). The real order is background (20), NPC (36), warp (20), position (22). Sizes and counts agree; only the labels and the guessed NPC x/y offsets differed. [V]
+
+### Trainer id to NPC rule
+
+1. **Script id range.** `EVENT_TRAINER_GetPrimaryScriptId(id)` returns `id + 3000` and `EVENT_TRAINER_GetSecondaryScriptId(id)` returns `id + 5000`; `EVENT_TRAINER_GetTrainerIdFromScriptId(s)` returns `s - 3000` below 5000 and `s - 5000` otherwise (`ov010/event_trainer.c:57-69`). The trainer-eye code takes a trainer NPC's trainer id from `FLDMMDL_GetEventId`, which is the NPC record's `eventId` at 0x0A (`ov021/event_trainer_eye.c:683`). So an NPC with `eventId` in 3000..4999 is the trainer `eventId - 3000`. [V]
+2. **Secondary ids.** `eventId` 5000..6999 is the same trainer id as the second member of a pair. The script range table sends both ranges to the same script member (`a/0/5/7` member 863; range table read by `SCRIPT_SYS_GetScriptFileId`, `ov010/script_sys.c:624`, rows read from the overlay 10 image at 0x021701A8). In the data 14 NPCs use ids in 5000..6999 and each such trainer id also has a 3000-range NPC, so no trainer is placed only by a secondary id. [V]
+3. **The battle itself** is not named in the script. The shared trainer script (member 863) asks for the trainer id with `SCRCMD_GetScriptTrainerId` (opcode 132, `ov021/scrcmd_trainer_audio_item.c:331`) and passes it to the battle command (opcode 133, `:349`) through script variables (the operands in member 863 are 0x8020 and up). This is why trainer NPCs carry no trainer id in bytecode. [V]
+4. **Defeated flag.** The "trainer beaten" event flag is `1420 + trainerId` (`ov010/event_trainer.c:88`). [V]
+5. **Scripted battles.** Gym leaders, rivals, bosses and some others start battles from a zone's own script with opcode 133 (trainer, second, third; `:349-368`), opcode 134 (multi battle: ally first, then up to three opponents, `:369`) or opcode 148 (battle with a Pokemon, `:497`). Operand values below 0x4000 are literals; larger values are variables (`SCRIPT_WORK_GetWorkValue`, `ov010/script_work.c:300`). To locate them, scan the zone's script member (`scriptArcId`, `a/0/5/7`) for those opcodes. The numbers are the indexes of `SCRCMD_StartTrainerBattle`, `SCRCMD_StartMultiTrainerBattle` and `SCRCMD_StartTrainerBattleWithMon` in the 609-entry handler table at 0x0217062C of overlay 10. [V]
+6. **Linking a scripted battle to a tile.** Inside a zone's own script member, entry `k` is local script id `k + 1` (`SCRIPT_SYS_GetScriptFileId` returns `scriptId - 1` for local scripts, `ov010/script_sys.c:624-650`). An NPC (`eventId`), position event (`scriptId`) or background event (`scriptId`) of the same zone with that script id is what starts it. [V for the id arithmetic, I for the chain]
+
+### Coverage (615 trainers, ids 1 to 615)
+
+- NPC rule (3000 + id or 5000 + id): **327** trainers placed. 341 NPC records have a 3000-range id and 14 have an id in 5000..6999. 326 trainer ids have exactly one NPC; trainer 363 has 15 NPCs in 5 zones. [V, data]
+- Script scan (a linear sweep of the script members that are a zone's own script, looking for opcodes 133, 134, 148 with literal operands): **119** trainers, one of them also an NPC trainer. Of these 119, **111** have a script id that an event of the same zone points at, and 63 of those point at an NPC record (giving a tile); 48 more only have a position event (a rectangle). [I: the sweep stops 323 times at bytes it cannot size and can miss battles reached through subroutines]
+- Total placed in at least one zone: **445 of 615** (72.4%). With a tile from an NPC record: **389**. Trainers in more than one zone: trainer 363 (5 zones) and trainer 1 (2 zones).
+- Zones holding at least one placed trainer: 117 of 427.
+- Nine battle operands are variables (opcode 133 in members 0, 104, 863 and 896): shared helper scripts that a static scan cannot resolve. [V]
+
+### Not placed (170 trainers)
+
+Ids: 5-6, 43, 53-55, 78-80, 82-83, 96, 126, 129-130, 132, 136, 146-147, 149, 169, 171-177, 185, 189, 191-192, 197, 204-211, 219-220, 232, 268, 273, 277, 280-286, 315-316, 320-321, 325-326, 330-331, 335-336, 339, 341, 343, 347, 349, 354-362, 364-388, 391-400, 406, 461-490, 497, 510-512, 521-525, 527, 534-538, 543, 547-548, 558-562, 597, 599, 614.
+
+They have no NPC with a 3000 or 5000 script id and no literal battle operand in any zone script. 96 of the 170 sit in the blocks 354 to 400, 461 to 490 and 510 to 562, which hold the trainer classes of the battle facilities and tournaments (backpackers, clerks, school kids, doctors and nurses, ace trainers, veterans, the Riches; the two Subway Bosses are 406 and 614). Facility code chooses those at runtime from tables, so they are not placed on a map. [I] The other 74 (for example 5-6, 43, 53-55, 78-83, 126, 129-136, 146-149, 169-177, 185-211, 219-220, 232) are probably fights started with variable operands or through subroutines, or minigame and Join Avenue trainers. They could not be tied to a zone from static data and are a gap. [I]
+
+### Using this for the trainer editor
+
+1. For trainer `t`: find NPCs with `eventId == 3000 + t` or `5000 + t` in every event file; the owning zone is the zone whose `eventDataId` is that member.
+2. Zone name: text bank 89, entry `placeNameId` of that zone header. Tile: `(gridX, gridZ)` of the NPC; chunk `(gridX / 32, gridZ / 32)` in the zone's matrix.
+3. For scripted trainers: scan `a/0/5/7` member `scriptArcId` (or `scriptArcId + 1`: exactly one member of that pair has an entry table and is the script) for opcodes 133, 134, 148 and read the literal operands.
+4. Show "not placed on a map" for the rest.
 
 ## Gaps
 
@@ -505,7 +639,7 @@ Data in the ARM9 image, not in a NARC. Addresses are Black addresses; `extract/a
 5. **Personal data**: `yieldFlag`, `spriteFlip`, `escapeRate` semantics; the member 668 form table mapping; `tutorFlags` (no tutor list located); `evoStage` rule.
 6. **Trainer record**: bytes at 0x10, 0x11 and 0x12 and the `battleFormat` byte names are inferred; `abilityFlags` in party entries only partly decoded.
 7. **Graphics**: pixel layout of the battle bitmap (member offset 2) inside the cell/multi-cell rig: aletheia could not yet compose a recognisable pose, so the NCER/NMCR/NANR relationship is documented but not independently confirmed here. The 64-byte "cell header" members have no decoder. No confirmed 2D overworld character sprite archive (a/0/3/x sheets are unconfirmed); overworld objects are 3D.
-8. **Map data**: terrain id enum, the surface/height tables (live in overlay 21, not in the archive), a/0/1/1 model set indexing, and the use of `texSetId` are partly inferred. Event data `a/1/2/5` and scripts `a/0/5/7` have no schema here.
+8. **Map data**: terrain id enum, the surface/height tables (live in overlay 21, not in the archive), a/0/1/1 model set indexing, and the use of `texSetId` are partly inferred. Scripts `a/0/5/7` have no schema here; the event data trailer (the bytes after the four arrays) is not decoded.
 9. **Sound**: sequence names beyond the SYMB block, the unnamed sequences, and the mapping of in-game sound ids to sequences outside zone BGM and cries (battle music per trainer class, fanfares) are in code and not mapped.
 10. **Text**: bank ids for items, abilities, moves, types and natures are checked against counts and content, not against every code reference; the Pokedex language/version bank ranges are estimated.
 11. **White version**: all values here are Black. The decompilation notes (poke_personal.c "version sensitivity") say some member ids and counts (668, 441, 652) may differ in other versions; the archive paths are the same for White.

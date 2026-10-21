@@ -712,3 +712,24 @@ fn tables_and_names() {
             .collect::<Vec<_>>()
     );
 }
+
+/// Trainer locations from the maps' event data: most trainers stand in a
+/// named zone.
+#[test]
+fn trainer_locations() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let zones = kenon_core::world::zones(&bridge).unwrap();
+    assert_eq!(zones.len(), 427);
+    let all = kenon_core::world::trainer_locations(&bridge).unwrap();
+    let names = kenon_core::tables::entries(&bridge, "trainers").unwrap();
+    eprintln!("{} trainers placed by their NPCs", all.len());
+    for id in [1u16, 2, 3] {
+        eprintln!("{}: {:?}", names[id as usize].name, all.get(&id));
+    }
+    assert!(all.len() > 300);
+}
