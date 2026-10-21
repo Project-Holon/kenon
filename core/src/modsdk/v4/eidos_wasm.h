@@ -635,6 +635,7 @@ typedef struct EidosHeal {
     EidosEvent h;
     uint8_t source;  /* EIDOS_HEAL_* */
     uint8_t mask;  /* *mod: one bit per party position to heal */
+    uint16_t script_id;  /* EIDOS_HEAL_SCRIPT: the id of the script that heals (the */
 } EidosHeal;  /* 12 bytes */
 
 typedef struct EidosHealHp {

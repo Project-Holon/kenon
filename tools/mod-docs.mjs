@@ -45,6 +45,8 @@ const enumsJson = v4("enums.json");
 const hooksJson = v4("hooks.json");
 const header = read("sdk/api/v4/eidos_wasm.h");
 const apiVersion = eventsJson.api;
+const apiStatus = eventsJson.status ?? null;
+if (apiStatus !== "frozen") warn(`events.json status is ${apiStatus}, not frozen`);
 for (const [n, j] of [["core", coreJson], ["rules", rulesJson], ["state", stateJson], ["services", servicesJson], ["enums", enumsJson], ["hooks", hooksJson]]) {
   if (j.api !== apiVersion) warn(`${n}.json is api ${j.api}, events.json is api ${apiVersion}`);
 }
@@ -298,8 +300,35 @@ try {
   // not a git checkout
 }
 
+// The "Not possible yet" page: the after-freeze table of docs/mod-backlog.md,
+// one line for each item (its first sentence).
+const backlog = read("docs/mod-backlog.md");
+const after = backlog.split(/^## After the freeze\s*$/m)[1];
+if (!after) warn("docs/mod-backlog.md has no 'After the freeze' section");
+const gaps = [];
+for (const line of (after ?? "").split("\n")) {
+  if (!line.startsWith("|") || /^\|\s*(Item|-)/.test(line)) continue;
+  const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+  if (cells.length < 2) continue;
+  const item = cells[0].replace(/`/g, "");
+  const plain = curated.limits?.[item];
+  if (!plain) warn(`no plain line for backlog item '${item}' (curated.limits)`);
+  gaps.push(plain ?? `${item}: ${cells[1].match(/^.*?[.!?](?=\s|$)/)?.[0] ?? cells[1]}`);
+}
+if (!gaps.length) warn("no 'Not possible yet' items found");
+
 // The "Code mods" page lists the core imports and exports of core.json.
 const pages = curated.pages.map((x) => ({ section: "rules", ...x, id: `page:${x.slug}` }));
+pages.push({
+  section: "limits",
+  slug: "not-possible-yet",
+  id: "page:not-possible-yet",
+  title: "Not possible yet",
+  blocks: [
+    { t: "p", text: "What a mod cannot do yet with API 4." },
+    { t: "list", items: gaps },
+  ],
+});
 const codePage = pages.find((p) => p.slug === "code-mods");
 if (codePage) {
   const core = coreJson.imports.map((i) => functions.find((f) => f.name === i.name)).filter(Boolean);
@@ -316,6 +345,7 @@ const out = {
     generatedBy: "tools/mod-docs.mjs",
     eidosRevision: rev,
     apiVersion,
+    apiStatus,
     sources: [
       "sdk/api/v4/core.json",
       "sdk/api/v4/events.json",
@@ -325,6 +355,7 @@ const out = {
       "sdk/api/v4/enums.json",
       "sdk/api/v4/hooks.json",
       "sdk/api/v4/eidos_wasm.h",
+      "docs/mod-backlog.md",
       "ui/src/lib/moddocs/curated.mjs",
     ],
     note: "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry.",

@@ -98,6 +98,7 @@
       hooks: ["Raw hooks"],
       rules: ["Language", "State fields"],
       recipes: ["Rules", "Code"],
+      limits: ["Limits"],
     };
     return SECTIONS.map((s) => {
       const list = entries.filter((e) => e.section === s.id);
@@ -367,7 +368,7 @@
 >
   <header>
     <h2>Mod docs</h2>
-    {#if api?.meta.eidosRevision}<span class="muted">API {api.meta.apiVersion}, eidos {api.meta.eidosRevision}</span>{/if}
+    {#if api?.meta.eidosRevision}<span class="muted">API {api.meta.apiVersion}{api.meta.apiStatus ? `, ${api.meta.apiStatus}` : ""}, eidos {api.meta.eidosRevision}</span>{/if}
     <div class="spacer"></div>
     <button class="icon" onclick={() => (findOpen ? closeFind() : openFind())} title="Find in this entry (Ctrl+F)" aria-label="Find in this entry" aria-pressed={findOpen}>
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" /><path d="M10 10l4 4" /></svg>

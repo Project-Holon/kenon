@@ -23,6 +23,33 @@ void eidos_mod_stop(void)
 const mon = (m, arrow = ".") => `${m}${arrow}handle, ${m}${arrow}place, ${m}${arrow}side, ${m}${arrow}box, ${m}${arrow}slot`;
 
 export default {
+  // Plain lines for the "Not possible yet" page, keyed by the item name in
+  // eidos docs/mod-backlog.md. An item with no line here shows eidos's note.
+  limits: {
+    "A finer route.change how": "Tell how the player entered a zone (door, Fly, Dig, Escape Rope, whiteout...). `route.change` only says walk or map change.",
+    "pc.open screen mode": "Tell which box screen opened (organise, deposit, withdraw, Battle Box).",
+    "item.use from the bag": "Block or see items used straight from the bag: Escape Rope, Repel, bicycle, Dowsing Machine.",
+    "Field moves on the party screen": "Block or see Cut, Surf, Fly, Dig, Teleport and other moves used from the party screen.",
+    "item.add refusal": "Refuse an item the player receives. Setting the count to 0 keeps it out of the bag, but the message still shows.",
+    "heal source CENTRE": "Tell a Pokemon Centre heal by name. Compare `heal.script_id` with the nurse's script id instead.",
+    "shop.buy quantity": "See how many of an item the player buys at the moment they pick it.",
+    "Disobedience": "Make a Pokemon disobey, for example above a level cap.",
+    "Type matchups": "Change type effectiveness in battle.",
+    "Nicknames": "Read or set a nickname, or force the nickname screen after a catch.",
+    "Trainers": "Read a trainer's class, party size or highest level, or whether a trainer was beaten.",
+    "battle.end took-part mask": "Tell which party Pokemon took part in a battle.",
+    "Refusable day care deposit, trade start, Entralink, Dream World sync": "Block the Day Care, trades, the Entralink or Dream World sync.",
+    "party.add": "Block a Pokemon joining the party.",
+    "mon_give": "Give the player a new Pokemon or egg made by the mod.",
+    "Full party record export and import": "Export a Pokemon to a file and import it again, for example to carry a team to the next game.",
+    "session.message": "Receive messages from another game in a rule. Code mods can already.",
+    "Encounter tables": "Read a zone's wild encounter slots.",
+    "The link and minigame overlays (105, 107, 136, 137)": "Hook the link and minigame screens. Items from them report source `OTHER`.",
+    "Moves past 560": "Add moves past 560 with their own battle animations.",
+    "Field object codes": "Add new overworld characters.",
+    "Species to 2047": "Add species past the original ones, up to 2047.",
+    "The wasm runtime": "Run code mods in the game. kenon builds them, but eidos cannot load them yet; rules and native mods run today.",
+  },
   // The titles of the constant groups of sdk/api/v4/enums.json, by the prefix
   // of the EIDOS_ name. They are the comments of eidos's mod_api.h.
   enumTitles: {
@@ -69,7 +96,19 @@ export default {
     },
     "mon.levelup": { facts: ["For a Rare Candy it fires after the level-up. To stop the candy, refuse item.use."] },
     "money.change": { facts: ["source says why: a script, a purchase, a sale or a battle. A handler may change the amount only in the direction of the call."] },
-    heal: { facts: ["Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp."] },
+    heal: {
+      facts: [
+        "Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp.",
+        "script_id is the id of the script that runs the heal. The Pokemon Centre nurse runs one script of her own, so a mod tells her heal from the others by that id. The nurse's id is not named yet.",
+      ],
+    },
+    "item.add": {
+      facts: ["It cannot be refused. Set count to 0 to keep the item out of the bag; the game's text still says it was received."],
+      functions: ["money", "money_set", "message"],
+    },
+    "mon.evolve": {
+      facts: ["After a battle it fires once for each member that levelled up, before the scene. A refusal skips that member's scene; the others go on."],
+    },
     "heal.hp": {
       facts: [
         "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY.",

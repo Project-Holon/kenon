@@ -110,7 +110,7 @@ export interface Recipe {
   notes?: string[];
 }
 export interface Api {
-  meta: { eidosRevision: string | null; apiVersion: number };
+  meta: { eidosRevision: string | null; apiVersion: number; apiStatus?: string | null };
   categories: string[];
   events: ApiEvent[];
   enums: EnumGroup[];
@@ -131,13 +131,14 @@ export function loadApi(): Promise<Api> {
   return cached;
 }
 
-export type Section = "events" | "functions" | "hooks" | "rules" | "recipes";
+export type Section = "events" | "functions" | "hooks" | "rules" | "recipes" | "limits";
 export const SECTIONS: { id: Section; title: string }[] = [
   { id: "events", title: "Events" },
   { id: "functions", title: "Functions" },
   { id: "hooks", title: "Hookable game functions" },
   { id: "rules", title: "Rules language" },
   { id: "recipes", title: "Recipes" },
+  { id: "limits", title: "Not possible yet" },
 ];
 
 export interface Entry {
@@ -184,6 +185,9 @@ export function buildEntries(api: Api): Entry[] {
   }
   for (const r of api.recipes) {
     out.push({ id: r.id, section: "recipes", group: r.tier.includes("rules") ? "Rules" : "Code", title: r.title });
+  }
+  for (const p of api.pages.filter((x) => x.section === "limits")) {
+    out.push({ id: p.id, section: "limits", group: "Limits", title: p.title });
   }
   return out;
 }

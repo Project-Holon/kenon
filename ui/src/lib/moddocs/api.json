@@ -1,8 +1,9 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "4a4fa48",
+  "eidosRevision": "4b32931",
   "apiVersion": 4,
+  "apiStatus": "frozen",
   "sources": [
    "sdk/api/v4/core.json",
    "sdk/api/v4/events.json",
@@ -12,6 +13,7 @@
    "sdk/api/v4/enums.json",
    "sdk/api/v4/hooks.json",
    "sdk/api/v4/eidos_wasm.h",
+   "docs/mod-backlog.md",
    "ui/src/lib/moddocs/curated.mjs"
   ],
   "note": "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry."
@@ -1125,7 +1127,9 @@
    "refuse": "no evolution starts; an evolution stone has no effect",
    "modifyText": "target species",
    "details": null,
-   "notes": [],
+   "notes": [
+    "After a battle it fires once for each member that levelled up, before the scene. A refusal skips that member's scene; the others go on."
+   ],
    "payload": [
     {
      "name": "mon",
@@ -2948,7 +2952,9 @@
    "refuse": null,
    "modifyText": "count",
    "details": null,
-   "notes": [],
+   "notes": [
+    "It cannot be refused. Set count to 0 to keep the item out of the bag; the game's text still says it was received."
+   ],
    "payload": [
     {
      "name": "item",
@@ -3152,7 +3158,8 @@
    "modifyText": "which Pokemon heal",
    "details": null,
    "notes": [
-    "Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp."
+    "Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp.",
+    "script_id is the id of the script that runs the heal. The Pokemon Centre nurse runs one script of her own, so a mod tells her heal from the others by that id. The nurse's id is not named yet."
    ],
    "payload": [
     {
@@ -3171,6 +3178,15 @@
      "writable": true,
      "cName": "mask",
      "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "script_id",
+     "type": "uint16_t",
+     "meaning": "for a script heal, the id of the script that heals (the Centre's nurse runs one script of her own); 0 for the power",
+     "writable": false,
+     "cName": "script_id",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -10770,6 +10786,46 @@
     }
    ],
    "id": "page:options"
+  },
+  {
+   "section": "limits",
+   "slug": "not-possible-yet",
+   "id": "page:not-possible-yet",
+   "title": "Not possible yet",
+   "blocks": [
+    {
+     "t": "p",
+     "text": "What a mod cannot do yet with API 4."
+    },
+    {
+     "t": "list",
+     "items": [
+      "Tell how the player entered a zone (door, Fly, Dig, Escape Rope, whiteout...). `route.change` only says walk or map change.",
+      "Tell which box screen opened (organise, deposit, withdraw, Battle Box).",
+      "Block or see items used straight from the bag: Escape Rope, Repel, bicycle, Dowsing Machine.",
+      "Block or see Cut, Surf, Fly, Dig, Teleport and other moves used from the party screen.",
+      "Refuse an item the player receives. Setting the count to 0 keeps it out of the bag, but the message still shows.",
+      "Tell a Pokemon Centre heal by name. Compare `heal.script_id` with the nurse's script id instead.",
+      "See how many of an item the player buys at the moment they pick it.",
+      "Make a Pokemon disobey, for example above a level cap.",
+      "Change type effectiveness in battle.",
+      "Read or set a nickname, or force the nickname screen after a catch.",
+      "Read a trainer's class, party size or highest level, or whether a trainer was beaten.",
+      "Tell which party Pokemon took part in a battle.",
+      "Block the Day Care, trades, the Entralink or Dream World sync.",
+      "Block a Pokemon joining the party.",
+      "Give the player a new Pokemon or egg made by the mod.",
+      "Export a Pokemon to a file and import it again, for example to carry a team to the next game.",
+      "Receive messages from another game in a rule. Code mods can already.",
+      "Read a zone's wild encounter slots.",
+      "Hook the link and minigame screens. Items from them report source `OTHER`.",
+      "Add moves past 560 with their own battle animations.",
+      "Add new overworld characters.",
+      "Add species past the original ones, up to 2047.",
+      "Run code mods in the game. kenon builds them, but eidos cannot load them yet; rules and native mods run today."
+     ]
+    }
+   ]
   }
  ],
  "recipes": [
