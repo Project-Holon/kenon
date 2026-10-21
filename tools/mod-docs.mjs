@@ -35,17 +35,9 @@ const read = (rel) => {
 };
 const v4 = (name) => JSON.parse(read(`sdk/api/v4/${name}`));
 
-// C spells the constants EIDOS_ in the wasm header; the JSON and the eidos
-// docs spell them BW_. The docs show what a code mod types.
+// enums.json still spells the constants BW_; the wasm header, which a code mod
+// includes, spells them EIDOS_. This is the one rename left.
 const eidosName = (s) => s.replace(/\bBW_(?=[A-Z])/g, "EIDOS_");
-const docType = (t) => t.replace(/\bBwMonRef\b/g, "EidosMonRef");
-// The type as eidos_wasm.h spells it.
-const cType = (t) =>
-  docType(t)
-    .replace(/\bu(8|16|32|64)\b/g, "uint$1_t")
-    .replace(/\bs(8|16|32|64)\b/g, "int$1_t");
-// "u32 *" and "out" make "u32 *out"; "u32" and "field" make "u32 field".
-const decl = (t, n) => (t.endsWith("*") ? `${t}${n}` : `${t} ${n}`);
 
 // ---------------------------------------------------------------- v4 files
 
@@ -66,40 +58,43 @@ const curated = (await import(pathToFileURL(join(outDir, "curated.mjs")).href)).
 
 // ---------------------------------------------------------------- events
 
-// v4 writes the version into some documents ("mon.cure (version 4): ..."); the
-// page already says which API it describes.
-const prose = (t) => eidosName(t.replace(/^[\w.]+ \(version \d+\):\s*/, "").replace(/`/g, "").trim());
+// v4 writes the version into some documents ("version 4: ...", "... (version
+// 4)"); the entry's "new in 4" tag says it. The text is shown without code ticks.
+const prose = (t) =>
+  t
+    .replace(/^[\w.]+ \(version \d+\):\s*/, "")
+    .replace(/^version \d+:\s*/, "")
+    .replace(/\s*\(version \d+\)\s*$/, "")
+    .replace(/`/g, "")
+    .trim();
+// A sentence: first letter up, a full stop at the end.
+const sentenceCase = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : t);
 
 const ruleEventNames = new Set(rulesJson.events);
-const categoryOf = new Map();
-const categories = Object.keys(curated.categories);
-for (const [cat, names] of Object.entries(curated.categories)) for (const n of names) categoryOf.set(n, cat);
+// The groups, v4's own, in the order the events list them.
+const titleCase = (c) => c.charAt(0).toUpperCase() + c.slice(1);
+const categories = [];
+for (const e of eventsJson.events) if (!categories.includes(titleCase(e.category))) categories.push(titleCase(e.category));
 
-const enumPrefixes = [];
 const events = new Map();
 for (const e of eventsJson.events) {
-  const cStruct = e.struct.replace(/^Bw/, "Eidos");
+  const cStruct = e.struct;
   const payload = e.fields.map((f) => {
     const field = {
       name: f.rule_name,
-      type: docType(f.type) + (f.count !== null ? `[${f.count}]` : ""),
+      type: f.type + (f.count !== null ? `[${f.count}]` : ""),
       meaning: prose(f.doc ?? ""),
       writable: f.writable,
       cName: f.name,
-      cType: cType(f.type) + (f.count !== null ? `[${f.count}]` : ""),
-      ruleKind: f.count !== null ? "list" : f.type === "BwMonRef" ? "mon" : "int",
+      cType: f.c_type + (f.count !== null ? `[${f.count}]` : ""),
+      ruleKind: f.count !== null ? "list" : f.type === "EidosMonRef" ? "mon" : "int",
     };
-    // A field that takes a group of constants says so as "BW_FORMAT_*".
-    const en = (f.doc ?? "").match(/\b(BW_[A-Z0-9_]+_)\*/);
-    if (en) {
-      field.enum = eidosName(en[1]);
-      enumPrefixes.push([e.name, field.name, field.enum]);
-    }
     return field;
   });
   events.set(e.name, {
     name: e.name,
-    category: categoryOf.get(e.name) ?? null,
+    category: titleCase(e.category),
+    since: e.since,
     where: prose(e.where ?? ""),
     refuse: e.refuse ? prose(e.refuse) : null,
     modifyText: e.modify ? prose(e.modify) : null,
@@ -114,7 +109,6 @@ for (const e of eventsJson.events) {
 }
 for (const n of ruleEventNames) if (!events.has(n)) warn(`rules.json names ${n}, events.json has no such event`);
 for (const ev of events.values()) {
-  if (ev.category === null) warn(`${ev.name} is in no group of curated.categories`);
   if ((ev.refuse !== null) !== ev.refusable) warn(`${ev.name}: events.json says refusable ${ev.refusable}, refuse is ${ev.refuse}`);
 }
 
@@ -140,15 +134,19 @@ for (const c of enumsJson.constants) {
   g.members.push({ name: eidosName(c.name), value: c.value });
 }
 for (const g of enums) g.prefix = eidosName(g.prefix);
-for (const [ev, f, pre] of enumPrefixes) {
-  const g = enums.find((x) => x.prefix === pre);
-  if (!g) {
-    warn(`${ev}.${f}: no enum group ${pre}`);
-    continue;
+// A field whose doc starts with a constant (EIDOS_FORM_FIELD) links to the group the
+// constant belongs to, found by the longest group prefix.
+for (const ev of events.values()) {
+  for (const f of ev.payload) {
+    const named = f.meaning.match(/^EIDOS_[A-Z0-9_]+/g) ?? [];
+    for (const n of named) {
+      const g = enums.filter((x) => n.startsWith(x.prefix)).sort((x, y) => y.prefix.length - x.prefix.length)[0];
+      if (g) {
+        f.enum = g.prefix;
+        break;
+      }
+    }
   }
-  // A field whose doc is only the pattern, "EIDOS_CURE_*", says what the group is.
-  const pf = events.get(ev).payload.find((p) => p.name === f);
-  if (pf.meaning === `${pre}*`) pf.meaning = g.title;
 }
 for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === eidosName(p))) warn(`enum title for ${p} matches no constant`);
 
@@ -158,8 +156,9 @@ for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === eidosNa
 // port really writes.
 const state = rulesJson.state_fields.map((s) => {
   const sub = s.subscript ?? "plain";
-  const value = curated.state?.[s.name];
-  if (!value) warn(`state ${s.name} has no text in curated.state`);
+  // v4's text unless kenon's override says it better (curated.state).
+  const value = curated.state?.[s.name] ?? (s.doc ? sentenceCase(prose(s.doc)) : null);
+  if (!value) warn(`state ${s.name} has no text`);
   const out = {
     name: s.name,
     sub,
@@ -191,8 +190,8 @@ for (const [kind, j] of [["state", stateJson], ["service", servicesJson]]) {
 }
 const functions = [];
 // A core.json note is a lower-case phrase; the docs show a sentence.
-const sentence = (t) => eidosName(t.charAt(0).toUpperCase() + t.slice(1) + (t.endsWith(".") ? "" : "."));
-const addFn = (name, kind, extra = {}) => {
+const sentence = (t) => t.charAt(0).toUpperCase() + t.slice(1) + (t.endsWith(".") ? "" : ".");
+const addFn = (name, kind) => {
   const d = decls.get(name);
   if (!d) {
     warn(`${name} is in sdk/api/v4 but not declared in eidos_wasm.h`);
@@ -206,7 +205,7 @@ const addFn = (name, kind, extra = {}) => {
     cName: d.cName,
     group: (curated.functionGroups.find((g) => g.fns.includes(name)) ?? {}).title ?? "",
     signature: `${d.ret} ${d.cName}(${d.params.join(", ") || "void"})`,
-    params: extra.params ?? d.params,
+    params: d.params,
     what: c.what ?? (coreDoc.get(name) ? sentence(coreDoc.get(name)) : null),
     result: c.result ?? null,
     notes: c.notes ?? [],
@@ -219,15 +218,11 @@ const addFn = (name, kind, extra = {}) => {
 // The core imports come from core.json, ahead of the state calls.
 const coreDoc = new Map(coreJson.imports.map((i) => [i.name, i.doc]));
 for (const i of coreJson.imports) addFn(i.name, "host");
-for (const [name, { kind, call }] of jsonCalls) {
-  const params = call.params.map((p) => decl(cType(p.type), p.name));
-  addFn(name, kind, { params });
-}
+for (const [name, { kind }] of jsonCalls) addFn(name, kind);
 
 // ---------------------------------------------------------------- hooks
 
-// v4 gives the prototype as a declaration, "int NAME(void *)"; a hook line
-// states it without the name, "int (void *)".
+// v4's signature is the type-only form a hook line states, "int (void *)".
 const hooks = hooksJson.hooks.map((d) => ({
   id: `hook:${d.region}:${d.address}`,
   name: d.name,
@@ -235,7 +230,8 @@ const hooks = hooksJson.hooks.map((d) => ({
   addr: d.address,
   key: `${d.region}:${d.address}`,
   events: d.events,
-  proto: d.prototype.replace(new RegExp(`\\s*${d.name}\\(`), " ("),
+  proto: d.signature,
+  aliases: d.aliases ?? [],
   protoFromC: true,
 }));
 for (const h of hooks) for (const e of h.events) if (!events.has(e)) warn(`hook ${h.name} names the unknown event ${e}`);
@@ -250,7 +246,7 @@ function defaultFns(e) {
   const out = [];
   if (e.category === "Battle") out.push("battle_get", "battle_ref");
   else if (e.payload.some((f) => f.ruleKind === "mon")) out.push("party_get", "party_set");
-  if (e.category === "Items and money" || e.name.startsWith("catch")) out.push("money", "money_set");
+  if (e.category === "Items, money and healing" || e.name.startsWith("catch")) out.push("money", "money_set");
   if (e.category === "Encounters") out.push("zone", "badge_count", "species_value");
   if (e.category === "World" || e.category === "Progress") out.push("zone", "flag", "flag_set");
   if (e.category === "Session") out.push("state_load", "state_store");
@@ -264,16 +260,16 @@ const eventList = [...events.values()]
   .sort((a, b) => a.numId - b.numId)
   .map((e) => {
     const c = curated.events[e.name] ?? {};
-    // The curated sentence says when the event fires in plain words; v4's own
-    // text is the fallback.
+    // v4's sentence says when the event fires; a curated one replaces it only
+    // where v4's is technical (curated.events[..].when).
     const when = c.when ?? e.doc;
     need(when, `no 'when' text for ${e.name}`);
     return {
       ...e,
       doc: undefined,
-      notes: (c.facts ?? []).map(eidosName),
+      notes: c.facts ?? [],
       id: `event:${e.name}`,
-      when: when ? eidosName(when) : null,
+      when: when || null,
       functions: c.functions ?? defaultFns(e),
       recipes: [],
     };
@@ -345,7 +341,7 @@ const out = {
       "sdk/api/v4/eidos_wasm.h",
       "ui/src/lib/moddocs/curated.mjs",
     ],
-    note: "The structure and most of the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry.",
+    note: "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry.",
   },
   categories,
   events: eventList,

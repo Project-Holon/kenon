@@ -1276,6 +1276,9 @@ pub fn check_rule_ctx(text: &str, expected: Option<&str>, ctx: RuleContext) -> V
 pub struct DeclaredRow {
     pub function: String,
     pub events: Vec<String>,
+    /// Other names of the function (eidos `sdk/api/v4/hooks.json`). The port
+    /// resolves an override by region and address, never by name.
+    pub aliases: Vec<String>,
 }
 
 /// The game functions a mod can hook: eidos `mod/declared_set.txt`.
@@ -1337,14 +1340,67 @@ impl DeclaredSet {
                 DeclaredRow {
                     function: cols[1].trim().to_string(),
                     events,
+                    aliases: Vec::new(),
                 },
             );
         }
         DeclaredSet { rows }
     }
 
+    /// Reads the set, and the aliases from `sdk/api/v4/hooks.json` when the
+    /// file sits in the eidos folder above `mod/`.
     pub fn load(path: &Path) -> io::Result<Self> {
-        Ok(Self::parse(&fs::read_to_string(path)?))
+        let mut set = Self::parse(&fs::read_to_string(path)?);
+        let hooks = path
+            .parent()
+            .and_then(Path::parent)
+            .map(|eidos| eidos.join("sdk").join("api").join("v4").join("hooks.json"));
+        if let Some(text) = hooks.and_then(|p| fs::read_to_string(p).ok()) {
+            set.add_aliases(&text);
+        }
+        Ok(set)
+    }
+
+    /// Takes the `aliases` of each hook of a `hooks.json`, matched by region
+    /// and address. A document that does not parse changes nothing.
+    pub fn add_aliases(&mut self, hooks_json: &str) {
+        let Ok(doc) = serde_json::from_str::<serde_json::Value>(hooks_json) else {
+            return;
+        };
+        let Some(list) = doc.get("hooks").and_then(|h| h.as_array()) else {
+            return;
+        };
+        for h in list {
+            let text = |k: &str| h.get(k).and_then(|v| v.as_str());
+            let (Some(addr), Some(region)) = (
+                text("address").and_then(parse_addr),
+                text("region").and_then(region_key),
+            ) else {
+                continue;
+            };
+            let Some(row) = self.rows.get_mut(&(region, addr & !1)) else {
+                continue;
+            };
+            let names = h.get("aliases").and_then(|a| a.as_array());
+            for name in names.into_iter().flatten().filter_map(|n| n.as_str()) {
+                if name != row.function && !row.aliases.iter().any(|a| a == name) {
+                    row.aliases.push(name.to_string());
+                }
+            }
+        }
+    }
+
+    /// The address of the function a region holds under this name, whether
+    /// it is the row's own name or an alias.
+    pub fn find_name(&self, region: &str, name: &str) -> Option<u32> {
+        let region = region_key(region)?;
+        self.rows
+            .iter()
+            .filter(|((r, _), row)| {
+                *r == region && (row.function == name || row.aliases.iter().any(|a| a == name))
+            })
+            .map(|((_, a), _)| *a)
+            .min()
     }
 
     pub fn len(&self) -> usize {
@@ -1529,11 +1585,24 @@ fn parse_override(value: &str) -> Result<OverrideLine, (usize, usize, String)> {
     Ok(line)
 }
 
+/// A key written with a function name, `arm9:MISC_AddMoney`: the name (or an
+/// alias) is found, so the message gives the address the port reads.
+fn name_hint(value: &str, set: &DeclaredSet) -> Option<String> {
+    let key = value.split_whitespace().next()?;
+    let (region, name) = key.split_once(':')?;
+    let addr = set.find_name(region, name)?;
+    let region = region_key(region)?;
+    Some(format!(
+        "the port reads an address, not a name: write {region}:0x{addr:08X} ({name})"
+    ))
+}
+
 /// What the hooks editor shows beside a valid line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct HookRow {
     pub line: u32,
     pub function: String,
+    pub aliases: Vec<String>,
     pub events: Vec<String>,
 }
 
@@ -1559,7 +1628,10 @@ pub fn check_overrides(text: &str, declared: Option<&DeclaredSet>) -> HooksCheck
         }
         let o = match parse_override(value) {
             Ok(o) => o,
-            Err((a, b, msg)) => {
+            Err((a, b, mut msg)) => {
+                if let Some(hint) = declared.and_then(|set| name_hint(value, set)) {
+                    msg = hint;
+                }
                 out.diagnostics.push(Diagnostic::at(
                     n,
                     line,
@@ -1611,6 +1683,7 @@ pub fn check_overrides(text: &str, declared: Option<&DeclaredSet>) -> HooksCheck
                 Some(row) => out.rows.push(HookRow {
                     line: n as u32,
                     function: row.function.clone(),
+                    aliases: row.aliases.clone(),
                     events: row.events.clone(),
                 }),
             }

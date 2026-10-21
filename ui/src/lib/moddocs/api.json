@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "4a03435",
+  "eidosRevision": "235f1fd",
   "apiVersion": 4,
   "sources": [
    "sdk/api/v4/core.json",
@@ -14,7 +14,7 @@
    "sdk/api/v4/eidos_wasm.h",
    "ui/src/lib/moddocs/curated.mjs"
   ],
-  "note": "The structure and most of the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry."
+  "note": "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry."
  },
  "categories": [
   "Session",
@@ -22,13 +22,14 @@
   "Encounters",
   "Pokemon",
   "Battle",
-  "Items and money",
+  "Items, money and healing",
   "Progress"
  ],
  "events": [
   {
    "name": "game.new",
    "category": "Session",
+   "since": 3,
    "where": "EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
    "refuse": null,
    "modifyText": null,
@@ -39,7 +40,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:game.new",
-   "when": "The player starts a new game, before the first map loads.",
+   "when": "The player starts a new game, when the first map is set up.",
    "functions": [
     "state_load",
     "state_store",
@@ -50,6 +51,7 @@
   {
    "name": "save.begin",
    "category": "Session",
+   "since": 3,
    "where": "SAVE_CONTROL_StartSave 0x02007150",
    "refuse": null,
    "modifyText": null,
@@ -57,20 +59,20 @@
    "payload": [
     {
      "name": "play_seconds",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "play time",
      "writable": false,
      "cName": "play_seconds",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "zone",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "where the player saves",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -79,7 +81,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:save.begin",
-   "when": "A save starts, from the save menu, a script or a link feature.",
+   "when": "The game starts writing a save.",
    "functions": [
     "state_load",
     "state_store",
@@ -90,6 +92,7 @@
   {
    "name": "save.done",
    "category": "Session",
+   "since": 3,
    "where": "the return of SAVE_CONTROL_MainSave 0x02007168",
    "refuse": null,
    "modifyText": null,
@@ -97,29 +100,29 @@
    "payload": [
     {
      "name": "play_seconds",
-     "type": "u32",
-     "meaning": "",
+     "type": "uint32_t",
+     "meaning": "play time",
      "writable": false,
      "cName": "play_seconds",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "where the player saves",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "ok",
-     "type": "u8",
-     "meaning": "the save was written",
+     "type": "uint8_t",
+     "meaning": "save.done only: the save was written",
      "writable": false,
      "cName": "ok",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -128,7 +131,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:save.done",
-   "when": "A save step returns. The payload says whether the write was accepted.",
+   "when": "A save has been written (or failed: ok says which).",
    "functions": [
     "state_load",
     "state_store",
@@ -139,6 +142,7 @@
   {
    "name": "save.load",
    "category": "Session",
+   "since": 3,
    "where": "GAME_DATA_LoadFromSave 0x02012C18",
    "refuse": null,
    "modifyText": null,
@@ -146,29 +150,29 @@
    "payload": [
     {
      "name": "play_seconds",
-     "type": "u32",
-     "meaning": "",
+     "type": "uint32_t",
+     "meaning": "play time of the loaded save",
      "writable": false,
      "cName": "play_seconds",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "where the save resumes",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "state_in_step",
-     "type": "u8",
-     "meaning": "the port's own saved data; the port does not",
+     "type": "uint8_t",
+     "meaning": "reads 0: whether the mod's own saved data was written with this save is a per-mod answer, and the payload is built once for every handler of the event, so the mod asks the services table's state_in_step (docs/mod-state.md, section 2)",
      "writable": false,
      "cName": "state_in_step",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -177,7 +181,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:save.load",
-   "when": "A save is loaded, when the game data is read from it.",
+   "when": "A save has been read and the game is about to run from it.",
    "functions": [
     "state_load",
     "state_store",
@@ -188,6 +192,7 @@
   {
    "name": "game.cleared",
    "category": "Session",
+   "since": 3,
    "where": "EVENT_GAMECLEAR_Create 0x0215F8A8, the ending: Hall of Fame (ov180), credits (ov181), save screen (ov205)",
    "refuse": null,
    "modifyText": null,
@@ -195,29 +200,29 @@
    "payload": [
     {
      "name": "play_seconds",
-     "type": "u32",
-     "meaning": "",
+     "type": "uint32_t",
+     "meaning": "play time at the Hall of Fame",
      "writable": false,
      "cName": "play_seconds",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "team_count",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "Pokemon entered",
      "writable": false,
      "cName": "team_count",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "team",
      "type": "EidosMonRef[6]",
-     "meaning": "",
+     "meaning": "the team",
      "writable": false,
      "cName": "team",
-     "cType": "EidosMonRef[6]",
+     "cType": "BwMonRef[6]",
      "ruleKind": "list"
     }
    ],
@@ -226,7 +231,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:game.cleared",
-   "when": "The ending begins: Hall of Fame, credits, then the save screen.",
+   "when": "The player beat the Champion; the ending (Hall of Fame, credits, the save screen) starts.",
    "functions": [
     "state_load",
     "state_store",
@@ -237,6 +242,7 @@
   {
    "name": "route.change",
    "category": "World",
+   "since": 3,
    "where": "FIELD_MAP_CHANGE_SetupZone 0x021643E8",
    "refuse": null,
    "modifyText": null,
@@ -244,29 +250,29 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the new zone",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "prev_zone",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the zone left",
      "writable": false,
      "cName": "prev_zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "season",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the current season",
      "writable": false,
      "cName": "season",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -275,7 +281,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:route.change",
-   "when": "The game sets up a new zone, on every map change.",
+   "when": "The player walks into another zone without a warp (a route border, a town edge).",
    "functions": [
     "zone",
     "flag",
@@ -289,6 +295,7 @@
   {
    "name": "map.warp",
    "category": "World",
+   "since": 3,
    "where": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0",
    "refuse": null,
    "modifyText": "destination",
@@ -296,38 +303,38 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "where the warp starts",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "dest_zone",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "where it leads",
      "writable": true,
      "cName": "dest_zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "dest_x",
-     "type": "s16",
+     "type": "int16_t",
      "meaning": "the arrival cell",
      "writable": true,
      "cName": "dest_x",
-     "cType": "int16_t",
+     "cType": "s16",
      "ruleKind": "int"
     },
     {
      "name": "dest_z",
-     "type": "s16",
-     "meaning": "",
+     "type": "int16_t",
+     "meaning": "the arrival cell",
      "writable": true,
      "cName": "dest_z",
-     "cType": "int16_t",
+     "cType": "s16",
      "ruleKind": "int"
     }
    ],
@@ -336,7 +343,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:map.warp",
-   "when": "A warp is about to move the player. A handler may change the destination.",
+   "when": "The player is about to warp to another map (a door, stairs, Fly, a cave exit); the destination can be changed.",
    "functions": [
     "zone",
     "flag",
@@ -348,6 +355,7 @@
   {
    "name": "player.step",
    "category": "World",
+   "since": 3,
    "where": "FIELD_EVENT_CHECK_CheckStepEvents 0x0218A9B0",
    "refuse": null,
    "modifyText": null,
@@ -355,56 +363,56 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the current zone",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "x",
-     "type": "s16",
+     "type": "int16_t",
      "meaning": "the cell after the step",
      "writable": false,
      "cName": "x",
-     "cType": "int16_t",
+     "cType": "s16",
      "ruleKind": "int"
     },
     {
      "name": "y",
-     "type": "s16",
+     "type": "int16_t",
      "meaning": "the cell after the step",
      "writable": false,
      "cName": "y",
-     "cType": "int16_t",
+     "cType": "s16",
      "ruleKind": "int"
     },
     {
      "name": "z",
-     "type": "s16",
+     "type": "int16_t",
      "meaning": "the cell after the step",
      "writable": false,
      "cName": "z",
-     "cType": "int16_t",
+     "cType": "s16",
      "ruleKind": "int"
     },
     {
      "name": "dir",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the facing",
      "writable": false,
      "cName": "dir",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "mode",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "walking, running, cycling, surfing",
      "writable": false,
      "cName": "mode",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -413,7 +421,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:player.step",
-   "when": "The game checks step events after the player moves one cell.",
+   "when": "The player finished a step on the field.",
    "functions": [
     "zone",
     "flag",
@@ -425,6 +433,7 @@
   {
    "name": "trainer.spotted",
    "category": "World",
+   "since": 3,
    "where": "EVENT_TRAINER_EYE_Check 0x021AE0CC",
    "refuse": "the trainer does not see the player (the function returns no event)",
    "modifyText": null,
@@ -432,29 +441,29 @@
    "payload": [
     {
      "name": "trainer_id",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the trainer who saw the player",
      "writable": false,
      "cName": "trainer_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "partner_id",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the second trainer of a double, or 0",
      "writable": false,
      "cName": "partner_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "distance",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "cells between them",
      "writable": false,
      "cName": "distance",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -463,7 +472,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:trainer.spotted",
-   "when": "A trainer looks for the player in line of sight. Refusing makes the trainer miss the player.",
+   "when": "A trainer saw the player and is about to walk up for a battle; refused, the trainer does not see the player.",
    "functions": [
     "zone",
     "flag",
@@ -475,6 +484,7 @@
   {
    "name": "npc.talk",
    "category": "World",
+   "since": 3,
    "where": "FIELD_EVENT_CHECK_SearchGridFrontMmdl 0x0218B4B0; on rails FIELD_EVENT_CHECK_SearchRailFrontMmdl 0x0218B53C",
    "refuse": "no person is found ahead; the A press goes on to the sign and tile checks",
    "modifyText": null,
@@ -482,29 +492,29 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the zone",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "object_id",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the person or object talked to",
      "writable": false,
      "cName": "object_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "script_id",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the script the talk runs",
      "writable": false,
      "cName": "script_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -513,7 +523,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:npc.talk",
-   "when": "The player presses A and the game looks for a person in front. Refusing finds nobody.",
+   "when": "The player pressed A at a person or object; refused, nothing happens.",
    "functions": [
     "zone",
     "flag",
@@ -525,6 +535,7 @@
   {
    "name": "menu.open",
    "category": "World",
+   "since": 3,
    "where": "EVENT_FIELD_MENU_Create 0x0215FC40 (the X-button menu event) and EVENT_FIELD_MENU_CreateForZone 0x0215FCE0",
    "refuse": "the menu does not open (no event is returned)",
    "modifyText": null,
@@ -535,7 +546,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:menu.open",
-   "when": "The X-button menu is about to open. Refusing keeps it shut.",
+   "when": "The player opened the field menu (X); refused, it does not open.",
    "functions": [
     "zone",
     "flag",
@@ -547,6 +558,7 @@
   {
    "name": "menu.build",
    "category": "World",
+   "since": 3,
    "where": "the return of FIELD_MENU_Create 0x021A836C",
    "refuse": null,
    "modifyText": "entries (a cleared entry is hidden; one added is not built)",
@@ -554,11 +566,11 @@
    "payload": [
     {
      "name": "entries",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "one bit per menu entry shown",
      "writable": true,
      "cName": "entries",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -567,7 +579,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:menu.build",
-   "when": "The X-button menu has just been built. A handler may hide entries.",
+   "when": "The field menu lists its entries; the list can be changed.",
    "functions": [
     "zone",
     "flag",
@@ -579,6 +591,7 @@
   {
    "name": "field.move",
    "category": "World",
+   "since": 3,
    "where": "FIELD_SKILL_CHECK_CallHandler 0x021644C4",
    "refuse": "the field move shows as unusable",
    "modifyText": null,
@@ -586,11 +599,11 @@
    "payload": [
     {
      "name": "move",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the field move",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
@@ -599,7 +612,7 @@
      "meaning": "the Pokemon using it",
      "writable": false,
      "cName": "user",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     }
    ],
@@ -608,7 +621,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:field.move",
-   "when": "The game asks whether a field move can be used. Refusing removes it from the choices.",
+   "when": "The player uses a field move (Cut, Surf, Strength, Fly...); refused, the move cannot be used.",
    "functions": [
     "party_get",
     "party_set",
@@ -622,6 +635,7 @@
   {
    "name": "pc.open",
    "category": "World",
+   "since": 3,
    "where": "SCRCMD_PROC_FLD_CallOv170Event 0x021B4D60, the script command that opens the box screen (the PC, and the battle box with its kind 4)",
    "refuse": "the PC does not open; the script reads a plain exit",
    "modifyText": null,
@@ -632,7 +646,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:pc.open",
-   "when": "A script opens the box screen (the PC, or the battle box).",
+   "when": "The player opens the Pokemon storage system; refused, it does not open.",
    "functions": [
     "zone",
     "flag",
@@ -644,6 +658,7 @@
   {
    "name": "encounter.wild",
    "category": "Encounters",
+   "since": 3,
    "where": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
    "refuse": "no battle; the player keeps walking; the payload names the area, the method (grass, surf, fishing, shaking grass) and the slot",
    "modifyText": "species, level, shiny; the second Pokemon of a double; a reroll",
@@ -651,93 +666,92 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the zone",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "method",
-     "type": "u8",
-     "meaning": "How an encounter was rolled (encounter.wild).",
+     "type": "uint8_t",
+     "meaning": "grass, dark grass, surf, fishing, shaking grass, rippling water, dust",
      "writable": false,
      "cName": "method",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_ENCOUNTER_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "slot",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the encounter table slot rolled",
      "writable": false,
      "cName": "slot",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": true,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the level",
      "writable": true,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "shiny",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "1 forces shiny, 0 leaves the roll",
      "writable": true,
      "cName": "shiny",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "double",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "a double wild battle",
      "writable": false,
      "cName": "double_",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "reroll",
-     "type": "u8",
-     "meaning": "1 rolls the encounter again and fires again",
+     "type": "uint8_t",
+     "meaning": "1 rolls the encounter again with the game's own roll and fires the event again, at most 16 times; the last answer stands",
      "writable": true,
      "cName": "reroll",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "level2",
-     "type": "u8",
-     "meaning": "the second Pokemon of a double (dark grass)",
+     "type": "uint8_t",
+     "meaning": "the second Pokemon of a double (dark grass), 0 when there is none",
      "writable": true,
      "cName": "level2",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "species2",
-     "type": "u16",
-     "meaning": "the same; 0 when there is no second",
+     "type": "uint16_t",
+     "meaning": "the same",
      "writable": true,
      "cName": "species2",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -746,7 +760,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:encounter.wild",
-   "when": "A wild Pokemon was rolled for the area the player walks in. A handler may change it or cancel the battle.",
+   "when": "A wild Pokemon was rolled on the field, before the battle starts; species, level and shiny can be changed, or the roll done again; refused, there is no encounter.",
    "functions": [
     "zone",
     "badge_count",
@@ -767,6 +781,7 @@
   {
    "name": "encounter.static",
    "category": "Encounters",
+   "since": 3,
    "where": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8",
    "refuse": null,
    "modifyText": "species, level",
@@ -774,38 +789,38 @@
    "payload": [
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the zone",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": true,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the level",
      "writable": true,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "kind",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "static, legendary, scripted",
      "writable": false,
      "cName": "kind",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -814,7 +829,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:encounter.static",
-   "when": "A script starts a battle with a fixed Pokemon, such as a legendary or a gift battle.",
+   "when": "A story or fixed battle with a wild Pokemon is about to start (a legendary, a gift battle); species and level can be changed.",
    "functions": [
     "zone",
     "badge_count",
@@ -827,6 +842,7 @@
   {
    "name": "encounter.trainer",
    "category": "Encounters",
+   "since": 3,
    "where": "FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC",
    "refuse": null,
    "modifyText": null,
@@ -834,31 +850,30 @@
    "payload": [
     {
      "name": "trainer_id",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the trainer",
      "writable": false,
      "cName": "trainer_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "partner_id",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the second trainer, or 0",
      "writable": false,
      "cName": "partner_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "format",
-     "type": "u8",
-     "meaning": "The battle format (battle.start, encounter.trainer).",
+     "type": "uint8_t",
+     "meaning": "single, double, triple, rotation, multi",
      "writable": false,
      "cName": "format",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_FORMAT_"
+     "cType": "u8",
+     "ruleKind": "int"
     }
    ],
    "cStruct": "EidosEncounterTrainer",
@@ -866,7 +881,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:encounter.trainer",
-   "when": "A trainer battle is being set up.",
+   "when": "A trainer battle is about to be set up.",
    "functions": [
     "zone",
     "badge_count",
@@ -878,6 +893,7 @@
   {
    "name": "mon.create",
    "category": "Pokemon",
+   "since": 3,
    "where": "POKE_TOOL_CreateEx 0x02017430; personality POKE_TOOL_CreatePersonalRnd 0x020186C8",
    "refuse": null,
    "modifyText": "species, level, shiny, nature",
@@ -885,47 +901,47 @@
    "payload": [
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": true,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the level",
      "writable": true,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "shiny",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "1 forces shiny, 0 leaves the roll",
      "writable": true,
      "cName": "shiny",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "nature",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the nature, or 0xFF to leave the roll",
      "writable": true,
      "cName": "nature",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "personality",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "the personality value the game rolled",
      "writable": false,
      "cName": "personality",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -934,7 +950,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.create",
-   "when": "The game creates a Pokemon record, for any reason. A handler may change species, level, shininess and nature.",
+   "when": "The game creates a Pokemon (wild, gift, egg, a trainer's); species, level, shiny and nature can be changed.",
    "functions": [
     "dex_caught",
     "message"
@@ -944,6 +960,7 @@
   {
    "name": "mon.receive",
    "category": "Pokemon",
+   "since": 3,
    "where": "catch EVENT_BATTLE_RETURN_Main 0x021B9614 (ov092, the store step); gifts SCRCMD_PROC_AddMonToParty 0x0215C510, SCRCMD_PROC_AddMonToBox 0x0215C4C8, SCRCMD_PROC_AddEggToParty 0x0215C2D0 (ov010); SCRCMD_POKEMON_FLD_ReceiveGiftMon 0x021B6F18, daycare egg SODATEYA_ReceiveEgg 0x021C32F4 (ov021); in-game trade FLD_TRADE_CreateEvent 0x021CC500 (ov021)",
    "refuse": null,
    "modifyText": null,
@@ -952,65 +969,64 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "How a Pokemon reached the player (mon.receive).",
+     "type": "uint8_t",
+     "meaning": "catch, gift, static, egg, in-game trade",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_RECEIVE_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "to_box",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "it goes to a box because the party is full",
      "writable": false,
      "cName": "to_box",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the level",
      "writable": false,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "shiny",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "shiny",
      "writable": false,
      "cName": "shiny",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "zone",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "where it was received",
      "writable": false,
      "cName": "zone",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1019,7 +1035,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.receive",
-   "when": "The player gets a Pokemon: caught, gifted, an egg or an in-game trade. It fires after the Pokemon is stored.",
+   "when": "The player gets a Pokemon (a catch, a gift, a static encounter, an egg, a trade), when it is stored.",
    "functions": [
     "party_get",
     "party_set",
@@ -1031,6 +1047,7 @@
   {
    "name": "mon.nickname",
    "category": "Pokemon",
+   "since": 3,
    "where": "EVENT_NAMEIN_Create 0x021CD2A4 (ov021); after a catch ZUKAN_NICKNAME_Create 0x0220B55C (ov207)",
    "refuse": null,
    "modifyText": "force the prompt (marked, but the row carries no applier, so a write to it has no effect)",
@@ -1039,19 +1056,19 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon; empty on the prompt's own row, the caught Pokemon on the catch screen's",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "force",
-     "type": "u8",
-     "meaning": "1 opens the prompt even when the game would skip it",
+     "type": "uint8_t",
+     "meaning": "1 opens the prompt even when the game would skip it (reads 0; the row has no applier)",
      "writable": true,
      "cName": "force",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -1060,7 +1077,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.nickname",
-   "when": "The name prompt opens, or the catch screen offers a nickname.",
+   "when": "The nickname screen opens for a Pokemon (after a catch or from a person).",
    "functions": [
     "party_get",
     "party_set",
@@ -1071,6 +1088,7 @@
   {
    "name": "mon.evolve",
    "category": "Pokemon",
+   "since": 3,
    "where": "the return of SHINKA_CHECK_CheckEvolution 0x0201B2B0",
    "refuse": "no evolution starts; an evolution stone has no effect",
    "modifyText": "target species",
@@ -1079,39 +1097,38 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "from",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "its species",
      "writable": false,
      "cName": "from",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "to",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the species it evolves into",
      "writable": true,
      "cName": "to",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "method",
-     "type": "u8",
-     "meaning": "How a Pokemon evolves (mon.evolve).",
+     "type": "uint8_t",
+     "meaning": "level, item, trade, friendship, other",
      "writable": false,
      "cName": "method",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_EVOLVE_"
+     "cType": "u8",
+     "ruleKind": "int"
     }
    ],
    "cStruct": "EidosMonEvolve",
@@ -1119,7 +1136,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.evolve",
-   "when": "The game checks whether a Pokemon evolves, after a level-up, with a stone or on a trade. Refusing stops the evolution.",
+   "when": "The game found that a Pokemon evolves (level, item, trade, friendship), before the evolution scene; refused, it does not evolve.",
    "functions": [
     "party_get",
     "party_set",
@@ -1130,6 +1147,7 @@
   {
    "name": "mon.exp",
    "category": "Pokemon",
+   "since": 3,
    "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093); daycare SODATEYA_GrantExp 0x021C3530 (ov021)",
    "refuse": null,
    "modifyText": "the amount",
@@ -1138,56 +1156,56 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "amount",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "the experience to add",
      "writable": true,
      "cName": "amount",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "exp",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "its experience before",
      "writable": false,
      "cName": "exp",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "its level before",
      "writable": false,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where experience comes from (mon.exp).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_EXP_BATTLE or EIDOS_EXP_DAYCARE",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_EXP_"
     },
     {
      "name": "wild",
-     "type": "u8",
-     "meaning": "a battle source: 1 the battle is a wild one",
+     "type": "uint8_t",
+     "meaning": "for a battle, 1 when the battle is a wild one",
      "writable": false,
      "cName": "wild",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -1196,7 +1214,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.exp",
-   "when": "Experience from a battle or the Day Care is about to be added. A handler may change the amount.",
+   "when": "A party Pokemon is about to gain experience (once per member in a battle, or at the day care); the amount can be changed.",
    "functions": [
     "party_get",
     "party_set",
@@ -1213,55 +1231,58 @@
   {
    "name": "mon.levelup",
    "category": "Pokemon",
+   "since": 3,
    "where": "the return of BTL_POKEPARAM_AddExp 0x021D69B8, inside BTL_SERVER_FLOW_ApplyPartyExp 0x021C5350 (the level crossing)",
    "refuse": null,
    "modifyText": null,
-   "notes": [],
+   "notes": [
+    "For a Rare Candy it fires after the level-up. To stop the candy, refuse item.use."
+   ],
    "payload": [
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "from",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the level before",
      "writable": false,
      "cName": "from",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "to",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the level reached",
      "writable": false,
      "cName": "to",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "How a level was gained (mon.levelup).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_LEVELUP_BATTLE, or EIDOS_LEVELUP_ITEM (a Rare Candy on the party screen)",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_LEVELUP_"
     },
     {
      "name": "item",
-     "type": "u16",
-     "meaning": "EIDOS_LEVELUP_ITEM: the item (a Rare Candy)",
+     "type": "uint16_t",
+     "meaning": "the item, for EIDOS_LEVELUP_ITEM",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1270,7 +1291,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.levelup",
-   "when": "A Pokemon gains a level, in a battle or from a Rare Candy. It fires once for the level crossing, and for a Rare Candy after the level-up. To stop the candy, refuse item.use.",
+   "when": "A Pokemon reached a new level.",
    "functions": [
     "party_get",
     "party_set",
@@ -1283,6 +1304,7 @@
   {
    "name": "move.learn",
    "category": "Pokemon",
+   "since": 3,
    "where": "level-up POKE_TOOL_GetLevelUpMove 0x02018328 (arm9); daycare SODATEYA_LearnMove 0x021C360C (ov021); the party screen's POKELIST_TryLearnMove 0x021BA5B4 and POKELIST_ReplaceMoveSlot 0x021BA5E0 (ov091); the nurse's relearner POKE_SUMMARY_MAIN_ApplyMove 0x021B6B0C (ov173); the script command that writes a move SCRCMD_PROC_SetMonMove 0x0215BD2C (ov010)",
    "refuse": "the level-up, the day care and the script: the move is not learned. The party screen's rows and the relearner's cannot be refused; the payload names the move and the source",
    "modifyText": null,
@@ -1291,47 +1313,46 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "move",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the move",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "How a Pokemon learns a move (move.learn).",
+     "type": "uint8_t",
+     "meaning": "level, TM, tutor, relearner; 0 also stands for the rows that name no teacher",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_MOVE_SOURCE_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "slot",
-     "type": "u8",
-     "meaning": "the move slot it goes into, or 0xFF for a free one",
+     "type": "uint8_t",
+     "meaning": "the move slot it goes into, or 0xFF when the row names none",
      "writable": false,
      "cName": "slot",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "replaced",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the move it replaces, or 0",
      "writable": false,
      "cName": "replaced",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1340,7 +1361,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:move.learn",
-   "when": "A Pokemon is about to learn a move by level-up, the Day Care, a TM or tutor, the move relearner or a script.",
+   "when": "A Pokemon is about to learn a move (level-up, the day care, a tutor); refused, it does not learn it.",
    "functions": [
     "party_get",
     "party_set",
@@ -1351,6 +1372,7 @@
   {
    "name": "mon.release",
    "category": "Pokemon",
+   "since": 3,
    "where": "BOX2_MAIN_ClearSlot 0x021DD314, whose only caller is the release step BOX2_SEQ_StateMoveItemF 0x021E81D0, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the Pokemon stays; the box redraws it",
    "modifyText": null,
@@ -1359,19 +1381,19 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "its species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1380,7 +1402,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.release",
-   "when": "The player releases a Pokemon from the PC box screen.",
+   "when": "The player releases a Pokemon in the storage system; refused, it stays.",
    "functions": [
     "party_get",
     "party_set",
@@ -1394,6 +1416,7 @@
   {
    "name": "box.deposit",
    "category": "Pokemon",
+   "since": 3,
    "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a party Pokemon placed in a box",
    "refuse": "the move is not applied; the box screen's own next step redraws the icons",
    "modifyText": null,
@@ -1405,25 +1428,25 @@
      "meaning": "the Pokemon, where it is now",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "box",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the box it moves into or out of",
      "writable": false,
      "cName": "box",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "slot",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the box slot",
      "writable": false,
      "cName": "slot",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -1432,7 +1455,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:box.deposit",
-   "when": "The player puts a party Pokemon into a box on the PC screen.",
+   "when": "The player moves a party Pokemon into a box; refused, it stays in the party.",
    "functions": [
     "party_get",
     "party_set",
@@ -1445,6 +1468,7 @@
   {
    "name": "box.withdraw",
    "category": "Pokemon",
+   "since": 3,
    "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a box Pokemon placed in the party",
    "refuse": "as box.deposit",
    "modifyText": null,
@@ -1453,28 +1477,28 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon, where it is now",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "box",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the box it moves into or out of",
      "writable": false,
      "cName": "box",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "slot",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the box slot",
      "writable": false,
      "cName": "slot",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -1483,7 +1507,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:box.withdraw",
-   "when": "The player takes a Pokemon out of a box into the party on the PC screen.",
+   "when": "The player moves a box Pokemon into the party; refused, it stays in the box.",
    "functions": [
     "party_get",
     "party_set",
@@ -1496,6 +1520,7 @@
   {
    "name": "party.swap",
    "category": "Pokemon",
+   "since": 3,
    "where": "POKEPARTY_SwapMembers 0x0201AB8C, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the order does not change; the party screen redraws from the party",
    "modifyText": null,
@@ -1503,20 +1528,20 @@
    "payload": [
     {
      "name": "slot_a",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the two party positions",
      "writable": false,
      "cName": "slot_a",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "slot_b",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the two party positions",
      "writable": false,
      "cName": "slot_b",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -1525,7 +1550,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:party.swap",
-   "when": "Two party members change places.",
+   "when": "Two party positions are swapped (the party screen, the storage system); refused, the order stays.",
    "functions": [
     "message"
    ],
@@ -1534,6 +1559,7 @@
   {
    "name": "mon.helditem",
    "category": "Pokemon",
+   "since": 3,
    "where": "POKELIST_SetHeldItem 0x021BA624",
    "refuse": null,
    "modifyText": null,
@@ -1542,28 +1568,28 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "item",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the item given",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "previous",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the item it held, or 0",
      "writable": false,
      "cName": "previous",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1572,7 +1598,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:mon.helditem",
-   "when": "The party screen gives a Pokemon a held item.",
+   "when": "A party Pokemon's held item changes on the party screen.",
    "functions": [
     "party_get",
     "party_set",
@@ -1583,6 +1609,7 @@
   {
    "name": "egg.hatch",
    "category": "Pokemon",
+   "since": 3,
    "where": "SCRCMD_POKEMON_FLD_StartEggHatch 0x021B63D4",
    "refuse": null,
    "modifyText": null,
@@ -1591,19 +1618,19 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the hatching Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "its species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1612,7 +1639,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:egg.hatch",
-   "when": "A script starts an egg hatch.",
+   "when": "An egg hatches.",
    "functions": [
     "party_get",
     "party_set",
@@ -1624,6 +1651,7 @@
   {
    "name": "trade.ingame",
    "category": "Pokemon",
+   "since": 3,
    "where": "SCRCMD_POKEMON_FLD_StartTradeEvent 0x021B654C",
    "refuse": "the trade does not happen and the script goes on",
    "modifyText": null,
@@ -1631,11 +1659,11 @@
    "payload": [
     {
      "name": "trade_id",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the in-game trade",
      "writable": false,
      "cName": "trade_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
@@ -1644,16 +1672,16 @@
      "meaning": "the player's Pokemon",
      "writable": false,
      "cName": "given",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "received_species",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the species offered",
      "writable": false,
      "cName": "received_species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1662,7 +1690,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:trade.ingame",
-   "when": "A script starts an in-game trade. Refusing cancels it and the script goes on.",
+   "when": "A trade with a person in the game is about to happen; refused, there is no trade.",
    "functions": [
     "party_get",
     "party_set",
@@ -1673,7 +1701,8 @@
   {
    "name": "mon.cure",
    "category": "Pokemon",
-   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 (ov091); BTL_SERVER_FLOW_CureSick 0x021C5620 (ov093); after the party heals of heal",
+   "since": 4,
+   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 (ov091); BTL_SERVER_FLOW_CureSick 0x021C5620 (ov093); after the party heals of heal, for each member they cured",
    "refuse": "the status stays; an item on the party screen is kept",
    "modifyText": null,
    "notes": [
@@ -1685,38 +1714,38 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "status",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison; in a battle 6 and up are the battle's own conditions",
      "writable": false,
      "cName": "status",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where a status cure comes from (mon.cure).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_CURE_FIELD_ITEM, _BATTLE (item, move, ability, berry), _PARTY (a party heal)",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_CURE_"
     },
     {
      "name": "item",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the item, or 0",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1738,6 +1767,7 @@
   {
    "name": "mon.pp",
    "category": "Pokemon",
+   "since": 4,
    "where": "POKE_TOOL_RestorePP 0x0201B970 (arm9); BTL_SERVER_FLOW_RestoreMovePp 0x021C6080 (ov093)",
    "refuse": "no PP",
    "modifyText": "the PP",
@@ -1748,47 +1778,47 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "slot",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the move slot, 0 to 3",
      "writable": false,
      "cName": "slot",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where a PP restore comes from (mon.pp).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_PP_FIELD_ITEM or EIDOS_PP_BATTLE",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_PP_"
     },
     {
      "name": "move",
-     "type": "u16",
-     "meaning": "the move, or 0 when the port cannot read it",
+     "type": "uint16_t",
+     "meaning": "the move (0 in a battle for now)",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "amount",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the PP it gets, before the cap at its max",
      "writable": true,
      "cName": "amount",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -1810,6 +1840,7 @@
   {
    "name": "mon.form",
    "category": "Pokemon",
+   "since": 4,
    "where": "POKE_TOOL_ChangeForm 0x02017988 (arm9); BTL_SERVER_FLOW_ProcHandExChangeForm 0x021CA748 (ov093)",
    "refuse": "the form stays",
    "modifyText": "the new form",
@@ -1818,46 +1849,46 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "its species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "from",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the form it has",
      "writable": false,
      "cName": "from",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "to",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the form it changes to",
      "writable": true,
      "cName": "to",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where a form change comes from (mon.form).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_FORM_FIELD (an item, the season, a script) or EIDOS_FORM_BATTLE (an ability, a move, a held item)",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_FORM_"
     }
@@ -1879,6 +1910,7 @@
   {
    "name": "battle.start",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SETUP_Create 0x02013090 (arm9); the return of the setups: the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021), the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010)",
    "refuse": null,
    "modifyText": "format, levels; the payload names the trainer ids and whether the battle is wild",
@@ -1886,48 +1918,47 @@
    "payload": [
     {
      "name": "wild",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "a wild battle; 0 at the row that creates the setup",
      "writable": false,
      "cName": "wild",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "format",
-     "type": "u8",
-     "meaning": "The battle format (battle.start, encounter.trainer).",
+     "type": "uint8_t",
+     "meaning": "single, double, triple, rotation, multi; 0xFF where the port does not know the format yet (the row that creates the setup)",
      "writable": true,
      "cName": "format",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_FORMAT_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "trainer_id",
-     "type": "u16[2]",
+     "type": "uint16_t[2]",
      "meaning": "the opposing trainers, or 0",
      "writable": false,
      "cName": "trainer_id",
-     "cType": "uint16_t[2]",
+     "cType": "u16[2]",
      "ruleKind": "list"
     },
     {
      "name": "level_adjust",
-     "type": "s8",
+     "type": "int8_t",
      "meaning": "added to every opposing Pokemon's level",
      "writable": true,
      "cName": "level_adjust",
-     "cType": "int8_t",
+     "cType": "s8",
      "ruleKind": "int"
     },
     {
      "name": "opponent_party",
-     "type": "u32",
-     "meaning": "a handle to the opposing party",
+     "type": "uint32_t",
+     "meaning": "a handle to the opposing party; a handler edits it through the state calls",
      "writable": false,
      "cName": "opponent_party",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -1936,7 +1967,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.start",
-   "when": "A battle is created, then again when its setup is built. A handler may change the format and the opponent levels.",
+   "when": "A battle is set up and about to start; the format and a level change for the opposing Pokemon can be set.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -1947,10 +1978,13 @@
   {
    "name": "battle.action",
    "category": "Battle",
+   "since": 3,
    "where": "fight BTL_CLIENT_IsMoveSelectionBlocked 0x021CF5B0; run BTL_CLIENT_GetEscapeBlockerForSide 0x021CF918 (inside BTL_CLIENT_StepSelectRun); switch the return of BTL_PICK_GetLast 0x0689CB1C (ov095, inside BTL_CLIENT_StepSelectSwitchTarget)",
    "refuse": "the choice is not accepted and the action menu stays; the payload names the action and, for fight, the move",
    "modifyText": null,
-   "notes": [],
+   "notes": [
+    "For a fight it fires several times a turn, once per move checked."
+   ],
    "payload": [
     {
      "name": "mon",
@@ -1958,44 +1992,43 @@
      "meaning": "the Pokemon choosing",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "side",
-     "type": "u8",
-     "meaning": "0 the player's, 1 the opponent's",
+     "type": "uint8_t",
+     "meaning": "0 the player's, 1 the opponent's (the AI asks the move check too)",
      "writable": false,
      "cName": "side",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "action",
-     "type": "u8",
-     "meaning": "What the player chose in battle (battle.action).",
+     "type": "uint8_t",
+     "meaning": "fight, switch, run",
      "writable": false,
      "cName": "action",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_ACTION_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "move",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "for fight: the move checked",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "switch_to",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "for switch: the party position",
      "writable": false,
      "cName": "switch_to",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2004,7 +2037,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:battle.action",
-   "when": "The game checks a fight, switch or run choice. For a fight it fires several times a turn, once per move checked.",
+   "when": "A Pokemon of either side picks its action for the turn (fight, item, switch, run); refused, the choice is not allowed.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2015,6 +2048,7 @@
   {
    "name": "battle.item",
    "category": "Battle",
+   "since": 3,
    "where": "the return of BTLV_CORE_GetSelectedItem 0x021EA01C, inside BTL_CLIENT_StepSelectItem",
    "refuse": "back to the action menu; the item stays in the bag and the turn is not spent",
    "modifyText": null,
@@ -2022,11 +2056,11 @@
    "payload": [
     {
      "name": "item",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the item chosen from the bag",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
@@ -2035,25 +2069,25 @@
      "meaning": "the Pokemon whose turn it is",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "ball",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the item is a ball",
      "writable": false,
      "cName": "ball",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "revive",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the item revives a fainted Pokemon",
      "writable": false,
      "cName": "revive",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2062,7 +2096,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:battle.item",
-   "when": "The player picks an item from the bag in battle. Refusing returns to the action menu.",
+   "when": "The player picked an item from the battle bag; refused, the item is not used.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2073,6 +2107,7 @@
   {
    "name": "battle.switch",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SERVER_FLOW_ProcMemberIn 0x021BD9D4",
    "refuse": null,
    "modifyText": null,
@@ -2084,7 +2119,7 @@
      "meaning": "the Pokemon leaving, or empty after a faint",
      "writable": false,
      "cName": "out",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
@@ -2093,16 +2128,16 @@
      "meaning": "the Pokemon sent out",
      "writable": false,
      "cName": "in",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "forced",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the switch follows a faint or a move that forces it",
      "writable": false,
      "cName": "forced",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2111,7 +2146,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.switch",
-   "when": "A Pokemon is sent out in battle, including after a faint.",
+   "when": "A Pokemon is sent into battle (by choice, after a faint, or forced).",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2122,6 +2157,7 @@
   {
    "name": "battle.escape",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SERVER_FLOW_TryEscape 0x021BD60C",
    "refuse": "the escape fails as a failed run: \"Can't escape!\" and the turn is spent",
    "modifyText": null,
@@ -2133,7 +2169,7 @@
      "meaning": "the Pokemon trying to flee",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     }
    ],
@@ -2142,7 +2178,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:battle.escape",
-   "when": "A run attempt is resolved. Refusing makes it fail and spends the turn.",
+   "when": "A Pokemon tries to run from a wild battle; refused, it cannot escape.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2153,6 +2189,7 @@
   {
    "name": "battle.move",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SERVER_FLOW_RunMoveUsedEvent 0x021C1A10",
    "refuse": null,
    "modifyText": null,
@@ -2161,19 +2198,19 @@
     {
      "name": "user",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon using the move",
      "writable": false,
      "cName": "user",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "move",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the move",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
@@ -2182,16 +2219,16 @@
      "meaning": "the first target",
      "writable": false,
      "cName": "target",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "turn",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the turn",
      "writable": false,
      "cName": "turn",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -2200,7 +2237,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.move",
-   "when": "A Pokemon uses a move.",
+   "when": "A Pokemon used a move.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2211,6 +2248,7 @@
   {
    "name": "battle.damage",
    "category": "Battle",
+   "since": 3,
    "where": "the return of BTL_SERVER_FLOW_CalcMoveDamage 0x021C1E74",
    "refuse": null,
    "modifyText": "the amount; the payload names attacker, target, move and the target's HP before",
@@ -2219,73 +2257,73 @@
     {
      "name": "attacker",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the attacker",
      "writable": false,
      "cName": "attacker",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the target",
      "writable": false,
      "cName": "target",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "move",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the move",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "amount",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "the damage",
      "writable": true,
      "cName": "amount",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "target_hp",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the target's HP before the hit",
      "writable": false,
      "cName": "target_hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "target_max_hp",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the target's maximum HP",
      "writable": false,
      "cName": "target_max_hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "critical",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "a critical hit",
      "writable": false,
      "cName": "critical",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "effectiveness",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "no effect, not very, neutral, super effective",
      "writable": false,
      "cName": "effectiveness",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2294,7 +2332,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.damage",
-   "when": "The game has computed a hit and not applied it. A handler may change the amount.",
+   "when": "A move's damage on one target was worked out, before it is dealt; the damage can be changed.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2305,12 +2343,14 @@
   {
    "name": "battle.faint",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64",
    "refuse": null,
    "modifyText": null,
    "notes": [
     "mon is a battle reference (place EIDOS_MON_BATTLE); side 0 is the player's. cause, cause_move and cause_damage are empty or 0 when the faint came from weather, a hazard or a status.",
-    "A whiteout has its own event, whiteout. It is not the same moment as a single faint."
+    "A whiteout has its own event, whiteout. It is not the same moment as a single faint.",
+    "Poison on the field never faints a Pokemon in this game (it stops at 1 HP)."
    ],
    "payload": [
     {
@@ -2319,16 +2359,16 @@
      "meaning": "the Pokemon that fainted",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "side",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "0 the player's, 1 the opponent's",
      "writable": false,
      "cName": "side",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
@@ -2337,34 +2377,34 @@
      "meaning": "the last attacker, or empty",
      "writable": false,
      "cName": "cause",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "cause_move",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the last move, or 0",
      "writable": false,
      "cName": "cause_move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "cause_damage",
-     "type": "u32",
-     "meaning": "the last damage, or 0",
+     "type": "uint32_t",
+     "meaning": "the last damage, or 0 for weather, a hazard or a status",
      "writable": false,
      "cName": "cause_damage",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "turn",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the turn",
      "writable": false,
      "cName": "turn",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -2373,7 +2413,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.faint",
-   "when": "A Pokemon faints in battle, from either side. Poison on the field never faints a Pokemon in this game (it stops at 1 HP).",
+   "when": "A Pokemon fainted in a battle.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2389,6 +2429,7 @@
   {
    "name": "catch.attempt",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_SERVER_FLOW_TryThrowBall 0x021CBA40",
    "refuse": "the ball is blocked as in a trainer battle: the block message shows, the ball stays in the bag, the turn is spent; the payload names the ball and the target's species and level",
    "modifyText": "catch rate (BTL_SERVER_FLOW_GetBallCatchRate 0x021CBD48)",
@@ -2397,64 +2438,64 @@
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the wild Pokemon",
      "writable": false,
      "cName": "target",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "its species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "its level",
      "writable": false,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "shiny",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "shiny",
      "writable": false,
      "cName": "shiny",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "ball",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the ball item",
      "writable": false,
      "cName": "ball",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "rate",
-     "type": "u8",
-     "meaning": "the catch rate the roll uses",
+     "type": "uint8_t",
+     "meaning": "the catch rate the roll uses, as a percentage of the game's own factor",
      "writable": true,
      "cName": "rate",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "static",
-     "type": "u8",
-     "meaning": "1 for a story or static encounter (encounter.static",
+     "type": "uint8_t",
+     "meaning": "1 when encounter.static started the battle (a story or fixed Pokemon), 0 for a wild roll",
      "writable": false,
      "cName": "static_",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2463,7 +2504,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:catch.attempt",
-   "when": "The player throws a ball. A handler may change the catch rate or block the ball.",
+   "when": "The player throws a ball; the catch rate can be changed; refused, the throw does nothing.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2481,6 +2522,7 @@
   {
    "name": "catch.result",
    "category": "Battle",
+   "since": 3,
    "where": "the return of BTL_SERVER_FLOW_CalcCaptureShakes 0x021CBB34",
    "refuse": null,
    "modifyText": null,
@@ -2489,46 +2531,46 @@
     {
      "name": "target",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the wild Pokemon",
      "writable": false,
      "cName": "target",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "its species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "ball",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the ball item",
      "writable": false,
      "cName": "ball",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "caught",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the catch succeeded",
      "writable": false,
      "cName": "caught",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "shakes",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the shakes shown",
      "writable": false,
      "cName": "shakes",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2537,7 +2579,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:catch.result",
-   "when": "The catch roll has finished. The payload says whether it caught and how many times the ball shook.",
+   "when": "A thrown ball shook and the catch succeeded or failed.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2553,6 +2595,7 @@
   {
    "name": "battle.end",
    "category": "Battle",
+   "since": 3,
    "where": "EVENT_BATTLE_NotifyBattleEnd 0x0216EE7C",
    "refuse": null,
    "modifyText": null,
@@ -2560,39 +2603,38 @@
    "payload": [
     {
      "name": "outcome",
-     "type": "u8",
-     "meaning": "How a battle ended (battle.end).",
+     "type": "uint8_t",
+     "meaning": "win, loss, fled, caught, draw",
      "writable": false,
      "cName": "outcome",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_OUTCOME_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "wild",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "a wild battle",
      "writable": false,
      "cName": "wild",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "trainer_id",
-     "type": "u16[2]",
-     "meaning": "",
+     "type": "uint16_t[2]",
+     "meaning": "the opposing trainers, or 0",
      "writable": false,
      "cName": "trainer_id",
-     "cType": "uint16_t[2]",
+     "cType": "u16[2]",
      "ruleKind": "list"
     },
     {
      "name": "turns",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "turns taken",
      "writable": false,
      "cName": "turns",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     }
    ],
@@ -2601,7 +2643,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:battle.end",
-   "when": "The battle is over and the game reports the result.",
+   "when": "A battle ended (won, lost, ran, caught).",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2614,6 +2656,7 @@
   {
    "name": "whiteout",
    "category": "Battle",
+   "since": 3,
    "where": "BTL_CLIENT_StepShowBlackoutMessages 0x021D1960 (ov093); SCRIPT_SYS_RunRecoverScript 0x02158A20 (ov010)",
    "refuse": null,
    "modifyText": null,
@@ -2621,20 +2664,20 @@
    "payload": [
     {
      "name": "in_battle",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "1 the battle half, 0 the field half",
      "writable": false,
      "cName": "in_battle",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "money_lost",
-     "type": "u32",
-     "meaning": "",
+     "type": "uint32_t",
+     "meaning": "the money the game takes",
      "writable": false,
      "cName": "money_lost",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -2643,7 +2686,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:whiteout",
-   "when": "The player's whole team has fainted. It fires for the battle part and for the field part.",
+   "when": "The player lost a battle with no Pokemon left (the battle half) and is taken back to heal (the field half).",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2654,6 +2697,7 @@
   {
    "name": "battle.trainer_mon",
    "category": "Battle",
+   "since": 4,
    "where": "the rows that build a trainer battle's setup (battle.start), once per opposing member",
    "refuse": "the member leaves the party (the last stays)",
    "modifyText": "species, level, item, moves, ability, form",
@@ -2661,101 +2705,101 @@
    "payload": [
     {
      "name": "trainer_id",
-     "type": "u16",
-     "meaning": "the trainer the party belongs to",
+     "type": "uint16_t",
+     "meaning": "the trainer",
      "writable": false,
      "cName": "trainer_id",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "index",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the position in the party, 0 first",
      "writable": false,
      "cName": "index",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "level",
-     "type": "u8",
-     "meaning": "",
+     "type": "uint8_t",
+     "meaning": "the level",
      "writable": true,
      "cName": "level",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": true,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "item",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the held item",
      "writable": true,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "move1",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the moves",
      "writable": true,
      "cName": "move1",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "move2",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the moves",
      "writable": true,
      "cName": "move2",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "move3",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the moves",
      "writable": true,
      "cName": "move3",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "move4",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the moves",
      "writable": true,
      "cName": "move4",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "ability",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the ability",
      "writable": true,
      "cName": "ability",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "form",
-     "type": "u8",
-     "meaning": "the form, written when species is written",
+     "type": "uint8_t",
+     "meaning": "the form",
      "writable": true,
      "cName": "form",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -2778,6 +2822,7 @@
   {
    "name": "battle.exp",
    "category": "Battle",
+   "since": 4,
    "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093), before mon.exp",
    "refuse": "nobody gains",
    "modifyText": "the scale of every share",
@@ -2787,38 +2832,38 @@
    "payload": [
     {
      "name": "members",
-     "type": "u8",
-     "meaning": "bit i: party position i gains experience",
+     "type": "uint8_t",
+     "meaning": "bit i: party position i gains",
      "writable": false,
      "cName": "members",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "wild",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "1 in a wild battle",
      "writable": false,
      "cName": "wild",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "scale",
-     "type": "u16",
-     "meaning": "a percentage of every share, 100 to leave them",
+     "type": "uint16_t",
+     "meaning": "a percentage of every share; 100 leaves them",
      "writable": true,
      "cName": "scale",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "total",
-     "type": "u32",
-     "meaning": "the experience of every share together",
+     "type": "uint32_t",
+     "meaning": "every share together",
      "writable": false,
      "cName": "total",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -2839,7 +2884,8 @@
   },
   {
    "name": "item.add",
-   "category": "Items and money",
+   "category": "Items, money and healing",
+   "since": 3,
    "where": "MYITEM_SAVEDATA_AddItem 0x02007E50",
    "refuse": null,
    "modifyText": "count",
@@ -2847,38 +2893,38 @@
    "payload": [
     {
      "name": "item",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the item",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "count",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "how many",
      "writable": true,
      "cName": "count",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "pocket",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the bag pocket",
      "writable": false,
      "cName": "pocket",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where an item comes from (item.add).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_ITEM_FROM_SCRIPT (an item on the ground, a gift from a person), _GIFT, _PURCHASE, _BATTLE, _RETURN (a held item or mail back to the bag), _REWARD, _OTHER",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_ITEM_FROM_"
     }
@@ -2888,7 +2934,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:item.add",
-   "when": "An item is added to the bag, from any source. A handler may change the count.",
+   "when": "An item is about to go into the bag; the count can be changed.",
    "functions": [
     "money",
     "money_set",
@@ -2898,7 +2944,8 @@
   },
   {
    "name": "item.use",
-   "category": "Items and money",
+   "category": "Items, money and healing",
+   "since": 3,
    "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78",
    "refuse": "the game's \"it won't have any effect\"; the item stays",
    "modifyText": null,
@@ -2906,11 +2953,11 @@
    "payload": [
     {
      "name": "item",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the item",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
@@ -2919,7 +2966,7 @@
      "meaning": "the Pokemon it is used on, or empty",
      "writable": false,
      "cName": "target",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     }
    ],
@@ -2928,7 +2975,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:item.use",
-   "when": "The party screen checks whether an item can be used on a Pokemon. Refusing gives the game's 'no effect' text.",
+   "when": "The party screen checks whether an item works on a Pokemon, before it is used; refused, the item has no effect and stays in the bag.",
    "functions": [
     "party_get",
     "party_set",
@@ -2942,7 +2989,8 @@
   },
   {
    "name": "shop.buy",
-   "category": "Items and money",
+   "category": "Items, money and healing",
+   "since": 3,
    "where": "SCRCMD_PROC_FLD_PickQuantityOutcome 0x021B3370",
    "refuse": "back to the item list; no money changes hands",
    "modifyText": "price",
@@ -2950,20 +2998,20 @@
    "payload": [
     {
      "name": "item",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the item picked",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "price",
-     "type": "u32",
-     "meaning": "the price of one",
+     "type": "uint32_t",
+     "meaning": "the price of one; the shop shows and charges it",
      "writable": true,
      "cName": "price",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     }
    ],
@@ -2972,7 +3020,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:shop.buy",
-   "when": "The player picks an item and a quantity in a shop. A handler may change the price.",
+   "when": "The player picked an item in a shop, before choosing how many; the price of one can be changed; refused, the shop goes back to its list.",
    "functions": [
     "money",
     "money_set",
@@ -2982,37 +3030,40 @@
   },
   {
    "name": "money.change",
-   "category": "Items and money",
+   "category": "Items, money and healing",
+   "since": 3,
    "where": "BEACON_AddPoints 0x0200C278; BEACON_SubPoints 0x0200C29C",
    "refuse": null,
    "modifyText": "the amount",
-   "notes": [],
+   "notes": [
+    "source says why: a script, a purchase, a sale or a battle. A handler may change the amount only in the direction of the call."
+   ],
    "payload": [
     {
      "name": "delta",
-     "type": "s32",
+     "type": "int32_t",
      "meaning": "the change, positive or negative",
      "writable": true,
      "cName": "delta",
-     "cType": "int32_t",
+     "cType": "s32",
      "ruleKind": "int"
     },
     {
      "name": "before",
-     "type": "u32",
+     "type": "uint32_t",
      "meaning": "the money before",
      "writable": false,
      "cName": "before",
-     "cType": "uint32_t",
+     "cType": "u32",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where a money change comes from (money.change).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_MONEY_SCRIPT, _PURCHASE, _SALE, _BATTLE (a prize when the delta is positive, a loss when it is negative), _OTHER",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_MONEY_"
     }
@@ -3022,7 +3073,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:money.change",
-   "when": "Money is added or taken. source says why: a script, a purchase, a sale or a battle. A handler may change the amount, but only in the direction of the call.",
+   "when": "The player's money is about to go up or down; the change can be changed.",
    "functions": [
     "money",
     "money_set",
@@ -3032,29 +3083,31 @@
   },
   {
    "name": "heal",
-   "category": "Items and money",
+   "category": "Items, money and healing",
+   "since": 3,
    "where": "SCRCMD_PROC_HealParty 0x0215B5A8 (ov010, a centre or a script); GPOWER_UseHpRestore 0x0201104C (arm9, the HP-restore power)",
    "refuse": "the heal does not happen; the script's own text still plays",
    "modifyText": "which Pokemon heal",
-   "notes": [],
+   "notes": [
+    "Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp."
+   ],
    "payload": [
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where a heal came from (heal).",
+     "type": "uint8_t",
+     "meaning": "Pokemon Centre or script, the HP-restore power",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_HEAL_"
+     "cType": "u8",
+     "ruleKind": "int"
     },
     {
      "name": "mask",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "one bit per party position to heal",
      "writable": true,
      "cName": "mask",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -3063,7 +3116,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:heal",
-   "when": "A party heal starts, at a Pokemon Centre, from a script or from the HP-restore power. A handler may choose who heals. Refused, the whole heal does not happen: no member event fires and nobody is healed. To spare one member, see mon.revive and heal.hp.",
+   "when": "The whole party is about to be healed (a Pokemon Centre or another script, the HP-restore power); refused, nobody is healed.",
    "functions": [
     "money",
     "money_set",
@@ -3075,8 +3128,9 @@
   },
   {
    "name": "heal.hp",
-   "category": "Pokemon",
-   "where": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle)",
+   "category": "Items, money and healing",
+   "since": 4,
+   "where": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle); after the party heals of heal, for each member they gave HP to",
    "refuse": "no HP is added",
    "modifyText": "the HP added",
    "notes": [
@@ -3087,48 +3141,47 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon that gets HP back",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "hp",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the HP before the restore",
      "writable": false,
      "cName": "hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "max_hp",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the max HP",
      "writable": false,
      "cName": "max_hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "amount",
-     "type": "u16",
-     "meaning": "the HP to add",
+     "type": "uint16_t",
+     "meaning": "the HP to add, before the cap at max HP",
      "writable": true,
      "cName": "amount",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "Where an HP restore happens (heal.hp).",
+     "type": "uint8_t",
+     "meaning": "field (an item from the bag or the party screen) or battle (any restore: bag item, held item, move, ability)",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
-     "ruleKind": "int",
-     "enum": "EIDOS_HEAL_HP_"
+     "cType": "u8",
+     "ruleKind": "int"
     }
    ],
    "cStruct": "EidosHealHp",
@@ -3136,7 +3189,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:heal.hp",
-   "when": "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore, through BTL_SERVER_FLOW_ApplyHpRecover: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
+   "when": "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
    "functions": [
     "party_get",
     "battle_get",
@@ -3151,8 +3204,9 @@
   },
   {
    "name": "mon.revive",
-   "category": "Pokemon",
-   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 and PLIST_DEMO_RestoreHp 0x021BE914 (ov091); BTL_SERVER_FLOW_ItemEffectRevive 0x021CC008 (ov093); before the party heals of heal",
+   "category": "Items, money and healing",
+   "since": 4,
+   "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 and PLIST_DEMO_RestoreHp 0x021BE914 (ov091); BTL_SERVER_FLOW_ItemEffectRevive 0x021CC008 (ov093); after the party heals of heal, for each member they revived",
    "refuse": "the Pokemon stays fainted; an item is kept where the game allows (docs/mod-payloads.md)",
    "modifyText": "the HP",
    "notes": [
@@ -3163,55 +3217,55 @@
     {
      "name": "mon",
      "type": "EidosMonRef",
-     "meaning": "",
+     "meaning": "the Pokemon",
      "writable": false,
      "cName": "mon",
-     "cType": "EidosMonRef",
+     "cType": "BwMonRef",
      "ruleKind": "mon"
     },
     {
      "name": "hp",
-     "type": "u16",
-     "meaning": "the HP it comes back with",
+     "type": "uint16_t",
+     "meaning": "the HP it comes back with; at least 1, at most max_hp",
      "writable": true,
      "cName": "hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "max_hp",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the max HP",
      "writable": false,
      "cName": "max_hp",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "item",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the item, or 0",
      "writable": false,
      "cName": "item",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "move",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the move, or 0",
      "writable": false,
      "cName": "move",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "source",
-     "type": "u8",
-     "meaning": "What brought a fainted Pokemon back (mon.revive).",
+     "type": "uint8_t",
+     "meaning": "EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER, _SCRIPT",
      "writable": false,
      "cName": "source",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int",
      "enum": "EIDOS_REVIVE_"
     }
@@ -3237,6 +3291,7 @@
   {
    "name": "badge.get",
    "category": "Progress",
+   "since": 3,
    "where": "the return of BEACON_SetFlag 0x0200C248",
    "refuse": null,
    "modifyText": null,
@@ -3244,20 +3299,20 @@
    "payload": [
     {
      "name": "badge",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "the badge, 0 to 7",
      "writable": false,
      "cName": "badge",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     },
     {
      "name": "count",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "badges held after it",
      "writable": false,
      "cName": "count",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -3266,7 +3321,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:badge.get",
-   "when": "A badge is set. It fires after the badge is held.",
+   "when": "The player gets a gym badge.",
    "functions": [
     "zone",
     "flag",
@@ -3278,6 +3333,7 @@
   {
    "name": "flag.set",
    "category": "Progress",
+   "since": 3,
    "where": "ZONEDATA_SetEventFlag 0x02014314",
    "refuse": null,
    "modifyText": null,
@@ -3285,20 +3341,20 @@
    "payload": [
     {
      "name": "flag",
-     "type": "u16",
+     "type": "uint16_t",
      "meaning": "the event flag",
      "writable": false,
      "cName": "flag",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "value",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "set or cleared",
      "writable": false,
      "cName": "value",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -3307,7 +3363,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:flag.set",
-   "when": "The game sets an event flag.",
+   "when": "A story flag is set or cleared.",
    "functions": [
     "zone",
     "flag",
@@ -3319,6 +3375,7 @@
   {
    "name": "dex.register",
    "category": "Progress",
+   "since": 3,
    "where": "ZUKAN_SAVE_RegisterSeen 0x0200CFA0; ZUKAN_SAVE_RegisterCaught 0x0200CDE0",
    "refuse": null,
    "modifyText": null,
@@ -3326,20 +3383,20 @@
    "payload": [
     {
      "name": "species",
-     "type": "u16",
-     "meaning": "",
+     "type": "uint16_t",
+     "meaning": "the species",
      "writable": false,
      "cName": "species",
-     "cType": "uint16_t",
+     "cType": "u16",
      "ruleKind": "int"
     },
     {
      "name": "caught",
-     "type": "u8",
+     "type": "uint8_t",
      "meaning": "1 caught, 0 seen",
      "writable": false,
      "cName": "caught",
-     "cType": "uint8_t",
+     "cType": "u8",
      "ruleKind": "int"
     }
    ],
@@ -3348,7 +3405,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:dex.register",
-   "when": "A species is registered as seen or caught.",
+   "when": "A species is registered in the Pokedex as seen or caught.",
    "functions": [
     "zone",
     "flag",
@@ -3983,7 +4040,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "How many badges the player holds.",
+   "value": "The number of badges.",
    "fromC": true
   },
   {
@@ -3993,7 +4050,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "1 when badge n is held.",
+   "value": "Whether badge n is held.",
    "fromC": true
   },
   {
@@ -4003,7 +4060,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The id of the zone the player is in.",
+   "value": "The current zone.",
    "fromC": true
   },
   {
@@ -4013,7 +4070,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "How many Pokemon the party holds.",
+   "value": "Pokemon in the party.",
    "fromC": true
   },
   {
@@ -4023,7 +4080,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The species id of the Pokemon.",
+   "value": "A Pokemon's species.",
    "fromC": true
   },
   {
@@ -4033,7 +4090,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The level of the Pokemon.",
+   "value": "A Pokemon's level.",
    "fromC": true
   },
   {
@@ -4083,7 +4140,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "1 when the Pokemon is shiny.",
+   "value": "Whether a Pokemon is shiny.",
    "fromC": true
   },
   {
@@ -4093,7 +4150,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the item the Pokemon holds.",
+   "value": "A Pokemon's held item.",
    "fromC": true
   },
   {
@@ -4123,7 +4180,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The base stat total of species s.",
+   "value": "A species' base stat total.",
    "fromC": true
   },
   {
@@ -4133,7 +4190,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "1 when species s is registered as caught.",
+   "value": "Whether a species is registered caught.",
    "fromC": true
   },
   {
@@ -4423,7 +4480,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The first stage of the evolution line of species s. Two species are in one line when their bases are equal.",
+   "value": "The first stage of species s's evolution line; two species are in one line when their bases are equal.",
    "fromC": true
   },
   {
@@ -4433,7 +4490,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The area the player is in: the place name the game shows on entry. Every floor of a cave and every building of a town share it.",
+   "value": "The current area: the place name the game shows on entry; every floor of a cave and every building of a town share it.",
    "fromC": true
   },
   {
@@ -4453,7 +4510,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "1 when the battle in progress is a wild one.",
+   "value": "The battle in progress is a wild one.",
    "fromC": true
   },
   {
@@ -4483,7 +4540,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The play time of the save, in seconds.",
+   "value": "The play time in seconds.",
    "fromC": true
   },
   {
@@ -4493,7 +4550,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "1 when the party or a box holds a Pokemon of species s that is not an egg.",
+   "value": "Whether the party or a box holds a Pokemon of species s that is not an egg.",
    "fromC": true
   },
   {
@@ -4523,7 +4580,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "1 when a party Pokemon that is not an egg has type t.",
+   "value": "Whether a party Pokemon (not an egg) has type t.",
    "fromC": true
   },
   {
@@ -4573,7 +4630,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The battle style setting: 0 is shift, 1 is set.",
+   "value": "Shift or set.",
    "fromC": true,
    "note": "It cannot be changed yet."
   },
@@ -4584,7 +4641,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "1 when a battle is in progress.",
+   "value": "A battle is in progress.",
    "fromC": true
   }
  ],
@@ -4972,7 +5029,11 @@
    "group": "The party",
    "signature": "int32_t eidos_party_get(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t *out)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5015,7 +5076,11 @@
    "group": "The party",
    "signature": "int32_t eidos_party_set(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t value)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t value"
    ],
@@ -5092,7 +5157,11 @@
    "group": "The boxes",
    "signature": "int32_t eidos_box_get(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t *out)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5117,7 +5186,11 @@
    "group": "The boxes",
    "signature": "int32_t eidos_box_set(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t value)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t value"
    ],
@@ -5175,7 +5248,11 @@
    "group": "A Pokemon in battle",
    "signature": "int32_t eidos_battle_get(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t *out)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5217,7 +5294,11 @@
    "group": "A Pokemon in battle",
    "signature": "int32_t eidos_battle_set(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t field, uint32_t value)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t field",
     "uint32_t value"
    ],
@@ -5239,7 +5320,7 @@
    "group": "Species and dex",
    "signature": "int32_t eidos_species_value(uint32_t species, uint32_t field, uint32_t *out)",
    "params": [
-    "uint16_t species",
+    "uint32_t species",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5266,7 +5347,7 @@
    "signature": "int32_t eidos_species_shiny(uint32_t personality, uint32_t species)",
    "params": [
     "uint32_t personality",
-    "uint16_t species"
+    "uint32_t species"
    ],
    "what": "Whether a personality value is shiny for a species.",
    "result": null,
@@ -5286,7 +5367,7 @@
    "group": "Species and dex",
    "signature": "int32_t eidos_dex_caught(uint32_t species)",
    "params": [
-    "uint16_t species"
+    "uint32_t species"
    ],
    "what": "Whether a species is registered as caught.",
    "result": null,
@@ -5555,7 +5636,11 @@
    "group": "Moves between places",
    "signature": "int32_t eidos_mon_to_box(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot)",
    "params": [
-    "EidosMonRef mon"
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot"
    ],
    "what": "Moves a party Pokemon to the first free box slot. The port queues it and applies it when no battle, party screen or PC holds the party open.",
    "result": "0 on success.",
@@ -5578,7 +5663,11 @@
    "group": "Moves between places",
    "signature": "int32_t eidos_mon_take_item(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot)",
    "params": [
-    "EidosMonRef mon"
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot"
    ],
    "what": "Returns a Pokemon's held item to the bag. Queued like mon_to_box.",
    "result": "0 on success.",
@@ -5598,7 +5687,11 @@
    "group": "Moves between places",
    "signature": "int32_t eidos_mon_release(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot)",
    "params": [
-    "EidosMonRef mon"
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot"
    ],
    "what": "Releases a Pokemon of the player's party for good. It takes a party reference or a reference to one of the player's Pokemon in battle. The release is queued and applied at the first player step on the field after the battle; the Pokemon is found by its personality value then, so a switch or a compaction cannot hit the wrong one. It is refused when it would leave the party with no Pokemon that is not an egg. The party compacts and the next member becomes the lead.",
    "result": "0 on success.",
@@ -5619,7 +5712,7 @@
    "group": "Miscellaneous",
    "signature": "int32_t eidos_item_count(uint32_t item)",
    "params": [
-    "uint16_t item"
+    "uint32_t item"
    ],
    "what": "How many of an item the bag holds.",
    "result": "The count, or a negative number when there is no bag yet.",
@@ -5642,8 +5735,8 @@
    "group": "Miscellaneous",
    "signature": "int32_t eidos_item_add(uint32_t item, uint32_t count)",
    "params": [
-    "uint16_t item",
-    "uint16_t count"
+    "uint32_t item",
+    "uint32_t count"
    ],
    "what": "Puts a number of an item in the bag at once.",
    "result": "0 on success. Non-zero when the item is past the item limit, the count is 0 or the pocket is full; a refused add puts nothing in.",
@@ -5664,7 +5757,7 @@
    "group": "The world, the battle and play time",
    "signature": "int32_t eidos_area_of(uint32_t zone)",
    "params": [
-    "uint16_t zone"
+    "uint32_t zone"
    ],
    "what": "The area of a zone: the place name the game shows on entry. Every floor of a cave and every building of a town share one area.",
    "result": "The area number, or a negative number when the zone data is not loaded.",
@@ -5725,7 +5818,7 @@
    "group": "Item and move data",
    "signature": "int32_t eidos_item_value(uint32_t item, uint32_t field, uint32_t *out)",
    "params": [
-    "uint16_t item",
+    "uint32_t item",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5748,7 +5841,7 @@
    "group": "Item and move data",
    "signature": "int32_t eidos_move_value(uint32_t move, uint32_t field, uint32_t *out)",
    "params": [
-    "uint16_t move",
+    "uint32_t move",
     "uint32_t field",
     "uint32_t *out"
    ],
@@ -5771,7 +5864,11 @@
    "group": "Moves between places",
    "signature": "int32_t eidos_mon_to_box_n(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, uint32_t box)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "uint32_t box"
    ],
    "what": "Moves a party Pokemon to a named box (0 is the first). Queued like mon_to_box and applied at the next field step. It fails when the box is full, and it never leaves the party without a Pokemon that is not an egg.",
@@ -5815,7 +5912,11 @@
    "group": "Recalculating a Pokemon",
    "signature": "int32_t eidos_mon_recalc(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot)",
    "params": [
-    "EidosMonRef mon"
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot"
    ],
    "what": "Works out a party Pokemon's level and stats again from its species, experience, IVs and EVs, as the game does after a level up. Call it after party_set changes any of those. It does not work on a box or battle reference.",
    "result": "0 on success.",
@@ -5835,7 +5936,7 @@
    "group": "Species and dex",
    "signature": "int32_t eidos_species_base(uint32_t species)",
    "params": [
-    "uint16_t species"
+    "uint32_t species"
    ],
    "what": "The first stage of the evolution line of a species. Two species are in one line when their bases are equal.",
    "result": "The base species, as a number.",
@@ -6060,7 +6161,7 @@
    "group": "Peer sessions",
    "signature": "void eidos_on_session(uint32_t fn_index)",
    "params": [
-    "BwSessionHandler fn"
+    "uint32_t fn_index"
    ],
    "what": "Sets the handler for peer messages, joins and leaves. It runs on the game frame.",
    "result": null,
@@ -6081,9 +6182,9 @@
    "signature": "uint32_t eidos_avatar_create(uint32_t sprite, int32_t x, int32_t z, uint32_t dir)",
    "params": [
     "uint32_t sprite",
-    "int16_t x",
-    "int16_t z",
-    "uint8_t dir"
+    "int32_t x",
+    "int32_t z",
+    "uint32_t dir"
    ],
    "what": "Creates another player's avatar in the field.",
    "result": "A handle, or 0 when there is no room.",
@@ -6104,11 +6205,11 @@
    "signature": "void eidos_avatar_move(uint32_t avatar, int32_t x, int32_t y, int32_t z, uint32_t dir, uint32_t mode)",
    "params": [
     "uint32_t avatar",
-    "int16_t x",
-    "int16_t y",
-    "int16_t z",
-    "uint8_t dir",
-    "uint8_t mode"
+    "int32_t x",
+    "int32_t y",
+    "int32_t z",
+    "uint32_t dir",
+    "uint32_t mode"
    ],
    "what": "Walks an avatar to a cell.",
    "result": null,
@@ -6148,7 +6249,11 @@
    "group": "Pokemon export and import",
    "signature": "int32_t eidos_mon_export(uint32_t mon_handle, uint32_t mon_place, uint32_t mon_side, uint32_t mon_box, uint32_t mon_slot, void *buf, uint32_t size)",
    "params": [
-    "EidosMonRef mon",
+    "uint32_t mon_handle",
+    "uint32_t mon_place",
+    "uint32_t mon_side",
+    "uint32_t mon_box",
+    "uint32_t mon_slot",
     "void *buf",
     "uint32_t size"
    ],
@@ -6363,7 +6468,7 @@
    "group": "External control and save handoff",
    "signature": "void eidos_on_command(uint32_t fn_index)",
    "params": [
-    "BwCommandHandler fn"
+    "uint32_t fn_index"
    ],
    "what": "Sets the handler for text commands from tools connected to the local control port.",
    "result": null,
@@ -6425,7 +6530,7 @@
    "group": "Run, random, input and frame",
    "signature": "void eidos_on_frame(uint32_t fn_index)",
    "params": [
-    "BwFrameHandler fn"
+    "uint32_t fn_index"
    ],
    "what": "Sets a handler that runs once per game frame.",
    "result": null,
@@ -6465,7 +6570,7 @@
    "group": "External control and save handoff",
    "signature": "void eidos_on_save_received(uint32_t fn_index)",
    "params": [
-    "BwSaveHandler fn"
+    "uint32_t fn_index"
    ],
    "what": "Sets the handler for a save sent by a peer.",
    "result": null,
@@ -6578,7 +6683,7 @@
    "group": "Saved data",
    "signature": "int32_t eidos_state_info(EidosModStateHeader *out)",
    "params": [
-    "BwModStateHeader *out"
+    "EidosModStateHeader *out"
    ],
    "what": "Reads the header of the mod's saved data.",
    "result": null,
@@ -6862,6 +6967,7 @@
     "save.begin"
    ],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6874,6 +6980,7 @@
     "save.done"
    ],
    "proto": "unsigned int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6884,6 +6991,7 @@
    "key": "arm9:0x020071CC",
    "events": [],
    "proto": "void * (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6894,6 +7002,7 @@
    "key": "arm9:0x020074D8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6906,6 +7015,7 @@
     "item.add"
    ],
    "proto": "unsigned int (void *, unsigned short, unsigned short, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6916,6 +7026,7 @@
    "key": "arm9:0x02008A7C",
    "events": [],
    "proto": "void (void *, unsigned int, unsigned int, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6927,7 +7038,10 @@
    "events": [
     "badge.get"
    ],
-   "proto": "void MISC_SetBadge(void *, unsigned int)",
+   "proto": "void (void *, unsigned int)",
+   "aliases": [
+    "MISC_SetBadge"
+   ],
    "protoFromC": true
   },
   {
@@ -6939,7 +7053,10 @@
    "events": [
     "money.change"
    ],
-   "proto": "unsigned int MISC_AddMoney(void *, unsigned int)",
+   "proto": "unsigned int (void *, unsigned int)",
+   "aliases": [
+    "MISC_AddMoney"
+   ],
    "protoFromC": true
   },
   {
@@ -6951,7 +7068,10 @@
    "events": [
     "money.change"
    ],
-   "proto": "unsigned int MISC_SubMoney(void *, unsigned int)",
+   "proto": "unsigned int (void *, unsigned int)",
+   "aliases": [
+    "MISC_SubMoney"
+   ],
    "protoFromC": true
   },
   {
@@ -6964,6 +7084,7 @@
     "dex.register"
    ],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6976,6 +7097,7 @@
     "dex.register"
    ],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -6991,6 +7113,7 @@
     "mon.cure"
    ],
    "proto": "unsigned int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7001,6 +7124,7 @@
    "key": "arm9:0x02012BF8",
    "events": [],
    "proto": "unsigned int (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7013,6 +7137,7 @@
     "save.load"
    ],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7023,6 +7148,7 @@
    "key": "arm9:0x02012F08",
    "events": [],
    "proto": "void * (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7035,6 +7161,7 @@
     "battle.start"
    ],
    "proto": "void * (unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7047,6 +7174,7 @@
     "encounter.wild"
    ],
    "proto": "void (void *, void *, void *, void *, unsigned int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7059,6 +7187,7 @@
     "flag.set"
    ],
    "proto": "void (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7071,6 +7200,7 @@
     "mon.create"
    ],
    "proto": "void * (unsigned short, unsigned short, unsigned long long, unsigned int, unsigned long long, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7083,6 +7213,7 @@
     "mon.form"
    ],
    "proto": "unsigned int (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7093,6 +7224,7 @@
    "key": "arm9:0x020180F4",
    "events": [],
    "proto": "void (void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7103,6 +7235,7 @@
    "key": "arm9:0x02018198",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7113,6 +7246,7 @@
    "key": "arm9:0x020181F4",
    "events": [],
    "proto": "void (void *, unsigned short, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7124,7 +7258,10 @@
    "events": [
     "move.learn"
    ],
-   "proto": "unsigned short POKE_TOOL_LearnLevelUpMove(void *, void *, unsigned int)",
+   "proto": "unsigned short (void *, void *, unsigned int)",
+   "aliases": [
+    "POKE_TOOL_LearnLevelUpMove"
+   ],
    "protoFromC": true
   },
   {
@@ -7137,6 +7274,7 @@
     "mon.create"
    ],
    "proto": "unsigned int (unsigned int, int, unsigned short, int, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7147,6 +7285,7 @@
    "key": "arm9:0x0201A98C",
    "events": [],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7159,6 +7298,7 @@
     "party.swap"
    ],
    "proto": "unsigned int (void *, unsigned int, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7171,6 +7311,7 @@
     "mon.evolve"
    ],
    "proto": "unsigned int (void *, void *, unsigned int, unsigned int, unsigned char, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7183,6 +7324,7 @@
     "mon.pp"
    ],
    "proto": "unsigned int (void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7193,6 +7335,7 @@
    "key": "arm9:0x0201BA34",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7203,6 +7346,7 @@
    "key": "arm9:0x0202627C",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7213,6 +7357,7 @@
    "key": "arm9:0x02026388",
    "events": [],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7223,6 +7368,7 @@
    "key": "arm9:0x020263B0",
    "events": [],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7233,6 +7379,7 @@
    "key": "arm9:0x02059F6C",
    "events": [],
    "proto": "int (void *, unsigned int, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7243,6 +7390,7 @@
    "key": "arm9:0x02059FA8",
    "events": [],
    "proto": "int (int, void *, unsigned int, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7253,6 +7401,7 @@
    "key": "arm9:0x02078EB0",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7263,6 +7412,7 @@
    "key": "arm9:0x0207902C",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7273,6 +7423,7 @@
    "key": "arm9:0x0208E010",
    "events": [],
    "proto": "int (void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7283,6 +7434,7 @@
    "key": "arm9:0x0208E5BC",
    "events": [],
    "proto": "void (int, unsigned int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7293,6 +7445,7 @@
    "key": "arm9:0x0208EB0C",
    "events": [],
    "proto": "int (unsigned short, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7303,6 +7456,7 @@
    "key": "arm9:0x0208F224",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7313,6 +7467,7 @@
    "key": "arm9:0x0208F84C",
    "events": [],
    "proto": "int (void *, void *, void *, int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7323,6 +7478,7 @@
    "key": "arm9:0x0208FC4C",
    "events": [],
    "proto": "int (void *, void *, unsigned short, void *, unsigned short, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7333,6 +7489,7 @@
    "key": "arm9:0x0208FCB4",
    "events": [],
    "proto": "int (void *, void *, void *, unsigned short, unsigned short, unsigned short, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7343,6 +7500,7 @@
    "key": "arm9:0x0209004C",
    "events": [],
    "proto": "int (void *, unsigned short, unsigned short, unsigned short, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7353,6 +7511,7 @@
    "key": "arm9:0x020908F8",
    "events": [],
    "proto": "void (void *, unsigned short, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7363,6 +7522,7 @@
    "key": "arm9:0x020909C8",
    "events": [],
    "proto": "void (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7373,6 +7533,7 @@
    "key": "arm9:0x02090B18",
    "events": [],
    "proto": "void * (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7383,6 +7544,7 @@
    "key": "ov009:0x0215CD24",
    "events": [],
    "proto": "int (void)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7393,6 +7555,7 @@
    "key": "ov009:0x021666C8",
    "events": [],
    "proto": "int (void)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7403,6 +7566,7 @@
    "key": "ov009:0x02166710",
    "events": [],
    "proto": "int (unsigned char)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7415,6 +7579,7 @@
     "whiteout"
    ],
    "proto": "void (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7425,6 +7590,7 @@
    "key": "ov010:0x02158AD4",
    "events": [],
    "proto": "void (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7435,6 +7601,7 @@
    "key": "ov010:0x02159728",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7445,6 +7612,7 @@
    "key": "ov010:0x02159750",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7454,7 +7622,10 @@
    "addr": "0x0215AC68",
    "key": "ov010:0x0215AC68",
    "events": [],
-   "proto": "int SCRCMD_WORK_CmdSetBadge(void *, void *)",
+   "proto": "int (void *, void *)",
+   "aliases": [
+    "SCRCMD_WORK_CmdSetBadge"
+   ],
    "protoFromC": true
   },
   {
@@ -7465,6 +7636,7 @@
    "key": "ov010:0x0215ADCC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7475,6 +7647,7 @@
    "key": "ov010:0x0215AEE8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7485,6 +7658,7 @@
    "key": "ov010:0x0215AFE0",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7495,6 +7669,7 @@
    "key": "ov010:0x0215B014",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7505,6 +7680,7 @@
    "key": "ov010:0x0215B068",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7515,6 +7691,7 @@
    "key": "ov010:0x0215B138",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7524,7 +7701,10 @@
    "addr": "0x0215B328",
    "key": "ov010:0x0215B328",
    "events": [],
-   "proto": "int SCRCMD_WORK_CmdSetTrainerDefeatedFlag(void *, void *)",
+   "proto": "int (void *, void *)",
+   "aliases": [
+    "SCRCMD_WORK_CmdSetTrainerDefeatedFlag"
+   ],
    "protoFromC": true
   },
   {
@@ -7534,7 +7714,10 @@
    "addr": "0x0215B350",
    "key": "ov010:0x0215B350",
    "events": [],
-   "proto": "int SCRCMD_WORK_CmdClearTrainerDefeatedFlag(void *, void *)",
+   "proto": "int (void *, void *)",
+   "aliases": [
+    "SCRCMD_WORK_CmdClearTrainerDefeatedFlag"
+   ],
    "protoFromC": true
   },
   {
@@ -7550,6 +7733,7 @@
     "mon.cure"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7560,6 +7744,7 @@
    "key": "ov010:0x0215BB50",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7570,6 +7755,7 @@
    "key": "ov010:0x0215BBD0",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7582,6 +7768,7 @@
     "move.learn"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7592,6 +7779,7 @@
    "key": "ov010:0x0215C180",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7602,6 +7790,7 @@
    "key": "ov010:0x0215C200",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7614,6 +7803,7 @@
     "mon.receive"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7626,6 +7816,7 @@
     "mon.receive"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7638,6 +7829,7 @@
     "mon.receive"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7647,7 +7839,10 @@
    "addr": "0x0215C558",
    "key": "ov010:0x0215C558",
    "events": [],
-   "proto": "int SCRCMD_PROC_AddMoney(void *, void *)",
+   "proto": "int (void *, void *)",
+   "aliases": [
+    "SCRCMD_PROC_AddMoney"
+   ],
    "protoFromC": true
   },
   {
@@ -7657,7 +7852,10 @@
    "addr": "0x0215C584",
    "key": "ov010:0x0215C584",
    "events": [],
-   "proto": "int SCRCMD_PROC_SubMoney(void *, void *)",
+   "proto": "int (void *, void *)",
+   "aliases": [
+    "SCRCMD_PROC_SubMoney"
+   ],
    "protoFromC": true
   },
   {
@@ -7668,6 +7866,7 @@
    "key": "ov010:0x0215C63C",
    "events": [],
    "proto": "void (void *, void *, unsigned int, void *, void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7678,6 +7877,7 @@
    "key": "ov010:0x0215C69C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7688,6 +7888,7 @@
    "key": "ov010:0x0215C700",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7698,6 +7899,7 @@
    "key": "ov010:0x0215C72C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7708,6 +7910,7 @@
    "key": "ov010:0x0215C89C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7718,6 +7921,7 @@
    "key": "ov010:0x0215EA6C",
    "events": [],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7728,6 +7932,7 @@
    "key": "ov010:0x0215EA94",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7738,6 +7943,7 @@
    "key": "ov010:0x0215EBD0",
    "events": [],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7748,6 +7954,7 @@
    "key": "ov010:0x0215EBF8",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7758,6 +7965,7 @@
    "key": "ov010:0x0215EC40",
    "events": [],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7768,6 +7976,7 @@
    "key": "ov010:0x0215EC94",
    "events": [],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7778,6 +7987,7 @@
    "key": "ov010:0x0215ECBC",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7788,6 +7998,7 @@
    "key": "ov010:0x0215F228",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7798,6 +8009,7 @@
    "key": "ov010:0x0215F238",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7808,6 +8020,7 @@
    "key": "ov010:0x0215F280",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7820,6 +8033,7 @@
     "game.cleared"
    ],
    "proto": "void * (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7832,6 +8046,7 @@
     "menu.open"
    ],
    "proto": "void * (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7844,6 +8059,7 @@
     "menu.open"
    ],
    "proto": "void * (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7854,6 +8070,7 @@
    "key": "ov010:0x02162A54",
    "events": [],
    "proto": "unsigned short (void *, void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7864,6 +8081,7 @@
    "key": "ov010:0x021643AC",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7876,6 +8094,7 @@
     "route.change"
    ],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7886,6 +8105,7 @@
    "key": "ov010:0x02164480",
    "events": [],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7898,6 +8118,7 @@
     "field.move"
    ],
    "proto": "int (int, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7908,6 +8129,7 @@
    "key": "ov010:0x02164A2C",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7918,6 +8140,7 @@
    "key": "ov010:0x0216B004",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7928,6 +8151,7 @@
    "key": "ov010:0x0216B538",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7938,6 +8162,7 @@
    "key": "ov010:0x0216B63C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7948,6 +8173,7 @@
    "key": "ov010:0x0216B6DC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7960,6 +8186,7 @@
     "encounter.static"
    ],
    "proto": "void * (void *, void *, void *, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7970,6 +8197,7 @@
    "key": "ov010:0x0216EAB0",
    "events": [],
    "proto": "void * (void *, void *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7980,6 +8208,7 @@
    "key": "ov010:0x0216EE20",
    "events": [],
    "proto": "void (unsigned short, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -7992,6 +8221,7 @@
     "battle.end"
    ],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8001,7 +8231,10 @@
    "addr": "0x0216EF84",
    "key": "ov010:0x0216EF84",
    "events": [],
-   "proto": "void EVENT_BATTLE_AddBattleRecord(void *)",
+   "proto": "void (void *)",
+   "aliases": [
+    "EVENT_BATTLE_AddBattleRecord"
+   ],
    "protoFromC": true
   },
   {
@@ -8012,6 +8245,7 @@
    "key": "ov010:0x0216EFF0",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8022,6 +8256,7 @@
    "key": "ov010:0x0216F948",
    "events": [],
    "proto": "void * (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8032,6 +8267,7 @@
    "key": "ov018:0x0217FB5C",
    "events": [],
    "proto": "void * (void *, void *, void *, void *, int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8042,6 +8278,7 @@
    "key": "ov018:0x0217FC08",
    "events": [],
    "proto": "void * (void *, void *, void *, void *, int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8052,6 +8289,7 @@
    "key": "ov018:0x0217FD34",
    "events": [],
    "proto": "void * (void *, void *, void *, void *, int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8062,6 +8300,7 @@
    "key": "ov018:0x0217FE6C",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8072,6 +8311,7 @@
    "key": "ov018:0x02180538",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8082,6 +8322,7 @@
    "key": "ov018:0x02181D8C",
    "events": [],
    "proto": "void * (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8092,6 +8333,7 @@
    "key": "ov018:0x02182150",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8102,6 +8344,7 @@
    "key": "ov018:0x021823A8",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8112,6 +8355,7 @@
    "key": "ov018:0x0218261C",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8124,6 +8368,7 @@
     "game.new"
    ],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8136,6 +8381,7 @@
     "map.warp"
    ],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8146,6 +8392,7 @@
    "key": "ov020:0x02184C78",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8156,6 +8403,7 @@
    "key": "ov020:0x02185694",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8166,6 +8414,7 @@
    "key": "ov020:0x02187098",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8176,6 +8425,7 @@
    "key": "ov020:0x021870C4",
    "events": [],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8186,6 +8436,7 @@
    "key": "ov020:0x021871F8",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8196,6 +8447,7 @@
    "key": "ov021:0x02188CE8",
    "events": [],
    "proto": "void * (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8206,6 +8458,7 @@
    "key": "ov021:0x021894E0",
    "events": [],
    "proto": "void (void *, void *, void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8216,6 +8469,7 @@
    "key": "ov021:0x02189BD0",
    "events": [],
    "proto": "int (void *, void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8226,6 +8480,7 @@
    "key": "ov021:0x0218A278",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8236,6 +8491,7 @@
    "key": "ov021:0x0218A4BC",
    "events": [],
    "proto": "int (void *, void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8248,6 +8504,7 @@
     "player.step"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8258,6 +8515,7 @@
    "key": "ov021:0x0218B32C",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8268,6 +8526,7 @@
    "key": "ov021:0x0218B3DC",
    "events": [],
    "proto": "void * (int, void *, void *, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8278,6 +8537,7 @@
    "key": "ov021:0x0218B408",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8290,6 +8550,7 @@
     "npc.talk"
    ],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8302,6 +8563,7 @@
     "npc.talk"
    ],
    "proto": "void * (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8312,6 +8574,7 @@
    "key": "ov021:0x021A4ED8",
    "events": [],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8322,6 +8585,7 @@
    "key": "ov021:0x021A511C",
    "events": [],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8332,6 +8596,7 @@
    "key": "ov021:0x021A5F74",
    "events": [],
    "proto": "void (void *, void *, int, int, unsigned short, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8342,6 +8607,7 @@
    "key": "ov021:0x021A6338",
    "events": [],
    "proto": "void (void *, void *, int, int, unsigned short, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8354,6 +8620,7 @@
     "menu.build"
    ],
    "proto": "void * (unsigned short, unsigned short, void *, void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8366,6 +8633,7 @@
     "encounter.wild"
    ],
    "proto": "int (void *, void *, unsigned short, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8378,6 +8646,7 @@
     "encounter.wild"
    ],
    "proto": "void * (void *, void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8388,6 +8657,7 @@
    "key": "ov021:0x021A9F40",
    "events": [],
    "proto": "void * (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8398,6 +8668,7 @@
    "key": "ov021:0x021AA548",
    "events": [],
    "proto": "void (void *, void *, void *, unsigned short, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8410,6 +8681,7 @@
     "encounter.trainer"
    ],
    "proto": "void (void *, void *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8422,6 +8694,7 @@
     "trainer.spotted"
    ],
    "proto": "void * (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8432,6 +8705,7 @@
    "key": "ov021:0x021AEABC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8442,6 +8716,7 @@
    "key": "ov021:0x021AEB3C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8452,6 +8727,7 @@
    "key": "ov021:0x021AED24",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8462,6 +8738,7 @@
    "key": "ov021:0x021AF544",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8472,6 +8749,7 @@
    "key": "ov021:0x021AF594",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8482,6 +8760,7 @@
    "key": "ov021:0x021AFCD8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8492,6 +8771,7 @@
    "key": "ov021:0x021AFD44",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8502,6 +8782,7 @@
    "key": "ov021:0x021AFDAC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8512,6 +8793,7 @@
    "key": "ov021:0x021AFE64",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8522,6 +8804,7 @@
    "key": "ov021:0x021AFECC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8532,6 +8815,7 @@
    "key": "ov021:0x021AFEFC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8542,6 +8826,7 @@
    "key": "ov021:0x021AFF7C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8552,6 +8837,7 @@
    "key": "ov021:0x021B0130",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8562,6 +8848,7 @@
    "key": "ov021:0x021B04D8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8572,6 +8859,7 @@
    "key": "ov021:0x021B0ADC",
    "events": [],
    "proto": "void (void *, void *, int, void *, void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8582,6 +8870,7 @@
    "key": "ov021:0x021B10D0",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8592,6 +8881,7 @@
    "key": "ov021:0x021B2FD8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8604,6 +8894,7 @@
     "shop.buy"
    ],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8614,6 +8905,7 @@
    "key": "ov021:0x021B3568",
    "events": [],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8624,6 +8916,7 @@
    "key": "ov021:0x021B35A4",
    "events": [],
    "proto": "int (void *, void *, unsigned int, unsigned char)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8634,6 +8927,7 @@
    "key": "ov021:0x021B4894",
    "events": [],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8646,6 +8940,7 @@
     "pc.open"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8656,6 +8951,7 @@
    "key": "ov021:0x021B5B4C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8666,6 +8962,7 @@
    "key": "ov021:0x021B61E8",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8676,6 +8973,7 @@
    "key": "ov021:0x021B631C",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8688,6 +8986,7 @@
     "egg.hatch"
    ],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8700,6 +8999,7 @@
     "trade.ingame"
    ],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8710,6 +9010,7 @@
    "key": "ov021:0x021B6BDC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8722,6 +9023,7 @@
     "mon.receive"
    ],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8732,6 +9034,7 @@
    "key": "ov021:0x021B6FF0",
    "events": [],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8742,6 +9045,7 @@
    "key": "ov021:0x021B72CC",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8752,6 +9056,7 @@
    "key": "ov021:0x021B7364",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8762,6 +9067,7 @@
    "key": "ov021:0x021B76B4",
    "events": [],
    "proto": "void (void *, int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8772,6 +9078,7 @@
    "key": "ov021:0x021C1024",
    "events": [],
    "proto": "void * (void *, unsigned short, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8782,6 +9089,7 @@
    "key": "ov021:0x021C1228",
    "events": [],
    "proto": "void * (void *, unsigned short, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8794,6 +9102,7 @@
     "mon.receive"
    ],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8806,6 +9115,7 @@
     "mon.exp"
    ],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8818,6 +9128,7 @@
     "move.learn"
    ],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8828,6 +9139,7 @@
    "key": "ov021:0x021C3C78",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8838,6 +9150,7 @@
    "key": "ov021:0x021C3D1C",
    "events": [],
    "proto": "void (void *, void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8848,6 +9161,7 @@
    "key": "ov021:0x021C4030",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8858,6 +9172,7 @@
    "key": "ov021:0x021C4678",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8868,6 +9183,7 @@
    "key": "ov021:0x021C7E30",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8880,6 +9196,7 @@
     "mon.receive"
    ],
    "proto": "void * (void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8892,6 +9209,7 @@
     "mon.nickname"
    ],
    "proto": "void * (void *, void *, void *, unsigned int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8902,6 +9220,7 @@
    "key": "ov070:0x021B7B80",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8912,6 +9231,7 @@
    "key": "ov070:0x021BAFC4",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8924,6 +9244,7 @@
     "move.learn"
    ],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8936,6 +9257,7 @@
     "move.learn"
    ],
    "proto": "void (void *, void *, unsigned char)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8948,6 +9270,7 @@
     "mon.helditem"
    ],
    "proto": "void (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8958,6 +9281,7 @@
    "key": "ov091:0x021BA688",
    "events": [],
    "proto": "unsigned int (void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8968,6 +9292,7 @@
    "key": "ov091:0x021BC2C8",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8978,6 +9303,7 @@
    "key": "ov091:0x021BC30C",
    "events": [],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -8988,6 +9314,7 @@
    "key": "ov091:0x021BC350",
    "events": [],
    "proto": "int (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9002,6 +9329,7 @@
     "mon.cure"
    ],
    "proto": "int (void *, unsigned int, int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9014,6 +9342,7 @@
     "mon.levelup"
    ],
    "proto": "int (void *, unsigned short, unsigned short, unsigned short, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9027,6 +9356,7 @@
     "mon.revive"
    ],
    "proto": "void (void *, unsigned int, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9039,6 +9369,7 @@
     "mon.receive"
    ],
    "proto": "int (void *, void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9049,6 +9380,7 @@
    "key": "ov093:0x021B9090",
    "events": [],
    "proto": "void (void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9059,6 +9391,7 @@
    "key": "ov093:0x021B90BC",
    "events": [],
    "proto": "void (void *, unsigned char, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9069,6 +9402,7 @@
    "key": "ov093:0x021BA238",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9079,6 +9413,7 @@
    "key": "ov093:0x021BB8BC",
    "events": [],
    "proto": "void (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9091,6 +9426,7 @@
     "battle.escape"
    ],
    "proto": "int (void *, void *, unsigned char)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9103,6 +9439,7 @@
     "battle.switch"
    ],
    "proto": "void (void *, unsigned char, unsigned char, unsigned char, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9113,6 +9450,7 @@
    "key": "ov093:0x021BE95C",
    "events": [],
    "proto": "void (void *, void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9123,6 +9461,7 @@
    "key": "ov093:0x021BF2EC",
    "events": [],
    "proto": "void (void *, unsigned int, unsigned int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9133,6 +9472,7 @@
    "key": "ov093:0x021C1910",
    "events": [],
    "proto": "void (void *, void *, void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9145,6 +9485,7 @@
     "battle.move"
    ],
    "proto": "void (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9157,6 +9498,7 @@
     "battle.damage"
    ],
    "proto": "int (void *, void *, void *, void *, unsigned int, unsigned int, unsigned int, int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9169,6 +9511,7 @@
     "heal.hp"
    ],
    "proto": "void (void *, void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9181,6 +9524,7 @@
     "battle.faint"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9191,6 +9535,7 @@
    "key": "ov093:0x021C5200",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9201,6 +9546,7 @@
    "key": "ov093:0x021C5350",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9211,6 +9557,7 @@
    "key": "ov093:0x021C557C",
    "events": [],
    "proto": "void (void *, void *, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9223,6 +9570,7 @@
     "mon.cure"
    ],
    "proto": "void (void *, void *, int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9235,6 +9583,7 @@
     "mon.pp"
    ],
    "proto": "void (void *, void *, int, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9245,6 +9594,7 @@
    "key": "ov093:0x021C6564",
    "events": [],
    "proto": "void (void *, void *, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9255,6 +9605,7 @@
    "key": "ov093:0x021C84D8",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9265,6 +9616,7 @@
    "key": "ov093:0x021CA270",
    "events": [],
    "proto": "unsigned char (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9277,6 +9629,7 @@
     "mon.form"
    ],
    "proto": "unsigned char (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9290,6 +9643,7 @@
     "mon.exp"
    ],
    "proto": "void (void *, void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9300,6 +9654,7 @@
    "key": "ov093:0x021CB730",
    "events": [],
    "proto": "int (void *, void *, unsigned short, unsigned char, unsigned char)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9312,6 +9667,7 @@
     "catch.attempt"
    ],
    "proto": "int (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9324,6 +9680,7 @@
     "catch.result"
    ],
    "proto": "int (void *, void *, void *, unsigned short, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9334,6 +9691,7 @@
    "key": "ov093:0x021CBD48",
    "events": [],
    "proto": "int (void *, void *, void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9344,6 +9702,7 @@
    "key": "ov093:0x021CBEA8",
    "events": [],
    "proto": "int (void *, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9354,6 +9713,7 @@
    "key": "ov093:0x021CBFA0",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9366,6 +9726,7 @@
     "mon.revive"
    ],
    "proto": "int (void *, void *, unsigned short)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9376,6 +9737,7 @@
    "key": "ov093:0x021CC2C0",
    "events": [],
    "proto": "int (void *, void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9386,6 +9748,7 @@
    "key": "ov093:0x021CC668",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9396,6 +9759,7 @@
    "key": "ov093:0x021CE4D0",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9406,6 +9770,7 @@
    "key": "ov093:0x021CEDC0",
    "events": [],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9416,6 +9781,7 @@
    "key": "ov093:0x021CEEB8",
    "events": [],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9426,6 +9792,7 @@
    "key": "ov093:0x021CF078",
    "events": [],
    "proto": "unsigned int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9438,6 +9805,7 @@
     "battle.action"
    ],
    "proto": "int (void *, void *, unsigned int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9450,6 +9818,7 @@
     "battle.action"
    ],
    "proto": "unsigned int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9460,6 +9829,7 @@
    "key": "ov093:0x021D1290",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9472,6 +9842,7 @@
     "whiteout"
    ],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9482,6 +9853,7 @@
    "key": "ov093:0x021D2320",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9492,6 +9864,7 @@
    "key": "ov093:0x021D2CA8",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9502,6 +9875,7 @@
    "key": "ov093:0x021D5B68",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9514,6 +9888,7 @@
     "mon.levelup"
    ],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9524,6 +9899,7 @@
    "key": "ov093:0x021D7930",
    "events": [],
    "proto": "int (int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9534,6 +9910,7 @@
    "key": "ov093:0x021D7A44",
    "events": [],
    "proto": "unsigned int (unsigned int, unsigned int, unsigned int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9546,6 +9923,7 @@
     "battle.item"
    ],
    "proto": "unsigned short (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9556,6 +9934,7 @@
    "key": "ov094:0x021F93F4",
    "events": [],
    "proto": "void * (void *, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9566,6 +9945,7 @@
    "key": "ov094:0x021FBD44",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9576,6 +9956,7 @@
    "key": "ov094:0x021FBD88",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9586,6 +9967,7 @@
    "key": "ov094:0x021FBDD4",
    "events": [],
    "proto": "void (void *, int, int, int, int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9596,6 +9978,7 @@
    "key": "ov094:0x021FC334",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9606,6 +9989,7 @@
    "key": "ov094:0x021FC374",
    "events": [],
    "proto": "int (void *, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9618,6 +10002,7 @@
     "battle.action"
    ],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9628,6 +10013,7 @@
    "key": "ov120:0x021D42D8",
    "events": [],
    "proto": "int (int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9638,6 +10024,7 @@
    "key": "ov170:0x021DC860",
    "events": [],
    "proto": "int (void *, int, void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9650,6 +10037,7 @@
     "mon.release"
    ],
    "proto": "void (void *, int, unsigned int)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9659,7 +10047,10 @@
    "addr": "0x021DD330",
    "key": "ov170:0x021DD330",
    "events": [],
-   "proto": "void BOX2_MAIN_SwapBoxAndPartyMon(void *, void *, void *)",
+   "proto": "void (void *, void *, void *)",
+   "aliases": [
+    "BOX2_MAIN_SwapBoxAndPartyMon"
+   ],
    "protoFromC": true
   },
   {
@@ -9673,6 +10064,7 @@
     "box.withdraw"
    ],
    "proto": "void (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9682,7 +10074,10 @@
    "addr": "0x021DD810",
    "key": "ov170:0x021DD810",
    "events": [],
-   "proto": "void BOX2_MAIN_ResetShayminFormInBox(void *, unsigned int, unsigned int, unsigned int)",
+   "proto": "void (void *, unsigned int, unsigned int, unsigned int)",
+   "aliases": [
+    "BOX2_MAIN_ResetShayminFormInBox"
+   ],
    "protoFromC": true
   },
   {
@@ -9693,6 +10088,7 @@
    "key": "ov170:0x021E9010",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9703,6 +10099,7 @@
    "key": "ov170:0x021E91A0",
    "events": [],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9715,6 +10112,7 @@
     "move.learn"
    ],
    "proto": "int (void *)",
+   "aliases": [],
    "protoFromC": true
   },
   {
@@ -9727,6 +10125,7 @@
     "mon.nickname"
    ],
    "proto": "void * (unsigned short, unsigned int, unsigned int, unsigned int, unsigned int, void *, void *, void *, void *)",
+   "aliases": [],
    "protoFromC": true
   }
  ],

@@ -353,6 +353,27 @@ fn hook_lines_are_checked() {
     assert!(msgs[3].1.contains("not a declared address"));
     assert!(msgs[4].1.contains("only sig="));
     assert!(msgs[5].1.contains("needs"));
+    // A function name stands for its address; the message says which.
+    let mut named = DeclaredSet::parse(DECLARED);
+    named.add_aliases(
+        r#"{"hooks":[{"address":"0x02007150","region":"arm9","aliases":["SAVE_StartSave"]}]}"#,
+    );
+    assert_eq!(
+        named.find("arm9", 0x02007150).unwrap().aliases,
+        ["SAVE_StartSave"]
+    );
+    assert_eq!(named.find_name("arm9", "SAVE_StartSave"), Some(0x02007150));
+    assert_eq!(
+        named.find_name("arm9", "SAVE_CONTROL_StartSave"),
+        Some(0x02007150)
+    );
+    assert_eq!(named.find_name("ov93", "SAVE_StartSave"), None);
+    let r = check_overrides(
+        "arm9:SAVE_StartSave wrap h
+",
+        Some(&named),
+    );
+    assert!(r.diagnostics[0].message.contains("arm9:0x02007150"));
     // Without the declared set only the grammar is checked.
     assert!(check_overrides("arm9:0x02007154 wrap h\n", None)
         .diagnostics
@@ -466,6 +487,12 @@ fn real_declared_set() {
     let row = set.find("arm9", 0x02007150).unwrap();
     assert_eq!(row.function, "SAVE_CONTROL_StartSave");
     assert!(set.find("ov93", 0x021CBD48).is_some());
+    // The aliases come from sdk/api/v4/hooks.json beside it.
+    assert_eq!(
+        set.find("arm9", 0x0200C248).unwrap().aliases,
+        ["MISC_SetBadge"]
+    );
+    assert_eq!(set.find_name("arm9", "MISC_SetBadge"), Some(0x0200C248));
 }
 
 /// Eidos's own test rules and the rules of its language document pass the

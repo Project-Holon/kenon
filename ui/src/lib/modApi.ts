@@ -38,6 +38,7 @@ export interface TableEntry {
 export interface HookCheckRow {
   line: number;
   function: string;
+  aliases: string[];
   events: string[];
 }
 

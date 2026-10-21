@@ -178,7 +178,7 @@ export function buildIndex(api: Api, entries: Entry[]): SearchIndex {
     } else if (y) {
       f = [y.name, y.params.map(lastWord).join(" "), y.signature, y.group, join(y.what, y.result, y.rule, ...y.notes)];
     } else if (h) {
-      f = [h.name, h.key, h.proto ?? "", e.group, h.events.join(" ")];
+      f = [join(h.name, ...h.aliases), h.key, h.proto ?? "", e.group, h.events.join(" ")];
     } else if (r) {
       f = [r.title, join(r.slug, ...r.events, ...r.functions), "", e.group, join(r.goal, ...r.steps, ...(r.notes ?? []), r.rule, r.rule2, r.c, r.settings)];
     } else if (s) {

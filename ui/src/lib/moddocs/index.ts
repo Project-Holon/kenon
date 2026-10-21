@@ -16,6 +16,8 @@ export interface ApiEvent {
   name: string;
   numId: number;
   category: string;
+  /** The API version that added the event. */
+  since: number;
   /** The game functions the event fires from. */
   where: string;
   refuse: string | null;
@@ -73,6 +75,8 @@ export interface Hook {
   key: string;
   events: string[];
   proto?: string;
+  /** Other names the function has had. */
+  aliases: string[];
 }
 export type Block =
   | { t: "p"; text: string }
@@ -139,6 +143,8 @@ export interface Entry {
   section: Section;
   group: string;
   title: string;
+  /** Added in API 4. */
+  isNew?: boolean;
 }
 
 export function hookFamily(api: Api, name: string): string {
@@ -154,6 +160,7 @@ export function buildEntries(api: Api): Entry[] {
       section: "events",
       group: e.category,
       title: e.name,
+      isNew: e.since >= 4,
     });
   }
   for (const p of api.pages.filter((x) => x.section === "functions")) {

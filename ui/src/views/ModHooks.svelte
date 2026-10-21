@@ -154,6 +154,7 @@
               <p>
                 <span class="muted">Line {r.line}</span>
                 <code>{r.function}</code>
+                {#if r.aliases.length}<span class="muted">also named {r.aliases.join(", ")}</span>{/if}
                 {#if r.events.length}<span class="muted">{r.events.join(", ")}</span>{/if}
               </p>
             {/each}

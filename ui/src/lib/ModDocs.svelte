@@ -412,7 +412,10 @@
                   {#if open.has(`grp:${s.id}:${g.name}`)}
                     {#each g.items as it (it.id)}
                       <button class="row-item leaf" aria-current={it.id === selected} onclick={() => go(it.id)} title={it.title}>
-                        <span class="label">{it.title}</span>
+                        <span class="line">
+                          <span class="label">{it.title}</span>
+                          {#if it.isNew}<span class="tag">New in 4</span>{/if}
+                        </span>
                       </button>
                     {/each}
                   {/if}
@@ -455,6 +458,7 @@
           <h1><code>{e.name}</code></h1>
           <div class="tags">
             <span class="tag">{e.category}</span>
+            {#if e.since >= 4}<span class="tag">New in {e.since}</span>{/if}
             <span class="tag">{e.refusable ? "Can be refused" : "Cannot be refused"}</span>
             {#if e.payload.some((f) => f.writable)}<span class="tag">Fields can be changed</span>{/if}
             {#if !e.ruleEvent}<span class="tag">Code only</span>{/if}
@@ -566,6 +570,7 @@
           <table class="fields">
             <tbody>
               <tr><td>Key</td><td><code>{h.key}</code></td></tr>
+              {#if h.aliases.length}<tr><td>Also named</td><td>{#each h.aliases as a, i}<code>{a}</code>{i < h.aliases.length - 1 ? ", " : ""}{/each}</td></tr>{/if}
               <tr><td>Prototype</td><td>{#if h.proto}<code>{h.proto}</code>{:else}<span class="muted">Not published for this function.</span>{/if}</td></tr>
             </tbody>
           </table>
@@ -787,6 +792,9 @@
     align-items: center;
     gap: 0.6rem;
     min-width: 0;
+  }
+  .leaf .line {
+    flex: 1;
   }
   .why {
     font-size: 0.78rem;

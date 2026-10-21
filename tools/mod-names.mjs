@@ -39,8 +39,8 @@ for (const name of ruleJson.events) {
   if (!e) fail(`rules.json names ${name}, events.json has no such event`);
   const fields = e.fields.map((f) => ({
     name: f.rule_name,
-    kind: f.count !== null ? "list" : f.type === "BwMonRef" ? "mon" : "int",
-    flags: (f.writable ? "m" : "") + (/^s\d+$/.test(f.type) ? "s" : "") || "-",
+    kind: f.count !== null ? "list" : f.type === "EidosMonRef" ? "mon" : "int",
+    flags: (f.writable ? "m" : "") + (/^int\d+_t$/.test(f.type) ? "s" : "") || "-",
   }));
   events.push({ name, refusable: e.refusable ? "1" : "0", fields });
 }
