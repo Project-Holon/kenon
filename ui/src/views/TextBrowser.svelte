@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { SvelteMap } from "svelte/reactivity";
+  import { debounced } from "../lib/cache.svelte";
   import { gameText, members, saveTextBank, textBank, type MemberInfo } from "../lib/backend";
   import { play } from "../lib/sfx";
 
@@ -18,6 +20,10 @@
   let filter = $state("");
   let error = $state<string | null>(null);
   let busy = $state(false);
+  let loading = $state(false);
+  // Unsaved edits of banks left behind, so switching banks loses nothing.
+  const drafts = new SvelteMap<number, string[]>();
+  let seq = 0;
   // Strings are drawn in pages of 80 as the list scrolls.
   let limit = $state(80);
   let sentinel = $state<HTMLDivElement | null>(null);
@@ -41,21 +47,63 @@
   });
 
   async function open(index: number, sound = true) {
+    if (index === bank) return;
     if (sound) play("select");
+    if (bank !== null && dirty) drafts.set(bank, strings.slice());
+    else if (bank !== null) drafts.delete(bank);
     error = null;
     bank = index;
     focused = null;
     limit = 80;
-    strings = await textBank(archive, index);
-    original = strings.slice();
+    loading = true;
+    const my = ++seq;
+    try {
+      const fresh = await textBank(archive, index);
+      if (my !== seq) return;
+      original = fresh;
+      strings = drafts.get(index) ?? fresh.slice();
+      drafts.delete(index);
+    } catch (e) {
+      if (my === seq) {
+        error = String(e);
+        strings = [];
+        original = [];
+      }
+    } finally {
+      if (my === seq) loading = false;
+    }
+  }
+
+  // Up and down in the bank list step through the banks.
+  function step(e: KeyboardEvent) {
+    const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!d || !banks.length) return;
+    e.preventDefault();
+    const at = banks.findIndex((b) => b.index === bank);
+    const to = banks[Math.max(0, Math.min(banks.length - 1, at + d))];
+    open(to.index);
+    document.querySelector<HTMLElement>(`[data-bank="${to.index}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function keys(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (!readOnly && dirty && !busy) save();
+    }
   }
 
   const dirty = $derived(strings.some((s, i) => s !== original[i]));
-  const shown = $derived(
-    strings
-      .map((text, i) => ({ text, i }))
-      .filter(({ text }) => text.toLowerCase().includes(filter.trim().toLowerCase())),
-  );
+  const query = debounced(() => filter);
+  // Show a number to jump to that string; any other text searches the strings.
+  const shown = $derived.by(() => {
+    const q = query.value.trim().toLowerCase();
+    const all = strings.map((text, i) => ({ text, i }));
+    return q ? all.filter(({ text, i }) => String(i) === q || text.toLowerCase().includes(q)) : all;
+  });
+  $effect(() => {
+    void query.value;
+    limit = 80;
+  });
 
   async function save() {
     if (bank === null) return;
@@ -64,6 +112,7 @@
     try {
       await saveTextBank(archive, bank, strings);
       original = strings.slice();
+      drafts.delete(bank);
       play("save");
       banks = await members(archive);
       onSaved();
@@ -79,14 +128,18 @@
   const preview = (s: string) => s.replaceAll("\\n", "\n");
 </script>
 
-<div class="text">
-  <aside class="banks">
+<div class="text" role="presentation" onkeydown={keys}>
+  <aside class="banks" onkeydown={step} role="presentation">
     <h3 class="muted">Banks</h3>
     <div class="scroll">
       {#each banks as b (b.index)}
-        <button class="row-item" aria-current={b.index === bank} onclick={() => open(b.index)}>
+        <button class="row-item" data-bank={b.index} aria-current={b.index === bank} onclick={() => open(b.index)}>
           <span class="label">Bank {b.index}</span>
-          {#if b.changed}<span class="tag changed">changed</span>{/if}
+          {#if (b.index === bank ? dirty : drafts.has(b.index))}
+            <span class="tag changed" title="Not saved yet">edited</span>
+          {:else if b.changed}
+            <span class="tag changed">changed</span>
+          {/if}
         </button>
       {/each}
     </div>
@@ -94,7 +147,8 @@
 
   <section class="strings">
     <div class="head">
-      <input class="search" placeholder="Search this bank" bind:value={filter} />
+      <input class="search" placeholder="Search this bank" aria-label="Search this bank" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
+      {#if strings.length}<span class="muted count">{shown.length === strings.length ? `${strings.length} strings` : `${shown.length} of ${strings.length}`}</span>{/if}
       <div class="spacer"></div>
       {#if readOnly}
         <span class="tag">read only</span>
@@ -111,9 +165,13 @@
             <textarea
               rows={Math.min(4, strings[i].split("\\n").length)}
               readonly={readOnly}
+              aria-label="String {i}"
               bind:value={strings[i]}
               onfocus={() => (focused = i)}
             ></textarea>
+            {#if strings[i] !== original[i] && !readOnly}
+              <button class="quiet undo" onclick={() => (strings[i] = original[i] ?? "")}>Undo</button>
+            {/if}
             {#if focused === i && strings[i]}
               <div class="window preview">
                 <img class="px" src={gameText(preview(strings[i]))} alt="" />
@@ -122,7 +180,7 @@
           </div>
         </div>
       {:else}
-        <p class="muted pad">{strings.length ? "Nothing matches." : "Loading..."}</p>
+        <p class="muted pad">{loading || (!strings.length && !error) ? "Loading..." : strings.length ? "Nothing matches." : "This bank is empty."}</p>
       {/each}
       {#if shown.length > limit}<div bind:this={sentinel} class="more muted">Loading more...</div>{/if}
     </div>
@@ -137,6 +195,7 @@
   .text {
     display: grid;
     grid-template-columns: 11rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
   }
   .banks {
@@ -159,10 +218,23 @@
     overflow-x: hidden;
   }
   .strings {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+  .head,
+  .hint {
+    flex: none;
+  }
+  .count {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .undo {
+    align-self: flex-start;
+    padding: 0.05rem 0.5rem;
+    font-size: 0.8rem;
   }
   .head {
     display: flex;
@@ -203,6 +275,9 @@
   textarea {
     width: 100%;
     resize: vertical;
+    field-sizing: content;
+    min-height: 2.2rem;
+    max-height: 10rem;
   }
   .preview {
     align-self: flex-start;

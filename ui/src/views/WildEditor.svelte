@@ -1,8 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { asset } from "../lib/backend";
-  import { once } from "../lib/cache.svelte";
   import { enumValues, saveRecord, tableRecord, type Section, type TableRecord, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
   import SearchSelect from "../lib/SearchSelect.svelte";
@@ -24,8 +21,6 @@
   let method = $state(0);
   let species = $state<string[]>([]);
   let busy = $state(false);
-  // Species -> its icon's palette bank offset (the menu icons archive).
-  let iconOffset = $state<Map<number, number>>(new Map());
   let error = $state<string | null>(null);
 
   async function load() {
@@ -34,6 +29,7 @@
       const r = await tableRecord("encounters", index, season);
       record = r;
       original = JSON.stringify(r);
+      if (method >= r.sections.filter((x) => x.kind === "list").length) method = 0;
     } catch (e) {
       error = String(e);
     }
@@ -43,11 +39,10 @@
     loadIcons();
     load();
     enumValues("species").then((s) => (species = s));
-    once("named/7", () => invoke<{ chr: number; paletteOffset: number }[] | null>("named_sheets", { arc: 7 }))
-      .then((list) => (iconOffset = new Map((list ?? []).map((n) => [n.chr, n.paletteOffset]))))
-      .catch(() => {});
   });
 
+  // The species list is long: build the options once, not per slot.
+  const speciesOptions = $derived(species.map((n, k) => [k, n || "None"] as [number, string]));
   const rates = $derived((record?.sections.find((s) => s.kind === "fields") as { values: Value[] } | undefined)?.values ?? []);
   const lists = $derived((record?.sections.filter((s) => s.kind === "list") ?? []) as List[]);
   const rateOf = (i: number) => rates.find((v) => v.key.startsWith("rate") && v.key.endsWith(String(i + 1))) ?? rates[i];
@@ -70,6 +65,26 @@
   const label = (l: List) => NAMES[l.key] ?? l.label.replace(/ slots$/, "");
   const col = (l: List, name: string) => l.columns.findIndex((c) => c.name === name || c.label.toLowerCase().startsWith(name));
 
+  // Levels stay between 0 and 100, and the highest never sits under the lowest.
+  function levels(row: number[], lo: number, hi: number, edited: "lo" | "hi") {
+    for (const k of [lo, hi]) {
+      const n = Math.round(Number(row[k]));
+      row[k] = Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0));
+    }
+    if (row[hi] < row[lo]) row[edited === "lo" ? hi : lo] = row[edited === "lo" ? lo : hi];
+  }
+  function fixForm(row: number[], at: number) {
+    const n = Math.round(Number(row[at]));
+    row[at] = Math.min(31, Math.max(0, Number.isFinite(n) ? n : 0));
+  }
+
+  function keys(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (!readOnly && dirty && !busy) save();
+    }
+  }
+
   async function save() {
     if (!record) return;
     busy = true;
@@ -91,15 +106,9 @@
       busy = false;
     }
   }
-
-  function icon(sp: number): string | null {
-    const chr = 7 + 2 * sp;
-    if (sp <= 0 || !iconOffset.has(chr)) return null;
-    return asset(`preview/7:${chr}/7:0?cells=2&paloffset=${iconOffset.get(chr)}`);
-  }
 </script>
 
-<div class="wild">
+<div class="wild" role="presentation" onkeydown={keys}>
   <div class="top">
     {#if (record?.seasons ?? 1) > 1}
       <select bind:value={season} onchange={load} aria-label="Season">
@@ -127,29 +136,35 @@
       {@const [sp, form, min, max] = [col(l, "species"), col(l, "form"), col(l, "min"), col(l, "max")]}
       {#if r}
         <label class="rate">
-          <span class="muted">How often</span>
+          <span class="muted">Encounter rate</span>
           <input type="number" min={r.min} max={r.max} bind:value={r.value} readonly={readOnly} />
           {#if r.value === 0}<span class="muted">off</span>{/if}
         </label>
       {/if}
+      <div class="slots-head muted">
+        <span>Odds</span>
+        <span>Pokemon</span>
+        <span>Level</span>
+        {#if form >= 0}<span>Form</span>{/if}
+      </div>
       <ul class="slots">
         {#each l.rows as row, i}
           <li>
             <span class="pct">{odds(l, i)}</span>
-            {#if icon(row[sp])}<img class="px icon" src={icon(row[sp])} alt="" />{:else}<span class="icon"></span>{/if}
-            <SearchSelect bind:value={row[sp]} options={species.map((n, k) => [k, n || "None"] as [number, string])} icon={speciesIcon} disabled={readOnly} label="Species" />
-            <span class="lv">Lv</span>
-            <input class="num" type="number" min="0" max="100" bind:value={row[min]} readonly={readOnly} aria-label="Lowest level" />
-            <span class="muted">-</span>
-            <input class="num" type="number" min="0" max="100" bind:value={row[max]} readonly={readOnly} aria-label="Highest level" />
-            {#if form >= 0 && row[form] !== 0}
-              <input class="num" type="number" min="0" max="31" bind:value={row[form]} readonly={readOnly} title="Form" aria-label="Form" />
+            <SearchSelect bind:value={row[sp]} options={speciesOptions} icon={speciesIcon} disabled={readOnly} label="Pokemon in slot {i + 1}" />
+            <span class="levels">
+              <input class="num" type="number" min="0" max="100" bind:value={row[min]} onchange={() => levels(row, min, max, "lo")} readonly={readOnly} aria-label="Lowest level" />
+              <span class="muted">-</span>
+              <input class="num" type="number" min="0" max="100" bind:value={row[max]} onchange={() => levels(row, min, max, "hi")} readonly={readOnly} aria-label="Highest level" />
+            </span>
+            {#if form >= 0}
+              <input class="num" type="number" min="0" max="31" bind:value={row[form]} onchange={() => fixForm(row, form)} readonly={readOnly} aria-label="Form" />
             {/if}
           </li>
         {/each}
       </ul>
     {/if}
-  {:else}
+  {:else if !error}
     <p class="muted">Loading...</p>
   {/if}
 </div>
@@ -201,30 +216,34 @@
     flex-direction: column;
     gap: 2px;
   }
-  .slots li {
+  .slots li,
+  .slots-head {
     display: grid;
-    grid-template-columns: 2.4rem 32px minmax(0, 1fr) auto 3rem auto 3rem auto;
+    grid-template-columns: 2.4rem minmax(0, 1fr) 7.5rem;
     align-items: center;
     gap: 0.3rem;
     font-size: 0.85rem;
+  }
+  .slots-head {
+    font-size: 0.75rem;
+    padding-bottom: 0.1rem;
+  }
+  .slots-head:has(span:nth-child(4)),
+  .slots:has(input[aria-label="Form"]) li {
+    grid-template-columns: 2.4rem minmax(0, 1fr) 7.5rem 3rem;
+  }
+  .levels {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
   }
   .pct {
     color: var(--muted);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
-  .icon {
-    width: 32px;
-    height: 32px;
-    image-rendering: pixelated;
-    object-fit: contain;
-  }
   .num {
     width: 100%;
     min-width: 0;
-  }
-  .lv {
-    color: var(--muted);
-    font-size: 0.75rem;
   }
 </style>

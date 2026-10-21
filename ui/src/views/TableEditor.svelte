@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { SvelteMap } from "svelte/reactivity";
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
-  import { enumIcon, loadIcons } from "../lib/icons.svelte";
-  import { debounced, once } from "../lib/cache.svelte";
+  import { enumIcon, itemIcon, loadIcons, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
+  import { debounced } from "../lib/cache.svelte";
   import { asset } from "../lib/backend";
   import { invoke } from "@tauri-apps/api/core";
   import {
@@ -52,6 +53,11 @@
   let names = $state<Record<string, string[]>>({});
   let error = $state<string | null>(null);
   let busy = $state(false);
+  let loading = $state(false);
+  let list = $state<{ reveal: (index: number) => void } | null>(null);
+  // Unsaved edits of entries left behind, so switching entries loses nothing.
+  const drafts = new SvelteMap<number, { records: (TableRecord | null)[]; season: number }>();
+  let seq = 0;
 
   onMount(async () => {
     loadIcons();
@@ -61,6 +67,7 @@
         entries.find((e) => e.index > 0) ??
         entries[0];
       if (first) await open(first.index, false);
+      if (current !== null) list?.reveal(entries.findIndex((e) => e.index === current));
     } catch (e) {
       error = String(e);
     }
@@ -68,7 +75,9 @@
 
   $effect(() => {
     void version;
-    if (current !== null) reload();
+    untrack(() => {
+      if (current !== null) reload();
+    });
   });
 
   async function loadNames(rs: (TableRecord | null)[]) {
@@ -78,29 +87,81 @@
         if (s.kind === "fields") s.values.forEach((v) => v.enum && wanted.add(v.enum));
         else s.columns.forEach((c) => c.enum && wanted.add(c.enum));
       }
-    for (const name of wanted) if (!names[name]) names[name] = await enumValues(name);
+    await Promise.all(
+      [...wanted].filter((n) => !names[n]).map(async (n) => (names[n] = await enumValues(n))),
+    );
   }
 
-  async function reload() {
+  async function reload(draft?: { records: (TableRecord | null)[]; season: number }) {
     if (current === null) return;
-    const rs = await Promise.all(tables.map((t) => tableRecord(t, current!, season).catch(() => null)));
-    await loadNames(rs);
-    records = rs;
+    const my = ++seq;
+    const index = current;
+    loading = true;
+    let failed: string | null = null;
+    const rs = await Promise.all(
+      tables.map((t) =>
+        tableRecord(t, index, season).catch((e) => {
+          failed = String(e);
+          return null;
+        }),
+      ),
+    );
+    await loadNames(draft ? draft.records : rs);
+    // A newer request (another entry clicked) owns the screen now.
+    if (my !== seq) return;
+    loading = false;
     original = JSON.stringify(rs);
+    records = draft ? draft.records : rs;
+    if (draft) season = draft.season;
+    if (rs.every((r) => r === null)) error = failed ?? "Could not read this entry.";
   }
 
   async function open(index: number, sound = true) {
+    if (index === current) return;
     if (sound) play("select");
+    if (current !== null && dirty) drafts.set(current, { records: $state.snapshot(records) as (TableRecord | null)[], season });
+    else if (current !== null) drafts.delete(current);
     error = null;
     current = index;
-    season = 0;
-    await reload();
+    const draft = drafts.get(index);
+    drafts.delete(index);
+    season = draft?.season ?? 0;
+    await reload(draft);
+  }
+
+  // Up and down in the list or the search box step through the entries.
+  function step(e: KeyboardEvent) {
+    const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!d || !shown.length) return;
+    e.preventDefault();
+    const at = shown.findIndex((x) => x.index === current);
+    const to = Math.max(0, Math.min(shown.length - 1, at < 0 ? 0 : at + d));
+    open(shown[to].index);
+    list?.reveal(to);
+  }
+
+  function keys(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (!readOnly && dirty && !busy) save();
+    }
+  }
+
+  // Typed numbers stay inside the field's range.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function fix(obj: any, key: string | number, min: number, max: number) {
+    const raw = obj[key];
+    let n = raw === null || raw === "" ? Math.max(min, 0) : Math.round(Number(raw));
+    if (!Number.isFinite(n)) n = Math.max(min, 0);
+    obj[key] = Math.min(max, Math.max(min, n));
   }
 
   const dirty = $derived(JSON.stringify(records) !== original);
-  // In a side panel, one section at a time.
+  // One section at a time (a species' stats, then its learnset...).
   let secTab = $state(0);
   const allSections = $derived(records.flatMap((r) => r?.sections ?? []));
+  const activeTab = $derived(Math.min(secTab, Math.max(0, allSections.length - 1)));
+  const tabbed = $derived(only === undefined && allSections.length > 1);
   const sectionIndex = (ri: number, si: number) =>
     records.slice(0, ri).reduce((n, r) => n + (r?.sections.length ?? 0), 0) + si;
   const query = debounced(() => filter);
@@ -131,6 +192,7 @@
         await saveRecord(tables[i], current, { values, lists, season });
       }
       play("save");
+      drafts.delete(current);
       onSaved();
       await reload();
     } catch (e) {
@@ -144,15 +206,6 @@
   // The picture of the entry, from the ROM's own tables: a trainer's
   // sprite follows its class as it is edited, a species shows its battle
   // sprite, an item its icon.
-  const codeTable = (name: string) =>
-    once(`table/${name}`, () => fetch(asset(`table/${name}`)).then((r) => (r.ok ? r.json() : [])));
-  let trainerGraphic = $state<number[]>([]);
-  let itemIcons = $state<number[]>([]);
-  onMount(() => {
-    if (tables[0] === "trainers") codeTable("trainer_graphic").then((t) => (trainerGraphic = t));
-    if (tables[0] === "items") codeTable("item_icons").then((t) => (itemIcons = t));
-  });
-
   function fieldValue(key: string): number | null {
     for (const s of records[0]?.sections ?? [])
       if (s.kind === "fields") {
@@ -202,38 +255,65 @@
     switch (tables[0]) {
       case "trainers": {
         const cls = fieldValue("trainerClass");
-        const g = cls === null ? undefined : trainerGraphic[cls];
-        return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=2`);
+        return cls === null ? null : trainerClassIcon(cls);
       }
       case "species":
         return current > 0 && current < 650 ? asset(`preview/4:${20 * current}/4:${20 * current + 18}?cells=4`) : null;
-      case "items": {
-        const at = current * 4;
-        if (at + 3 >= itemIcons.length) return null;
-        const tile = itemIcons[at] | (itemIcons[at + 1] << 8);
-        const pal = itemIcons[at + 2] | (itemIcons[at + 3] << 8);
-        return asset(`preview/25:${tile}/25:${pal}?cells=1`);
-      }
+      case "items":
+        return itemIcon(current);
       default:
         return null;
     }
   });
 
-  const label = (enumName: string | null, value: number) => {
-    const list = enumName ? names[enumName] : null;
-    return list?.[value] ?? "";
+  // The small picture of a row in the list.
+  const rowIcon = (index: number): string | null => {
+    switch (tables[0]) {
+      case "species":
+        return speciesIcon(index);
+      case "items":
+        return itemIcon(index);
+      case "trainers":
+        return trainerIcon(index);
+      default:
+        return null;
+    }
   };
+  const hasIcons = $derived(["species", "items", "trainers"].includes(tables[0]));
+  const edited = (index: number) => drafts.has(index) || (index === current && dirty);
+
+  const sectionLabel = (s: Section) => (s.kind === "list" ? `${s.label} (${s.rows.length})` : s.label);
 </script>
 
-<div class="tables" class:single>
+{#snippet pick(obj: any, key: string | number, en: string | null, min: number, max: number, ro: boolean, name: string)}
+  {#if en && names[en]?.length}
+    {#if names[en].length > LONG}
+      <SearchSelect bind:value={obj[key]} options={names[en]} icon={enumIcon(en)} disabled={ro} label={name} />
+    {:else}
+      <select bind:value={obj[key]} disabled={ro} aria-label={name}>
+        {#each names[en] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
+        {#if obj[key] >= names[en].length}<option value={obj[key]}>({obj[key]})</option>{/if}
+      </select>
+    {/if}
+  {:else}
+    <input type="number" {min} {max} bind:value={obj[key]} onchange={() => fix(obj, key, min, max)} readonly={ro} aria-label={name} />
+  {/if}
+{/snippet}
+
+<div class="tables" class:single role="presentation" onkeydown={keys}>
   {#if !single}
-  <aside class="entries">
-    <input class="search" placeholder="Search {entries.length}" bind:value={filter} />
-    <VirtualList items={shown} height={34} key={(e) => e.index} label="Entries">
+  <aside class="entries" onkeydown={step} role="presentation">
+    <input class="search" placeholder="Search {entries.length} entries" aria-label="Search entries" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
+    <VirtualList bind:this={list} items={shown} height={34} key={(e) => e.index} label="Entries">
       {#snippet row(e)}
         <button class="row-item" aria-current={e.index === current} onclick={() => open(e.index)}>
           <span class="num muted">{e.index}</span>
+          {#if hasIcons}
+            {@const src = rowIcon(e.index)}
+            {#if src}<img class="px ico" {src} alt="" loading="lazy" />{:else}<span class="ico"></span>{/if}
+          {/if}
           <span class="label">{e.name}</span>
+          {#if edited(e.index)}<span class="tag changed" title="Not saved yet">edited</span>{/if}
         </button>
       {/snippet}
       {#snippet empty()}
@@ -271,7 +351,7 @@
         {/if}
       </div>
       {#if (records[0]?.seasons ?? 1) > 1}
-        <select bind:value={season} onchange={reload} aria-label="Season">
+        <select bind:value={season} onchange={() => reload()} aria-label="Season">
           {#each SEASONS.slice(0, records[0]?.seasons ?? 1) as s, i}<option value={i}>{s}</option>{/each}
         </select>
       {/if}
@@ -280,25 +360,28 @@
       {#if readOnly}
         <span class="tag">read only</span>
       {:else}
-        <button disabled={!dirty || busy} onclick={reload}>Discard</button>
-        <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
+        <button class="act" disabled={!dirty || busy} onclick={() => reload()}>Discard</button>
+        <button class="act primary" disabled={!dirty || busy} onclick={save}>Save</button>
       {/if}
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
 
-    {#if single && only === undefined && allSections.length > 1}
+    {#if tabbed}
       <div class="sec-tabs" role="tablist">
         {#each allSections as s, i}
-          <button role="tab" aria-selected={secTab === i} class:primary={secTab === i} onclick={() => (secTab = i)}>{s.label}</button>
+          <button role="tab" aria-selected={activeTab === i} class:primary={activeTab === i} onclick={() => (secTab = i)}>{sectionLabel(s)}</button>
         {/each}
       </div>
     {/if}
     <div class="scroll body">
+      {#if !records.length && loading}
+        <p class="muted">Loading...</p>
+      {/if}
       {#each records as r, ri}
         {#each r?.sections ?? [] as s, si}
-          {#if !single || allSections.length < 2 || sectionIndex(ri, si) === (only ?? secTab)}
+          {#if only !== undefined ? sectionIndex(ri, si) === only : !tabbed || sectionIndex(ri, si) === activeTab}
           <div class="window block">
-            {#if !single}<h3>{s.label}</h3>{/if}
+            {#if !single && !tabbed}<h3>{s.label}</h3>{/if}
             {#if s.kind === "fields"}
               <div class="grid">
                 {#each s.values as v}
@@ -307,92 +390,67 @@
                       {v.label}
                       {#if v.inferred}<span class="tag" title="Meaning inferred, not confirmed in the game's code">?</span>{/if}
                     </span>
-                    {#if v.enum && names[v.enum]?.length}
-                      {#if names[v.enum].length > LONG}
-                        <SearchSelect bind:value={v.value} options={names[v.enum]} icon={enumIcon(v.enum)} disabled={readOnly || v.readonly} label={v.label} />
-                      {:else}
-                      <select bind:value={v.value} disabled={readOnly || v.readonly}>
-                        {#each names[v.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
-                        {#if v.value >= names[v.enum].length}<option value={v.value}>({v.value})</option>{/if}
-                      </select>
-                      {/if}
-                    {:else if v.max === 1 && v.min === 0}
+                    {#if !(v.enum && names[v.enum]?.length) && v.max === 1 && v.min === 0}
                       <input type="checkbox" checked={v.value === 1} disabled={readOnly || v.readonly} onchange={(e) => (v.value = (e.currentTarget as HTMLInputElement).checked ? 1 : 0)} />
                     {:else}
-                      <input type="number" min={v.min} max={v.max} bind:value={v.value} readonly={readOnly || v.readonly} />
+                      {@render pick(v, "value", v.enum, v.min, v.max, readOnly || v.readonly, v.label)}
                     {/if}
                   </label>
                 {/each}
               </div>
-            {:else if single}
-              <!-- Narrow: one small form per row instead of a wide table. -->
-              <div class="rows">
-                {#each s.rows as row, ri}
-                  <div class="row-card">
-                    <div class="row-head">
-                      <strong>{ri + 1}</strong>
-                      {#if !s.fixed && !readOnly}
-                        <button class="quiet" onclick={() => s.rows.splice(ri, 1)} aria-label="Remove row">Remove</button>
-                      {/if}
-                    </div>
-                    <div class="grid">
-                      {#each s.columns as c, ci}
-                        <label class="field">
-                          <span class="name">{c.label}</span>
-                          {#if c.enum && names[c.enum]?.length}
-                            {#if names[c.enum].length > LONG}
-                              <SearchSelect bind:value={row[ci]} options={names[c.enum]} icon={enumIcon(c.enum)} disabled={readOnly} label={c.label} />
-                            {:else}
-                            <select bind:value={row[ci]} disabled={readOnly}>
-                              {#each names[c.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
-                              {#if row[ci] >= names[c.enum].length}<option value={row[ci]}>({row[ci]})</option>{/if}
-                            </select>
-                            {/if}
-                          {:else}
-                            <input type="number" min={c.min} max={c.max} bind:value={row[ci]} readonly={readOnly} />
-                          {/if}
-                        </label>
-                      {/each}
-                    </div>
-                  </div>
-                {/each}
-              </div>
             {:else}
-              <table>
-                <thead>
-                  <tr>
-                    {#each s.columns as c}<th>{c.label}</th>{/each}
-                    {#if !s.fixed && !readOnly}<th></th>{/if}
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each s.rows as row, ri}
-                    <tr>
-                      {#each s.columns as c, ci}
-                        <td>
-                          {#if c.enum && names[c.enum]?.length}
-                            {#if names[c.enum].length > LONG}
-                              <SearchSelect bind:value={row[ci]} options={names[c.enum]} icon={enumIcon(c.enum)} disabled={readOnly} label={c.label} />
-                            {:else}
-                            <select bind:value={row[ci]} disabled={readOnly}>
-                              {#each names[c.enum] as n, i}<option value={i}>{n || `(${i})`}</option>{/each}
-                              {#if row[ci] >= names[c.enum].length}<option value={row[ci]}>({row[ci]})</option>{/if}
-                            </select>
-                            {/if}
-                          {:else}
-                            <input type="number" min={c.min} max={c.max} bind:value={row[ci]} readonly={readOnly} />
-                          {/if}
-                        </td>
-                      {/each}
-                      {#if !s.fixed && !readOnly}
-                        <td><button class="quiet" onclick={() => s.rows.splice(ri, 1)} aria-label="Remove row">Remove</button></td>
-                      {/if}
-                    </tr>
+              {#if s.rows.length === 0}<p class="muted">Nothing here yet.</p>{/if}
+              {#if single}
+                <!-- Narrow: one small form per row instead of a wide table. -->
+                <div class="rows">
+                  {#each s.rows as row, rn}
+                    <div class="row-card">
+                      <div class="row-head">
+                        <strong>{rn + 1}</strong>
+                        {#if !s.fixed && !readOnly}
+                          <button class="quiet" onclick={() => s.rows.splice(rn, 1)} aria-label="Remove row {rn + 1}">Remove</button>
+                        {/if}
+                      </div>
+                      <div class="grid">
+                        {#each s.columns as c, ci}
+                          <label class="field">
+                            <span class="name">{c.label}</span>
+                            {@render pick(row, ci, c.enum, c.min, c.max, readOnly, c.label)}
+                          </label>
+                        {/each}
+                      </div>
+                    </div>
                   {/each}
-                </tbody>
-              </table>
-              {#if !s.fixed && !readOnly && s.rows.length < s.maxRows}
-                <button onclick={() => s.rows.push(blank(s))}>Add row</button>
+                </div>
+              {:else if s.rows.length}
+                <table>
+                  <thead>
+                    <tr>
+                      {#each s.columns as c}
+                        <th style:width={c.enum && names[c.enum]?.length ? undefined : "5.5rem"}>{c.label}</th>
+                      {/each}
+                      {#if !s.fixed && !readOnly}<th style="width: 5.5rem"></th>{/if}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each s.rows as row, rn}
+                      <tr>
+                        {#each s.columns as c, ci}
+                          <td>{@render pick(row, ci, c.enum, c.min, c.max, readOnly, c.label)}</td>
+                        {/each}
+                        {#if !s.fixed && !readOnly}
+                          <td><button class="quiet" onclick={() => s.rows.splice(rn, 1)} aria-label="Remove row {rn + 1}">Remove</button></td>
+                        {/if}
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              {/if}
+              {#if !s.fixed && !readOnly}
+                <div class="add">
+                  <button disabled={s.rows.length >= s.maxRows} onclick={() => s.rows.push(blank(s))}>Add row</button>
+                  <span class="muted">{s.rows.length} of {s.maxRows}</span>
+                </div>
               {/if}
             {/if}
           </div>
@@ -406,7 +464,8 @@
 <style>
   .tables {
     display: grid;
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
   }
   .tables.single {
@@ -511,8 +570,8 @@
     color: inherit;
   }
   .record {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     min-height: 0;
   }
@@ -575,6 +634,36 @@
   }
   .spacer {
     flex: 1;
+  }
+  .act {
+    flex: none;
+  }
+  .head,
+  .sec-tabs {
+    flex: none;
+  }
+  .ico {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+  .row-item .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .add {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .sec-tabs {
+    padding: 0.5rem 1rem 0;
+  }
+  .single .sec-tabs {
+    padding: 0;
   }
   .body {
     padding: 1rem;
