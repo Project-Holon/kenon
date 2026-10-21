@@ -135,3 +135,48 @@ fn render_options_background() {
         std::fs::write(path, &img.pixels).unwrap();
     }
 }
+
+/// The five fonts of a/0/2/3: the CWDH advance table agrees with the
+/// advance byte of every glyph record, and ASCII maps to itself.
+#[test]
+fn fonts() {
+    use kenon_core::nftr::Font;
+    let Some(root) = data_root() else {
+        return;
+    };
+    let archive = narc::Narc::open(&root.file("a/0/2/3")).unwrap();
+    let expect = [
+        (12, 15, 15, 5064),
+        (10, 10, 10, 5064),
+        (11, 13, 13, 5064),
+        (13, 8, 8, 32),
+        (12, 12, 12, 41),
+    ];
+    for (index, (cw, ch, line, count)) in expect.into_iter().enumerate() {
+        let font = Font::parse(archive.raw(index).unwrap()).unwrap();
+        assert_eq!(
+            (
+                font.cell_width,
+                font.cell_height,
+                font.line_height,
+                font.glyph_count()
+            ),
+            (cw, ch, line, count),
+            "font {index}"
+        );
+        for g in 0..font.glyph_count() as u16 {
+            assert_eq!(
+                font.advance_of(g),
+                font.glyph(g).unwrap().advance,
+                "font {index} glyph {g}"
+            );
+        }
+    }
+    let main = Font::parse(archive.raw(0).unwrap()).unwrap();
+    assert_eq!(main.glyph_index(b' ' as u16), 0);
+    assert_eq!(main.glyph_index(b'A' as u16), 33);
+    assert_eq!(main.glyph_index(b'?' as u16), main.missing_glyph);
+    // Hiragana and katakana are mapped too.
+    assert_ne!(main.glyph_index(0x3042), 0);
+    assert_ne!(main.glyph_index(0x30A2), 0);
+}

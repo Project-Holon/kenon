@@ -112,9 +112,17 @@ Primary archive: `a/0/0/5` (id 5), 13 members: 0-4 NCLR (each 16 sub-palettes), 
   index 0; hiragana, katakana, full-width forms are direct ranges; Latin-1 and symbol
   ranges are table maps; one 4530-entry sparse scan map covers the rest [V, font.py
   list].
-- The width table chunk (CWDH) is located but its record layout is not decoded; layout
-  uses the metric bytes inside the glyph records instead, which matches the game's
-  renderer (`GF_FONT_DecodeGlyph`, aletheia:src/game/arm9/gf_font.c) [V].
+- The width table chunk (CWDH) is the advance table `GF_FONT_GetProportionalWidth`
+  reads (aletheia:src/game/arm9/gf_font.c; `struct GlyphWidthTable` in
+  printsys_shared_types.h): three class widths, a pad byte, then u32 offsets of a
+  2-bit-per-glyph class table (class 3 means "look further"), a 512-entry s8 hash
+  (slot `(g & 0x1FF) ^ (fold << 3)`, fold the XOR of bits 9-12; a value of 0 or more is
+  the width, `-n` selects chain `n - 1`) and the chains (u8 count, then u16 big-endian
+  glyph and u8 width). A glyph in no chain gets the FINF default advance (byte 6). It
+  agrees with the advance byte of every glyph record: 15265 of 15265 [V, kenon
+  `core/src/nftr.rs` and `core/tests/user_data.rs`].
+- The last CMAP of every font is a scan map over 0x0000-0xFFFF, so the game never
+  follows its next offset, which points just past the end of the file [V].
 - `isFixedWidth` (4th `GF_FONT_Create` argument) switches the width hook to a fixed
   advance; only `irc_ranking.c:871` sets it [V].
 - Palettes #5, #6, #7 are text-window palettes: #5 is loaded into slot 11, 12, 14 or 15
@@ -562,8 +570,8 @@ formats.
 
 ## 16. Gaps
 
-1. **No NFTR decoder in eidos, and no Rust-ready width model.** The width chunk
-   (CWDH) is not decoded in aletheia either; layout metrics come from the glyph records.
+1. **No NFTR decoder in eidos.** kenon now has one (`core/src/nftr.rs`), with the CWDH
+   width table decoded (section 2.1).
    Text control codes inside strings (colour, wait, name tags) are handled by the game's
    print code; their byte-level list is not extracted here.
 2. **`gfl_font.dat` has no reader.** A byte search of the ARM9 image and every overlay

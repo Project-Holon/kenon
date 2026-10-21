@@ -10,5 +10,6 @@ pub mod lz;
 pub mod narc;
 pub mod ncgr;
 pub mod nclr;
+pub mod nftr;
 pub mod nitro;
 pub mod nscr;
