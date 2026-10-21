@@ -357,9 +357,9 @@ eidos-side (needs the game process): M1, M3 to M13, M14 to M17 as listed. M2 has
 - Pokemon Centre: the nurse is a script that calls the same heal command as scripts (see M7).
 - Gym order: Striaton, Nacrene, Castelia, Nimbasa, Driftveil, Mistralton, Icirrus, Opelucid, and the cap follows the badge count unless the player skips; badges are bits of the misc save (`MISC_GetBadge` 0x0200C234, `MISC_CountBadges` 0x0200C258), so a cap by badge count is right even when the gyms are visited out of order, but the "next leader" for a skipped gym would be wrong. A table keyed by badge count is the intended shape.
 
-## 8. The kenon Challenge mod
+## 8. Rules a challenge mod must be able to express
 
-kenon ships one Challenge mod. Each rule below is a setting of that mod. The user decided which rules are on by default and which are options.
+eidos and kenon provide the functions; the mod itself is written by its author, not shipped by kenon. Each rule below must be possible to write, as a setting of such a mod. The Setting column is the author's plan for their own mod.
 
 | Rule | Setting | Needs |
 |---|---|---|
@@ -385,9 +385,9 @@ kenon ships one Challenge mod. Each rule below is a setting of that mod. The use
 | Reload counter and penalty | option | `save.load` `state_in_step` (today), rule cells |
 | Soul Link type clause | option | M3, M36 |
 
-The Challenge mod needs a numeric setting for counts and caps (Centre visits, cap offset). Settings are bool or choice today: M37.
+A challenge mod needs a numeric setting for counts and caps (Centre visits, cap offset). Settings are bool or choice today: M37.
 
-### Missing functions for the Challenge mod
+### Missing functions for these rules
 
 | # | Need | Proposed shape |
 |---|---|---|
