@@ -794,8 +794,18 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     cells: Some(2),
                     anims: None,
                     // The battle picture +1 with cells +2, animation +3,
-                    // multi-cell +4.
-                    rig: Some([8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
+                    // multi-cell +4. Only animated graphics have a bank of
+                    // their own (2D, laid on the picture's frames); the rest
+                    // carry the shared one-cell bank, which does not fit the
+                    // picture.
+                    rig: archive
+                        .raw(8 * g + 2)
+                        .ok()
+                        .and_then(|raw| {
+                            crate::ncer::Ncer::parse(&crate::lz::decompress_if_compressed(raw)).ok()
+                        })
+                        .filter(|bank| bank.mapping == 4)
+                        .map(|_| [8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
                 })
                 .collect()
         }

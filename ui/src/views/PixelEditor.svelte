@@ -369,7 +369,15 @@
       <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} version={tilesDirty || paletteDirty ? -1 : 0} />
     {/key}
   {/if}
-  <div class="stage" bind:this={stage}>
+  <div
+    class="stage"
+    bind:this={stage}
+    onwheel={(e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoom = Math.max(1, Math.min(maxZoom, zoom + (e.deltaY < 0 ? 1 : -1)));
+    }}
+  >
     {#if error}
       <p class="bad">{error}</p>
     {:else if !data}
@@ -424,9 +432,11 @@
 </div>
 
 <style>
+  /* The stage takes the room left over and scrolls; the bars around it
+     stay put whatever the zoom. */
   .pixel-editor {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -459,6 +469,8 @@
     flex: 1;
   }
   .stage {
+    flex: 1 1 0;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     padding: 1rem;
@@ -474,6 +486,9 @@
   .sheet {
     display: block;
     cursor: crosshair;
+  }
+  .pixel-editor > :global(:not(.stage)) {
+    flex: none;
   }
   .palette {
     display: flex;

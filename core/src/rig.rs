@@ -185,7 +185,7 @@ pub struct Animation {
     pub durations: Vec<u32>,
 }
 
-/// Plays group 0 of a rig over one loop of its longest node sequence
+/// Plays the first moving group of a rig over one loop of its longest node sequence
 /// (capped at 10 seconds), keeping only the moments something changes, all
 /// on one canvas so the frames line up.
 pub fn animate(
@@ -195,7 +195,16 @@ pub fn animate(
     anims: &Nanr,
     rig: &Nmcr,
 ) -> Option<Animation> {
-    let nodes = rig.groups.first()?;
+    // The first group that moves (trainers keep a still pose in group 0).
+    let moves = |nodes: &&Vec<Node>| {
+        nodes.iter().any(|n| {
+            anims
+                .sequences
+                .get(n.sequence as usize)
+                .is_some_and(|s| s.frames.len() > 1)
+        })
+    };
+    let nodes = rig.groups.iter().find(moves).or(rig.groups.first())?;
     let total = |seq: &crate::nanr::Sequence| -> u32 {
         seq.frames.iter().map(|f| (f.duration as u32).max(1)).sum()
     };

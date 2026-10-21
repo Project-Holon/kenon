@@ -538,7 +538,15 @@
         {/if}
       </aside>
 
-      <div class="stage" bind:this={stage}>
+      <div
+        class="stage"
+        bind:this={stage}
+        onwheel={(e) => {
+          if (!e.ctrlKey) return;
+          e.preventDefault();
+          scale = Math.max(3, Math.min(32, scale + (e.deltaY < 0 ? 1 : -1)));
+        }}
+      >
         {#if map}
           <div class="canvas" class:events={layer === "events"} style="width: {map.width * scale}px; height: {map.height * scale}px">
             <canvas
