@@ -285,6 +285,99 @@ impl Sdat {
     pub fn wave_archive_file(&self, index: u32) -> Option<&[u8]> {
         self.file(self.wave_archive_file_id(index)?)
     }
+
+    /// The whole SDAT image.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// The FAT entry of a file: where it starts and how long it is.
+    fn fat_entry(&self, file_id: u32) -> Option<(usize, usize)> {
+        if file_id >= self.fat_count {
+            return None;
+        }
+        let at = self.fat + 0xC + file_id as usize * 16;
+        Some((
+            read_u32(&self.bytes, at).ok()? as usize,
+            read_u32(&self.bytes, at + 4).ok()? as usize,
+        ))
+    }
+
+    /// The SDAT image with FAT file `file_id` replaced by `new`.
+    ///
+    /// The files keep their order and their alignment: each starts where
+    /// it did, moved by the change in size of the files before it, in
+    /// whole 32-byte steps. Header, SYMB, INFO and every other file are
+    /// byte for byte what they were; only the FAT offsets of later files,
+    /// the FILE block size and the file size in the header change.
+    pub fn replace_file(&self, file_id: u32, new: &[u8]) -> Result<Vec<u8>, Error> {
+        const ALIGN: usize = 32;
+        let (old_off, old_len) = self.fat_entry(file_id).ok_or(Error::Bad("no such file"))?;
+        let file_off = read_u32(&self.bytes, 0x28)? as usize;
+        let file_size = read_u32(&self.bytes, 0x2C)? as usize;
+        let end = file_off + file_size;
+        if old_off + old_len > end || end > self.bytes.len() {
+            return Err(Error::Bad("file lies outside the FILE block"));
+        }
+        // Every file in file order, to find where the replaced one's slot
+        // ends and which files lie after it.
+        let mut starts: Vec<(usize, usize)> = (0..self.fat_count)
+            .filter_map(|id| self.fat_entry(id).map(|(o, _)| (o, id as usize)))
+            .collect();
+        starts.sort_unstable();
+        // The slot runs to the next distinct start (or the block end).
+        let next = starts
+            .iter()
+            .map(|&(o, _)| o)
+            .find(|&o| o > old_off)
+            .unwrap_or(end);
+        if starts
+            .iter()
+            .any(|&(o, id)| o == old_off && id != file_id as usize)
+        {
+            return Err(Error::Bad("another file id uses the same bytes"));
+        }
+        if starts
+            .iter()
+            .any(|&(o, _)| o > old_off && o < old_off + old_len)
+        {
+            return Err(Error::Bad("files overlap"));
+        }
+        let new_slot = new.len().div_ceil(ALIGN) * ALIGN;
+        let old_slot = next - old_off;
+        let delta = new_slot as isize - old_slot as isize;
+
+        let mut out = Vec::with_capacity((self.bytes.len() as isize + delta) as usize);
+        out.extend_from_slice(&self.bytes[..old_off]);
+        out.extend_from_slice(new);
+        out.resize(old_off + new_slot, 0);
+        out.extend_from_slice(&self.bytes[next..]);
+
+        let put = |out: &mut Vec<u8>, at: usize, v: usize| {
+            out[at..at + 4].copy_from_slice(&(v as u32).to_le_bytes())
+        };
+        put(&mut out, 0x08, (self.bytes.len() as isize + delta) as usize);
+        put(&mut out, 0x2C, (file_size as isize + delta) as usize);
+        // The FILE block's own size is the same number as the header's.
+        put(
+            &mut out,
+            file_off + 4,
+            (file_size as isize + delta) as usize,
+        );
+        put(
+            &mut out,
+            self.fat + 0xC + file_id as usize * 16 + 4,
+            new.len(),
+        );
+        for id in 0..self.fat_count {
+            let (o, _) = self.fat_entry(id).unwrap();
+            if o >= next {
+                let at = self.fat + 0xC + id as usize * 16;
+                put(&mut out, at, (o as isize + delta) as usize);
+            }
+        }
+        Ok(out)
+    }
 }
 
 /// Builds a small SDAT for tests in this crate: named records of the three

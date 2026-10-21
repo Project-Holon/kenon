@@ -89,6 +89,23 @@ export const archives = () => once("archives", () => invoke<ArchiveInfo[]>("arch
 export const members = (arc: number) => once(`members/${arc}`, () => invoke<MemberInfo[]>("members", { arc }));
 export const changedMembers = (arc: number) => invoke<number[]>("changed_members", { arc });
 export const sounds = () => once("sounds", () => invoke<SoundInfo[]>("sounds"));
+export interface AudioSummary {
+  seconds: number;
+  rate: number;
+  format: string;
+  bytes: number;
+  source: string;
+  note: string | null;
+}
+export interface AudioChanges {
+  cries: number[];
+  sounds: number[];
+}
+export const importCry = (species: number, path: string) => invoke<AudioSummary>("import_cry", { species, path });
+export const importSound = (id: number, path: string) => invoke<AudioSummary>("import_sound", { id, path });
+export const revertCry = (species: number) => invoke<void>("revert_cry", { species });
+export const revertSound = (id: number) => invoke<void>("revert_sound", { id });
+export const audioChanges = () => invoke<AudioChanges>("audio_changes");
 export const textBank = (arc: number, bank: number) => invoke<string[]>("text_bank", { arc, bank });
 export const saveTextBank = (arc: number, bank: number, strings: string[]) =>
   invoke<void>("save_text_bank", { arc, bank, strings });

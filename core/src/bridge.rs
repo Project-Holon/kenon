@@ -183,7 +183,8 @@ pub struct Bridge {
     project: Option<Arc<Project>>,
     code: Option<CodeImages>,
     archives: Mutex<HashMap<u16, Arc<narc::Narc>>>,
-    sdat: std::sync::OnceLock<Option<Arc<crate::sdat::Sdat>>>,
+    /// The sound archive, read when first asked for and after an edit.
+    sdat: Mutex<Option<Option<Arc<crate::sdat::Sdat>>>>,
     /// The cell bank that assembles each sheet, once found.
     cell_banks: Mutex<HashMap<Member, Option<usize>>>,
     /// Listings and names, made once per game and dropped on an edit:
@@ -203,7 +204,7 @@ impl Bridge {
             code: source.code(),
             source,
             project: None,
-            sdat: std::sync::OnceLock::new(),
+            sdat: Mutex::new(None),
             cell_banks: Mutex::new(HashMap::new()),
             listings: Mutex::new(HashMap::new()),
             archives: Mutex::new(HashMap::new()),
@@ -234,11 +235,15 @@ impl Bridge {
         self.project.as_ref()
     }
 
-    /// The sound archive, read once.
+    /// The sound archive, the project's version when it has one.
     pub fn sdat(&self) -> Option<Arc<crate::sdat::Sdat>> {
-        self.sdat
-            .get_or_init(|| {
-                let bytes = self.source.read(crate::catalog::SOUND_ARCHIVE).ok()?;
+        let name = crate::catalog::SOUND_ARCHIVE;
+        lock(&self.sdat)
+            .get_or_insert_with(|| {
+                let bytes = match self.project.as_ref().and_then(|p| p.file(name)) {
+                    Some(bytes) => bytes,
+                    None => self.source.read(name).ok()?,
+                };
                 crate::sdat::Sdat::parse(bytes).ok().map(Arc::new)
             })
             .clone()
@@ -289,6 +294,7 @@ impl Bridge {
     /// Forgets cached results, after the project changed something.
     pub fn invalidate(&self) {
         lock(&self.served).clear();
+        *lock(&self.sdat) = None;
         lock(&self.fonts).clear();
         lock(&self.listings).clear();
     }

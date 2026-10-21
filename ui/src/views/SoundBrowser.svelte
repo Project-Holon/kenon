@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { asset, sounds, type SoundInfo } from "../lib/backend";
+  import { open } from "@tauri-apps/plugin-dialog";
+  import { asset, audioChanges, importSound, revertSound, sounds, type AudioSummary, type SoundInfo } from "../lib/backend";
   import VirtualList from "../lib/VirtualList.svelte";
   import { debounced } from "../lib/cache.svelte";
   import { copyText, guarded, saveWav } from "../lib/exporter";
-  import { openMenu } from "../lib/menu.svelte";
+  import { openMenu, toast } from "../lib/menu.svelte";
 
   let { group }: { group: SoundInfo["group"] } = $props();
 
@@ -15,8 +16,20 @@
   let loaded = $state(false);
   let error = $state<string | null>(null);
   let audio: HTMLAudioElement | null = null;
+  let selected = $state<SoundInfo | null>(null);
+  // Sounds whose wave the project replaced, and a counter that makes the
+  // web view fetch a replaced sound again.
+  let changed = $state<Set<number>>(new Set());
+  let version = $state(0);
+  let busy = $state(false);
+
+  const refresh = () =>
+    audioChanges()
+      .then((c) => (changed = new Set(c.sounds)))
+      .catch(() => {});
 
   onMount(() => {
+    refresh();
     sounds()
       .then((all) => (list = all.filter((s) => s.group === group)))
       .catch((e) => (error = String(e)))
@@ -52,10 +65,51 @@
         run: guarded(() => saveWav(`sound/${s.index}?seconds=${group === "music" ? 240 : 30}`, pretty(s.name))),
       },
       "-",
+      { label: "Replace with WAV...", run: () => replace(s) },
+      { label: "Revert to game", run: () => revert(s), disabled: !changed.has(s.index) },
+      "-",
       { label: "Copy name", run: () => copyText(pretty(s.name)) },
     ]);
 
+  // "0.4 s, 22050 Hz, IMA-ADPCM" and what the import did to the file.
+  const describe = (r: AudioSummary) =>
+    `${r.seconds.toFixed(1)} s, ${r.rate} Hz, ${r.format}.${r.note ? " " + r.note : ""}`;
+
+  async function replace(s: SoundInfo) {
+    selected = s;
+    const path = await open({ title: "Choose a WAV", filters: [{ name: "WAV sound", extensions: ["wav"] }] });
+    if (typeof path !== "string") return;
+    busy = true;
+    error = null;
+    try {
+      const summary = await importSound(s.index, path);
+      version++;
+      await refresh();
+      toast(`${pretty(s.name)} replaced: ${describe(summary)}`);
+      // Played at once, from the start.
+      playing = null;
+      toggle(s);
+    } catch (err) {
+      error = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function revert(s: SoundInfo) {
+    error = null;
+    try {
+      await revertSound(s.index);
+      version++;
+      await refresh();
+      toast(`${pretty(s.name)} is the game's again`);
+    } catch (err) {
+      error = String(err);
+    }
+  }
+
   function toggle(s: SoundInfo) {
+    selected = s;
     audio?.pause();
     // Cleared first, so the interrupted play() below reads as stopped.
     audio = null;
@@ -67,7 +121,7 @@
     error = null;
     loading = s.index;
     // Music loops: render a minute of it.
-    const a = new Audio(asset(`sound/${s.index}?seconds=${group === "music" ? 60 : 10}`));
+    const a = new Audio(asset(`sound/${s.index}?seconds=${group === "music" ? 60 : 10}`, version));
     audio = a;
     // A clip that was stopped must not touch the state of the next one.
     a.oncanplay = () => audio === a && (loading = null);
@@ -88,17 +142,30 @@
   <div class="head">
     <input class="search" placeholder={loaded ? `Search ${list.length} ${noun}` : "Search"} bind:value={filter} />
     {#if group === "music"}<span class="muted">Plays the first minute.</span>{/if}
+    {#if selected}
+      <span class="muted pick">{pretty(selected.name)}</span>
+      <button disabled={busy} onclick={() => replace(selected!)}>Replace with WAV...</button>
+      {#if changed.has(selected.index)}<button onclick={() => revert(selected!)}>Revert to game</button>{/if}
+    {/if}
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
     <VirtualList items={shown} height={42} key={(s) => s.index} label="Sounds">
       {#snippet row(s)}
-        <div class="row-item sound" role="presentation" aria-current={playing === s.index} oncontextmenu={(e) => menu(e, s)}>
+        <div
+          class="row-item sound"
+          role="presentation"
+          aria-current={playing === s.index}
+          class:picked={selected?.index === s.index}
+          onclick={() => (selected = s)}
+          oncontextmenu={(e) => ((selected = s), menu(e, s))}
+        >
           <button class="play" onclick={() => toggle(s)} aria-label={playing === s.index ? "Stop" : "Play"}>
             {loading === s.index ? "..." : playing === s.index ? "Stop" : "Play"}
           </button>
           <span class="label">{pretty(s.name)}</span>
           <code class="muted name">{s.name}</code>
+          {#if changed.has(s.index)}<span class="tag changed">Replaced</span>{/if}
           <span class="tag" title="Sound number">#{s.index}</span>
         </div>
       {/snippet}
@@ -137,6 +204,12 @@
     min-width: 4.2rem;
     padding: 0.2rem 0.6rem;
   }
+  .pick {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -145,6 +218,9 @@
   }
   .row-item[aria-current="true"] .muted {
     color: inherit;
+  }
+  .row-item.picked {
+    border-color: var(--outline);
   }
   .pad {
     padding: 1rem;

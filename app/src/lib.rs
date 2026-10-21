@@ -244,6 +244,53 @@ async fn sounds(state: State<'_, AppState>) -> Result<Vec<SoundInfo>, String> {
     Ok(catalog::sounds(&sdat))
 }
 
+/// Puts a WAV file in place of a Pokemon's cry.
+#[tauri::command]
+async fn import_cry(
+    state: State<'_, AppState>,
+    species: u32,
+    path: PathBuf,
+) -> Result<kenon_core::audio_import::AudioSummary, String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    kenon_core::audio_import::import_cry(&bridge, species, &bytes).map_err(|e| e.to_string())
+}
+
+/// Puts a WAV file in place of the wave a sound plays.
+#[tauri::command]
+async fn import_sound(
+    state: State<'_, AppState>,
+    id: u32,
+    path: PathBuf,
+) -> Result<kenon_core::audio_import::AudioSummary, String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    kenon_core::audio_import::import_sound(&bridge, id, &bytes).map_err(|e| e.to_string())
+}
+
+/// Puts the game's cry back.
+#[tauri::command]
+async fn revert_cry(state: State<'_, AppState>, species: u32) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::audio_import::revert_cry(&bridge, species).map_err(|e| e.to_string())
+}
+
+/// Puts the game's wave back in a sound.
+#[tauri::command]
+async fn revert_sound(state: State<'_, AppState>, id: u32) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::audio_import::revert_sound(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// The cries and sounds the project has replaced.
+#[tauri::command]
+async fn audio_changes(
+    state: State<'_, AppState>,
+) -> Result<kenon_core::audio_import::AudioChanges, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::audio_import::changes(&bridge).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn text_bank(
     state: State<'_, AppState>,
@@ -1169,6 +1216,11 @@ pub fn run() {
             members,
             changed_members,
             sounds,
+            import_cry,
+            import_sound,
+            revert_cry,
+            revert_sound,
+            audio_changes,
             text_bank,
             save_text_bank,
             sheet_data,
