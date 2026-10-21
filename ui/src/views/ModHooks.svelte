@@ -51,7 +51,8 @@
   $effect(() => {
     const t = watched.value;
     void setVersion;
-    if (readOnly || !loaded) return;
+    // A value from before the load (or an older edit) is stale: skip it.
+    if (readOnly || !loaded || t !== text) return;
     const my = ++seq;
     modCheckHooks(t)
       .then((c) => my === seq && (check = c))

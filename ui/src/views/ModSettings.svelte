@@ -48,6 +48,7 @@
       form = { ...settings };
       original = { ...settings };
       apiVersion = api;
+      problems = await modCheckSettings(clean(settings));
     } catch (e) {
       error = String(e);
     }
@@ -63,7 +64,8 @@
   let seq = 0;
   $effect(() => {
     const text = watched.value;
-    if (readOnly || !loaded) return;
+    // A value from before the load (or an older edit) is stale: skip it.
+    if (readOnly || !loaded || text !== JSON.stringify(clean(form))) return;
     const my = ++seq;
     modCheckSettings(JSON.parse(text))
       .then((d) => my === seq && (problems = d))

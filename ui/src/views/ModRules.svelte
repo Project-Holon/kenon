@@ -86,7 +86,8 @@
   let seq = 0;
   $effect(() => {
     const t = watched.value;
-    if (readOnly || path === null) return;
+    // A value from another file (or an older edit) is stale: skip it.
+    if (readOnly || path === null || t !== text) return;
     const my = ++seq;
     modCheckRule(t)
       .then((d) => my === seq && (problems = d))

@@ -68,8 +68,10 @@
   const watched = debounced(() => JSON.stringify(clean(options)), 200);
   let seq = 0;
   $effect(() => {
-    const list: OptionDecl[] = JSON.parse(watched.value);
-    if (!loaded) return;
+    const text = watched.value;
+    // A value from before the load (or an older edit) is stale: skip it.
+    if (!loaded || text !== JSON.stringify(clean(options))) return;
+    const list: OptionDecl[] = JSON.parse(text);
     const my = ++seq;
     modCheckOptions(list)
       .then((d) => my === seq && (problems = d))
