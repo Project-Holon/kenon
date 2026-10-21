@@ -817,6 +817,22 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                 })
                 .collect()
         }
+        // Back sprites (the player throwing a ball): the same 8-member
+        // layout as trainer sprites, but every one is animated, so the sheet
+        // shown is the battle picture (a plain bitmap of the frames) with
+        // its rig.
+        73 => (0..archive.len() / 8)
+            .map(|g| NamedSheet {
+                label: format!("Back sprite {}", g + 1),
+                chr: 8 * g + 1,
+                pal: 8 * g + 7,
+                palettes: Vec::new(),
+                palette_offset: 0,
+                cells: None,
+                anims: None,
+                rig: Some([8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
+            })
+            .collect(),
         _ => return Ok(None),
     };
     Ok(Some(sheets))

@@ -168,11 +168,13 @@
 
   function choose(item: Item, sound = true) {
     if (item === selected) return;
-    if (selected && !guard(`open ${item.label}`, () => choose(item, sound))) return;
-    if (sound) play("select");
-    dirty = false;
-    selected = item;
-    palette = item.pal;
+    // Opens it now, or once unsaved edits are dropped (guard runs it once).
+    guard(`open ${item.label}`, () => {
+      if (sound) play("select");
+      dirty = false;
+      selected = item;
+      palette = item.pal;
+    });
   }
 
   function setMode(m: "picture" | "animation") {
@@ -216,6 +218,9 @@
       ? asset(`screen/${arc}:${i.chr}/${arc}:${i.pal}/${arc}:${i.scr}`, version)
       : i.pal === null
       ? ""
+      : i.rig && i.cells === null && arc !== null
+      ? // A picture kept in parts: the first frame of its animation.
+        asset(`rigframe/${arc}:${i.rig[0]}/${arc}:${i.pal}/${arc}:${i.rig[1]}/${arc}:${i.rig[2]}/${arc}:${i.rig[3]}/0`, version)
       : asset(
           `preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}` +
             (i.cells === undefined ? "" : `&cells=${i.cells ?? "none"}`),

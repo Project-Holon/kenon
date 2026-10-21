@@ -1260,7 +1260,45 @@ impl Projection {
     /// picture on top of everything, its bottom edge on the tile's bottom
     /// edge as the editor draws it; in the camera it stands on the ground
     /// and turns about the vertical axis to face the camera.
-    fn project_person(&self, x: f32, ground: f32, z: f32, tex: &Tex, out: &mut Vec<[SV; 3]>) {
+    /// A person's round shadow on the ground (camera view only, as the
+    /// field draws one under every character).
+    fn project_shadow(&self, x: f32, ground: f32, z: f32, out: &mut Vec<[SV; 3]>) {
+        let Projection::Camera(cam) = self else {
+            return;
+        };
+        const SEGMENTS: usize = 16;
+        let (rx, rz) = (9.0, 5.0);
+        let at = |a: f32| {
+            cam.view(&V {
+                p: [x + rx * a.cos(), ground + 0.4, z + rz * a.sin()],
+                uv: [0.0; 2],
+                c: [0.0; 3],
+            })
+        };
+        let centre = cam.view(&V {
+            p: [x, ground + 0.4, z],
+            uv: [0.0; 2],
+            c: [0.0; 3],
+        });
+        for i in 0..SEGMENTS {
+            let a0 = i as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+            let a1 = (i + 1) as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+            let t = [centre, at(a0), at(a1)];
+            if !cam.outside(&t) {
+                cam.screen(&t, out);
+            }
+        }
+    }
+
+    fn project_person(
+        &self,
+        x: f32,
+        ground: f32,
+        z: f32,
+        tex: &Tex,
+        tint: [f32; 3],
+        out: &mut Vec<[SV; 3]>,
+    ) {
         let half = PERSON_SIZE / 2.0;
         let (tw, th) = (tex.img.width as f32, tex.img.height as f32);
         match self {
@@ -1272,7 +1310,7 @@ impl Projection {
                     depth: 1.0e6,
                     iw: 1.0,
                     uv: [u, v],
-                    c: [1.0; 3],
+                    c: tint,
                 };
                 let a = corner(-half, PERSON_SIZE, 0.0, 0.0);
                 let b = corner(half, PERSON_SIZE, tw, 0.0);
@@ -1292,7 +1330,7 @@ impl Projection {
                     cam.view(&V {
                         p,
                         uv: [u, v],
-                        c: [1.0; 3],
+                        c: tint,
                     })
                 };
                 let a = corner(-half, PERSON_SIZE, 0.0, 0.0);
@@ -1314,6 +1352,13 @@ const THREAD_MIN_SAMPLES: usize = 60_000;
 
 fn draw(screen: &mut Screen, scene: &Scene, people: &[Person], proj: &Projection) {
     let mut tris: Vec<[SV; 3]> = Vec::with_capacity(4);
+    // People take the time of day's light: full at noon, dimmer and bluer
+    // at night (the sum of the field lights against plain daylight).
+    let tint = scene.lights.as_ref().map_or([1.0; 3], |l| {
+        let day = Lights::fixed();
+        let sum = |x: &Lights, k: usize| x.color.iter().map(|c| c[k]).sum::<f32>();
+        [0, 1, 2].map(|k| (sum(l, k) / sum(&day, k).max(0.01)).clamp(0.35, 1.0))
+    });
     let spots: Vec<(f32, f32, f32)> = people
         .iter()
         .map(|p| {
@@ -1336,17 +1381,34 @@ fn draw(screen: &mut Screen, scene: &Scene, people: &[Person], proj: &Projection
             surfaces.push(Surface::of(p));
             jobs.extend(tris.iter().map(|t| (surfaces.len() as u32 - 1, *t)));
         }
+        // Shadows are see-through: drawn with the translucent pass, under
+        // the people that follow.
+        if translucent && !people.is_empty() {
+            tris.clear();
+            for &(x, y, z) in &spots {
+                proj.project_shadow(x, y, z, &mut tris);
+            }
+            surfaces.push(Surface {
+                tex: None,
+                alpha: 15,
+                cull: Cull::Both,
+                vertex_color: true,
+                repeat: [false; 2],
+                flip: [false; 2],
+            });
+            jobs.extend(tris.iter().map(|t| (surfaces.len() as u32 - 1, *t)));
+        }
         for (person, &(x, y, z)) in people.iter().zip(&spots) {
             if person.tex.partial != translucent {
                 continue;
             }
             tris.clear();
-            proj.project_person(x, y, z, &person.tex, &mut tris);
+            proj.project_person(x, y, z, &person.tex, tint, &mut tris);
             surfaces.push(Surface {
                 tex: Some(&person.tex),
                 alpha: 31,
                 cull: Cull::Both,
-                vertex_color: false,
+                vertex_color: true,
                 repeat: [false; 2],
                 flip: [false; 2],
             });
