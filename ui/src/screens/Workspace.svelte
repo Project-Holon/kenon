@@ -16,6 +16,10 @@
   import TextureBrowser from "../views/TextureBrowser.svelte";
   import WorldMap from "../views/WorldMap.svelte";
   import TableEditor from "../views/TableEditor.svelte";
+  import ModSettings from "../views/ModSettings.svelte";
+  import ModHooks from "../views/ModHooks.svelte";
+  import ModRules from "../views/ModRules.svelte";
+  import ModConflicts from "../views/ModConflicts.svelte";
 
   let {
     status,
@@ -203,6 +207,16 @@
         <CryBrowser />
       {:else if current.kind === "files"}
         <FilesBrowser {version} onGo={openAt} />
+      {:else if current.kind === "mod"}
+        {#if current.view === "settings"}
+          <ModSettings {readOnly} onSaved={saved} />
+        {:else if current.view === "hooks"}
+          <ModHooks {readOnly} onSaved={saved} />
+        {:else if current.view === "rules"}
+          <ModRules {readOnly} onSaved={saved} />
+        {:else}
+          <ModConflicts {readOnly} />
+        {/if}
       {:else}
         <TableEditor tables={current.tables} {readOnly} {version} {start} onSaved={saved} />
       {/if}

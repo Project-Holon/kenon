@@ -15,6 +15,11 @@ pub struct Settings {
     pub game: Option<PathBuf>,
     /// Recently opened projects, newest first.
     pub recent: Vec<PathBuf>,
+    /// The folder eidos loads mods from, for the conflict hints.
+    pub mods_folder: Option<PathBuf>,
+    /// eidos's `mod/declared_set.txt`, when it is not found beside the mods
+    /// folder.
+    pub declared_set: Option<PathBuf>,
 }
 
 impl Settings {
@@ -49,6 +54,8 @@ mod tests {
         let settings = Settings {
             game: Some(dir.path().join("black.nds")),
             recent: vec![dir.path().join("mod")],
+            mods_folder: Some(dir.path().join("mods")),
+            declared_set: None,
         };
         settings.save(&path).unwrap();
         assert_eq!(Settings::load(&path), settings);

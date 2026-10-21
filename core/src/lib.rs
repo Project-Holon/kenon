@@ -14,6 +14,7 @@ pub mod g3d;
 pub mod image;
 pub mod lz;
 pub mod maprender;
+pub mod modcode;
 pub mod msg;
 pub mod nanr;
 pub mod narc;

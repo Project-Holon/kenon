@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use kenon_core::bridge::{Bridge, Member};
 use kenon_core::catalog::{self, ArchiveInfo, Layout, MemberInfo, SheetData, SoundInfo};
 use kenon_core::data_root;
+use kenon_core::modcode;
 use kenon_core::project::{Change, Project};
 use kenon_core::source::{self, GameCheck, Source};
 use kenon_core::tables;
@@ -624,6 +625,29 @@ async fn trainer_classes(state: State<'_, AppState>) -> Result<Vec<i64>, String>
 }
 
 #[tauri::command]
+async fn write_tiles(
+    state: State<'_, AppState>,
+    zone: usize,
+    tiles: Vec<(usize, usize, u16, u16)>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::write_tiles(&bridge, zone, &tiles).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn move_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::move_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn event_record(
     state: State<'_, AppState>,
     zone: usize,
@@ -703,6 +727,241 @@ async fn move_types(state: State<'_, AppState>) -> Result<Vec<u8>, String> {
         .collect())
 }
 
+#[tauri::command]
+async fn copy_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::copy_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_trainer(
+    state: State<'_, AppState>,
+    zone: usize,
+    index: usize,
+    trainer: Option<u16>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_trainer(&bridge, zone, index, trainer).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
+}
+
+// The mod code editors (core/src/modcode.rs). Each command that changes the
+// manifest reopens the project, so the copy the app holds matches the disk.
+
+fn mod_root(state: &AppState) -> Result<PathBuf, String> {
+    let open = state.open.read().unwrap();
+    open.project
+        .as_ref()
+        .map(|p| p.root.clone())
+        .ok_or_else(|| "open a project first".to_string())
+}
+
+fn reload_project(state: &AppState) -> Result<(), String> {
+    let root = mod_root(state)?;
+    let project = Project::open(&root).map_err(|e| e.to_string())?;
+    set_project(state, Some(project));
+    Ok(())
+}
+
+/// The manifest form, how many hook lines the mod has, and the api the port
+/// accepts.
+#[tauri::command]
+fn mod_get_settings(state: State<AppState>) -> Result<(modcode::ModSettings, usize, u32), String> {
+    let root = mod_root(&state)?;
+    let settings = modcode::read_settings(&root).map_err(|e| e.to_string())?;
+    let hooks = modcode::read_overrides(&root).map_err(|e| e.to_string())?;
+    Ok((settings, hooks.lines().count(), modcode::API_VERSION))
+}
+
+#[tauri::command]
+fn mod_check_settings(
+    state: State<AppState>,
+    settings: modcode::ModSettings,
+) -> Result<Vec<modcode::Diagnostic>, String> {
+    let root = mod_root(&state)?;
+    let hooks = modcode::read_overrides(&root).map_err(|e| e.to_string())?;
+    Ok(modcode::check_settings(&settings, hooks.lines().count()))
+}
+
+#[tauri::command]
+fn mod_save_settings(state: State<AppState>, settings: modcode::ModSettings) -> Result<(), String> {
+    let root = mod_root(&state)?;
+    modcode::write_settings(&root, &settings).map_err(|e| e.to_string())?;
+    reload_project(&state)
+}
+
+/// The declared set: the chosen file, else the one beside the mods folder.
+fn declared_set(state: &AppState) -> Option<modcode::DeclaredSet> {
+    let settings = state.settings.lock().unwrap();
+    let path = settings.declared_set.clone().or_else(|| {
+        settings
+            .mods_folder
+            .as_deref()
+            .and_then(modcode::declared_set_near)
+    })?;
+    modcode::DeclaredSet::load(&path).ok()
+}
+
+#[tauri::command]
+fn mod_get_hooks(state: State<AppState>) -> Result<String, String> {
+    let root = mod_root(&state)?;
+    modcode::read_overrides(&root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_check_hooks(state: State<AppState>, text: String) -> modcode::HooksCheck {
+    modcode::check_overrides(&text, declared_set(&state).as_ref())
+}
+
+#[tauri::command]
+fn mod_save_hooks(state: State<AppState>, text: String) -> Result<(), String> {
+    let root = mod_root(&state)?;
+    modcode::write_overrides(&root, &text).map_err(|e| e.to_string())?;
+    reload_project(&state)
+}
+
+/// The hookable functions as `[region, address, function, events]`, for
+/// completion; empty when no declared set is found.
+#[tauri::command]
+fn mod_declared(state: State<AppState>) -> Vec<(String, String, String, Vec<String>)> {
+    declared_set(&state)
+        .map(|set| {
+            set.rows()
+                .into_iter()
+                .map(|(region, addr, row)| {
+                    (
+                        region,
+                        format!("0x{addr:08X}"),
+                        row.function.clone(),
+                        row.events.clone(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn mod_rule_names() -> &'static modcode::Names {
+    modcode::rule_names()
+}
+
+#[tauri::command]
+fn mod_list_rules(state: State<AppState>) -> Result<Vec<modcode::RuleEntry>, String> {
+    let root = mod_root(&state)?;
+    modcode::list_rules(&root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_read_rule(state: State<AppState>, path: String) -> Result<String, String> {
+    let root = mod_root(&state)?;
+    modcode::read_rule(&root, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mod_check_rule(text: String, event: Option<String>) -> Vec<modcode::Diagnostic> {
+    modcode::check_rule(&text, event.as_deref())
+}
+
+#[tauri::command]
+fn mod_save_rule(
+    state: State<AppState>,
+    path: String,
+    text: String,
+) -> Result<Vec<modcode::Diagnostic>, String> {
+    let root = mod_root(&state)?;
+    let found = modcode::write_rule(&root, &path, &text).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(found)
+}
+
+#[tauri::command]
+fn mod_new_rule(state: State<AppState>, name: String, event: String) -> Result<String, String> {
+    let root = mod_root(&state)?;
+    let path = modcode::new_rule(&root, &name, &event).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(path)
+}
+
+#[tauri::command]
+fn mod_rename_rule(state: State<AppState>, from: String, to: String) -> Result<String, String> {
+    let root = mod_root(&state)?;
+    let path = modcode::rename_rule(&root, &from, &to).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(path)
+}
+
+#[tauri::command]
+fn mod_delete_rule(state: State<AppState>, path: String) -> Result<(), String> {
+    let root = mod_root(&state)?;
+    modcode::delete_rule(&root, &path).map_err(|e| e.to_string())?;
+    reload_project(&state)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModPaths {
+    mods_folder: Option<PathBuf>,
+    declared_set: Option<PathBuf>,
+    /// How many functions the declared set in use lists, if one is found.
+    declared_found: Option<usize>,
+}
+
+fn mod_paths(state: &AppState) -> ModPaths {
+    let settings = state.settings.lock().unwrap().clone();
+    ModPaths {
+        mods_folder: settings.mods_folder,
+        declared_set: settings.declared_set,
+        declared_found: declared_set(state).map(|s| s.len()),
+    }
+}
+
+#[tauri::command]
+fn mod_get_paths(state: State<AppState>) -> ModPaths {
+    mod_paths(&state)
+}
+
+#[tauri::command]
+fn mod_set_paths(
+    state: State<AppState>,
+    mods_folder: Option<PathBuf>,
+    declared_set: Option<PathBuf>,
+) -> Result<ModPaths, String> {
+    {
+        let mut settings = state.settings.lock().unwrap();
+        settings.mods_folder = mods_folder;
+        settings.declared_set = declared_set;
+        state.save_settings(&settings)?;
+    }
+    Ok(mod_paths(&state))
+}
+
+#[tauri::command]
+fn mod_conflicts(state: State<AppState>) -> Result<modcode::ConflictReport, String> {
+    let root = mod_root(&state)?;
+    let folder = state
+        .settings
+        .lock()
+        .unwrap()
+        .mods_folder
+        .clone()
+        .ok_or_else(|| "choose the mods folder first".to_string())?;
+    modcode::find_conflicts(&root, &folder)
+        .map_err(|e| format!("could not read the mods folder: {e}"))
+}
+
 /// Writes the bytes of a bridge asset (a picture, a sound, JSON) to a file.
 #[tauri::command]
 async fn export_asset(
@@ -746,59 +1005,6 @@ fn table_archive(table: String) -> Result<u16, String> {
     tables::table(&table)
         .map(|t| t.archive)
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn write_tiles(
-    state: State<'_, AppState>,
-    zone: usize,
-    tiles: Vec<(usize, usize, u16, u16)>,
-) -> Result<(), String> {
-    let bridge = state.need_bridge()?;
-    kenon_core::zonemap::write_tiles(&bridge, zone, &tiles).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn move_event(
-    state: State<'_, AppState>,
-    zone: usize,
-    kind: String,
-    index: usize,
-    x: i32,
-    z: i32,
-) -> Result<(), String> {
-    let bridge = state.need_bridge()?;
-    kenon_core::zonemap::move_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn copy_event(
-    state: State<'_, AppState>,
-    zone: usize,
-    kind: String,
-    index: usize,
-    x: i32,
-    z: i32,
-) -> Result<usize, String> {
-    let bridge = state.need_bridge()?;
-    kenon_core::zonemap::copy_event(&bridge, zone, &kind, index, x, z).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn set_trainer(
-    state: State<'_, AppState>,
-    zone: usize,
-    index: usize,
-    trainer: Option<u16>,
-) -> Result<(), String> {
-    let bridge = state.need_bridge()?;
-    kenon_core::zonemap::set_trainer(&bridge, zone, index, trainer).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> Result<(), String> {
-    let bridge = state.need_bridge()?;
-    kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
 }
 
 fn write_out(dest: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -859,6 +1065,10 @@ pub fn run() {
             export_bw,
             import_bw,
             archives,
+            export_asset,
+            export_member,
+            export_text,
+            table_archive,
             members,
             changed_members,
             sounds,
@@ -886,17 +1096,6 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
-            export_asset,
-            export_member,
-            export_text,
-            table_archive,
-            event_record,
-            insert_event,
-            move_events,
-            prop_record,
-            insert_prop,
-            prop_model_names,
-            move_types,
             trainer_classes,
             object_sprites,
             trainer_lines,
@@ -914,8 +1113,33 @@ pub fn run() {
             zones,
             move_event,
             copy_event,
+            event_record,
+            insert_event,
+            move_events,
+            prop_record,
+            insert_prop,
+            prop_model_names,
+            move_types,
             set_trainer,
             set_music,
+            mod_get_settings,
+            mod_check_settings,
+            mod_save_settings,
+            mod_get_hooks,
+            mod_check_hooks,
+            mod_save_hooks,
+            mod_declared,
+            mod_rule_names,
+            mod_list_rules,
+            mod_read_rule,
+            mod_check_rule,
+            mod_save_rule,
+            mod_new_rule,
+            mod_rename_rule,
+            mod_delete_rule,
+            mod_get_paths,
+            mod_set_paths,
+            mod_conflicts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

@@ -9,6 +9,7 @@ export type Category =
   | { id: string; label: string; kind: "files" }
   | { id: string; label: string; kind: "cries" }
   | { id: string; label: string; kind: "worldmap" }
+  | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
 export interface Group {
@@ -101,6 +102,16 @@ export const GROUPS: Group[] = [
     items: [
       { id: "text-system", label: "Names and system text", kind: "text", archive: 2 },
       { id: "text-story", label: "Story and dialogue", kind: "text", archive: 3 },
+    ],
+  },
+  {
+    // The open mod's own settings and code, not game data.
+    label: "Mod",
+    items: [
+      { id: "mod-settings", label: "Mod settings", kind: "mod", view: "settings" },
+      { id: "mod-hooks", label: "Hooks", kind: "mod", view: "hooks" },
+      { id: "mod-rules", label: "Rules", kind: "mod", view: "rules" },
+      { id: "mod-conflicts", label: "Conflicts", kind: "mod", view: "conflicts" },
     ],
   },
   {

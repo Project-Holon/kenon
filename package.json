@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
-    "@tauri-apps/plugin-dialog": "^2.8.3"
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "monaco-editor": "^0.57.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
