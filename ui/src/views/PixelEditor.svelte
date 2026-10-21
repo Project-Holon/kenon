@@ -18,6 +18,7 @@
     readOnly,
     changed,
     palettes,
+    paletteOffset = 0,
     onPalette,
     onSaved,
   }: {
@@ -25,7 +26,10 @@
     pal: Ref;
     readOnly: boolean;
     changed: boolean;
-    palettes: number[];
+    /// The palettes the picture can be shown with: [label, member].
+    palettes: [string, number][];
+    /// The palette bank the game adds for this picture (Pokemon icons).
+    paletteOffset?: number;
     onPalette: (index: number) => void;
     onSaved: () => void;
   } = $props();
@@ -43,7 +47,8 @@
   let cols = $state(16);
   let zoom = $state(4);
   let maxZoom = $state(12);
-  let bank = $state(0);
+  // svelte-ignore state_referenced_locally
+  let bank = $state(paletteOffset);
   let color = $state(1);
   let tool = $state<Tool>("pencil");
   let tilesDirty = $state(false);
@@ -118,7 +123,7 @@
 
   function pixelBase(i: number): number {
     if (!data || data.bpp === 8) return 0;
-    return (view === "cells" ? data.banks[i] : bank) * 16;
+    return (view === "cells" ? data.banks[i] + paletteOffset : bank) * 16;
   }
 
   // Redraw whenever the pixels, palette, layout or bank change.
@@ -194,7 +199,7 @@
     const src = data!.map[i];
     if (e.button === 2 || tool === "picker") {
       color = tiles[src >> 6][src & 63];
-      if (view === "cells" && data!.bpp === 4) bank = data!.banks[i];
+      if (view === "cells" && data!.bpp === 4) bank = data!.banks[i] + paletteOffset;
       play("select");
       return;
     }
@@ -309,7 +314,7 @@
     <label>
       <span class="muted">Palette</span>
       <select value={pal[1]} onchange={(e) => onPalette(Number((e.currentTarget as HTMLSelectElement).value))}>
-        {#each palettes as p}<option value={p}>#{p}</option>{/each}
+        {#each palettes as [name, p]}<option value={p}>{name}</option>{/each}
       </select>
     </label>
     <div class="spacer"></div>

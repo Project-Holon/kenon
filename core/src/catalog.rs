@@ -131,10 +131,11 @@ pub fn sounds(sdat: &Sdat) -> Vec<SoundInfo> {
 pub fn text_bank(bridge: &Bridge, arc: u16, bank: usize) -> Result<Vec<String>, Error> {
     let bytes = bridge.member(Member { arc, index: bank })?;
     let parsed = msg::Bank::parse(&bytes).map_err(|e| Error::Format(e.to_string()))?;
+    let table = bridge.packed_table();
     Ok(parsed
         .messages()
         .iter()
-        .map(|m| msg::Display(&m.units).to_string())
+        .map(|m| msg::display(&m.units, table.as_deref()))
         .collect())
 }
 
@@ -353,7 +354,7 @@ fn project_of(bridge: &Bridge) -> Result<&Arc<crate::project::Project>, Error> {
 }
 
 /// Writes a member into the project, compressed as the game's was.
-fn write(bridge: &Bridge, m: Member, bytes: &[u8]) -> Result<(), Error> {
+pub fn write_member(bridge: &Bridge, m: Member, bytes: &[u8]) -> Result<(), Error> {
     let project = project_of(bridge)?;
     let base = bridge.base_archive(m.arc)?;
     let packed = match base.raw(m.index).ok().and_then(lz::sniff) {
@@ -379,7 +380,7 @@ pub fn save_sheet(bridge: &Bridge, chr: Member, tiles: &[Vec<u8>]) -> Result<(),
         }
     }
     let out = Ncgr::with_data(&file, &ncgr.data).map_err(|e| Error::Format(e.to_string()))?;
-    write(bridge, chr, &out)
+    write_member(bridge, chr, &out)
 }
 
 /// Saves an edited palette (0xRRGGBB, quantised to the DS's 15-bit colour).
@@ -390,7 +391,7 @@ pub fn save_palette(bridge: &Bridge, pal: Member, colors: &[u32]) -> Result<(), 
         .map(|&c| crate::nclr::rgb_to_bgr555((c >> 16) as u8, (c >> 8) as u8, c as u8))
         .collect();
     let out = Palette::with_colors(&file, &colors).map_err(|e| Error::Format(e.to_string()))?;
-    write(bridge, pal, &out)
+    write_member(bridge, pal, &out)
 }
 
 /// Saves a text bank from strings in the display form.
@@ -403,14 +404,15 @@ pub fn save_text_bank(
     let m = Member { arc, index: bank };
     let mut parsed =
         msg::Bank::parse(&bridge.member(m)?).map_err(|e| Error::Format(e.to_string()))?;
+    let table = bridge.packed_table();
     let section = parsed
         .sections
         .first_mut()
         .ok_or_else(|| Error::Format("the bank has no text".into()))?;
     for (message, text) in section.messages.iter_mut().zip(strings) {
-        message.units = msg::parse_display(text).map_err(Error::BadPath)?;
+        message.units = msg::parse(text, table.as_deref()).map_err(Error::BadPath)?;
     }
-    write(bridge, m, &parsed.build())
+    write_member(bridge, m, &parsed.build())
 }
 
 /// Drops the project's version of a member.
@@ -420,6 +422,186 @@ pub fn revert(bridge: &Bridge, m: Member) -> Result<(), Error> {
         .map_err(|e| Error::Missing(e.to_string()))?;
     bridge.invalidate();
     Ok(())
+}
+
+/// A picture the browser lists by name: its tiles, its palette and the
+/// other palettes it can be shown with (shiny, female), and the palette
+/// bank offset the game adds.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedSheet {
+    pub label: String,
+    pub chr: usize,
+    pub pal: usize,
+    /// Other palettes, by name.
+    pub palettes: Vec<(String, usize)>,
+    pub palette_offset: usize,
+}
+
+/// Named pictures for the archives whose member layout is known
+/// (docs/game-data-map.md): Pokemon icons, battle sprites, item icons and
+/// trainer sprites. Names come from the ROM's text banks and tables;
+/// `None` for other archives.
+pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>, Error> {
+    let bank = |b: usize| {
+        crate::tables::bank_strings(
+            bridge,
+            &crate::tables::BankRef {
+                archive: 2,
+                bank: b,
+            },
+        )
+    };
+    let archive = bridge.base_archive(arc)?;
+    let size = |i: usize| archive.raw(i).map_or(0, <[u8]>::len);
+    let code = bridge.code();
+    let species = bank(70);
+    let name = |n: usize| match n {
+        650 => "Egg".to_string(),
+        651 => "Manaphy Egg".to_string(),
+        n => species
+            .get(n)
+            .filter(|s| !s.is_empty())
+            .cloned()
+            .unwrap_or_else(|| format!("Form {}", n.saturating_sub(651))),
+    };
+    let sheets = match arc {
+        // Pokemon icons: species n at 7 + 2n, the female icon after it
+        // when that member is not empty; the palette bank comes from the
+        // nibble table in the ARM9 image (low nibble male, high female).
+        7 => {
+            let mut out = Vec::new();
+            let mut n = 0;
+            while 7 + 2 * n < archive.len() {
+                let nibble = code
+                    .and_then(|c| c.read(crate::code::Image::Arm9, 0x0209_E474 + n as u32, 1))
+                    .map_or(0, |b| b[0]);
+                out.push(NamedSheet {
+                    label: name(n),
+                    chr: 7 + 2 * n,
+                    pal: 0,
+                    palettes: Vec::new(),
+                    palette_offset: (nibble & 0xF) as usize,
+                });
+                if size(8 + 2 * n) > 0 {
+                    out.push(NamedSheet {
+                        label: format!("{} (female)", name(n)),
+                        chr: 8 + 2 * n,
+                        pal: 0,
+                        palettes: Vec::new(),
+                        palette_offset: (nibble >> 4) as usize,
+                    });
+                }
+                n += 1;
+            }
+            out
+        }
+        // Battle sprites: 20 members per species; front sheet +0 (female
+        // +1), back sheet +9 (female +10), palette +18, shiny palette +19.
+        4 => {
+            let mut out = Vec::new();
+            let mut n = 0;
+            while 20 * n + 19 < archive.len() {
+                let block = 20 * n;
+                let shiny = vec![("Shiny".to_string(), block + 19)];
+                for (role, side) in [
+                    (0, "front"),
+                    (1, "front, female"),
+                    (9, "back"),
+                    (10, "back, female"),
+                ] {
+                    if size(block + role) > 0 {
+                        out.push(NamedSheet {
+                            label: format!("{} ({side})", name(n)),
+                            chr: block + role,
+                            pal: block + 18,
+                            palettes: shiny.clone(),
+                            palette_offset: 0,
+                        });
+                    }
+                }
+                n += 1;
+            }
+            out
+        }
+        // Item icons: the ARM9 table pairs each item with a tile and a
+        // palette member; items sharing a picture are listed together.
+        25 => {
+            let Some(code) = code else {
+                return Ok(None);
+            };
+            let items = bank(54);
+            let mut by_tiles: Vec<(usize, usize, Vec<String>)> = Vec::new();
+            for (item, label) in items.iter().enumerate().take(627) {
+                let Some(pair) =
+                    code.read(crate::code::Image::Arm9, 0x0209_EB6C + item as u32 * 4, 4)
+                else {
+                    break;
+                };
+                let chr = u16::from_le_bytes([pair[0], pair[1]]) as usize;
+                let pal = u16::from_le_bytes([pair[2], pair[3]]) as usize;
+                let label = label.clone();
+                if label.is_empty() || label == "???" {
+                    continue;
+                }
+                match by_tiles.iter_mut().find(|(c, p, _)| *c == chr && *p == pal) {
+                    Some((_, _, names)) => names.push(label),
+                    None => by_tiles.push((chr, pal, vec![label])),
+                }
+            }
+            by_tiles
+                .into_iter()
+                .map(|(chr, pal, names)| NamedSheet {
+                    label: if names.len() > 1 {
+                        format!("{} (+{} more)", names[0], names.len() - 1)
+                    } else {
+                        names[0].clone()
+                    },
+                    chr,
+                    pal,
+                    palettes: Vec::new(),
+                    palette_offset: 0,
+                })
+                .collect()
+        }
+        // Trainer sprites: 8 members per graphic, sheet +0, palette +7; the
+        // classes that use a graphic name it (class -> graphic table in the
+        // ARM9 image).
+        72 => {
+            let classes = bank(191);
+            let mut names: Vec<Vec<String>> = vec![Vec::new(); archive.len() / 8];
+            if let Some(code) = code {
+                for (class, label) in classes.iter().enumerate().take(106) {
+                    if let Some(g) =
+                        code.read(crate::code::Image::Arm9, 0x020A_023C + class as u32, 1)
+                    {
+                        if let Some(list) = names.get_mut(g[0] as usize) {
+                            if !label.is_empty() && !list.contains(label) {
+                                list.push(label.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            names
+                .into_iter()
+                .enumerate()
+                .map(|(g, list)| NamedSheet {
+                    label: if list.is_empty() {
+                        format!("Trainer graphic {g}")
+                    } else {
+                        list.join(" / ")
+                    },
+                    chr: 8 * g,
+                    pal: 8 * g + 7,
+                    palettes: Vec::new(),
+                    palette_offset: 0,
+                })
+                .collect()
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(sheets))
 }
 
 #[cfg(test)]

@@ -90,6 +90,18 @@ export const saveSheet = (chr: Ref, tiles: number[][]) => invoke<void>("save_she
 export const savePalette = (pal: Ref, colors: number[]) => invoke<void>("save_palette", { pal, colors });
 export const revert = (m: Ref) => invoke<void>("revert", { m });
 
+export interface NamedSheet {
+  label: string;
+  chr: number;
+  pal: number;
+  /// Other palettes, by name (shiny).
+  palettes: [string, number][];
+  paletteOffset: number;
+}
+
+/// Named pictures for archives whose layout is known; names from the ROM.
+export const namedSheets = (arc: number) => invoke<NamedSheet[] | null>("named_sheets", { arc });
+
 export function isReady(status: Status | null): boolean {
   return status?.check?.state === "rom" || status?.check?.state === "folder";
 }

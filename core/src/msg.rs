@@ -201,6 +201,111 @@ pub fn tokens(units: &[u16]) -> Vec<Token> {
     out
 }
 
+/// Marks a packed string: nine-bit codes follow in the halfwords after it
+/// (trainer names and other short names). WORDSET_IsPackedString and
+/// WORDSET_AppendUnpackedString in the decompiled `wordset.c`.
+pub const PACKED: u16 = 0xF100;
+
+/// The first code that goes through the game's packed-character table, and
+/// how many the table holds (0x100..0x131). The table itself is read from
+/// the ROM's ARM9 image.
+pub const PACKED_TABLE_FIRST: u16 = 0x100;
+pub const PACKED_TABLE_LEN: usize = 0x32;
+
+/// The characters of a packed string, as the game unpacks them: nine bits
+/// at a time, least significant first, 0x1FF ends; codes 0x100..0x131 map
+/// through `table`, codes above become '?'. `None` when not packed.
+pub fn unpack(units: &[u16], table: Option<&[u16]>) -> Option<Vec<u16>> {
+    if units.first() != Some(&PACKED) {
+        return None;
+    }
+    let words = &units[1..];
+    let mut out = Vec::new();
+    let mut bit = 0usize;
+    // The game reads on into the 0xFFFF end unit when the packed words stop
+    // before the terminator code is complete.
+    let word = |w: usize| words.get(w).copied().unwrap_or(0xFFFF) as u32;
+    loop {
+        let (w, b) = (bit / 16, bit % 16);
+        if w > words.len() {
+            return Some(out);
+        }
+        let lo = word(w) >> b;
+        let hi = (word(w + 1) << 16) >> b;
+        let code = ((lo | hi) & 0x1FF) as u16;
+        bit += 9;
+        if code == 0x1FF {
+            return Some(out);
+        }
+        let first = PACKED_TABLE_FIRST;
+        out.push(match code {
+            c if (first..first + PACKED_TABLE_LEN as u16).contains(&c) => table
+                .and_then(|t| t.get((c - first) as usize).copied())
+                .unwrap_or(c),
+            c if c >= first + PACKED_TABLE_LEN as u16 => b'?' as u16,
+            c => c,
+        });
+    }
+}
+
+/// Packs characters back into the game's packed form, or `None` when a
+/// character has no nine-bit code. Like the game's own strings, only the
+/// words the characters need are written: the end unit after them
+/// completes the terminator code.
+pub fn pack(chars: &[u16], table: Option<&[u16]>) -> Option<Vec<u16>> {
+    let mut codes = Vec::with_capacity(chars.len() + 1);
+    for &c in chars {
+        codes.push(if c < PACKED_TABLE_FIRST {
+            c
+        } else {
+            PACKED_TABLE_FIRST + table?.iter().position(|&t| t == c)? as u16
+        });
+    }
+    let mut words = vec![0u16; (codes.len() * 9).div_ceil(16)];
+    codes.push(0x1FF);
+    for (i, &code) in codes.iter().enumerate() {
+        let bit = i * 9;
+        let v = (code as u32) << (bit % 16);
+        if let Some(w) = words.get_mut(bit / 16) {
+            *w |= v as u16;
+        }
+        if let Some(w) = words.get_mut(bit / 16 + 1) {
+            *w |= (v >> 16) as u16;
+        }
+    }
+    let mut out = vec![PACKED];
+    out.extend(words);
+    Some(out)
+}
+
+/// The display form of a message, unpacking a packed string. A packed one
+/// starts with `{packed}`, so a save packs it again.
+pub fn display(units: &[u16], table: Option<&[u16]>) -> String {
+    match unpack(units, table) {
+        Some(chars) => format!("{{packed}}{}", Display(&chars)),
+        None => Display(units).to_string(),
+    }
+}
+
+/// The text of a message for names in lists: unpacked, no marker.
+pub fn plain(units: &[u16], table: Option<&[u16]>) -> String {
+    match unpack(units, table) {
+        Some(chars) => Display(&chars).to_string(),
+        None => Display(units).to_string(),
+    }
+}
+
+/// Parses the form `display` writes.
+pub fn parse(text: &str, table: Option<&[u16]>) -> Result<Vec<u16>, String> {
+    match text.strip_prefix("{packed}") {
+        Some(rest) => {
+            let chars = parse_display(rest)?;
+            Ok(pack(&chars, table).unwrap_or(chars))
+        }
+        None => parse_display(text),
+    }
+}
+
 /// Text for display and editing: characters as themselves, `\n` for a line
 /// break, `{XXXX:a,b}` (hex) for a control code, and `{U+XXXX}` for a unit
 /// that is not a valid character (an unpaired surrogate). `\`, `{` and `}`
@@ -326,6 +431,33 @@ mod tests {
         assert_eq!(read_u16(&bytes, 2).unwrap(), 3);
         assert_eq!(Bank::parse(&bytes).unwrap(), bank);
         assert_eq!(bytes.len() % 4, 0);
+    }
+
+    #[test]
+    fn packed_strings() {
+        // "Mali" with code 0x100 mapped to U+00E9 by the table.
+        let table = [0x00E9u16];
+        let chars: Vec<u16> = "Mal".encode_utf16().chain([0x00E9]).collect();
+        let packed = pack(&chars, Some(&table)).unwrap();
+        assert_eq!(packed[0], PACKED);
+        assert_eq!(unpack(&packed, Some(&table)).unwrap(), chars);
+        assert_eq!(display(&packed, Some(&table)), "{packed}Mal\u{e9}");
+        assert_eq!(parse("{packed}Mal\u{e9}", Some(&table)).unwrap(), packed);
+        // From the ROM's trainer bank: [F100, C24D, 49B0, 1FF3] is "Mali".
+        let real = [PACKED, 0xC24D, 0x49B0, 0x1FF3];
+        assert_eq!(plain(&real, None), "Mali");
+        assert_eq!(
+            pack(&"Mali".encode_utf16().collect::<Vec<_>>(), None).unwrap(),
+            real
+        );
+        assert_eq!(unpack(&[1, 2], None), None);
+        // Five characters: the terminator runs into the end unit.
+        let jimmy = [PACKED, 0xD24A, 0x69B4, 0xE793];
+        assert_eq!(plain(&jimmy, None), "Jimmy");
+        assert_eq!(
+            pack(&"Jimmy".encode_utf16().collect::<Vec<_>>(), None).unwrap(),
+            jimmy
+        );
     }
 
     #[test]

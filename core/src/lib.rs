@@ -24,3 +24,4 @@ pub mod project;
 pub mod rom;
 pub mod sdat;
 pub mod source;
+pub mod tables;

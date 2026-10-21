@@ -5,7 +5,7 @@ export type Category =
   | { id: string; label: string; kind: "graphics"; archive: number | null; hint?: string }
   | { id: string; label: string; kind: "sound"; group: "music" | "effect" | "cry" | "jingle" | "other" }
   | { id: string; label: string; kind: "text"; archive: number }
-  | { id: string; label: string; kind: "table"; table: string }
+  | { id: string; label: string; kind: "table"; tables: string[] }
   | { id: string; label: string; kind: "files" };
 
 export interface Group {
@@ -17,9 +17,7 @@ export const GROUPS: Group[] = [
   {
     label: "Pokemon",
     items: [
-      { id: "species", label: "Stats", kind: "table", table: "species" },
-      { id: "learnsets", label: "Learnsets", kind: "table", table: "learnsets" },
-      { id: "evolutions", label: "Evolutions", kind: "table", table: "evolutions" },
+      { id: "species", label: "Stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions"] },
       { id: "battle-sprites", label: "Battle sprites", kind: "graphics", archive: 4 },
       { id: "pokemon-icons", label: "Icons", kind: "graphics", archive: 7 },
     ],
@@ -27,16 +25,17 @@ export const GROUPS: Group[] = [
   {
     label: "Moves and items",
     items: [
-      { id: "moves", label: "Moves", kind: "table", table: "moves" },
-      { id: "items", label: "Items", kind: "table", table: "items" },
+      { id: "moves", label: "Moves", kind: "table", tables: ["moves"] },
+      { id: "items", label: "Items", kind: "table", tables: ["items"] },
       { id: "item-icons", label: "Item icons", kind: "graphics", archive: 25 },
     ],
   },
   {
     label: "World",
     items: [
-      { id: "trainers", label: "Trainers", kind: "table", table: "trainers" },
-      { id: "encounters", label: "Wild encounters", kind: "table", table: "encounters" },
+      { id: "trainers", label: "Trainers", kind: "table", tables: ["trainers", "trainerParties"] },
+      { id: "trainer-sprites", label: "Trainer sprites", kind: "graphics", archive: 72 },
+      { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },
     ],
   },
   {

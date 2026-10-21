@@ -6,7 +6,7 @@
   import SoundBrowser from "../views/SoundBrowser.svelte";
   import TextBrowser from "../views/TextBrowser.svelte";
   import FilesBrowser from "../views/FilesBrowser.svelte";
-  import TablePending from "../views/TablePending.svelte";
+  import TableEditor from "../views/TableEditor.svelte";
 
   let {
     status,
@@ -68,7 +68,6 @@
       {#each group.items as c}
         <button class="row-item" aria-current={c.id === current.id} onclick={() => pick(c)}>
           <span class="label">{c.label}</span>
-          {#if c.kind === "table"}<span class="tag">soon</span>{/if}
         </button>
       {/each}
     {/each}
@@ -85,7 +84,7 @@
       {:else if current.kind === "files"}
         <FilesBrowser {version} />
       {:else}
-        <TablePending label={current.label} />
+        <TableEditor tables={current.tables} {readOnly} {version} onSaved={saved} />
       {/if}
     {/key}
   </main>

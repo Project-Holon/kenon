@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { archives, asset, members, type ArchiveInfo, type MemberInfo, type Ref } from "../lib/backend";
+  import {
+    archives,
+    asset,
+    members,
+    namedSheets,
+    type ArchiveInfo,
+    type MemberInfo,
+    type NamedSheet,
+    type Ref,
+  } from "../lib/backend";
   import { play } from "../lib/sfx";
   import PixelEditor from "./PixelEditor.svelte";
 
@@ -11,26 +20,41 @@
     onSaved,
   }: { archive: number | null; readOnly: boolean; version: number; onSaved: () => void } = $props();
 
+  // One picture of the list: a named sheet when the archive's layout is
+  // known (names read from the ROM), else a bare member.
+  interface Item {
+    key: string;
+    label: string;
+    chr: number;
+    pal: number | null;
+    palettes: [string, number][];
+    offset: number;
+  }
+
   // The archive shown; fixed per category (the view is rebuilt on a new one).
   // svelte-ignore state_referenced_locally
   let arc = $state<number | null>(archive);
   let choices = $state<ArchiveInfo[]>([]);
   let list = $state<MemberInfo[]>([]);
-  let selected = $state<number | null>(null);
+  let items = $state<Item[]>([]);
+  let selected = $state<Item | null>(null);
   let palette = $state<number | null>(null);
   let filter = $state("");
   let error = $state<string | null>(null);
 
-  const sheets = $derived(list.filter((m) => m.kind === "NCGR" && String(m.index).includes(filter.trim())));
   const palettes = $derived(list.filter((m) => m.kind === "NCLR"));
+  const shown = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    return q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
+  });
 
-  // The palette a sheet is drawn with by default: the nearest palette before
-  // it in the archive, else the nearest after (the grouping aletheia's
-  // background.py found in this game's archives).
-  function pairedPalette(index: number): number | null {
+  // The palette a bare sheet is drawn with by default: the nearest palette
+  // before it in the archive, else the nearest after.
+  function pairedPalette(ms: MemberInfo[], index: number): number | null {
     let before: number | null = null;
     let after: number | null = null;
-    for (const p of palettes) {
+    for (const p of ms) {
+      if (p.kind !== "NCLR") continue;
       if (p.index < index) before = p.index;
       else if (after === null) after = p.index;
     }
@@ -40,20 +64,40 @@
   async function load(id: number) {
     error = null;
     list = [];
+    items = [];
     selected = null;
     try {
-      list = await members(id);
-      const first = list.find((m) => m.kind === "NCGR");
-      if (first) choose(first.index, false);
+      const [ms, named] = await Promise.all([members(id), namedSheets(id)]);
+      list = ms;
+      items = named
+        ? named.map((n: NamedSheet) => ({
+            key: `${n.chr}:${n.label}`,
+            label: n.label,
+            chr: n.chr,
+            pal: n.pal,
+            palettes: [["Normal", n.pal] as [string, number], ...n.palettes],
+            offset: n.paletteOffset,
+          }))
+        : ms
+            .filter((m) => m.kind === "NCGR")
+            .map((m) => ({
+              key: String(m.index),
+              label: `#${m.index}`,
+              chr: m.index,
+              pal: pairedPalette(ms, m.index),
+              palettes: [],
+              offset: 0,
+            }));
+      if (items[0]) choose(items[0], false);
     } catch (e) {
       error = String(e);
     }
   }
 
-  function choose(index: number, sound = true) {
+  function choose(item: Item, sound = true) {
     if (sound) play("select");
-    selected = index;
-    palette = pairedPalette(index);
+    selected = item;
+    palette = item.pal;
   }
 
   onMount(async () => {
@@ -64,12 +108,11 @@
     if (arc !== null) await load(arc);
   });
 
-  const thumb = (index: number) =>
-    palette !== null || palettes.length > 0
-      ? asset(`preview/${arc}:${index}/${arc}:${pairedPalette(index) ?? 0}?cols=8`, version)
-      : "";
+  const thumb = (i: Item) =>
+    i.pal === null ? "" : asset(`preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}`, version);
+  const changed = (chr: number) => list.find((m) => m.index === chr)?.changed ?? false;
 
-  const chr = $derived<Ref | null>(arc !== null && selected !== null ? [arc, selected] : null);
+  const chr = $derived<Ref | null>(arc !== null && selected ? [arc, selected.chr] : null);
   const pal = $derived<Ref | null>(arc !== null && palette !== null ? [arc, palette] : null);
 </script>
 
@@ -92,29 +135,30 @@
         </select>
       </label>
     {/if}
-    <input class="search" placeholder="Filter by number" bind:value={filter} />
-    <div class="scroll" role="listbox" aria-label="Sheets">
-      {#each sheets as m (m.index)}
-        <button class="row-item sheet" role="option" aria-selected={m.index === selected} onclick={() => choose(m.index)}>
-          <span class="thumb"><img class="px" loading="lazy" src={thumb(m.index)} alt="" /></span>
-          <span class="label">#{m.index}</span>
-          {#if m.changed}<span class="tag changed">changed</span>{/if}
+    <input class="search" placeholder="Search {items.length}" bind:value={filter} />
+    <div class="scroll" role="listbox" aria-label="Pictures">
+      {#each shown as item (item.key)}
+        <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)}>
+          <span class="thumb"><img class="px" loading="lazy" src={thumb(item)} alt="" /></span>
+          <span class="label">{item.label}</span>
+          {#if changed(item.chr)}<span class="tag changed">changed</span>{/if}
         </button>
       {:else}
-        <p class="muted empty">{error ?? (list.length ? "No sheets match." : "Loading...")}</p>
+        <p class="muted empty">{error ?? (list.length ? "Nothing matches." : "Loading...")}</p>
       {/each}
     </div>
   </aside>
 
   <section class="editor">
-    {#if chr && pal}
+    {#if chr && pal && selected}
       {#key `${chr.join(":")}/${pal.join(":")}/${version}`}
         <PixelEditor
           {chr}
           {pal}
           {readOnly}
-          changed={list.find((m) => m.index === selected)?.changed ?? false}
-          palettes={palettes.map((p) => p.index)}
+          changed={changed(selected.chr)}
+          palettes={selected.palettes.length ? selected.palettes : palettes.map((p) => [`#${p.index}`, p.index] as [string, number])}
+          paletteOffset={selected.offset}
           onPalette={(i) => (palette = i)}
           {onSaved}
         />
@@ -122,7 +166,7 @@
     {:else if chr}
       <p class="muted pad">This archive has no palette for this sheet.</p>
     {:else}
-      <p class="muted pad">Choose a sheet.</p>
+      <p class="muted pad">Choose a picture.</p>
     {/if}
   </section>
 </div>
@@ -130,7 +174,7 @@
 <style>
   .browser {
     display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
+    grid-template-columns: 17rem minmax(0, 1fr);
     height: 100%;
   }
   .list {

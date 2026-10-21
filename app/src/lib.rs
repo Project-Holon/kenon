@@ -13,6 +13,7 @@ use kenon_core::catalog::{self, ArchiveInfo, Layout, MemberInfo, SheetData, Soun
 use kenon_core::data_root;
 use kenon_core::project::{Change, Project};
 use kenon_core::source::{self, GameCheck, Source};
+use kenon_core::tables;
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -265,6 +266,52 @@ async fn revert(state: State<'_, AppState>, m: [usize; 2]) -> Result<(), String>
     catalog::revert(&bridge, member(m)).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn named_sheets(
+    state: State<'_, AppState>,
+    arc: u16,
+) -> Result<Option<Vec<catalog::NamedSheet>>, String> {
+    let bridge = state.need_bridge()?;
+    catalog::named_sheets(&bridge, arc).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn table_entries(
+    state: State<'_, AppState>,
+    table: String,
+) -> Result<Vec<tables::Entry>, String> {
+    let bridge = state.need_bridge()?;
+    tables::entries(&bridge, &table).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn table_record(
+    state: State<'_, AppState>,
+    table: String,
+    index: usize,
+    season: usize,
+) -> Result<tables::Record, String> {
+    let bridge = state.need_bridge()?;
+    tables::record(&bridge, &table, index, season).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_record(
+    state: State<'_, AppState>,
+    table: String,
+    index: usize,
+    edit: tables::Edit,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    tables::save(&bridge, &table, index, &edit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn enum_values(state: State<'_, AppState>, name: String) -> Result<Vec<String>, String> {
+    let bridge = state.need_bridge()?;
+    tables::enum_values(&bridge, &name).map_err(|e| e.to_string())
+}
+
 fn member([arc, index]: [usize; 2]) -> Member {
     Member {
         arc: arc as u16,
@@ -312,6 +359,11 @@ pub fn run() {
             save_sheet,
             save_palette,
             revert,
+            named_sheets,
+            table_entries,
+            table_record,
+            save_record,
+            enum_values,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

@@ -26,7 +26,7 @@
 //!                                          data; index 15 is transparent)
 //! table/{name}                             JSON: a UI table read from code
 //!                                          (see `UI_TABLES`)
-//! preview/{chr}/{pal}                      a sheet as the game shows it: its
+//! preview/{chr}/{pal}                      a sheet as the game shows it (`?paloffset=N`): its
 //!                                          cells assembled when the archive
 //!                                          has a cell bank for it, else tiles
 //! sound/{seq or name}                      a sequence rendered to WAV
@@ -364,7 +364,8 @@ impl Bridge {
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
                 Ok(Asset {
                     mime: "text/plain; charset=utf-8",
-                    bytes: msg::Display(&message.units).to_string().into_bytes(),
+                    bytes: msg::display(&message.units, self.packed_table().as_deref())
+                        .into_bytes(),
                     origin: None,
                 })
             }
@@ -407,7 +408,14 @@ impl Bridge {
                         cols: query_number("cols"),
                     },
                 };
-                let data = crate::catalog::sheet_data(self, chr, member(2)?, &layout)?;
+                let mut data = crate::catalog::sheet_data(self, chr, member(2)?, &layout)?;
+                // The palette bank offset a sprite actor adds (icons).
+                let offset = query_number("paloffset").unwrap_or(0) as u8;
+                if offset > 0 {
+                    data.banks
+                        .iter_mut()
+                        .for_each(|b| *b = b.saturating_add(offset));
+                }
                 Ok(png(data.render()))
             }
             Some("sound") if parts.len() == 2 => {
@@ -450,6 +458,24 @@ impl Bridge {
             }
             _ => Err(Error::BadPath(path.to_string())),
         }
+    }
+
+    /// The game's code images, when the source has them.
+    pub fn code(&self) -> Option<&CodeImages> {
+        self.code.as_ref()
+    }
+
+    /// The game's packed-character table (codes 0x100..0x131 of packed
+    /// strings), read from the ROM's ARM9 image.
+    pub fn packed_table(&self) -> Option<Vec<u16>> {
+        let raw = self.code_bytes(Image::Arm9, 0x0209_E864, crate::msg::PACKED_TABLE_LEN * 2)?;
+        Some(
+            raw.as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&c| u16::from_le_bytes(c))
+                .collect(),
+        )
     }
 
     fn code_bytes(&self, image: Image, address: u32, len: usize) -> Option<Vec<u8>> {

@@ -594,3 +594,113 @@ fn catalog_and_edits() {
         sheet.colors
     );
 }
+
+/// Data tables and named pictures on the ROM: names come from its text,
+/// values from its records, and an edit lands in the project.
+#[test]
+fn tables_and_names() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::catalog;
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    use kenon_core::tables::{self, Section};
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project.clone()));
+
+    let species = tables::entries(&bridge, "species").unwrap();
+    assert_eq!(species[4].name, "Charmander");
+    let value = |r: &tables::Record, key: &str| {
+        r.sections
+            .iter()
+            .find_map(|s| match s {
+                Section::Fields { values, .. } => {
+                    values.iter().find(|v| v.key == key).map(|v| v.value)
+                }
+                _ => None,
+            })
+            .unwrap()
+    };
+    let charmander = tables::record(&bridge, "species", 4, 0).unwrap();
+    assert_eq!(value(&charmander, "baseHp"), 39);
+    let types = tables::enum_values(&bridge, "type").unwrap();
+    assert_eq!(types[value(&charmander, "type1") as usize], "Fire");
+
+    let ember = tables::entries(&bridge, "moves")
+        .unwrap()
+        .iter()
+        .position(|e| e.name == "Ember")
+        .unwrap();
+    assert_eq!(
+        value(
+            &tables::record(&bridge, "moves", ember, 0).unwrap(),
+            "power"
+        ),
+        40
+    );
+
+    // A learnset is a list ending at the terminator.
+    let learn = tables::record(&bridge, "learnsets", 4, 0).unwrap();
+    let Section::List { rows, .. } = &learn.sections[0] else {
+        panic!()
+    };
+    assert!(rows.len() > 5 && rows[0][1] == 1, "{rows:?}");
+
+    // Edit: Charmander's base HP to 45; saving again unchanged writes nothing new.
+    let mut edit = tables::Edit::default();
+    edit.values.insert("baseHp".into(), 45);
+    tables::save(&bridge, "species", 4, &edit).unwrap();
+    assert_eq!(
+        value(&tables::record(&bridge, "species", 4, 0).unwrap(), "baseHp"),
+        45
+    );
+    assert_eq!(project.changes().len(), 1);
+
+    // Named pictures.
+    let items = catalog::named_sheets(&bridge, 25).unwrap().unwrap();
+    assert!(
+        items.iter().any(|s| s.label.starts_with("Master Ball")),
+        "{:?}",
+        &items[..5]
+    );
+    let battle = catalog::named_sheets(&bridge, 4).unwrap().unwrap();
+    assert!(battle
+        .iter()
+        .any(|s| s.label == "Charmander (front)" && s.palettes[0].0 == "Shiny"));
+    let icons = catalog::named_sheets(&bridge, 7).unwrap().unwrap();
+    assert!(icons.iter().any(|s| s.label == "Pikachu"));
+    // Trainer names are packed strings: they read as names, and every
+    // message of every system bank survives the display form exactly.
+    let names = tables::entries(&bridge, "trainers").unwrap();
+    assert_eq!(names[1].name, "Jimmy");
+    let table = bridge.packed_table();
+    for bank in 0..bridge.base_archive(2).unwrap().len() {
+        let raw = bridge
+            .member(kenon_core::bridge::Member {
+                arc: 2,
+                index: bank,
+            })
+            .unwrap();
+        let parsed = kenon_core::msg::Bank::parse(&raw).unwrap();
+        for m in parsed.messages() {
+            let text = kenon_core::msg::display(&m.units, table.as_deref());
+            assert_eq!(
+                kenon_core::msg::parse(&text, table.as_deref()).unwrap(),
+                m.units,
+                "bank {bank}: {text}"
+            );
+        }
+    }
+    let trainers = catalog::named_sheets(&bridge, 72).unwrap().unwrap();
+    eprintln!(
+        "first trainer sprites: {:?}",
+        trainers
+            .iter()
+            .take(4)
+            .map(|s| &s.label)
+            .collect::<Vec<_>>()
+    );
+}
