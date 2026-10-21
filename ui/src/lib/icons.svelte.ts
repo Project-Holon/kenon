@@ -33,7 +33,8 @@ export function loadIcons() {
 export function speciesIcon(sp: number): string | null {
   const chr = 7 + 2 * sp;
   if (sp <= 0 || !state.iconOffset.has(chr)) return null;
-  return asset(`preview/7:${chr}/7:0?cells=2&paloffset=${state.iconOffset.get(chr)}`);
+  // Cell 0 is the first animation frame; the sheet holds both.
+  return asset(`cell/7:${chr}/7:0/7:2/0?paloffset=${state.iconOffset.get(chr)}`);
 }
 
 export function itemIcon(item: number): string | null {
