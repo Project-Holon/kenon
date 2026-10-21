@@ -480,6 +480,12 @@ async fn revert_change(state: State<'_, AppState>, path: String) -> Result<(), S
 }
 
 #[tauri::command]
+async fn object_textures(state: State<'_, AppState>) -> Result<Vec<Option<u16>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::object_textures(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -597,6 +603,7 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            object_textures,
             describe_changes,
             revert_change,
             zones,

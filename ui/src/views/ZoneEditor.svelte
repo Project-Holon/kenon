@@ -4,6 +4,7 @@
   import { asset, sounds, type SoundInfo } from "../lib/backend";
   import { tableEntries, type Entry, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import { once } from "../lib/cache.svelte";
   import { FLAG_BLOCKED, kindName, tileCss, tileLabel, tileRgb } from "../lib/terrain";
   import TableEditor from "./TableEditor.svelte";
 
@@ -112,6 +113,9 @@
   let allZones = $state<ZoneInfo[]>([]);
   let music = $state<SoundInfo[]>([]);
   let playing = $state<number | null>(null);
+  // Object code -> its billboard texture member, for drawing people.
+  let objTex = $state<(number | null)[]>([]);
+  let spritePicker = $state(false);
   let error = $state<string | null>(null);
   let busy = $state(false);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -155,6 +159,9 @@
     tableEntries("trainers").then((t) => (trainers = t)).catch(() => {});
     tableEntries("items").then((t) => (items = t)).catch(() => {});
     invoke<ZoneInfo[]>("zones").then((z) => (allZones = z)).catch(() => {});
+    once("objtex", () => invoke<(number | null)[]>("object_textures"))
+      .then((t) => (objTex = t))
+      .catch(() => {});
     sounds().then((s) => (music = s.filter((x) => x.group === "music"))).catch(() => {});
     return () => audio?.pause();
   });
@@ -808,6 +815,16 @@
     if (ev.kind === "warp" && ev.toZone !== null) return `Warp to ${zoneName(ev.toZone)}`;
     return `${KIND_LABEL[ev.kind]} ${ev.index + 1}`;
   }
+  // A person's picture: the frame facing the way they look.
+  function sprite(ev: MapEvent): string | null {
+    if (ev.kind !== "npc") return null;
+    return spriteOf(value(ev, "objCode"), value(ev, "dirHeader"));
+  }
+  function spriteOf(code: number, dir = 1): string | null {
+    const tex = objTex[code];
+    if (tex === null || tex === undefined) return null;
+    return asset(`texture/49:${tex}/0/${[0, 3, 6, 9][dir] ?? 3}`);
+  }
   const eventIcon = (ev: MapEvent) =>
     ev.trainer !== null ? "T" : ev.kind === "npc" ? "P" : ev.kind === "warp" ? "W" : ev.kind === "pos" ? "" : isItem(ev) ? "I" : "S";
 
@@ -934,8 +951,10 @@
           {#each map.events as ev (ev.kind + ev.index)}
             {#if ev.x >= 0 && ev.z >= 0}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
+              {@const pic = sprite(ev)}
               <div
                 class="ev {ev.kind}"
+                class:sprite={pic !== null}
                 class:trainer={ev.trainer !== null}
                 class:item={isItem(ev)}
                 class:on={picked === ev}
@@ -945,7 +964,12 @@
                 onpointerenter={() => (hoverEvent = ev)}
                 onpointerleave={() => (hoverEvent = null)}
               >
-                {eventIcon(ev)}
+                {#if pic}
+                  <img class="person" src={pic} alt="" draggable="false" style="width: {scale * 2}px; height: {scale * 2}px; left: {-scale / 2}px" />
+                  {#if ev.trainer !== null}<span class="flag">!</span>{/if}
+                {:else}
+                  {eventIcon(ev)}
+                {/if}
                 {#if picked === ev && ev.kind === "pos" && !readOnly}
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span class="handle" onpointerdown={(e) => onSizeDown(ev, e)}></span>
@@ -985,7 +1009,11 @@
       {#if picked && map}
         {@const ev = picked}
         <div class="head">
-          <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
+          {#if sprite(ev)}
+            <img class="badge pic" src={sprite(ev)} alt="" />
+          {:else}
+            <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
+          {/if}
           <div class="title">
             <strong>{eventLabel(ev)}</strong>
             <span class="muted">{ev.trainer !== null ? "Trainer" : isItem(ev) ? "Hidden item" : KIND_LABEL[ev.kind]} at {ev.x}, {ev.z}</span>
@@ -1013,16 +1041,35 @@
               {#each trainers as t}{#if t.index > 0}<option value={t.index}>{t.name || `Trainer ${t.index}`} ({t.index})</option>{/if}{/each}
             </select>
           </label>
+          <div class="field">
+            <span>Looks like</span>
+            <button class="look" disabled={readOnly} onclick={() => (spritePicker = !spritePicker)}>
+              {#if sprite(ev)}<img src={sprite(ev)} alt="" />{/if}
+              <span>Character {value(ev, "objCode")}</span>
+            </button>
+          </div>
+          {#if spritePicker && !readOnly}
+            <div class="sprites">
+              {#each objTex as tex, code}
+                {#if tex !== null}
+                  <button
+                    class="sprite-pick"
+                    class:on={code === value(ev, "objCode")}
+                    title="Character {code}"
+                    onclick={() => {
+                      spritePicker = false;
+                      save(ev, { objCode: code }, false);
+                    }}
+                  ><img src={spriteOf(code)} alt="Character {code}" loading="lazy" /></button>
+                {/if}
+              {/each}
+            </div>
+          {/if}
           <label class="field">
-            <span>Looks like (object code)</span>
-            <input
-              type="number"
-              min="0"
-              max="798"
-              value={value(ev, "objCode")}
-              readonly={readOnly}
-              onchange={(e) => save(ev, { objCode: Number((e.currentTarget as HTMLInputElement).value) }, false)}
-            />
+            <span>Facing</span>
+            <select value={value(ev, "dirHeader")} disabled={readOnly || busy} onchange={(e) => save(ev, { dirHeader: Number((e.currentTarget as HTMLSelectElement).value) }, false)}>
+              {#each ["Up", "Down", "Left", "Right"] as d, i}<option value={i}>{d}</option>{/each}
+            </select>
           </label>
         {:else if ev.kind === "warp"}
           <label class="field">
@@ -1360,6 +1407,68 @@
     cursor: grab;
     min-width: 6px;
     min-height: 6px;
+  }
+  .ev.sprite {
+    background: transparent !important;
+    border-color: transparent;
+    overflow: visible;
+  }
+  .person {
+    position: absolute;
+    bottom: 0;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  .ev.sprite.on {
+    outline-offset: -1px;
+  }
+  .flag {
+    position: absolute;
+    top: -60%;
+    right: -30%;
+    min-width: 0.9em;
+    padding: 0 0.15em;
+    border-radius: 0.5em;
+    background: #ff4d4d;
+    border: 1px solid #0008;
+    font-size: 0.8em;
+    text-align: center;
+  }
+  .badge.pic {
+    background: var(--bg);
+    image-rendering: pixelated;
+  }
+  .look {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    text-align: left;
+  }
+  .look img,
+  .sprite-pick img {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
+  }
+  .sprites {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 2px;
+    max-height: 16rem;
+    overflow-y: auto;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    padding: 2px;
+  }
+  .sprite-pick {
+    padding: 2px;
+    box-shadow: none;
+    background: transparent;
+    border: 2px solid transparent;
+  }
+  .sprite-pick.on {
+    border-color: var(--gold);
   }
   .ev.passive {
     pointer-events: none;

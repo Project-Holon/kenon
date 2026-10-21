@@ -23,6 +23,7 @@ use crate::tables::{self, Field, Value};
 use crate::world::{self, Zone};
 
 const MATRICES: u16 = 9;
+const OBJECT_CODES: u16 = 48;
 const CHUNKS: u16 = 8;
 const EVENT_FILES: u16 = 125;
 const ZONE_HEADERS: u16 = 12;
@@ -575,6 +576,26 @@ pub fn set_music(bridge: &Bridge, zone_id: usize, music: [u16; 4]) -> Result<(),
         headers[at + i * 2..at + i * 2 + 2].copy_from_slice(&v.to_le_bytes());
     }
     crate::catalog::write_member(bridge, m, &headers)
+}
+
+/// For each object code (a/0/4/8), the a/0/4/9 member of its billboard
+/// texture: one 32x32 frame per texture, three per facing (up, down,
+/// left, right). `None` for codes drawn another way.
+pub fn object_textures(bridge: &Bridge) -> Result<Vec<Option<u16>>, Error> {
+    let table = bridge.member(Member {
+        arc: OBJECT_CODES,
+        index: 0,
+    })?;
+    let count = rd16(&table, 0).unwrap_or(0) as usize;
+    Ok((0..count)
+        .map(|i| {
+            let at = 2 + i * 28;
+            // drawType 1: a billboard with a frame texture.
+            (table.get(at + 2) == Some(&1))
+                .then(|| rd16(&table, at + 0x12))
+                .flatten()
+        })
+        .collect())
 }
 
 /// How many tile records differ between two versions of a map chunk.
