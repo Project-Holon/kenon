@@ -600,7 +600,7 @@ The hit test is `IsPosEventGridHit` (`:1157-1173`). [V]
 | Offset | Type | Name | Meaning |
 |---|---|---|---|
 | 0x00 | u16 | `scriptId` | Script id run when the player interacts. [V] |
-| 0x02 | u16 | `type` | 2 = hidden item (184; the script id is the hidden item id, `:781`); 0 (351) and 1 (127) are other interactables such as signs. [V for 2, I for 0 and 1] |
+| 0x02 | u16 | `type` | 2 = hidden item (184; the script id is a hidden item script, 8000 + index, in file 865 of `a/0/5/7`: `SetWork 0x8000 item`, `0x8001 count`, `0x8002 flag`; flag 900 + index); 0 (351) and 1 (127) are other interactables such as signs. [V for 2, I for 0 and 1] |
 | 0x04 | u16 | `dir` | Which facings fire it: 0 up, 1 down, 2 left, 3 right, 4 any, 5 left or right, 6 up or down (`:786-816`). [V] |
 | 0x06 | u16 | `posType` | 0 grid (637), 1 rail (25). [V] |
 | 0x08 | s32 | `x` | Grid x (tile). [V] |
@@ -659,7 +659,7 @@ Sources are aletheia `src/game` paths; checked by walking all 899 members of the
 
 ## Gaps
 
-1. **Move tutors, TM shop and shop stock, static/gift/starter/trade/hidden grotto/hidden item contents**: stored in scripts or overlay data; not located as tables. The type chart is also in code/overlay data (no archive).
+1. **Move tutors, TM shop and shop stock, static/gift/starter/trade/hidden grotto contents** (item balls and hidden items are read and written: scripts 7000+ in file 864 and 8000+ in file 865 of `a/0/5/7`): stored in scripts or overlay data; not located as tables. The type chart is also in code/overlay data (no archive).
 2. **Wild encounter details**: the swarm table, roamers, Hidden Grotto and dust cloud special species are outside `a/1/2/6`. Season order of blocks 0..2 is unknown (they are identical); only block 3 is winter by data.
 3. **Item fields**: `fieldUse`, `battleUse`, `partyUse*`, `holdEffect` ids, `pluckEffect`, `flingEffect` have no enum; the tail 2 bytes are padding. The `extType` = 0 case holds one plain byte.
 4. **Move fields**: `effectCategory`, `target`, `sickContType` and `rankType` meanings are not enumerated; flag bit names are inferred.

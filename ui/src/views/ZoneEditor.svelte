@@ -12,6 +12,8 @@
   import { openMenu, type MenuItem } from "../lib/menu.svelte";
   import { copyText, guarded, savePng } from "../lib/exporter";
   import { itemIcon, loadIcons, trainerIcon } from "../lib/icons.svelte";
+  import { fromEditText, toEditText } from "../lib/msgtokens";
+  import { eventTypeName, eventTypeOptions, FACING, flagNote, isVariableCharacter, moveName, moveOptions, scriptKind, soundLabel } from "../lib/fieldnames";
 
   // One map: click things to edit them, drag to move them, paint tiles.
   let {
@@ -94,11 +96,19 @@
     complete: boolean;
     unresolved: number;
   }
+  // What an item ball or a hidden item gives.
+  interface EventItem {
+    kind: "ball" | "hidden";
+    item: number;
+    count: number;
+    flag: number | null;
+  }
   interface EventScript {
     kind: Kind;
     index: number;
     scriptId: number | null;
     script: ScriptInfo | null;
+    item: EventItem | null;
   }
   type Pt = { x: number; z: number };
   type Rect = { x: number; z: number; w: number; h: number };
@@ -343,7 +353,11 @@
   let items = $state<Entry[]>([]);
   let allZones = $state<ZoneInfo[]>([]);
   let music = $state<SoundInfo[]>([]);
+  let allSounds = $state<SoundInfo[]>([]);
   let playing = $state<number | null>(null);
+  let playingSeq = $state<number | null>(null);
+  // The Values tab shows plain numbers instead of names.
+  let showNumbers = $state(false);
   // Object code -> its billboard texture member, for drawing people.
   let objTex = $state<({ tex: number; frames: number } | null)[]>([]);
   let spritePicker = $state(false);
@@ -597,13 +611,10 @@
     }
   }
 
-  // Text in the editor's form: real line breaks instead of "\n" escapes.
-  function toEdit(text: string): string {
-    return text.replace(/\\(.)/g, (m, c) => (c === "n" ? "\n" : m));
-  }
-  function fromEdit(text: string): string {
-    return text.replace(/\r?\n/g, "\\n");
-  }
+  // Text in the editor's form: readable tokens ([Player], [Item 1], [Wait])
+  // and real line breaks, instead of game codes and "\n" escapes.
+  const toEdit = toEditText;
+  const fromEdit = fromEditText;
 
   async function saveLine(m: MessageRef) {
     const key = `${m.bank}:${m.id}`;
@@ -636,7 +647,12 @@
     once("objsprites", () => invoke<({ tex: number; frames: number } | null)[]>("object_sprites"))
       .then((t) => (objTex = t))
       .catch(() => {});
-    sounds().then((s) => (music = s.filter((x) => x.group === "music"))).catch(() => {});
+    sounds()
+      .then((s) => {
+        allSounds = s;
+        music = s.filter((x) => x.group === "music");
+      })
+      .catch(() => {});
     return () => audio?.pause();
   });
 
@@ -1124,8 +1140,16 @@
     busy = true;
     const kind: Kind = what === "item" ? "bg" : (what as Kind);
     try {
+      // A hidden item needs a pick-up script of its own.
+      const script = what === "item" ? await invoke<number | null>("free_hidden_script") : null;
+      if (what === "item" && script === null) {
+        error = NO_HIDDEN_ROOM;
+        play("cancel");
+        adding = null;
+        return;
+      }
       const index = await invoke<number>("add_event", { zone: current, kind, x: p.x, z: p.z });
-      if (what === "item") await invoke("save_event", { zone: current, kind, index, values: { type: 2, scriptId: 0 } });
+      if (what === "item") await invoke("save_event", { zone: current, kind, index, values: { type: 2, scriptId: script } });
       if (what === "bg") await invoke("save_event", { zone: current, kind, index, values: { type: 0 } });
       undo = [...undo.slice(-99), { t: "add", kind, index }];
       play("decide");
@@ -1172,6 +1196,44 @@
       await load();
     } finally {
       busy = false;
+    }
+  }
+
+  const NO_HIDDEN_ROOM = "All 177 hidden item places of the game are in use. Change an existing hidden item instead.";
+
+  // Makes an item ball or a hidden item give another item or amount. The
+  // item is stored in the script the event runs.
+  async function setItem(ev: MapEvent, item: number, count?: number) {
+    busy = true;
+    try {
+      await invoke("set_event_item", { scriptId: itemScript(ev), item, count: count ?? null });
+      play("save");
+      onSaved();
+      await loadScripts();
+    } catch (err) {
+      error = String(err);
+      play("cancel");
+    } finally {
+      busy = false;
+    }
+  }
+
+  // Sign, something to check, or hidden item. A hidden item takes a script
+  // of the hidden item range; a sign gives it up.
+  async function setSignKind(ev: MapEvent, type: number) {
+    if (type === 2 && !itemOf(ev)) {
+      const script = await invoke<number | null>("free_hidden_script");
+      if (script === null) {
+        error = NO_HIDDEN_ROOM;
+        play("cancel");
+        await load();
+        return;
+      }
+      await save(ev, { type, scriptId: script });
+    } else if (type !== 2 && isItem(ev)) {
+      await save(ev, { type, scriptId: 0 });
+    } else {
+      await save(ev, { type });
     }
   }
 
@@ -1292,6 +1354,7 @@
   function toggleMusic(season: number) {
     audio?.pause();
     audio = null;
+    playingSeq = null;
     if (playing === season || !map) {
       playing = null;
       return;
@@ -1303,6 +1366,24 @@
     };
     audio = a;
     a.play().catch(() => (playing = null));
+  }
+
+  // Plays one sound sequence of the game (a sound, jingle or music).
+  function toggleSeq(seq: number) {
+    audio?.pause();
+    audio = null;
+    playing = null;
+    if (playingSeq === seq) {
+      playingSeq = null;
+      return;
+    }
+    playingSeq = seq;
+    const a = new Audio(asset(`sound/${seq}?seconds=30`));
+    a.onended = () => {
+      if (audio === a) playingSeq = null;
+    };
+    audio = a;
+    a.play().catch(() => (playingSeq = null));
   }
 
   function switchZone(id: number) {
@@ -1326,6 +1407,7 @@
     renderOk = true;
     audio?.pause();
     playing = null;
+    playingSeq = null;
     load(false);
   }
 
@@ -1419,9 +1501,58 @@
     const z = allZones[id];
     return z ? `${z.place} (${id})` : `Map ${id}`;
   };
-  const musicName = (seq: number) => music.find((m) => m.index === seq)?.name ?? `#${seq}`;
+  // "Plays sound Select", "Plays music Pokecen", "Plays jingle Item".
+  const soundText = (seq: number) => {
+    const name = allSounds.find((s) => s.index === seq)?.name;
+    return name ? soundLabel(name).text : `Plays sound ${seq}`;
+  };
   const value = (ev: MapEvent, key: string) => ev.values.find((v) => v.key === key)?.value ?? 0;
   const isItem = (ev: MapEvent) => ev.kind === "bg" && value(ev, "type") === 2;
+  // The Values tab: fields that show a name instead of a number.
+  const NAMED: Record<Kind, string[]> = {
+    npc: ["objCode", "moveCode", "eventType", "eventFlag", "eventId", "dirHeader", "posType", "posY"],
+    bg: ["scriptId", "type", "dir", "posType"],
+    warp: ["zoneId", "posType"],
+    pos: ["scriptId", "checkType", "posType"],
+  };
+  const isNamed = (ev: MapEvent, v: Value) => !showNumbers && NAMED[ev.kind].includes(v.key);
+  const CHECK_TYPES: [number, string][] = [
+    [1, "You face up at it"],
+    [2, "You face down at it"],
+    [3, "You face left at it"],
+    [4, "You face right at it"],
+    [6, "You step on it"],
+  ];
+  // Plain labels for the fields of a person; the other kinds keep the labels
+  // of the data table.
+  const NPC_LABELS: Record<string, string> = {
+    objId: "Number on this map",
+    objCode: "Character",
+    moveCode: "Movement",
+    eventType: "Behavior",
+    eventFlag: "Here until flag",
+    eventId: "Script",
+    dirHeader: "Facing",
+    param0: "Extra value 1",
+    param1: "Extra value 2",
+    param2: "Extra value 3",
+    moveLimitX: "Wander across (tiles)",
+    moveLimitZ: "Wander down (tiles)",
+    gridX: "Tile across",
+    gridZ: "Tile down",
+    posType: "Position",
+  };
+  const valueLabel = (ev: MapEvent, v: Value) =>
+    ev.kind === "npc" ? (NPC_LABELS[v.key] ?? v.label) : v.key === "scriptId" ? (isItem(ev) ? "Hidden item script" : "Script") : v.label;
+  // A choice list with the current value in it even when it has no name.
+  const withCurrent = (list: [number, string][], cur: number, name: (n: number) => string): [number, string][] =>
+    list.some(([n]) => n === cur) ? list : [...list, [cur, name(cur)]];
+  // What an item ball or a hidden item gives, read from its script.
+  const itemOf = (ev: MapEvent): EventItem | null =>
+    ev.trainer !== null ? null : (scripts.find((s) => s.kind === ev.kind && s.index === ev.index)?.item ?? null);
+  const isBall = (ev: MapEvent) => ev.kind === "npc" && itemOf(ev)?.kind === "ball";
+  // The script id of an item ball (a person) or a hidden item (a sign).
+  const itemScript = (ev: MapEvent) => value(ev, ev.kind === "npc" ? "eventId" : "scriptId");
   // ---- right-click menus ----
 
   const coords = (x: number, z: number) => `${x}, ${z}`;
@@ -1488,7 +1619,9 @@
 
   function eventLabel(ev: MapEvent): string {
     if (ev.trainer !== null) return trainerName(ev.trainer);
-    if (isItem(ev)) return `Hidden ${itemName(value(ev, "scriptId"))}`;
+    const it = itemOf(ev);
+    if (it && (isBall(ev) || isItem(ev))) return `${it.kind === "ball" ? "Item ball" : "Hidden item"}: ${itemName(it.item)}`;
+    if (isItem(ev)) return "Hidden item";
     if (ev.kind === "warp" && ev.toZone !== null) return `Warp to ${zoneName(ev.toZone)}`;
     return `${KIND_LABEL[ev.kind]} ${ev.index + 1}`;
   }
@@ -1563,8 +1696,9 @@
   const counts = $derived.by(() => {
     const ev = map?.events ?? [];
     return [
-      ["People", ev.filter((e) => e.kind === "npc" && e.trainer === null)],
+      ["People", ev.filter((e) => e.kind === "npc" && e.trainer === null && !isBall(e))],
       ["Trainers", ev.filter((e) => e.trainer !== null)],
+      ["Item balls", ev.filter(isBall)],
       ["Signs", ev.filter((e) => e.kind === "bg" && !isItem(e))],
       ["Hidden items", ev.filter(isItem)],
       ["Warps", ev.filter((e) => e.kind === "warp")],
@@ -1924,53 +2058,48 @@
         {/if}
       {:else if picked && map}
         {@const ev = picked}
-        <div class="head">
-          {#if sprite(ev)}
-            <img class="badge pic" class:mirror={mirrored(ev)} src={sprite(ev)} alt="" onerror={spriteFailed} />
+        {#snippet itemFields(ev: MapEvent)}
+          {@const it = itemOf(ev)}
+          {#if it}
+            <label class="field">
+              <span>Item</span>
+              <SearchSelect
+                value={it.item}
+                options={itemOptions}
+                icon={itemIcon}
+                disabled={readOnly || busy}
+                label="Item"
+                onchange={(v) => setItem(ev, v)}
+              />
+            </label>
+            <label class="field">
+              <span>How many</span>
+              <input
+                type="number"
+                min="1"
+                max="999"
+                value={it.count}
+                readonly={readOnly || busy}
+                onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null && v >= 1) setItem(ev, it.item, v);
+                }}
+              />
+            </label>
+            <p class="muted small">{it.kind === "hidden" && it.flag ? flagNote(it.flag, "hidden") : flagNote(value(ev, "eventFlag"), "item")}</p>
+            {#if scripts.filter((s) => s.scriptId === itemScript(ev)).length > 1}
+              <p class="muted small">Another event on this map gives the same item.</p>
+            {/if}
           {:else}
-            <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
+            <p class="muted small">This script gives no item.</p>
           {/if}
-          <div class="title">
-            <strong>{eventLabel(ev)}</strong>
-            <span class="muted">{ev.trainer !== null ? "Trainer" : isItem(ev) ? "Hidden item" : KIND_LABEL[ev.kind]} at {ev.x}, {ev.z}</span>
-          </div>
-        </div>
-        {#if !readOnly}
-          <div class="row">
-            <button onclick={() => duplicate(ev)} disabled={busy} title="Ctrl+D">Duplicate</button>
-            <button onclick={() => remove(ev)} disabled={busy} title="Delete">Delete</button>
-          </div>
-        {/if}
-
-        {@const tabs = [
-          ["main", ev.trainer !== null ? "Person" : KIND_LABEL[ev.kind]],
-          ...(scriptOf(ev) || ev.trainer !== null ? [["says", "Says"]] : []),
-          ...(ev.trainer !== null ? [["trainer", "Trainer"], ["party", "Party"]] : []),
-          ["values", "Values"],
-        ]}
-        <div class="ptabs" role="tablist">
-          {#each tabs as [id, label]}
-            <button role="tab" aria-selected={ptab === id} class:primary={ptab === id} onclick={() => (ptab = id)}>{label}</button>
-          {/each}
-        </div>
-        {#if ptab === "main"}
-        {#if ev.kind === "npc"}
-          <label class="field">
-            <span>Battles</span>
-            <SearchSelect
-              value={ev.trainer ?? -1}
-              options={trainerOptions}
-              icon={trainerIcon}
-              disabled={readOnly || busy}
-              label="Battles"
-              onchange={(v) => setTrainer(ev, v < 0 ? null : v)}
-            />
-          </label>
+        {/snippet}
+        {#snippet characterField(ev: MapEvent)}
           <div class="field">
             <span>Looks like</span>
             <button class="look" disabled={readOnly} onclick={() => (spritePicker = !spritePicker)}>
               {#if sprite(ev)}<img class:mirror={mirrored(ev)} src={sprite(ev)} alt="" onerror={spriteFailed} />{/if}
-              <span>Character {value(ev, "objCode")}</span>
+              <span>Character {value(ev, "objCode")}{isVariableCharacter(value(ev, "objCode")) ? " (set by the game)" : ""}</span>
             </button>
           </div>
           {#if spritePicker && !readOnly}
@@ -1990,10 +2119,60 @@
               {/each}
             </div>
           {/if}
+        {/snippet}
+        <div class="head">
+          {#if itemOf(ev) && itemIcon(itemOf(ev)!.item)}
+            <img class="badge pic" src={itemIcon(itemOf(ev)!.item)} alt="" />
+          {:else if sprite(ev)}
+            <img class="badge pic" class:mirror={mirrored(ev)} src={sprite(ev)} alt="" onerror={spriteFailed} />
+          {:else}
+            <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
+          {/if}
+          <div class="title">
+            <strong>{itemOf(ev) ? itemName(itemOf(ev)!.item) : eventLabel(ev)}</strong>
+            <span class="muted">{ev.trainer !== null ? "Trainer" : isBall(ev) ? "Item ball" : isItem(ev) ? "Hidden item" : KIND_LABEL[ev.kind]} at {ev.x}, {ev.z}</span>
+          </div>
+        </div>
+        {#if !readOnly}
+          <div class="row">
+            <button onclick={() => duplicate(ev)} disabled={busy} title="Ctrl+D">Duplicate</button>
+            <button onclick={() => remove(ev)} disabled={busy} title="Delete">Delete</button>
+          </div>
+        {/if}
+
+        {@const tabs = [
+          ["main", ev.trainer !== null ? "Person" : isBall(ev) ? "Item ball" : isItem(ev) ? "Hidden item" : KIND_LABEL[ev.kind]],
+          ...(scriptOf(ev) || ev.trainer !== null ? [["says", "Says"]] : []),
+          ...(ev.trainer !== null ? [["trainer", "Trainer"], ["party", "Party"]] : []),
+          ["values", "Values"],
+        ]}
+        <div class="ptabs" role="tablist">
+          {#each tabs as [id, label]}
+            <button role="tab" aria-selected={ptab === id} class:primary={ptab === id} onclick={() => (ptab = id)}>{label}</button>
+          {/each}
+        </div>
+        {#if ptab === "main"}
+        {#if ev.kind === "npc"}
+          {#if isBall(ev)}
+            {@render itemFields(ev)}
+          {:else}
+            <label class="field">
+              <span>Battles</span>
+              <SearchSelect
+                value={ev.trainer ?? -1}
+                options={trainerOptions}
+                icon={trainerIcon}
+                disabled={readOnly || busy}
+                label="Battles"
+                onchange={(v) => setTrainer(ev, v < 0 ? null : v)}
+              />
+            </label>
+          {/if}
+          {@render characterField(ev)}
           <label class="field">
             <span>Facing</span>
             <select value={value(ev, "dirHeader")} disabled={readOnly || busy} onchange={(e) => save(ev, { dirHeader: Number((e.currentTarget as HTMLSelectElement).value) }, false)}>
-              {#each ["Up", "Down", "Left", "Right"] as d, i}<option value={i}>{d}</option>{/each}
+              {#each FACING as d, i}<option value={i}>{d}</option>{/each}
             </select>
           </label>
         {:else if ev.kind === "warp"}
@@ -2013,24 +2192,14 @@
         {:else if ev.kind === "bg"}
           <label class="field">
             <span>Kind</span>
-            <select value={isItem(ev) ? 2 : value(ev, "type")} disabled={readOnly || busy} onchange={(e) => save(ev, { type: Number((e.currentTarget as HTMLSelectElement).value) })}>
+            <select value={isItem(ev) ? 2 : value(ev, "type")} disabled={readOnly || busy} onchange={(e) => setSignKind(ev, Number((e.currentTarget as HTMLSelectElement).value))}>
               <option value={0}>Sign</option>
               <option value={1}>Something to check</option>
               <option value={2}>Hidden item</option>
             </select>
           </label>
           {#if isItem(ev)}
-            <label class="field">
-              <span>Item</span>
-              <SearchSelect
-                value={value(ev, "scriptId")}
-                options={itemOptions}
-                icon={itemIcon}
-                disabled={readOnly || busy}
-                label="Item"
-                onchange={(v) => save(ev, { scriptId: v })}
-              />
-            </label>
+            {@render itemFields(ev)}
           {:else}
             <label class="field">
               <span>Read from</span>
@@ -2128,10 +2297,20 @@
               <h3>Does</h3>
               <ul class="effects">
                 {#each sc.trainers as t}<li>Battles <strong>{trainerName(t)}</strong></li>{/each}
-                {#each sc.items as it}<li>Gives <strong>{itemName(it.item)}</strong>{it.count > 1 ? ` x${it.count}` : ""}</li>{/each}
+                {#each sc.items as it}
+                  <li>
+                    {#if itemIcon(it.item)}<img class="mini" src={itemIcon(it.item)} alt="" />{/if}
+                    Gives <strong>{itemName(it.item)}</strong>{it.count > 1 ? ` x${it.count}` : ""}
+                  </li>
+                {/each}
                 {#each sc.gifts as g}<li>Gives <strong>{species[g.species]?.name || `Pokemon ${g.species}`}</strong>, level {g.level}</li>{/each}
                 {#each sc.warps as w}<li>Sends you to <button class="link" onclick={() => switchZone(w.zone)}>{zoneName(w.zone)}</button></li>{/each}
-                {#each sc.music as mu}<li>Plays {musicName(mu)}</li>{/each}
+                {#each sc.music as mu}
+                  <li>
+                    {soundText(mu)}
+                    <button class="link" onclick={() => toggleSeq(mu)}>{playingSeq === mu ? "Stop" : "Play"}</button>
+                  </li>
+                {/each}
               </ul>
             {/if}
             {#if !sc.complete}<p class="muted small">Some of this script could not be read.</p>{/if}
@@ -2140,19 +2319,101 @@
 
         {#if ptab === "values"}
         <div class="raw">
+          <div class="row">
+            <button class="quiet" onclick={() => (showNumbers = !showNumbers)}>{showNumbers ? "Show names" : "Show numbers"}</button>
+          </div>
           <div class="fields">
             {#each ev.values as v (v.key)}
-              <label>
-                <span class="muted">{v.label}</span>
-                <input
-                  type="number"
-                  min={v.min}
-                  max={v.max}
-                  value={edits[v.key] ?? v.value}
-                  readonly={readOnly || v.readonly}
-                  oninput={(e) => (edits[v.key] = Number((e.currentTarget as HTMLInputElement).value))}
-                />
-              </label>
+              {@const cur = edits[v.key] ?? v.value}
+              {@const ro = readOnly || v.readonly}
+              {#if isNamed(ev, v)}
+                <div class="named">
+                  {#if v.key === "objCode"}
+                    {@render characterField(ev)}
+                  {:else if v.key === "type"}
+                    <span class="muted">Kind</span>
+                    <select value={isItem(ev) ? 2 : v.value} disabled={ro || busy} onchange={(e) => setSignKind(ev, Number((e.currentTarget as HTMLSelectElement).value))}>
+                      <option value={0}>Sign</option>
+                      <option value={1}>Something to check</option>
+                      <option value={2}>Hidden item</option>
+                    </select>
+                  {:else if v.key === "moveCode"}
+                    <span class="muted">{valueLabel(ev, v)}</span>
+                    <SearchSelect value={cur} options={withCurrent(moveOptions(), cur, moveName)} disabled={ro} label="Movement" onchange={(n) => (edits[v.key] = n)} />
+                  {:else if v.key === "eventType"}
+                    <span class="muted">{valueLabel(ev, v)}</span>
+                    <select value={cur} disabled={ro} onchange={(e) => (edits[v.key] = Number((e.currentTarget as HTMLSelectElement).value))}>
+                      {#each withCurrent(eventTypeOptions(), cur, eventTypeName) as [n, label]}<option value={n}>{label}</option>{/each}
+                    </select>
+                  {:else if v.key === "dirHeader"}
+                    <span class="muted">{valueLabel(ev, v)}</span>
+                    <select value={cur} disabled={ro} onchange={(e) => (edits[v.key] = Number((e.currentTarget as HTMLSelectElement).value))}>
+                      {#each FACING as d, i}<option value={i}>{d}</option>{/each}
+                    </select>
+                  {:else if v.key === "dir"}
+                    <span class="muted">Read from</span>
+                    <select value={cur} disabled={ro} onchange={(e) => (edits[v.key] = Number((e.currentTarget as HTMLSelectElement).value))}>
+                      {#each DIRS as d, i}<option value={i}>{d}</option>{/each}
+                    </select>
+                  {:else if v.key === "checkType"}
+                    <span class="muted">Starts when</span>
+                    <select value={cur} disabled={ro} onchange={(e) => (edits[v.key] = Number((e.currentTarget as HTMLSelectElement).value))}>
+                      {#each withCurrent(CHECK_TYPES, cur, (n) => `Type ${n}`) as [n, label]}<option value={n}>{label}</option>{/each}
+                    </select>
+                  {:else if v.key === "posType"}
+                    <span class="muted">Position</span>
+                    <select value={cur ? 1 : 0} disabled>
+                      <option value={0}>On the tile grid</option>
+                      <option value={1}>On a rail</option>
+                    </select>
+                  {:else if v.key === "zoneId"}
+                    <span class="muted">Leads to</span>
+                    <SearchSelect value={cur} options={zoneOptions} disabled={ro} label="Leads to" onchange={(n) => (edits[v.key] = n)} />
+                  {:else if v.key === "posY"}
+                    <span class="muted">Height (tiles)</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={cur / 65536}
+                      readonly={ro}
+                      oninput={(e) => (edits[v.key] = Math.round(Number((e.currentTarget as HTMLInputElement).value) * 65536))}
+                    />
+                  {:else if v.key === "eventFlag"}
+                    <span class="muted">{valueLabel(ev, v)}</span>
+                    <input type="number" min={v.min} max={v.max} value={cur} readonly={ro} oninput={(e) => (edits[v.key] = Number((e.currentTarget as HTMLInputElement).value))} />
+                    <span class="muted small">{flagNote(cur, isBall(ev) ? "item" : "npc")}</span>
+                  {:else}
+                    <!-- A script id: the kind of script, and its item when it gives one. -->
+                    <span class="muted">{valueLabel(ev, v)}</span>
+                    <input
+                      type="number"
+                      min={v.min}
+                      max={v.max}
+                      value={cur}
+                      readonly={ro || isItem(ev)}
+                      oninput={(e) => (edits[v.key] = Number((e.currentTarget as HTMLInputElement).value))}
+                    />
+                    <span class="muted small">
+                      {scriptKind(cur)}{itemOf(ev) ? `: ${itemName(itemOf(ev)!.item)}` : ""}
+                      {#if scriptOf(ev) || ev.trainer !== null}
+                        <button class="link" onclick={() => (ptab = "says")}>See what it says</button>
+                      {/if}
+                    </span>
+                  {/if}
+                </div>
+              {:else}
+                <label>
+                  <span class="muted">{showNumbers ? v.label : valueLabel(ev, v)}</span>
+                  <input
+                    type="number"
+                    min={v.min}
+                    max={v.max}
+                    value={cur}
+                    readonly={ro}
+                    oninput={(e) => (edits[v.key] = Number((e.currentTarget as HTMLInputElement).value))}
+                  />
+                </label>
+              {/if}
             {/each}
           </div>
           {#if !readOnly}
@@ -2811,6 +3072,23 @@
   }
   .fields input {
     width: 100%;
+  }
+  .fields .named {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.75rem;
+    min-width: 0;
+  }
+  .fields .named select {
+    width: 100%;
+  }
+  .effects .mini {
+    width: 1.3rem;
+    height: 1.3rem;
+    vertical-align: middle;
+    image-rendering: pixelated;
   }
   section h3 {
     margin: 0.2rem 0 0.4rem;

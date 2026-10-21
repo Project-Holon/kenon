@@ -1404,3 +1404,101 @@ fn script_unresolved_count() {
     eprintln!("zone 319: {} scripts, {total} unresolved", zs.scripts.len());
     assert!(!zs.scripts.is_empty());
 }
+
+/// Item balls and hidden items: every script of both ranges has the usual
+/// shape, the item reads back after a change, and only the item's two bytes
+/// of the script file change.
+#[test]
+fn item_events() {
+    use kenon_core::bridge::{Bridge, Member};
+    use kenon_core::fielditems::{self, EventItem};
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+    let balls = (fielditems::BALL_FIRST..=fielditems::BALL_LAST)
+        .filter(|&id| fielditems::event_item(&bridge, id).is_some())
+        .count();
+    let hidden = (fielditems::HIDDEN_FIRST..=fielditems::HIDDEN_LAST)
+        .filter(|&id| fielditems::event_item(&bridge, id).is_some())
+        .count();
+    eprintln!("{balls} item ball scripts, {hidden} hidden item scripts");
+    // 177 is the hidden item table's length (HIDDEN_ITEM_COUNT).
+    assert_eq!((balls, hidden), (306, 177));
+    let hidden_first = fielditems::event_item(&bridge, 8001).unwrap();
+    assert_eq!(hidden_first.flag, Some(901));
+    // Change a ball's item and count; read it back; compare the file.
+    let ball = fielditems::event_item(&bridge, 7101).unwrap();
+    assert_eq!(
+        ball,
+        EventItem {
+            kind: "ball".into(),
+            item: ball.item,
+            count: 1,
+            flag: None
+        }
+    );
+    let member = Member {
+        arc: 57,
+        index: 864,
+    };
+    let before = bridge.member(member).unwrap();
+    fielditems::set_event_item(&bridge, 7101, 17, Some(3)).unwrap();
+    let after = bridge.member(member).unwrap();
+    let now = fielditems::event_item(&bridge, 7101).unwrap();
+    assert_eq!((now.item, now.count), (17, 3));
+    assert_eq!(before.len(), after.len());
+    let differing = before.iter().zip(&after).filter(|(a, b)| a != b).count();
+    assert!(differing <= 4 && differing > 0, "{differing} bytes differ");
+    // Other balls are untouched.
+    assert_eq!(fielditems::event_item(&bridge, 7000).unwrap().item, 93);
+    // Putting the original back drops the override.
+    fielditems::set_event_item(&bridge, 7101, ball.item, Some(ball.count)).unwrap();
+    assert_eq!(bridge.member(member).unwrap(), before);
+    // A hidden item changes the same way, in its own file.
+    let h = fielditems::event_item(&bridge, 8010).unwrap();
+    fielditems::set_event_item(&bridge, 8010, 4, None).unwrap();
+    let h2 = fielditems::event_item(&bridge, 8010).unwrap();
+    assert_eq!((h2.item, h2.count, h2.flag), (4, h.count, h.flag));
+    // Not an item script.
+    assert!(fielditems::set_event_item(&bridge, 3001, 4, None).is_err());
+    // All 177 hidden item scripts are used by an event, so none is free.
+    assert_eq!(fielditems::free_hidden_script(&bridge).unwrap(), None);
+    // The event list carries the item.
+    let found = (0..kenon_core::world::zones(&bridge).unwrap().len())
+        .flat_map(|z| kenon_core::scripts::event_scripts(&bridge, z).unwrap())
+        .filter(|e| e.item.is_some())
+        .count();
+    eprintln!("{found} events give an item");
+    assert!(found >= 276 + 177);
+}
+
+/// Writes every text string of both banks' archives (display form) as JSON
+/// to the file named by KENON_TEXT_DUMP, for `tools/check-msgtokens.mjs`.
+#[test]
+fn dump_text_for_tokens() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::catalog;
+    use kenon_core::rom::Rom;
+    let (Some(path), Some(out)) = (
+        std::env::var_os("KENON_ROM"),
+        std::env::var_os("KENON_TEXT_DUMP"),
+    ) else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let mut all: Vec<Vec<String>> = Vec::new();
+    for arc in [2u16, 3] {
+        for bank in 0..catalog::members(&bridge, arc).unwrap().len() {
+            if let Ok(strings) = catalog::text_bank(&bridge, arc, bank) {
+                all.push(strings);
+            }
+        }
+    }
+    eprintln!("{} banks", all.len());
+    std::fs::write(out, serde_json::to_string(&all).unwrap()).unwrap();
+}

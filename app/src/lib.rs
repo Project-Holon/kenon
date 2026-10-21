@@ -512,6 +512,24 @@ async fn event_scripts(
 }
 
 #[tauri::command]
+async fn set_event_item(
+    state: State<'_, AppState>,
+    script_id: u16,
+    item: u16,
+    count: Option<u16>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::fielditems::set_event_item(&bridge, script_id, item, count)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn free_hidden_script(state: State<'_, AppState>) -> Result<Option<u16>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::fielditems::free_hidden_script(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn zone_scripts(
     state: State<'_, AppState>,
     zone: usize,
@@ -1148,6 +1166,8 @@ pub fn run() {
             add_prop,
             remove_prop,
             event_scripts,
+            set_event_item,
+            free_hidden_script,
             zone_scripts,
             object_textures,
             describe_changes,

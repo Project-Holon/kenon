@@ -154,6 +154,7 @@ pub fn describe(bridge: &Bridge, path: &str) -> ChangeInfo {
         12 => zone_headers(bridge, &base, &current, &mut info),
         8 => map_chunk(bridge, &base, &current, index, &mut info),
         125 => events(bridge, &base, &current, index, &mut info),
+        57 => scripts_file(&base, &current, index, &mut info),
         2 | 3 => text(bridge, &base, &current, arc, index, &mut info),
         _ => table(bridge, &base, &current, arc, index, &mut info)
             .unwrap_or_else(|| bytes(bridge, &base, &current, arc, index, &mut info)),
@@ -446,6 +447,19 @@ fn events(
         .into_iter()
         .map(|(label, old, new)| line(label, old, new))
         .collect()
+}
+
+/// A field script file: item balls (864) and hidden items (865) by name.
+fn scripts_file(base: &[u8], current: &[u8], index: usize, info: &mut ChangeInfo) -> Vec<DiffLine> {
+    info.category = "Maps".into();
+    info.title = match index {
+        864 => "Item balls".into(),
+        865 => "Hidden items".into(),
+        n => format!("Map scripts {n}"),
+    };
+    let differ = base.iter().zip(current).filter(|(a, b)| a != b).count()
+        + base.len().abs_diff(current.len());
+    vec![line("Bytes", "", format!("{differ} changed"))]
 }
 
 fn bytes(

@@ -207,6 +207,8 @@ pub struct EventScript {
     /// `scriptId`); none for kinds that run no script.
     pub script_id: Option<u16>,
     pub script: Option<ScriptInfo>,
+    /// For an item ball or a hidden item: what it gives.
+    pub item: Option<crate::fielditems::EventItem>,
 }
 
 struct Range {
@@ -616,16 +618,16 @@ impl Operands<'_> {
 }
 
 /// An instruction's place and size.
-struct Insn {
-    op: u16,
-    at: usize,
-    size: usize,
-    next: usize,
+pub(crate) struct Insn {
+    pub(crate) op: u16,
+    pub(crate) at: usize,
+    pub(crate) size: usize,
+    pub(crate) next: usize,
 }
 
 /// Reads the instruction at `pc`; `None` for an opcode of unknown size or one
 /// that runs past the end of the file.
-fn decode(b: &[u8], pc: usize) -> Option<Insn> {
+pub(crate) fn decode(b: &[u8], pc: usize) -> Option<Insn> {
     let op = rd16(b, pc)?;
     let size = OPERAND_BYTES.get(op as usize).copied().unwrap_or(UNKNOWN);
     let at = pc + 2;
@@ -1267,6 +1269,16 @@ fn trainer_of(event_id: u16) -> Option<u16> {
 fn resolve_event(ctx: &mut Ctx, kind: &str, id: Option<u16>) -> Option<ScriptInfo> {
     let id = id?;
     let mut info = ctx.info(id)?;
+    // Item balls and hidden items keep their item in the script itself; the
+    // walk loses it inside the shared pick-up routine.
+    if info.items.is_empty() {
+        if let Some(it) = crate::fielditems::event_item(ctx.bridge, id) {
+            info.items.push(ItemGift {
+                item: it.item,
+                count: it.count,
+            });
+        }
+    }
     if kind == "npc" {
         if let Some(t) = trainer_of(id) {
             push_new(&mut info.trainers, t);
@@ -1304,11 +1316,15 @@ pub fn event_scripts(bridge: &Bridge, zone: usize) -> Result<Vec<EventScript>, E
         .into_iter()
         .map(|(kind, index, script_id)| {
             let script = resolve_event(&mut ctx, &kind, script_id);
+            let item = script_id
+                .filter(|_| kind == "npc" || kind == "bg")
+                .and_then(|id| crate::fielditems::event_item(ctx.bridge, id));
             EventScript {
                 kind,
                 index,
                 script_id,
                 script,
+                item,
             }
         })
         .collect())
@@ -1357,4 +1373,34 @@ fn map_scripts(ctx: &mut Ctx, bridge: &Bridge, zone: usize) -> Result<Vec<MapScr
         p += 6;
     }
     Ok(out)
+}
+
+/// One script's file member and the code offset where it starts, for
+/// readers and writers of literals inside a script (`fielditems`). The
+/// zone only matters for ids below the shared ranges.
+pub(crate) fn script_code(
+    bridge: &Bridge,
+    zone: usize,
+    script_id: u16,
+) -> Option<(u16, Vec<u8>, usize)> {
+    let mut ctx = Ctx::new(bridge, zone).ok()?;
+    let loc = ctx.locate(script_id)?;
+    let start = ctx.entry(loc.file, loc.index)?;
+    let bytes = ctx.file(loc.file)?;
+    Some((loc.file, bytes.to_vec(), start))
+}
+
+/// The member of a/0/5/7 that holds the script file (for writes).
+pub(crate) const SCRIPT_MEMBERS: u16 = SCRIPT_ARCHIVE;
+pub(crate) const LITERAL_MAX: u16 = LITERAL_LIMIT;
+pub(crate) const OP_SET_CONST: u16 = 40;
+pub(crate) const OP_SET_VALUE: u16 = 42;
+
+/// The script id field of every event of a zone, in file order, as
+/// (kind, index, id).
+pub(crate) fn event_script_ids(
+    bridge: &Bridge,
+    zone: usize,
+) -> Result<Vec<(String, usize, Option<u16>)>, Error> {
+    Ok(event_ids(&event_file(bridge, zone)?))
 }

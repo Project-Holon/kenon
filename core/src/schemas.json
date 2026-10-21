@@ -3014,7 +3014,7 @@
        "offset": 0,
        "type": "u16",
        "confidence": "verified",
-       "note": "for type 2 the hidden item id"
+       "note": "for type 2 the hidden item script id, 8000 + index (file 865 of a/0/5/7 holds the item and count)"
       },
       {
        "name": "type",

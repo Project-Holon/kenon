@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod changes;
 pub mod code;
 pub mod data_root;
+pub mod fielditems;
 pub mod g3d;
 pub mod image;
 pub mod lz;

@@ -7,6 +7,7 @@
   import { archiveLabel } from "../lib/archiveLabels";
   import { copyText, guarded, openInFiles, saveMember, saveText } from "../lib/exporter";
   import { keepNative, openMenu } from "../lib/menu.svelte";
+  import { fromTokens, toTokens } from "../lib/msgtokens";
 
   let {
     archive,
@@ -61,7 +62,9 @@
     loading = true;
     const my = ++seq;
     try {
-      const fresh = await textBank(archive, index);
+      // Game codes show as readable tokens ([Player], [Wait]); saving turns
+      // them back.
+      const fresh = (await textBank(archive, index)).map(toTokens);
       if (my !== seq) return;
       original = fresh;
       strings = drafts.get(index) ?? fresh.slice();
@@ -113,7 +116,7 @@
     busy = true;
     error = null;
     try {
-      await saveTextBank(archive, bank, strings);
+      await saveTextBank(archive, bank, strings.map(fromTokens));
       original = strings.slice();
       drafts.delete(bank);
       play("save");
@@ -136,7 +139,7 @@
     openMenu(e, [
       {
         label: "Save bank as text",
-        run: guarded(async () => saveText(index === bank ? allText() : (await textBank(archive, index)).join("\n"), name)),
+        run: guarded(async () => saveText(index === bank ? allText() : (await textBank(archive, index)).map(toTokens).join("\n"), name)),
       },
       { label: "Save game file", run: guarded(() => saveMember(archive, index, name, "bin")) },
       "-",
@@ -157,7 +160,7 @@
     ]);
   }
 
-  // Control codes ({...}) and escapes stay as written in the preview.
+  // The preview draws the game's codes and shows a line break as one.
   const preview = (s: string) => s.replaceAll("\\n", "\n");
 </script>
 
@@ -207,7 +210,7 @@
             {/if}
             {#if focused === i && strings[i]}
               <div class="window preview">
-                <img class="px" src={gameText(preview(strings[i]))} alt="" />
+                <img class="px" src={gameText(preview(fromTokens(strings[i])))} alt="" />
               </div>
             {/if}
           </div>
@@ -218,8 +221,8 @@
       {#if shown.length > limit}<div bind:this={sentinel} class="more muted">Loading more...</div>{/if}
     </div>
     <p class="hint muted">
-      <code>\n</code> is a new line; <code>&#123;...&#125;</code> is a game code (names, colours, pauses), kept
-      as written.
+      <code>\n</code> is a new line. <code>[Player]</code>, <code>[Item 1]</code>, <code>[Wait]</code> and the
+      like are game codes (names, items, numbers, colors, pauses); the number is the slot a script fills.
     </p>
   </section>
 </div>
