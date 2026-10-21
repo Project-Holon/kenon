@@ -9,6 +9,8 @@
   import TableEditor from "./TableEditor.svelte";
   import WildEditor from "./WildEditor.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
+  import { openMenu, type MenuItem } from "../lib/menu.svelte";
+  import { copyText, guarded, savePng } from "../lib/exporter";
   import { itemIcon, loadIcons, trainerIcon } from "../lib/icons.svelte";
 
   // One map: click things to edit them, drag to move them, paint tiles.
@@ -720,10 +722,10 @@
     }
     const p = at(e);
     if (e.button === 2) {
-      if (inside(p) && terrain[p.z * map.width + p.x] >= 0) {
+      // Painting: right click picks the tile. Otherwise the menu opens.
+      if (tool !== "select" && inside(p) && terrain[p.z * map.width + p.x] >= 0) {
         const i = p.z * map.width + p.x;
         brush = { terrain: terrain[i], flags: flags[i] };
-        if (tool === "select") tool = "paint";
         play("select");
       }
       return;
@@ -1374,6 +1376,70 @@
   const musicName = (seq: number) => music.find((m) => m.index === seq)?.name ?? `#${seq}`;
   const value = (ev: MapEvent, key: string) => ev.values.find((v) => v.key === key)?.value ?? 0;
   const isItem = (ev: MapEvent) => ev.kind === "bg" && value(ev, "type") === 2;
+  // ---- right-click menus ----
+
+  const coords = (x: number, z: number) => `${x}, ${z}`;
+
+  function eventMenu(ev: MapEvent, e: MouseEvent) {
+    e.stopPropagation();
+    picked = ev;
+    pickedProp = null;
+    sel = null;
+    const items: MenuItem[] = [];
+    if (ev.toZone !== null) items.push({ label: "Go to destination", run: () => switchZone(ev.toZone!) });
+    if (ev.trainer !== null) items.push({ label: "Edit trainer", run: () => (ptab = "trainer") });
+    if (scriptOf(ev) || ev.trainer !== null) items.push({ label: "What it says", run: () => (ptab = "says") });
+    if (items.length) items.push("-");
+    items.push(
+      { label: "Copy", hint: "Ctrl+C", run: () => ((eventClip = ev), (clip = null)) },
+      { label: "Duplicate", hint: "Ctrl+D", disabled: readOnly, run: () => duplicate(ev) },
+      { label: "Copy position", run: () => copyText(coords(ev.x, ev.z)) },
+    );
+    if (!readOnly) items.push("-", { label: "Delete", hint: "Del", run: () => remove(ev) });
+    openMenu(e, items);
+  }
+
+  function propMenu(pr: Prop, e: MouseEvent) {
+    e.stopPropagation();
+    pickedProp = pr;
+    picked = null;
+    sel = null;
+    const name = objectName(pr.model);
+    openMenu(e, [
+      { label: "Save picture as PNG", run: guarded(() => savePng(`propmodel/${current}/${pr.model}?px=256`, name)) },
+      { label: "Duplicate", disabled: readOnly, run: () => copyProp(pr) },
+      { label: "Copy position", run: () => copyText(coords(pr.x, pr.z)) },
+      ...(readOnly ? [] : (["-", { label: "Delete", hint: "Del", run: () => removeProp(pr) }] as MenuItem[])),
+    ]);
+  }
+
+  function stageMenu(e: MouseEvent) {
+    e.preventDefault();
+    if (!map || tool !== "select") return;
+    const p = at(e as PointerEvent);
+    const place = map.zone.place;
+    const items: MenuItem[] = [];
+    if (inside(p) && terrain[p.z * map.width + p.x] >= 0) {
+      const i = p.z * map.width + p.x;
+      items.push(
+        { label: `Paint with ${tileLabel(terrain[i], flags[i])}`, run: () => ((brush = { terrain: terrain[i], flags: flags[i] }), (tool = "paint")) },
+        { label: "Copy position", run: () => copyText(coords(p.x, p.z)) },
+      );
+      if (!readOnly) {
+        items.push("-");
+        for (const [a, label] of ADDS) items.push({ label: `Add ${label.toLowerCase()} here`, run: () => (a === "prop" ? addProp(p) : addEvent(a, p)) });
+        if (eventClip) items.push({ label: "Paste", hint: "Ctrl+V", run: () => duplicate(eventClip!, p) });
+      }
+      items.push("-");
+    }
+    items.push(
+      { label: "Save map as PNG", run: guarded(() => savePng(`maprender/${current}?px=16&${look3d}`, place)) },
+      { label: "Save view as PNG", run: guarded(() => savePng(`maprender/${current}?view=camera&x=${p.x}&z=${p.z}&w=768&h=576&${look3d}`, `${place} view`)) },
+      { label: "Copy map name", run: () => copyText(place) },
+    );
+    openMenu(e, items);
+  }
+
   function eventLabel(ev: MapEvent): string {
     if (ev.trainer !== null) return trainerName(ev.trainer);
     if (isItem(ev)) return `Hidden ${itemName(value(ev, "scriptId"))}`;
@@ -1591,7 +1657,7 @@
       onpointerup={onUp}
       onlostpointercapture={onUp}
       onpointerleave={() => ((hover = null), (hoverEvent = null))}
-      oncontextmenu={(e) => e.preventDefault()}
+      oncontextmenu={stageMenu}
       onauxclick={(e) => e.preventDefault()}
     >
       {#if map}
@@ -1637,6 +1703,7 @@
                 style="left: {propBox(pr).x * scale}px; top: {propBox(pr).z * scale}px; width: {propBox(pr).w * scale}px; height: {propBox(pr).d * scale}px"
                 title={objectName(pr.model)}
                 onpointerdown={(e) => onPropDown(pr, e)}
+                oncontextmenu={(e) => (e.preventDefault(), propMenu(pr, e))}
               ></div>
             {/each}
           {/if}
@@ -1653,6 +1720,7 @@
                 class:passive={tool !== "select" || adding !== null}
                 style="left: {ev.x * scale}px; top: {ev.z * scale}px; width: {ev.w * scale}px; height: {ev.h * scale}px; font-size: {Math.max(8, scale * 0.6)}px"
                 onpointerdown={(e) => onEventDown(ev, e)}
+                oncontextmenu={(e) => (e.preventDefault(), eventMenu(ev, e))}
                 onpointerenter={() => (hoverEvent = ev)}
                 onpointerleave={() => (hoverEvent = null)}
               >
