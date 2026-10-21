@@ -232,6 +232,10 @@
   let look = $state<"game" | "tiles">("game");
   let renderOk = $state(true);
   let preview = $state(false);
+  // How the picture is lit: the game's season and time of day.
+  let season = $state(0);
+  let time = $state("day");
+  const look3d = $derived(`season=${season}&time=${time}`);
   let undo = $state<Step[]>([]);
   let edits = $state<Record<string, number>>({});
   let trainers = $state<Entry[]>([]);
@@ -1240,6 +1244,14 @@
         <button class:primary={look === "tiles"} onclick={() => (look = "tiles")}>Tile kinds</button>
       </div>
     {/if}
+    {#if renderOk}
+      <select bind:value={season} aria-label="Season" title="Season">
+        {#each ["Spring", "Summer", "Autumn", "Winter"] as name, i}<option value={i}>{name}</option>{/each}
+      </select>
+      <select bind:value={time} aria-label="Time of day" title="Time of day">
+        {#each [["morning", "Morning"], ["day", "Day"], ["evening", "Evening"], ["night", "Night"]] as [id, name]}<option value={id}>{name}</option>{/each}
+      </select>
+    {/if}
     <div class="zoomer">
       <button class="quiet" onclick={() => stage && zoomAt(scale - Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom out">-</button>
       <button class="quiet zoom" onclick={fit} title="Fit (F)">{Math.round((scale / 16) * 100)}%</button>
@@ -1317,11 +1329,11 @@
         <div class="world" style="width: {map.width * scale}px; height: {map.height * scale}px; transform: translate({pan.x}px, {pan.y}px)">
           {#if renderOk}
             <!-- A small picture first, the sharp one over it once drawn. -->
-            {#key `${current}/${renderStamp}`}
+            {#key `${current}/${renderStamp}/${look3d}`}
               <img
                 class="render"
                 class:hidden={look === "tiles"}
-                src={asset(`maprender/${current}?px=4&ss=1${renderStamp ? `&v=${renderStamp}` : ""}`)}
+                src={asset(`maprender/${current}?px=4&ss=1&${look3d}${renderStamp ? `&v=${renderStamp}` : ""}`)}
                 alt=""
                 draggable="false"
                 onerror={() => (renderOk = false)}
@@ -1329,7 +1341,7 @@
               <img
                 class="render sharp"
                 class:hidden={look === "tiles"}
-                src={asset(`maprender/${current}?px=16${renderStamp ? `&v=${renderStamp}` : ""}`)}
+                src={asset(`maprender/${current}?px=16&${look3d}${renderStamp ? `&v=${renderStamp}` : ""}`)}
                 alt=""
                 draggable="false"
                 onload={(e) => (e.currentTarget as HTMLImageElement).classList.add("ready")}
@@ -1416,7 +1428,7 @@
         {/if}
         {#if preview}
           <figure class="preview window">
-            <img src={asset(`maprender/${current}?view=camera&x=${previewAt.x}&z=${previewAt.z}&w=384&h=288`)} alt="In game" draggable="false" />
+            <img src={asset(`maprender/${current}?view=camera&x=${previewAt.x}&z=${previewAt.z}&w=384&h=288&${look3d}`)} alt="In game" draggable="false" />
             <figcaption class="muted">{previewAt.x}, {previewAt.z}</figcaption>
           </figure>
         {/if}
