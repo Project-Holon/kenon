@@ -217,7 +217,9 @@
   }
   .icon {
     flex: none;
-    width: 24px;
+    width: auto;
+    min-width: 24px;
+    max-width: 32px;
     height: 24px;
     object-fit: contain;
     image-rendering: pixelated;

@@ -166,6 +166,8 @@ pub struct ScriptInfo {
     pub calls: Vec<u16>,
     /// False when the walk met an opcode of unknown size or left the file.
     pub complete: bool,
+    /// Message operands whose value only exists while the game runs.
+    pub unresolved: usize,
 }
 
 /// A script the zone runs by itself: on entering, on recovery, at field
@@ -945,9 +947,19 @@ impl<'a> Ctx<'a> {
     fn info(&mut self, id: u16) -> Option<ScriptInfo> {
         let loc = self.locate(id)?;
         let start = self.entry(loc.file, loc.index)?;
-        let mut acc = Acc::default();
+        let mut acc = Acc {
+            sites: Some(HashMap::new()),
+            ..Acc::default()
+        };
         let mut seen = Seen::default();
         self.walk(&loc, start, 0, &mut acc, &mut seen, State::default());
+        let unresolved = acc
+            .sites
+            .take()
+            .unwrap_or_default()
+            .iter()
+            .filter(|((cat, ..), o)| *cat == Cat::Message && matches!(o, Opnd::Unknown))
+            .count();
         let messages = acc
             .messages
             .iter()
@@ -973,6 +985,7 @@ impl<'a> Ctx<'a> {
             music: acc.music,
             calls: acc.calls,
             complete: !acc.incomplete,
+            unresolved,
         })
     }
 }

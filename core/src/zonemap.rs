@@ -301,6 +301,33 @@ fn array_index(kind: &str) -> Result<usize, Error> {
         .ok_or_else(|| Error::BadPath(format!("no event kind {kind}")))
 }
 
+/// Writes the given fields of one record in an event file buffer.
+fn apply_values(
+    file: &mut [u8],
+    a: usize,
+    index: usize,
+    values: &HashMap<String, i64>,
+) -> Result<(), Error> {
+    let array = &event_arrays()[a];
+    let (start, count) = array_spans(file)[a];
+    if index >= count {
+        return Err(Error::Missing(format!("{} {index}", array.name)));
+    }
+    let base = start + index * array.record_size;
+    for f in &array.fields {
+        if let Some(&v) = values.get(&f.name) {
+            if f.when
+                .as_ref()
+                .is_none_or(|w| get(file, base, &array.fields, &w.field) == w.equals)
+            {
+                let (min, max) = tables::range(f);
+                tables::write_field(file, base, f, v.clamp(min, max));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Changes fields of one event and writes the zone's event file.
 pub fn save_event(
     bridge: &Bridge,
@@ -310,24 +337,7 @@ pub fn save_event(
     values: &HashMap<String, i64>,
 ) -> Result<(), Error> {
     let (m, mut file) = event_file(bridge, zone_id)?;
-    let a = array_index(kind)?;
-    let array = &event_arrays()[a];
-    let (start, count) = array_spans(&file)[a];
-    if index >= count {
-        return Err(Error::Missing(format!("{kind} {index}")));
-    }
-    let base = start + index * array.record_size;
-    for f in &array.fields {
-        if let Some(&v) = values.get(&f.name) {
-            if f.when
-                .as_ref()
-                .is_none_or(|w| get(&file, base, &array.fields, &w.field) == w.equals)
-            {
-                let (min, max) = tables::range(f);
-                tables::write_field(&mut file, base, f, v.clamp(min, max));
-            }
-        }
-    }
+    apply_values(&mut file, array_index(kind)?, index, values)?;
     crate::catalog::write_member(bridge, m, &file)
 }
 
@@ -419,6 +429,50 @@ pub fn remove_event(
     crate::catalog::write_member(bridge, m, &file)
 }
 
+/// The raw bytes of one event record.
+pub fn event_record(
+    bridge: &Bridge,
+    zone_id: usize,
+    kind: &str,
+    index: usize,
+) -> Result<Vec<u8>, Error> {
+    let (_, file) = event_file(bridge, zone_id)?;
+    let a = array_index(kind)?;
+    let size = event_arrays()[a].record_size;
+    let (start, count) = array_spans(&file)[a];
+    if index >= count {
+        return Err(Error::Missing(format!("{kind} {index}")));
+    }
+    Ok(file[start + index * size..start + (index + 1) * size].to_vec())
+}
+
+/// Puts a removed record back at its index (`record` comes from
+/// `event_record`). Later events of the kind move up one index.
+pub fn insert_event(
+    bridge: &Bridge,
+    zone_id: usize,
+    kind: &str,
+    index: usize,
+    record: &[u8],
+) -> Result<(), Error> {
+    let (m, mut file) = event_file(bridge, zone_id)?;
+    let a = array_index(kind)?;
+    let size = event_arrays()[a].record_size;
+    let (start, count) = array_spans(&file)[a];
+    if record.len() != size {
+        return Err(Error::Format(format!("{kind} record is {size} bytes")));
+    }
+    if index > count || count >= 255 {
+        return Err(Error::BadPath(format!("no room for {kind} {index}")));
+    }
+    let at = start + index * size;
+    file.splice(at..at, record.iter().copied());
+    file[4 + a] = (count + 1) as u8;
+    let trailer = rd32(&file, 0).unwrap_or(0) + size as u32;
+    file[0..4].copy_from_slice(&trailer.to_le_bytes());
+    crate::catalog::write_member(bridge, m, &file)
+}
+
 /// One tile change: map tile (as `zone_map` lays them out), terrain id
 /// and flags.
 pub type TileWrite = (usize, usize, u16, u16);
@@ -487,17 +541,15 @@ pub fn set_tile(
     write_tiles(bridge, zone_id, &[(x, z, terrain, flags)])
 }
 
-/// Moves an event so its corner is on map tile (x, z), in each kind's own
-/// units (warps keep their sixteenths within the tile).
-pub fn move_event(
-    bridge: &Bridge,
-    zone_id: usize,
+/// The fields that put an event's corner on map tile (x, z), in each
+/// kind's own units (warps keep their sixteenths within the tile).
+fn move_values(
+    map: &ZoneMap,
     kind: &str,
     index: usize,
     x: i32,
     z: i32,
-) -> Result<(), Error> {
-    let map = zone_map(bridge, zone_id)?;
+) -> Result<HashMap<String, i64>, Error> {
     let ev = map
         .events
         .iter()
@@ -525,7 +577,35 @@ pub fn move_event(
             values.insert("z".to_string(), mz);
         }
     }
+    Ok(values)
+}
+
+/// Moves an event so its corner is on map tile (x, z).
+pub fn move_event(
+    bridge: &Bridge,
+    zone_id: usize,
+    kind: &str,
+    index: usize,
+    x: i32,
+    z: i32,
+) -> Result<(), Error> {
+    let map = zone_map(bridge, zone_id)?;
+    let values = move_values(&map, kind, index, x, z)?;
     save_event(bridge, zone_id, kind, index, &values)
+}
+
+/// One event move: kind, index and the map tile its corner goes to.
+pub type EventMove = (String, usize, i32, i32);
+
+/// Moves several events in one write.
+pub fn move_events(bridge: &Bridge, zone_id: usize, moves: &[EventMove]) -> Result<(), Error> {
+    let map = zone_map(bridge, zone_id)?;
+    let (m, mut file) = event_file(bridge, zone_id)?;
+    for (kind, index, x, z) in moves {
+        let values = move_values(&map, kind, *index, *x, *z)?;
+        apply_values(&mut file, array_index(kind)?, *index, &values)?;
+    }
+    crate::catalog::write_member(bridge, m, &file)
 }
 
 /// Makes a person battle a trainer (or stop battling, with `None`).

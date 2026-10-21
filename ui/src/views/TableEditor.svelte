@@ -4,7 +4,7 @@
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
-  import { enumIcon, itemIcon, loadIcons, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
+  import { enumIcon, itemIcon, loadIcons, moveIcon, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
   import { debounced } from "../lib/cache.svelte";
   import { asset } from "../lib/backend";
   import { invoke } from "@tauri-apps/api/core";
@@ -275,11 +275,13 @@
         return itemIcon(index);
       case "trainers":
         return trainerIcon(index);
+      case "moves":
+        return moveIcon(index);
       default:
         return null;
     }
   };
-  const hasIcons = $derived(["species", "items", "trainers"].includes(tables[0]));
+  const hasIcons = $derived(["species", "items", "trainers", "moves"].includes(tables[0]));
   const edited = (index: number) => drafts.has(index) || (index === current && dirty);
 
   const sectionLabel = (s: Section) => (s.kind === "list" ? `${s.label} (${s.rows.length})` : s.label);
@@ -644,7 +646,9 @@
   }
   .ico {
     flex: none;
-    width: 24px;
+    width: auto;
+    min-width: 24px;
+    max-width: 32px;
     height: 24px;
     object-fit: contain;
     image-rendering: pixelated;

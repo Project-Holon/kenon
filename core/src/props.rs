@@ -237,8 +237,46 @@ pub fn remove_prop(bridge: &Bridge, chunk: usize, index: usize) -> Result<(), Er
     store(bridge, chunk, &bytes)
 }
 
-/// The models a zone's area offers, by id (the ids props use).
-pub fn prop_models(bridge: &Bridge, zone: usize) -> Result<Vec<u16>, Error> {
+/// The raw record of a placed model, to restore it after a delete.
+pub fn prop_record(bridge: &Bridge, chunk: usize, index: usize) -> Result<Vec<u8>, Error> {
+    let bytes = load(bridge, chunk)?;
+    let (_, start, end) =
+        section(&bytes).ok_or_else(|| Error::Format("map piece has no object list".into()))?;
+    let count = rd32(&bytes, start).unwrap_or(0) as usize;
+    let at = start + 4 + index * RECORD;
+    if index >= count || at + RECORD > end {
+        return Err(Error::Missing(format!("object {index}")));
+    }
+    Ok(bytes[at..at + RECORD].to_vec())
+}
+
+/// Puts a removed record back at its index in a chunk's object list.
+pub fn insert_prop(
+    bridge: &Bridge,
+    chunk: usize,
+    index: usize,
+    record: &[u8],
+) -> Result<(), Error> {
+    if record.len() != RECORD {
+        return Err(Error::Format(format!("object record is {RECORD} bytes")));
+    }
+    let mut bytes = load(bridge, chunk)?;
+    let (n, start, end) =
+        section(&bytes).ok_or_else(|| Error::Format("map piece has no object list".into()))?;
+    let count = rd32(&bytes, start).unwrap_or(0) as usize;
+    if index > count || start + 4 + count * RECORD > end {
+        return Err(Error::Missing(format!("object {index}")));
+    }
+    let at = start + 4 + index * RECORD;
+    bytes.splice(at..at, record.iter().copied());
+    bytes[start..start + 4].copy_from_slice(&((count + 1) as u32).to_le_bytes());
+    let new_end = (end + RECORD) as u32;
+    bytes[4 + n * 4..8 + n * 4].copy_from_slice(&new_end.to_le_bytes());
+    store(bridge, chunk, &bytes)
+}
+
+/// The building set member a zone's area uses.
+fn building_set(bridge: &Bridge, zone: usize) -> Result<Vec<u8>, Error> {
     let headers = bridge.member(Member {
         arc: ZONE_HEADERS,
         index: 0,
@@ -266,11 +304,34 @@ pub fn prop_models(bridge: &Bridge, zone: usize) -> Result<Vec<u16>, Error> {
     };
     let member = if m < count { m } else { 0 };
     let bytes = bridge.member(Member { arc, index: member })?;
+    Ok(bytes)
+}
+
+/// The models a zone's area offers, by id (the ids props use).
+pub fn prop_models(bridge: &Bridge, zone: usize) -> Result<Vec<u16>, Error> {
+    let bytes = building_set(bridge, zone)?;
     let n = bytes.get(2).copied().unwrap_or(0) as usize / 2;
     Ok((0..n)
         .filter_map(|i| {
             let def = rd32(&bytes, 4 + i * 4)? as usize;
             rd16(&bytes, def)
+        })
+        .collect())
+}
+
+/// The area's models with the name stored in each model file (pc01,
+/// stair_u01, ...), by id.
+pub fn prop_model_names(bridge: &Bridge, zone: usize) -> Result<Vec<(u16, String)>, Error> {
+    let bytes = building_set(bridge, zone)?;
+    let n = bytes.get(2).copied().unwrap_or(0) as usize / 2;
+    Ok((0..n)
+        .filter_map(|i| {
+            let id = rd16(&bytes, rd32(&bytes, 4 + i * 4)? as usize)?;
+            let file = rd32(&bytes, 4 + (n + i) * 4)? as usize;
+            let name = crate::nsbmd::parse(bytes.get(file..)?)
+                .map(|m| m.name)
+                .unwrap_or_default();
+            Some((id, name))
         })
         .collect())
 }

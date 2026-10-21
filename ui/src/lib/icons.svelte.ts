@@ -10,6 +10,8 @@ const state = $state({
   itemIcons: [] as number[],
   trainerGraphic: [] as number[],
   trainerClass: [] as number[],
+  typePalette: [] as number[],
+  moveType: [] as number[],
 });
 
 let started = false;
@@ -24,7 +26,11 @@ export function loadIcons() {
   const table = (name: string) =>
     once(`table/${name}`, () => fetch(asset(`table/${name}`)).then((r) => (r.ok ? r.json() : [])));
   table("item_icons").then((t: number[]) => (state.itemIcons = t)).catch(() => {});
+  table("type_palette").then((t: number[]) => (state.typePalette = t)).catch(() => {});
   table("trainer_graphic").then((t: number[]) => (state.trainerGraphic = t)).catch(() => {});
+  once("moveTypes", () => invoke<number[]>("move_types"))
+    .then((t) => (state.moveType = t))
+    .catch(() => {});
   once("trainerClasses", () => invoke<number[]>("trainer_classes"))
     .then((c) => (state.trainerClass = c))
     .catch(() => {});
@@ -57,6 +63,19 @@ export function trainerIcon(trainer: number): string | null {
   return cls === undefined || cls < 0 ? null : trainerClassIcon(cls);
 }
 
+/// A type's label picture (Normal, Fire...), from the shared UI sheet a/0/8/3:
+/// tiles 34 + type, cell bank 59, palette 33 with the type's sub-palette.
+export function typeIcon(type: number): string | null {
+  const pal = state.typePalette[type];
+  return pal === undefined ? null : asset(`cell/83:${34 + type}/83:33/83:59/0?paloffset=${pal}`);
+}
+
+/// A move's picture is its type's.
+export function moveIcon(move: number): string | null {
+  const type = state.moveType[move];
+  return move <= 0 || type === undefined ? null : typeIcon(type);
+}
+
 /// The icon function for an enum, when its entries have pictures.
 export function enumIcon(name: string | null): ((v: number) => string | null) | undefined {
   switch (name) {
@@ -66,6 +85,10 @@ export function enumIcon(name: string | null): ((v: number) => string | null) | 
       return itemIcon;
     case "trainerClass":
       return trainerClassIcon;
+    case "type":
+      return typeIcon;
+    case "move":
+      return moveIcon;
     default:
       return undefined;
   }

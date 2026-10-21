@@ -1293,3 +1293,114 @@ fn screen_layout() {
     eprintln!("{checked} screens laid out");
     assert!(checked > 0);
 }
+
+/// Deleting an event or a placed model and putting its record back leaves
+/// the file byte-identical; a batch move is one write.
+#[test]
+fn delete_restore_and_batch_move() {
+    use kenon_core::bridge::{Bridge, Member};
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    use kenon_core::{props, world, zonemap};
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+    let zone = 319;
+    let file = |b: &Bridge| {
+        let z = &world::zones(b).unwrap()[zone];
+        b.member(Member {
+            arc: 125,
+            index: z.event_data as usize,
+        })
+        .unwrap()
+    };
+    let before = file(&bridge);
+    let map = zonemap::zone_map(&bridge, zone).unwrap();
+    for kind in ["npc", "warp", "bg", "pos"] {
+        let count = map.events.iter().filter(|e| e.kind == kind).count();
+        if count == 0 {
+            continue;
+        }
+        for index in [0, count - 1] {
+            let rec = zonemap::event_record(&bridge, zone, kind, index).unwrap();
+            zonemap::remove_event(&bridge, zone, kind, index).unwrap();
+            assert_ne!(file(&bridge), before);
+            zonemap::insert_event(&bridge, zone, kind, index, &rec).unwrap();
+            assert_eq!(file(&bridge), before, "{kind} {index}");
+        }
+    }
+    // A batch move, then back.
+    let npcs: Vec<_> = map
+        .events
+        .iter()
+        .filter(|e| e.kind == "npc")
+        .take(2)
+        .collect();
+    let there: Vec<_> = npcs
+        .iter()
+        .map(|e| ("npc".to_string(), e.index, e.x + 1, e.z))
+        .collect();
+    let back: Vec<_> = npcs
+        .iter()
+        .map(|e| ("npc".to_string(), e.index, e.x, e.z))
+        .collect();
+    zonemap::move_events(&bridge, zone, &there).unwrap();
+    let moved = zonemap::zone_map(&bridge, zone).unwrap();
+    for (e, m) in npcs.iter().zip(&there) {
+        let now = moved
+            .events
+            .iter()
+            .find(|q| q.kind == "npc" && q.index == e.index)
+            .unwrap();
+        assert_eq!((now.x, now.z), (m.2, m.3));
+    }
+    zonemap::move_events(&bridge, zone, &back).unwrap();
+    assert_eq!(file(&bridge), before);
+
+    // Placed models: delete and restore by record.
+    let list = props::props(&bridge, 317).unwrap();
+    let chunk_bytes = |c: usize| bridge.member(Member { arc: 8, index: c }).unwrap();
+    let p = &list[0];
+    let was = chunk_bytes(p.chunk);
+    let rec = props::prop_record(&bridge, p.chunk, p.index).unwrap();
+    props::remove_prop(&bridge, p.chunk, p.index).unwrap();
+    props::insert_prop(&bridge, p.chunk, p.index, &rec).unwrap();
+    assert_eq!(chunk_bytes(p.chunk), was);
+}
+
+/// Every area's models have names read from their model files.
+#[test]
+fn prop_names() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::props;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let names = props::prop_model_names(&bridge, 317).unwrap();
+    let models = props::prop_models(&bridge, 317).unwrap();
+    assert_eq!(names.iter().map(|n| n.0).collect::<Vec<_>>(), models);
+    assert!(names.iter().all(|n| !n.1.is_empty()));
+    let inside = props::prop_model_names(&bridge, 319).unwrap();
+    eprintln!("outdoor {names:?}\nindoor {inside:?}");
+}
+
+/// Messages that depend on the game while playing are counted per script.
+#[test]
+fn script_unresolved_count() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    use kenon_core::scripts;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let zs = scripts::zone_scripts(&bridge, 319).unwrap();
+    let total: usize = zs.scripts.iter().map(|s| s.unresolved).sum();
+    eprintln!("zone 319: {} scripts, {total} unresolved", zs.scripts.len());
+    assert!(!zs.scripts.is_empty());
+}

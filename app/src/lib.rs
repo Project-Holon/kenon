@@ -624,6 +624,86 @@ async fn trainer_classes(state: State<'_, AppState>) -> Result<Vec<i64>, String>
 }
 
 #[tauri::command]
+async fn event_record(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+) -> Result<Vec<u8>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::event_record(&bridge, zone, &kind, index).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn insert_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    record: Vec<u8>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::insert_event(&bridge, zone, &kind, index, &record)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn move_events(
+    state: State<'_, AppState>,
+    zone: usize,
+    moves: Vec<kenon_core::zonemap::EventMove>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::move_events(&bridge, zone, &moves).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn prop_record(
+    state: State<'_, AppState>,
+    chunk: usize,
+    index: usize,
+) -> Result<Vec<u8>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::prop_record(&bridge, chunk, index).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn insert_prop(
+    state: State<'_, AppState>,
+    chunk: usize,
+    index: usize,
+    record: Vec<u8>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::insert_prop(&bridge, chunk, index, &record).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn prop_model_names(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<Vec<(u16, String)>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::props::prop_model_names(&bridge, zone).map_err(|e| e.to_string())
+}
+
+/// The type of every move, by move id.
+#[tauri::command]
+async fn move_types(state: State<'_, AppState>) -> Result<Vec<u8>, String> {
+    let bridge = state.need_bridge()?;
+    let count = bridge.base_archive(21).map_err(|e| e.to_string())?.len();
+    Ok((0..count)
+        .map(|index| {
+            bridge
+                .member(kenon_core::bridge::Member { arc: 21, index })
+                .ok()
+                .and_then(|b| b.first().copied())
+                .unwrap_or(0)
+        })
+        .collect())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -757,6 +837,13 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            event_record,
+            insert_event,
+            move_events,
+            prop_record,
+            insert_prop,
+            prop_model_names,
+            move_types,
             trainer_classes,
             object_sprites,
             trainer_lines,

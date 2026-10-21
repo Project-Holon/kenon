@@ -90,6 +90,7 @@
     warps: { zone: number; x: number | null; z: number | null }[];
     music: number[];
     complete: boolean;
+    unresolved: number;
   }
   interface EventScript {
     kind: Kind;
@@ -113,7 +114,10 @@
   }
   type TileWrite = [number, number, number, number];
   type Step =
-    | { t: "tiles"; before: TileWrite[] }
+    | { t: "tiles"; before: TileWrite[]; moves?: [Kind, number, number, number][] }
+    | { t: "delEvent"; kind: Kind; index: number; record: number[] }
+    | { t: "delProp"; chunk: number; index: number; record: number[] }
+    | { t: "addProp"; chunk: number; index: number }
     | { t: "move"; kind: Kind; index: number; x: number; z: number }
     | { t: "add"; kind: Kind; index: number }
     | { t: "prop"; chunk: number; index: number; x: number; z: number; y: number; rot: number };
@@ -199,6 +203,8 @@
   let picked = $state<MapEvent | null>(null);
   let placed = $state<Prop[]>([]);
   let propModels = $state<number[]>([]);
+  // Model file name per model id of the zone's area (pc_01, stair_u01...).
+  let modelNames = $state<Record<number, string>>({});
   let pickedProp = $state<Prop | null>(null);
   let showProps = $state(false);
   // The model "Add object" places.
@@ -349,14 +355,82 @@
     try {
       const list = await invoke<Prop[]>("props", { zone });
       const models = await invoke<number[]>("prop_models", { zone });
+      const names = await invoke<[number, string][]>("prop_model_names", { zone }).catch(() => []);
       if (zone !== current) return;
       placed = list;
       propModels = models;
+      modelNames = Object.fromEntries(names);
       if (newModel === null || !propModels.includes(newModel)) newModel = propModels[0] ?? null;
       loadPropInfo([...list.map((q) => q.model), ...models]);
     } catch {
       placed = [];
     }
+  }
+
+  // Whole-name and word replacements for readable object names.
+  const OBJECT_NAMES: Record<string, string> = {
+    pc: "PC",
+    pcdesk: "PC desk",
+    pcev: "PC",
+    pcchair: "PC chair",
+    pcmachine: "PC machine",
+    pctable: "PC table",
+    pcshelf: "PC shelf",
+    pcshelf_dummy: "PC shelf",
+    ref: "fridge",
+    win: "window",
+    stair_u: "stairs up",
+    stair_d: "stairs down",
+    tv: "TV",
+    dust: "bin",
+    vender: "vending machine",
+    chushion: "cushion",
+    drock: "cave rock",
+    searock: "sea rock",
+    outwarp: "exit",
+    cashier: "counter",
+    door_pc: "PC door",
+    door_normal: "door",
+    elboard: "message board",
+    gelboard: "message board",
+    mball: "ball",
+    ptree: "tree",
+    dtree: "dead tree",
+    wf_tree: "tree",
+    wf_grass: "grass",
+    kanban: "sign board",
+    wii: "console",
+  };
+  const OBJECT_WORDS: Record<string, string> = { pc: "PC", tv: "TV", ref: "fridge", win: "window", dust: "bin", vender: "vending machine", chushion: "cushion", u: "up", d: "down", o: "", out: "", in: "" };
+  // "stair_u01" -> ["stairs up", 1]; "pc_01" -> ["PC", 1].
+  function objectBase(file: string): [string, number | null] {
+    const digits = file.match(/(\d+)[a-z]*$/);
+    let base = file.replace(/(\d+)[a-z]*$/, "").replace(/_+$/, "");
+    // Region codes in front (c03_, d4, h5_) say where the model is used.
+    const lead = base.match(/^(?:bc|[a-z]{1,2})\d{1,2}(?:_|(?=[a-z]))/);
+    if (lead && base.length > lead[0].length) base = base.slice(lead[0].length);
+    const whole = OBJECT_NAMES[base] ?? OBJECT_NAMES[base.replace(/^(?:out|in|o)_/, "")];
+    let text = whole;
+    if (!text) {
+      const words = base
+        .split("_")
+        .filter(Boolean)
+        .map((w) => OBJECT_WORDS[w] ?? w)
+        .filter((w) => w !== "");
+      text = words.join(" ");
+    }
+    return [text, digits ? Number(digits[1]) : null];
+  }
+  // The name of a model for the lists and panels: the model's own file
+  // name made readable, numbered when several models share it.
+  function objectName(model: number): string {
+    const file = modelNames[model];
+    if (!file) return `Object ${model}`;
+    const [text, n] = objectBase(file);
+    if (text.length < 2) return `Object ${model}`;
+    const label = text.charAt(0).toUpperCase() + text.slice(1);
+    const same = Object.values(modelNames).filter((f) => objectBase(f)[0] === text).length;
+    return same > 1 ? `${label} ${n ?? model}` : label;
   }
 
   // Snaps to half tiles: models sit on tile centres or tile corners.
@@ -393,6 +467,7 @@
         y: 0,
         rot: 0,
       });
+      undo = [...undo.slice(-99), { t: "addProp", chunk, index }];
       play("decide");
       adding = null;
       onSaved();
@@ -418,6 +493,7 @@
         y: pr.y,
         rot: pr.rot,
       });
+      undo = [...undo.slice(-99), { t: "addProp", chunk, index }];
       play("decide");
       onSaved();
       renderStamp++;
@@ -433,10 +509,11 @@
   async function removeProp(pr: Prop) {
     busy = true;
     try {
+      const record = await invoke<number[]>("prop_record", { chunk: pr.chunk, index: pr.index });
       await invoke("remove_prop", { chunk: pr.chunk, index: pr.index });
+      undo = [...undo.slice(-99), { t: "delProp", chunk: pr.chunk, index: pr.index, record }];
       play("cancel");
       pickedProp = null;
-      undo = undo.filter((s) => s.t !== "prop");
       onSaved();
       renderStamp++;
       await loadProps();
@@ -833,10 +910,19 @@
   }
 
   // Writes tiles already changed on screen; `before` makes the undo step.
-  async function writeTiles(after: TileWrite[], before: TileWrite[] | null) {
-    if (before) undo = [...undo.slice(-99), { t: "tiles", before }];
+  // `moves` are events carried along: their old places go in the same step.
+  async function writeTiles(after: TileWrite[], before: TileWrite[] | null, moves?: [Kind, number, number, number][]) {
+    if (before) undo = [...undo.slice(-99), { t: "tiles", before, moves }];
     try {
       await invoke("write_tiles", { zone: current, tiles: after });
+      if (moves?.length) {
+        const now = moves.map(([kind, index]) => {
+          const ev = map!.events.find((e) => e.kind === kind && e.index === index)!;
+          return [kind, index, ev.x, ev.z];
+        });
+        await invoke("move_events", { zone: current, moves: now });
+        stale = true;
+      }
       play("select");
       onSaved();
     } catch (err) {
@@ -881,14 +967,14 @@
     const list = [...writes.values()];
     const before = setLocal(list);
     sel = dst;
-    await writeTiles(list, before);
+    const moves: [Kind, number, number, number][] = [];
     if (!copy)
       for (const ev of map.events.filter((e) => inRect(e, src))) {
-        const [x0, z0] = [ev.x, ev.z];
+        moves.push([ev.kind, ev.index, ev.x, ev.z]);
         ev.x = Math.max(0, Math.min(map.width - 1, ev.x + d.x));
         ev.z = Math.max(0, Math.min(map.height - 1, ev.z + d.z));
-        await moveEvent(ev, x0, z0);
       }
+    await writeTiles(list, before, moves);
   }
 
   function selTiles(f: (i: number, x: number, z: number) => TileWrite | null): TileWrite[] {
@@ -1058,11 +1144,11 @@
   async function remove(ev: MapEvent) {
     busy = true;
     try {
+      const record = await invoke<number[]>("event_record", { zone: current, kind: ev.kind, index: ev.index });
       await invoke("remove_event", { zone: current, kind: ev.kind, index: ev.index });
+      undo = [...undo.slice(-99), { t: "delEvent", kind: ev.kind, index: ev.index, record }];
       play("cancel");
       picked = null;
-      // Indices after it shift down: older event undo steps no longer apply.
-      undo = undo.filter((s) => s.t === "tiles");
       await load();
       onSaved();
     } catch (err) {
@@ -1080,6 +1166,28 @@
       if (step.t === "tiles") {
         setLocal(step.before);
         await invoke("write_tiles", { zone: current, tiles: step.before });
+        if (step.moves?.length) {
+          for (const [kind, index, x, z] of step.moves) {
+            const ev = map.events.find((e) => e.kind === kind && e.index === index);
+            if (ev) [ev.x, ev.z] = [x, z];
+          }
+          await invoke("move_events", { zone: current, moves: step.moves });
+          stale = true;
+        }
+      } else if (step.t === "delEvent") {
+        await invoke("insert_event", { zone: current, kind: step.kind, index: step.index, record: step.record });
+        await load();
+        picked = map?.events.find((e) => e.kind === step.kind && e.index === step.index) ?? null;
+      } else if (step.t === "delProp") {
+        await invoke("insert_prop", { chunk: step.chunk, index: step.index, record: step.record });
+        renderStamp++;
+        await loadProps();
+        pickedProp = placed.find((q) => q.chunk === step.chunk && q.index === step.index) ?? null;
+      } else if (step.t === "addProp") {
+        await invoke("remove_prop", { chunk: step.chunk, index: step.index });
+        pickedProp = null;
+        renderStamp++;
+        await loadProps();
       } else if (step.t === "prop") {
         const pr = placed.find((q) => q.chunk === step.chunk && q.index === step.index);
         if (pr) {
@@ -1352,7 +1460,7 @@
     ] as [string, MapEvent[]][];
   });
   const painting = $derived(tool !== "select");
-  const objectOptions = $derived(propModels.map((m) => [m, `Object ${m}`] as [number, string]));
+  const objectOptions = $derived(propModels.map((m) => [m, objectName(m)] as [number, string]));
   const tipLeft = $derived(Math.min(mouse.x + 14, (stage?.clientWidth ?? 9999) - 190));
   const stageCursor = $derived(adding ? "copy" : painting ? "crosshair" : "default");
 
@@ -1527,7 +1635,7 @@
                 class:on={pickedProp === pr}
                 class:passive={tool !== "select" || adding !== null}
                 style="left: {propBox(pr).x * scale}px; top: {propBox(pr).z * scale}px; width: {propBox(pr).w * scale}px; height: {propBox(pr).d * scale}px"
-                title="Object {pr.model}"
+                title={objectName(pr.model)}
                 onpointerdown={(e) => onPropDown(pr, e)}
               ></div>
             {/each}
@@ -1604,7 +1712,7 @@
         <div class="head">
           <img class="prop-pic" src={propThumb(pr.model)} alt="" />
           <div class="title">
-            <strong>Object {pr.model}</strong>
+            <strong>{objectName(pr.model)}</strong>
             <span class="muted">at {pr.x}, {pr.z}{infoOf(pr) ? `, ${infoOf(pr).width} x ${infoOf(pr).depth} tiles` : ""}</span>
           </div>
         </div>
@@ -1636,7 +1744,7 @@
                     throw err;
                   }
                   const [chunk, index] = made;
-                  undo = undo.filter((s) => s.t !== "prop");
+                  undo = undo.filter((s) => !s.t.endsWith("rop"));
                   play("save");
                   onSaved();
                   renderStamp++;
@@ -1883,6 +1991,9 @@
                   {/if}
                 </div>
               {/each}
+            {/if}
+            {#if sc.unresolved > 0}
+              <p class="muted small">{sc.unresolved} more {sc.unresolved === 1 ? "line depends" : "lines depend"} on the game while playing</p>
             {/if}
             {#if sc.trainers.length || sc.items.length || sc.gifts.length || sc.warps.length || sc.music.length}
               <h3>Does</h3>
