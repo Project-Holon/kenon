@@ -83,7 +83,17 @@ pub struct Nanr {
 
 impl Nanr {
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
-        let body = nitro::block(bytes, MAGIC, ABNK)?;
+        Self::parse_as(bytes, MAGIC)
+    }
+
+    /// A multi-cell animation (NMAR, magic RAMN): the same layout, each
+    /// frame naming a multi-cell group instead of a cell.
+    pub fn parse_multi(bytes: &[u8]) -> Result<Self, Error> {
+        Self::parse_as(bytes, b"RAMN")
+    }
+
+    fn parse_as(bytes: &[u8], magic: &[u8; 4]) -> Result<Self, Error> {
+        let body = nitro::block(bytes, magic, ABNK)?;
         let count = read_u16(body, 0)? as usize;
         let seq_at = read_u32(body, 4)? as usize;
         let frames_at = read_u32(body, 8)? as usize;

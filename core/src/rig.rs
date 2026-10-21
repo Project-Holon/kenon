@@ -242,6 +242,82 @@ pub fn animate(
         .iter()
         .map(|&t| pose(sheet, cells, anims, nodes, t))
         .collect();
+    let durations = times
+        .iter()
+        .enumerate()
+        .map(|(i, &t)| {
+            times
+                .get(i + 1)
+                .copied()
+                .unwrap_or(period)
+                .saturating_sub(t)
+                .max(1)
+        })
+        .collect();
+    finish(sheet, palette, poses, durations)
+}
+
+/// Plays a multi-cell animation (an NMAR, like `nanr` but each frame names
+/// a rig group): sequence `seq`, each frame showing its group with the
+/// group's own node animations running from the frame's start. Back
+/// sprites throw this way, one group per pose.
+pub fn animate_multi(
+    sheet: &Ncgr,
+    palette: &Palette,
+    cells: &Ncer,
+    anims: &Nanr,
+    rig: &Nmcr,
+    multi: &Nanr,
+    seq: usize,
+) -> Option<Animation> {
+    let seq = multi.sequences.get(seq)?;
+    let mut samples: Vec<(usize, u32)> = Vec::new();
+    let mut durations = Vec::new();
+    for f in &seq.frames {
+        let group = f.cell as usize;
+        let nodes = rig.groups.get(group)?;
+        let length = (f.duration as u32).max(1);
+        // The moments the group's nodes change within this frame.
+        let mut times = vec![0u32];
+        for n in nodes {
+            let Some(s) = anims.sequences.get(n.sequence as usize) else {
+                continue;
+            };
+            let mut t = 0;
+            'walk: while s.frames.len() > 1 {
+                for fr in &s.frames {
+                    t += (fr.duration as u32).max(1);
+                    if t >= length {
+                        break 'walk;
+                    }
+                    times.push(t);
+                }
+            }
+        }
+        times.sort_unstable();
+        times.dedup();
+        for (i, &t) in times.iter().enumerate() {
+            samples.push((group, t));
+            durations.push(times.get(i + 1).copied().unwrap_or(length) - t);
+        }
+        if samples.len() >= 240 {
+            break;
+        }
+    }
+    let poses = samples
+        .iter()
+        .map(|&(g, t)| pose(sheet, cells, anims, &rig.groups[g], t))
+        .collect();
+    finish(sheet, palette, poses, durations)
+}
+
+/// Lays poses out on one canvas and draws them.
+fn finish(
+    sheet: &Ncgr,
+    palette: &Palette,
+    poses: Vec<Vec<Piece>>,
+    durations: Vec<u32>,
+) -> Option<Animation> {
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     for p in poses.iter().flatten() {
         x0 = x0.min(p.x);
@@ -297,18 +373,6 @@ pub fn animate(
                 img.pixels[i * 4..i * 4 + 4].copy_from_slice(&palette.rgba(base + v));
             }
             img
-        })
-        .collect();
-    let durations = times
-        .iter()
-        .enumerate()
-        .map(|(i, &t)| {
-            times
-                .get(i + 1)
-                .copied()
-                .unwrap_or(period)
-                .saturating_sub(t)
-                .max(1)
         })
         .collect();
     Some(Animation {

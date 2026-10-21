@@ -713,6 +713,7 @@ fn tables_and_names() {
         cer: [4, 504],
         anr: [4, 505],
         mcr: [4, 506],
+        mna: None,
         frame: 3,
     };
     let data = catalog::sheet_data(

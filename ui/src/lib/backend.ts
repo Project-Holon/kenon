@@ -72,7 +72,7 @@ export interface SheetData {
 export type Layout =
   | { kind: "grid"; cols: number | null }
   | { kind: "cells"; cer: Ref }
-  | { kind: "rig"; cer: Ref; anr: Ref; mcr: Ref; frame: number };
+  | { kind: "rig"; cer: Ref; anr: Ref; mcr: Ref; mna?: Ref | null; frame: number };
 
 /// A member reference: [archive id, member index].
 export type Ref = [number, number];

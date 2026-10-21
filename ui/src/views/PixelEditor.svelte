@@ -43,7 +43,7 @@
     /// The known animation bank (null: none; undefined: find it).
     anims?: number | null;
     /// Edit one frame of a battle rig instead (the sheet is its picture).
-    rigFrame?: { cer: Ref; anr: Ref; mcr: Ref; frame: number } | null;
+    rigFrame?: { cer: Ref; anr: Ref; mcr: Ref; mna?: Ref | null; frame: number } | null;
     /// Changes after a save or a revert: the picture is read again.
     version?: number;
     /// True while there are edits not yet saved.

@@ -476,7 +476,7 @@ fn bytes(
         .and_then(|list| {
             list.iter()
                 .find(|n| match kind.as_str() {
-                    "NCGR" => n.chr == index || n.rig.is_some_and(|r| r[0] == index),
+                    "NCGR" => n.chr == index || n.rig.as_ref().is_some_and(|r| r[0] == index),
                     "NCLR" => n.pal == index || n.palettes.iter().any(|p| p.1 == index),
                     _ => false,
                 })
@@ -488,7 +488,7 @@ fn bytes(
     };
     info.preview = match (&sheet, kind.as_str()) {
         (Some(n), "NCGR" | "NCLR") => {
-            let big = n.rig.filter(|r| r[0] == index && kind == "NCGR");
+            let big = n.rig.as_ref().filter(|r| r[0] == index && kind == "NCGR");
             let (chr, cells) = match big {
                 Some(r) => (r[0], None),
                 None => (n.chr, n.cells),

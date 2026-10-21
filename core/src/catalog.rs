@@ -160,6 +160,9 @@ pub enum Layout {
         cer: [usize; 2],
         anr: [usize; 2],
         mcr: [usize; 2],
+        /// A multi-cell animation that strings the groups together.
+        #[serde(default)]
+        mna: Option<[usize; 2]>,
         frame: usize,
     },
 }
@@ -255,15 +258,19 @@ pub fn sheet_data(
             cer,
             anr,
             mcr,
+            mna,
             frame,
         } => {
-            let refs = [
+            let mut refs = vec![
                 format!("{}:{}", chr.arc, chr.index),
                 format!("{}:{}", pal.arc, pal.index),
                 format!("{}:{}", cer[0], cer[1]),
                 format!("{}:{}", anr[0], anr[1]),
                 format!("{}:{}", mcr[0], mcr[1]),
             ];
+            if let Some(m) = mna {
+                refs.push(format!("{}:{}", m[0], m[1]));
+            }
             let parts: Vec<&str> = refs.iter().map(String::as_str).collect();
             let anim = bridge.rig(&parts)?;
             let frame_map = anim
@@ -606,7 +613,9 @@ pub struct NamedSheet {
     pub anims: Option<usize>,
     /// A battle rig that animates the large picture: sheet, cell bank,
     /// animation bank, multi-cell bank (members of the same archive).
-    pub rig: Option<[usize; 4]>,
+    /// A sixth member, when present, is a multi-cell animation (NMAR) that
+    /// strings the rig's groups into one move.
+    pub rig: Option<Vec<usize>>,
 }
 
 /// Named pictures for the archives whose member layout is known
@@ -704,7 +713,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                         let female = role == 1 || role == 10;
                         let big = if role < 9 { block + 2 } else { block + 11 } + female as usize;
                         let parts = if role < 9 { block + 4 } else { block + 13 };
-                        let rig = (size(big) > 0).then_some([big, parts, parts + 1, parts + 2]);
+                        let rig = (size(big) > 0).then(|| vec![big, parts, parts + 1, parts + 2]);
                         out.push(NamedSheet {
                             label: format!("{} ({side})", name(n)),
                             chr: block + role,
@@ -813,7 +822,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                             crate::ncer::Ncer::parse(&crate::lz::decompress_if_compressed(raw)).ok()
                         })
                         .filter(|bank| bank.mapping == 4)
-                        .map(|_| [8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
+                        .map(|_| vec![8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4, 8 * g + 5]),
                 })
                 .collect()
         }
@@ -830,7 +839,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                 palette_offset: 0,
                 cells: None,
                 anims: None,
-                rig: Some([8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4]),
+                rig: Some(vec![8 * g + 1, 8 * g + 2, 8 * g + 3, 8 * g + 4, 8 * g + 5]),
             })
             .collect(),
         _ => return Ok(None),

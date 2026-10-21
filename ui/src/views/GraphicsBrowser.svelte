@@ -39,7 +39,8 @@
     /// Known layout: a cell bank, null for a plain picture, undefined to find.
     cells?: number | null;
     anims?: number | null;
-    rig?: [number, number, number, number] | null;
+    /// Picture, cells, animation, multi-cell (and a multi-cell animation).
+    rig?: number[] | null;
     /// A background screen drawn with this sheet.
     scr?: number;
   }
@@ -220,13 +221,16 @@
       ? ""
       : i.rig && i.cells === null && arc !== null
       ? // A picture kept in parts: the first frame of its animation.
-        asset(`rigframe/${arc}:${i.rig[0]}/${arc}:${i.pal}/${arc}:${i.rig[1]}/${arc}:${i.rig[2]}/${arc}:${i.rig[3]}/0`, version)
+        asset(`rigframe/${rigPath(i.rig, i.pal)}/0`, version)
       : asset(
           `preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}` +
             (i.cells === undefined ? "" : `&cells=${i.cells ?? "none"}`),
           version,
         );
   const changed = (chr: number) => changedSet.has(chr);
+  // The bridge path of a rig: picture, palette, then its banks.
+  const rigPath = (rig: number[], pal: number) =>
+    [rig[0], pal, ...rig.slice(1)].map((m) => `${arc}:${m}`).join("/");
 
   const chr = $derived<Ref | null>(arc !== null && selected ? [arc, selected.chr] : null);
   const pal = $derived<Ref | null>(arc !== null && palette !== null ? [arc, palette] : null);
@@ -296,10 +300,9 @@
         </div>
       {/if}
       {#if selected.rig && arc !== null}
-        {@const [big, cer, anr, mcr] = selected.rig}
-        {#key `${big}/${pal[1]}/${version}`}
+        {#key `${selected.rig[0]}/${pal[1]}/${version}`}
           <RigPlayer
-            path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`}
+            path={rigPath(selected.rig, pal[1])}
             pause={editMode === "animation"}
             onFrame={(f) => (rigFrameIndex = f)}
           >
@@ -310,11 +313,13 @@
           </RigPlayer>
         {/key}
       {/if}
-      {#key `${chr.join(":")}/${pal.join(":")}/${editMode}`}
+      {#key `${selected.key}/${chr.join(":")}/${pal.join(":")}/${editMode}`}
         {@const rig = editMode === "animation" && selected.rig && arc !== null ? selected.rig : null}
         <PixelEditor
           chr={rig ? [arc!, rig[0]] : chr}
-          rigFrame={rig ? { cer: [arc!, rig[1]], anr: [arc!, rig[2]], mcr: [arc!, rig[3]], frame: rigFrameIndex } : null}
+          rigFrame={rig
+            ? { cer: [arc!, rig[1]], anr: [arc!, rig[2]], mcr: [arc!, rig[3]], mna: rig[4] !== undefined ? ([arc!, rig[4]] as [number, number]) : null, frame: rigFrameIndex }
+            : null}
           {pal}
           {version}
           bind:dirty

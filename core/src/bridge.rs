@@ -258,6 +258,21 @@ impl Bridge {
             let cells = Ncer::parse(&self.member(m[2])?).map_err(fmt)?;
             let anims = Nanr::parse(&self.member(m[3])?).map_err(fmt)?;
             let rig = crate::rig::Nmcr::parse(&self.member(m[4])?).map_err(fmt)?;
+            // A sixth part names a multi-cell animation: play its longest
+            // sequence (the others are single still poses).
+            if let Some(&multi) = m.get(5) {
+                let multi = Nanr::parse_multi(&self.member(multi)?).map_err(fmt)?;
+                let seq = (0..multi.sequences.len())
+                    .max_by_key(|&i| {
+                        let f = &multi.sequences[i].frames;
+                        (f.len(), f.iter().map(|x| x.duration as u32).sum::<u32>())
+                    })
+                    .unwrap_or(0);
+                return crate::rig::animate_multi(
+                    &sheet, &palette, &cells, &anims, &rig, &multi, seq,
+                )
+                .ok_or_else(|| Error::Format("the rig draws nothing".into()));
+            }
             crate::rig::animate(&sheet, &palette, &cells, &anims, &rig)
                 .ok_or_else(|| Error::Format("the rig draws nothing".into()))
         })
@@ -554,8 +569,8 @@ impl Bridge {
                     .ok_or_else(|| Error::Format(format!("{path}: does not decode")))?;
                 Ok(png(img))
             }
-            Some("riginfo") if parts.len() == 6 => {
-                let anim = self.rig(&parts[1..6])?;
+            Some("riginfo") if parts.len() == 6 || parts.len() == 7 => {
+                let anim = self.rig(&parts[1..])?;
                 let (w, h) = anim.frames.first().map_or((0, 0), |f| (f.width, f.height));
                 Ok(json(format!(
                     r#"{{"frames":{},"durations":{:?},"width":{w},"height":{h}}}"#,
@@ -563,11 +578,12 @@ impl Bridge {
                     anim.durations
                 )))
             }
-            Some("rigframe") if parts.len() == 7 => {
-                let anim = self.rig(&parts[1..6])?;
+            Some("rigframe") if parts.len() == 7 || parts.len() == 8 => {
+                let last = parts.len() - 1;
+                let anim = self.rig(&parts[1..last])?;
                 let frame = anim
                     .frames
-                    .get(number(6)?)
+                    .get(number(last)?)
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
                 Ok(png(frame.clone()))
             }
