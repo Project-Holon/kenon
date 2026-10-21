@@ -56,6 +56,9 @@
   // Battle sprites: edit the still picture, or the frame the animation shows.
   let editMode = $state<"picture" | "animation">("picture");
   let rigFrameIndex = $state(0);
+  // Badge the animated pictures when only some of the list has one.
+  const animated = (i: Item) => !!i.rig || (i.anims !== undefined && i.anims !== null);
+  const someAnimated = $derived(items.some(animated) && !items.every(animated));
   let changedSet = $state<Set<number>>(new Set());
 
   const palettes = $derived(list.filter((m) => m.kind === "NCLR"));
@@ -186,6 +189,7 @@
         <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)}>
           <span class="thumb"><Thumb src={thumb(item)} /></span>
           <span class="label">{item.label}</span>
+          {#if someAnimated && animated(item)}<span class="tag">animated</span>{/if}
           {#if changed(item.chr)}<span class="tag changed">changed</span>{/if}
         </button>
       {/snippet}
