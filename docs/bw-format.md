@@ -121,12 +121,22 @@ A `.bw` is a zip file. kenon writes it as follows (`core/src/package.rs`):
 - **Metadata.** Every member has the timestamp 1980-01-01 00:00:00 and the
   permissions 0644. The same mod folder gives the same `.bw` bytes.
 - **Extension.** `.bw`.
+- **Version.** The zip comment is `eidos-mod bw 1`. A reader refuses a major
+  version it does not know, before unpacking anything.
+- **Portable paths.** No two paths that differ only by letter case; no
+  Windows-reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`,
+  `LPT1`-`LPT9`, with or without an extension); no name ending in a dot or a
+  space. kenon refuses to pack such a folder.
+- **No zip64.** Packages stay under the classic zip limits.
 
 kenon reads a `.bw` the same way. It lists the members and reads the manifest
 without unpacking (`inspect`). It unpacks into a folder (`unpack`) only if the
 package has a manifest and every path stays inside that folder; it checks all
 paths before it writes any file. It refuses an absolute path, a path with `..`,
-an empty part, a backslash or a drive prefix. The unpacked folder is a mod
+an empty part, a backslash or a drive prefix. It also refuses the
+portable-path cases above and, against zip bombs, a member over 1 GiB
+unpacked, a package over 4 GiB unpacked in total, or a member that grows more
+than 1000 times when unpacked. eidos's reader applies the same rules. The unpacked folder is a mod
 folder, which kenon opens as a project (it has no `kenon.json`, so no ROM is
 recorded).
 

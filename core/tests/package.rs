@@ -133,3 +133,47 @@ fn package_without_manifest_is_refused() {
     assert!(inspect(&bw).is_err());
     assert!(unpack(&bw, &dir.path().join("into")).is_err());
 }
+
+/// The archive comment names the format; non-portable paths are refused.
+#[test]
+fn version_comment_and_portable_paths() {
+    use kenon_core::package;
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("m");
+    std::fs::create_dir_all(root.join("a")).unwrap();
+    std::fs::write(
+        root.join("eidos_mod.txt"),
+        "name = T
+",
+    )
+    .unwrap();
+    std::fs::write(root.join("a/1"), b"x").unwrap();
+    let bw = dir.path().join("t.bw");
+    package::pack(&root, &bw).unwrap();
+    let zip = zip::ZipArchive::new(std::fs::File::open(&bw).unwrap()).unwrap();
+    assert_eq!(zip.comment(), package::COMMENT.as_bytes());
+
+    for bad in ["CON", "nul.txt", "Com1.bin", "name.", "name "] {
+        let r = dir.path().join(format!("r{}", bad.len()));
+        let _ = std::fs::remove_dir_all(&r);
+        std::fs::create_dir_all(&r).unwrap();
+        std::fs::write(
+            r.join("eidos_mod.txt"),
+            "name = T
+",
+        )
+        .unwrap();
+        // Windows refuses some and silently renames others ("name." to "name").
+        if std::fs::write(r.join(bad), b"x").is_err()
+            || !std::fs::read_dir(&r)
+                .unwrap()
+                .any(|e| e.unwrap().file_name().to_string_lossy() == bad)
+        {
+            continue;
+        }
+        assert!(
+            package::pack(&r, &dir.path().join("x.bw")).is_err(),
+            "{bad}"
+        );
+    }
+}
