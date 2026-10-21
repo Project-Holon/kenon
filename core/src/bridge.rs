@@ -43,6 +43,11 @@
 //!                                          see the maprender options below
 //! maprender/{zone}/info                    JSON: image size and the tile mapping
 //!                                          (matches `zonemap::zone_map`)
+//! maprender/{zone}/anim                    JSON: the loop of the zone's moving textures:
+//!                                          `animated`, `loop` (frames at 60 Hz), `distinct`
+//!                                          pictures, and `steps` (`at`, `frame`): from loop
+//!                                          frame `at` the picture is the render at
+//!                                          `&frame=` (`?season=`)
 //! maprender/{zone}?view=camera&x=&z=       the field camera's view around tile
 //!                                          (x, z): `w`, `h` (512x384), `cam`
 //! propmodel/{zone}/{model}                 one building or prop model of the zone's
@@ -70,6 +75,9 @@
 //! | `light`     | `0` draws textures unlit                | `1`                |
 //! | `roofs`     | top-down only: `1` whole buildings, `0` cut buildings above `roofh` tiles (default 3), unset: cut when the zone has buildings over 5 tiles tall | auto |
 //! | `roofh`     | tiles, with `roofs=0`                   | 3                  |
+//! | `frame`     | 60 Hz frame of the moving textures (water, falls); unset draws them as stored | unset |
+//! | `fog`       | camera view only: `0` turns the zone and weather fog off | `1` |
+//! | `weather`   | camera view only: `0` or `off` for none, a weather id, or `rain`, `heavyrain`, `storm`, `snow`, `blizzard`, `dust`, `sand`, `fog`; unset is the zone's weather | zone's |
 //! | `w`, `h`, `x`, `z`, `cam` | camera view only          | 512x384, 0, 0, zone's |
 //!
 //! Every image is a PNG with colour 0 transparent. `screen` takes
@@ -625,10 +633,17 @@ impl Bridge {
                         serde_json::to_string(&layout).map_err(|e| Error::Format(e.to_string()))?,
                     ));
                 }
+                let season = query_number("season").unwrap_or(0).min(3) as u8;
+                if parts.get(2) == Some(&"anim") {
+                    let info = crate::maprender::anim_info(self, zone, season)?;
+                    return Ok(json(
+                        serde_json::to_string(&info).map_err(|e| Error::Format(e.to_string()))?,
+                    ));
+                }
                 if parts.len() == 3 {
                     return Err(Error::BadPath(path.to_string()));
                 }
-                let season = query_number("season").unwrap_or(0).min(3) as u8;
+                let frame = query_number("frame").map(|f| f as u32);
                 let hour = match flag("time") {
                     Some("day") | None => crate::maprender::DAY_HOUR,
                     Some("morning") => 7.0,
@@ -655,6 +670,16 @@ impl Bridge {
                         season,
                         hour,
                         light,
+                        frame,
+                        fog: flag("fog") != Some("0"),
+                        weather: match flag("weather") {
+                            None => crate::maprender::WeatherSel::Zone,
+                            Some("0" | "off") => crate::maprender::WeatherSel::Off,
+                            Some(w) => crate::maprender::Weather::parse(w).map_or(
+                                crate::maprender::WeatherSel::Off,
+                                crate::maprender::WeatherSel::Kind,
+                            ),
+                        },
                     };
                     let image = crate::maprender::render_camera(self, zone, &opts)?;
                     return Ok(Asset {
@@ -680,6 +705,7 @@ impl Bridge {
                     hour,
                     light,
                     roofs,
+                    frame,
                 };
                 let image = crate::maprender::render(self, zone, &opts)?.image;
                 Ok(Asset {

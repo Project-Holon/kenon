@@ -629,6 +629,226 @@ fn emit(out: &mut Vec<Triangle>, mode: u32, run: &[Vertex]) {
     }
 }
 
+/// One texture matrix input: the five tracks of a material in a texture SRT
+/// animation, sampled at a frame. Scale is a factor, rotation is a sine and
+/// cosine, translation is a fraction of the texture size.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TexSrt {
+    pub scale: [f32; 2],
+    pub sin: f32,
+    pub cos: f32,
+    pub trans: [f32; 2],
+}
+
+impl TexSrt {
+    pub const IDENTITY: TexSrt = TexSrt {
+        scale: [1.0; 2],
+        sin: 0.0,
+        cos: 1.0,
+        trans: [0.0; 2],
+    };
+
+    /// The map on texel coordinates `[a, b, c, d, e, f]`: `u' = a*u + c*v +
+    /// e`, `v' = b*u + d*v + f`, for a texture `w` by `h` texels (the
+    /// "Maya" texture matrix of `NNSi_G3dTexMtxScaleRotTrans4x4`: rotation
+    /// and scale about the middle of the texture, translation flipped in v).
+    pub fn matrix(&self, w: f32, h: f32) -> [f32; 6] {
+        let [s, t] = self.scale;
+        let (sin, cos) = (self.sin, self.cos);
+        [
+            s * cos,
+            -t * sin * h / w,
+            s * sin * w / h,
+            t * cos,
+            w * (s - s * sin - s * cos) / 2.0 - w * s * self.trans[0],
+            h * (t * self.trans[1] + 1.0 + (t * sin - t * cos - t) / 2.0),
+        ]
+    }
+}
+
+/// A key track: `info` flags and the inline value or key offset.
+#[derive(Debug, Clone, Copy)]
+struct Track {
+    info: u32,
+    offset: u32,
+}
+
+const TRACK_CONST: u32 = 0x2000_0000;
+const TRACK_S16: u32 = 0x1000_0000;
+const TRACK_STEP: u32 = 0xC000_0000;
+const TRACK_STEP2: u32 = 0x4000_0000;
+
+/// A texture SRT animation (BTA0): per material name, five tracks over a
+/// number of 60 Hz frames. From aletheia `nns_g3d_anm_calc.c`
+/// (`NNSi_G3dAnmGetTexSRTData`).
+///
+/// ```text
+/// BTA0        header, then an "SRT0" block: a dictionary of animation
+///             offsets (from the block start)
+/// animation   4 bytes kind, u16 frame count, u16, then a dictionary at 8 of
+///             40-byte records: tracks scaleS, scaleT, rotation, transS,
+///             transT, each u32 info + u32 offset (from the animation start)
+/// info        bit 29 constant (offset is the value; for rotation, sine in
+///             the low half and cosine in the high half, 4.12), bit 28 keys
+///             are s16 not s32, bits 31:30 key step (1, 2 or 4 frames per
+///             key), bits 15:0 the last frame that interpolates
+/// ```
+#[derive(Debug, Clone)]
+pub struct SrtAnim {
+    /// Length of the loop in frames.
+    pub frames: u32,
+    res: Vec<u8>,
+    materials: Vec<(String, [Track; 5])>,
+}
+
+impl SrtAnim {
+    /// Animation `index` of a BTA0 file.
+    pub fn parse(data: &[u8], index: usize) -> Option<SrtAnim> {
+        if data.get(..4)? != b"BTA0" {
+            return None;
+        }
+        let block = container_block(data, b"SRT0")?;
+        let list = dict(block, 8)?;
+        let res = block.get(list.offset(index)?..)?;
+        let frames = rd16(res, 4)? as u32;
+        let d = dict(res, 8)?;
+        let mut materials = Vec::new();
+        for i in 0..d.count {
+            let r = d.records.get(i)?;
+            if r.len() < 40 {
+                return None;
+            }
+            let word = |k: usize| u32::from_le_bytes([r[k], r[k + 1], r[k + 2], r[k + 3]]);
+            let t = |n: usize| Track {
+                info: word(n * 8),
+                offset: word(n * 8 + 4),
+            };
+            materials.push((d.names[i].clone(), [t(0), t(1), t(2), t(3), t(4)]));
+        }
+        Some(SrtAnim {
+            frames,
+            res: res.to_vec(),
+            materials,
+        })
+    }
+
+    /// Names of the animated materials.
+    pub fn names(&self) -> Vec<&str> {
+        self.materials.iter().map(|(n, _)| n.as_str()).collect()
+    }
+
+    /// The track set of the material called `name`.
+    pub fn material(&self, name: &str) -> Option<usize> {
+        self.materials.iter().position(|(n, _)| n == name)
+    }
+
+    /// The five tracks of material `m` at a frame (wrapped to the loop).
+    pub fn at(&self, m: usize, frame: u32) -> TexSrt {
+        let frame = frame % self.frames.max(1);
+        let tracks = &self.materials[m].1;
+        let scalar = |t: &Track| self.scalar(t, frame) as f32 / 4096.0;
+        let rot = self.rotation(&tracks[2], frame);
+        TexSrt {
+            scale: [scalar(&tracks[0]), scalar(&tracks[1])],
+            sin: (rot as u16 as i16) as f32 / 4096.0,
+            cos: ((rot >> 16) as u16 as i16) as f32 / 4096.0,
+            trans: [scalar(&tracks[3]), scalar(&tracks[4])],
+        }
+    }
+
+    /// Where a track reads its keys for a frame: the index of the key, and
+    /// how to blend it (`NNSi_G3dAnmGetTexSRTScalarData`).
+    fn key_plan(info: u32, frame: u32) -> KeyPlan {
+        if info & TRACK_STEP == 0 {
+            return KeyPlan::Key(frame);
+        }
+        let last = info & 0xFFFF;
+        if info & TRACK_STEP2 != 0 {
+            if frame & 1 == 0 {
+                return KeyPlan::Key(frame >> 1);
+            }
+            if frame > last {
+                return KeyPlan::Key((last >> 1) + 1);
+            }
+            return KeyPlan::Mid(frame >> 1);
+        }
+        let rem = frame & 3;
+        if rem == 0 {
+            return KeyPlan::Key(frame >> 2);
+        }
+        if frame > last {
+            return KeyPlan::Key(rem + (last >> 2));
+        }
+        if frame & 1 == 0 {
+            return KeyPlan::Mid(frame >> 2);
+        }
+        let base = frame >> 2;
+        if frame & 2 != 0 {
+            KeyPlan::Quad(base + 1, base)
+        } else {
+            KeyPlan::Quad(base, base + 1)
+        }
+    }
+
+    fn scalar(&self, t: &Track, frame: u32) -> i32 {
+        if t.info & TRACK_CONST != 0 {
+            return t.offset as i32;
+        }
+        let key = |i: u32| -> i32 {
+            let at = t.offset as usize;
+            if t.info & TRACK_S16 != 0 {
+                rds16(&self.res, at + i as usize * 2).unwrap_or(0) as i32
+            } else {
+                rds32(&self.res, at + i as usize * 4).unwrap_or(0)
+            }
+        };
+        match Self::key_plan(t.info, frame) {
+            KeyPlan::Key(i) => key(i),
+            KeyPlan::Mid(i) => (key(i) + key(i + 1)) >> 1,
+            KeyPlan::Quad(a, b) => (key(a) * 3 + key(b)) >> 2,
+        }
+    }
+
+    /// The rotation track: each key is a (sine, cosine) pair of s16, returned
+    /// packed (sine low, cosine high).
+    fn rotation(&self, t: &Track, frame: u32) -> u32 {
+        if t.info & TRACK_CONST != 0 {
+            return t.offset;
+        }
+        let pair = |i: u32| -> (i32, i32) {
+            let at = t.offset as usize + i as usize * 4;
+            (
+                rds16(&self.res, at).unwrap_or(0) as i32,
+                rds16(&self.res, at + 2).unwrap_or(0) as i32,
+            )
+        };
+        let pack = |s: i32, c: i32| (s as u16 as u32) | ((c as u32) << 16);
+        match Self::key_plan(t.info, frame) {
+            KeyPlan::Key(i) => {
+                let (s, c) = pair(i);
+                pack(s, c)
+            }
+            KeyPlan::Mid(i) => {
+                let ((s0, c0), (s1, c1)) = (pair(i), pair(i + 1));
+                pack((s0 + s1) >> 1, (c0 + c1) >> 1)
+            }
+            KeyPlan::Quad(a, b) => {
+                let ((s0, c0), (s1, c1)) = (pair(a), pair(b));
+                pack((s0 * 3 + s1) >> 2, (c0 * 3 + c1) >> 2)
+            }
+        }
+    }
+}
+
+enum KeyPlan {
+    /// This key.
+    Key(u32),
+    /// The mean of this key and the next.
+    Mid(u32),
+    /// Three parts the first key, one part the second.
+    Quad(u32, u32),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -653,6 +873,19 @@ mod tests {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0][1].pos, [1.0, 0.0, 0.0]);
         assert_eq!(t[1][2].pos, [0.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn identity_tex_matrix() {
+        let m = TexSrt::IDENTITY.matrix(32.0, 16.0);
+        assert_eq!(m, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        // A translation of a quarter texture moves u backwards, v forwards.
+        let t = TexSrt {
+            trans: [0.25, 0.25],
+            ..TexSrt::IDENTITY
+        };
+        let m = t.matrix(32.0, 16.0);
+        assert_eq!((m[4], m[5]), (-8.0, 4.0));
     }
 
     #[test]

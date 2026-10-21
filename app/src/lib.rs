@@ -1033,7 +1033,9 @@ pub fn run() {
                     | tauri::WindowEvent::Moved(_)
                     | tauri::WindowEvent::CloseRequested { .. }
             ) {
-                let _ = window.app_handle().save_window_state(StateFlags::all());
+                let _ = window
+                    .app_handle()
+                    .save_window_state(StateFlags::all() & !StateFlags::VISIBLE);
             }
         })
         .setup(|app| {
@@ -1046,6 +1048,13 @@ pub fn run() {
                 settings_path,
                 open: RwLock::new(open),
             });
+            // The window starts hidden (tauri.conf.json): put it back where
+            // and how it was, maximized included, then show it once.
+            if let Some(window) = app.get_webview_window("main") {
+                use tauri_plugin_window_state::{StateFlags, WindowExt};
+                let _ = window.restore_state(StateFlags::all() & !StateFlags::VISIBLE);
+                let _ = window.show();
+            }
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("kenon", |ctx, request, responder| {

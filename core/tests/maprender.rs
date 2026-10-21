@@ -322,3 +322,100 @@ fn prop_models_render() {
     assert!(v["width"].as_f64().unwrap() > 0.0);
     assert!(bridge.serve("propmodel/389/65000").is_err());
 }
+
+/// Water moves between frames on a coast and on a route, in both views, and
+/// a render without `frame` is stable.
+#[test]
+fn textures_animate() {
+    let Some(bridge) = bridge() else { return };
+    for zone in [389, 317] {
+        let top = |f: Option<u32>| {
+            maprender::render(
+                &bridge,
+                zone,
+                &Options {
+                    px: 8,
+                    frame: f,
+                    ..Options::default()
+                },
+            )
+            .unwrap()
+            .image
+        };
+        assert!(
+            differing(&top(Some(0)), &top(Some(37))) > 100,
+            "zone {zone}"
+        );
+        assert_eq!(differing(&top(Some(5)), &top(Some(5))), 0);
+        if zone != 389 {
+            continue;
+        }
+        let cam = |f: Option<u32>| {
+            camera(&bridge, zone, |o| {
+                o.frame = f;
+                o.weather = maprender::WeatherSel::Off;
+            })
+        };
+        assert!(differing(&cam(Some(0)), &cam(Some(45))) > 0, "zone {zone}");
+    }
+}
+
+/// The loop description names frames inside the loop and lists the picture
+/// changes in order; a dry zone is not animated.
+#[test]
+fn anim_info_describes_loop() {
+    let Some(bridge) = bridge() else { return };
+    let info = maprender::anim_info(&bridge, 389, 0).unwrap();
+    assert!(info.animated && info.loop_frames >= 60);
+    assert!(info.steps.len() > 1 && info.steps.len() <= 60);
+    assert!(info.steps.windows(2).all(|w| w[0].at < w[1].at));
+    assert!(info.steps.iter().all(|s| s.frame < info.loop_frames));
+    let json = bridge.serve("maprender/389/anim").unwrap();
+    assert!(String::from_utf8_lossy(&json.bytes).contains("\"loop\""));
+    assert!(!maprender::anim_info(&bridge, 97, 0).unwrap().animated);
+}
+
+/// Fog and weather change the camera view and can be turned off.
+#[test]
+fn fog_and_weather() {
+    let Some(bridge) = bridge() else { return };
+    let plain = camera(&bridge, 389, |o| o.weather = maprender::WeatherSel::Off);
+    let zone_default = camera(&bridge, 389, |_| {});
+    // Nuvema has no weather and no fog of its own.
+    assert_eq!(differing(&plain, &zone_default), 0);
+    for w in ["rain", "snow", "sand", "fog", "blizzard"] {
+        let kind = maprender::Weather::parse(w).unwrap();
+        let img = camera(&bridge, 389, |o| {
+            o.weather = maprender::WeatherSel::Kind(kind);
+            o.frame = Some(3);
+        });
+        assert!(differing(&plain, &img) > 1000, "{w}");
+    }
+    let no_fog = camera(&bridge, 389, |o| {
+        o.weather = maprender::WeatherSel::Kind(maprender::Weather::Fog);
+        o.fog = false;
+    });
+    let fog = camera(&bridge, 389, |o| {
+        o.weather = maprender::WeatherSel::Kind(maprender::Weather::Fog);
+    });
+    assert!(differing(&no_fog, &fog) > 1000);
+    // Marvelous Bridge has zone fog.
+    let a = camera(&bridge, 263, |o| {
+        o.x = 96.0;
+        o.z = 32.0;
+    });
+    let b = camera(&bridge, 263, |o| {
+        o.x = 96.0;
+        o.z = 32.0;
+        o.fog = false;
+    });
+    assert!(differing(&a, &b) > 1000);
+    for q in [
+        "weather=rain&frame=4",
+        "weather=0&fog=0",
+        "weather=7&frame=9",
+    ] {
+        let png = bridge.serve(&format!("maprender/389?view=camera&w=96&h=72&{q}"));
+        assert!(png.is_ok(), "{q}");
+    }
+}

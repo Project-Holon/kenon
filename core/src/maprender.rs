@@ -53,7 +53,7 @@ use crate::bridge::{Bridge, Error, Member};
 use crate::code::Image;
 use crate::g3d;
 use crate::image::Rgba;
-use crate::nsbmd::{self, Affine, Billboard, Cull, Material, Model};
+use crate::nsbmd::{self, Affine, Billboard, Cull, Material, Model, SrtAnim};
 use crate::zonemap;
 
 const MATRICES: u16 = 9;
@@ -66,6 +66,10 @@ const BUILDING_TEXTURES_OUTDOOR: u16 = 177;
 const BUILDING_TEXTURES_INDOOR: u16 = 176;
 const LIGHT_TABLES: u16 = 61;
 const PERSON_TEXTURES: u16 = 49;
+const TEXTURE_SRT: u16 = 69;
+const TEXTURE_SWAPS: u16 = 70;
+const ZONE_FOG: u16 = 81;
+const ZONE_FOG_TABLE: usize = 13;
 const AREA_RECORDS: usize = 282;
 /// `_TimeZoneLightTable` in the ARM9 image: 5 hours per season.
 const TIMEZONE_LIGHT_TABLE: u32 = 0x0209_DF10;
@@ -137,6 +141,9 @@ pub struct Options {
     /// Light the surfaces with the field light.
     pub light: bool,
     pub roofs: Roofs,
+    /// Animation frame (60 Hz) of the moving textures; `None` draws the
+    /// textures as stored.
+    pub frame: Option<u32>,
 }
 
 impl Default for Options {
@@ -150,6 +157,7 @@ impl Default for Options {
             hour: DAY_HOUR,
             light: true,
             roofs: Roofs::Auto,
+            frame: None,
         }
     }
 }
@@ -318,6 +326,8 @@ struct Poly {
     /// How far its lowest point is above the ground beneath (opaque
     /// polygons only; 0 for the rest).
     above: f32,
+    /// The texture animation use that moves its coordinates (`Anim::uses`).
+    srt: Option<u16>,
 }
 
 impl Poly {
@@ -333,6 +343,8 @@ struct Lights {
     color: [[f32; 3]; 4],
     /// The background colour (the keyframe's clear colour).
     clear: [u8; 3],
+    /// The fog colour.
+    fog: [u8; 3],
 }
 
 impl Lights {
@@ -347,6 +359,7 @@ impl Lights {
             ],
             color: [[0.75, 0.75, 0.65], [0.2, 0.2, 0.2], [0.0; 3], [0.0; 3]],
             clear: [150, 190, 235],
+            fog: [150, 190, 235],
         }
     }
 
@@ -417,6 +430,7 @@ fn load_lights(bridge: &Bridge, light_type: u8, season: u8, hour: f32) -> Lights
         dir: [[0.0; 3]; 4],
         color: [[0.0; 3]; 4],
         clear: rgb5(rd16(r, 0x32).unwrap_or(0)).map(|v| (v * 255.0) as u8),
+        fog: rgb5(rd16(r, 0x30).unwrap_or(0)).map(|v| (v * 255.0) as u8),
     };
     for i in 0..4 {
         if r[4 + i] == 0 {
@@ -436,6 +450,7 @@ fn add_model(
     base: &Affine,
     lights: Option<&Lights>,
     ground: bool,
+    mut srt: Option<&mut SrtBinder>,
 ) {
     for draw in &model.draws {
         let mat = &model.materials[draw.material];
@@ -445,6 +460,10 @@ fn add_model(
             continue;
         }
         let node = model.nodes[draw.node].then(base);
+        let srt_use = match (srt.as_deref_mut(), &tex) {
+            (Some(b), Some(t)) => b.bind(&mat.name, t),
+            _ => None,
+        };
         // A lit surface takes its colour from the lights; a billboard has
         // no fixed normal.
         let lit = lights.filter(|_| mat.light_mask != 0 && draw.billboard.is_none());
@@ -489,6 +508,7 @@ fn add_model(
                 billboard: draw.billboard.map(|b| (b, node.apply([0.0; 3]))),
                 ground,
                 above: 0.0,
+                srt: srt_use,
             });
         }
     }
@@ -566,6 +586,278 @@ fn load_buildings(bridge: &Bridge, area: u16, indoor: bool) -> Option<Buildings>
         models,
         textures: Textures::new(textures),
     })
+}
+
+/// A ground material the texture animation moves, with its texture size.
+struct SrtUse {
+    track: usize,
+    w: f32,
+    h: f32,
+}
+
+/// Collects the materials of a zone's ground the SRT animation names.
+struct SrtBinder {
+    anim: Arc<SrtAnim>,
+    uses: Vec<SrtUse>,
+}
+
+impl SrtBinder {
+    fn bind(&mut self, material: &str, tex: &Tex) -> Option<u16> {
+        let track = self.anim.material(material)?;
+        let (w, h) = (tex.img.width as f32, tex.img.height as f32);
+        let at = self
+            .uses
+            .iter()
+            .position(|u| u.track == track && u.w == w && u.h == h)
+            .unwrap_or_else(|| {
+                self.uses.push(SrtUse { track, w, h });
+                self.uses.len() - 1
+            });
+        Some(at as u16)
+    }
+}
+
+/// One animated texture: its key list over a loop, and the picture each key
+/// shows (`FIELD_GROUND_ANIME_TexAnmUpdate`: the game copies the key's
+/// texels over the ground texture's).
+struct Swap {
+    target: Arc<Tex>,
+    duration: u32,
+    /// (frame, picture) in frame order.
+    keys: Vec<(u32, usize)>,
+    pictures: Vec<Arc<Tex>>,
+}
+
+impl Swap {
+    /// The key shown at a frame of the loop.
+    fn key(&self, frame: u32) -> usize {
+        let t = frame % self.duration.max(1);
+        let mut i = 0;
+        while i + 1 < self.keys.len() && self.keys[i + 1].0 <= t {
+            i += 1;
+        }
+        i
+    }
+}
+
+/// The texture animation of a zone's ground. The SRT animation (a/0/6/9,
+/// member itaAnime of the area record) moves texture coordinates; the swap
+/// tables (a/0/7/0, member itpAnime) replace texture texels over time. Both
+/// run at 60 Hz from the moment the map loads.
+#[derive(Default)]
+struct Anim {
+    srt: Option<Arc<SrtAnim>>,
+    uses: Vec<SrtUse>,
+    swaps: Vec<Swap>,
+}
+
+/// What a frame changes: texture coordinate maps per SRT use, and the picture
+/// that stands in for each animated texture.
+#[derive(Default)]
+struct FrameAnim {
+    uv: Vec<[f32; 6]>,
+    textures: Vec<(*const Tex, Arc<Tex>)>,
+}
+
+impl FrameAnim {
+    fn texture(&self, t: &Arc<Tex>) -> Option<&Tex> {
+        let p = Arc::as_ptr(t);
+        self.textures
+            .iter()
+            .find(|(k, _)| *k == p)
+            .map(|(_, v)| v.as_ref())
+    }
+}
+
+impl Anim {
+    /// The state at a frame; `None` leaves the textures as stored.
+    fn at(&self, frame: Option<u32>) -> FrameAnim {
+        let Some(frame) = frame else {
+            return FrameAnim::default();
+        };
+        let mut out = FrameAnim::default();
+        if let Some(srt) = &self.srt {
+            out.uv = self
+                .uses
+                .iter()
+                .map(|u| srt.at(u.track, frame).matrix(u.w, u.h))
+                .collect();
+        }
+        for s in &self.swaps {
+            let key = s.key(frame);
+            out.textures
+                .push((Arc::as_ptr(&s.target), s.pictures[s.keys[key].1].clone()));
+        }
+        out
+    }
+
+    /// The loop length in frames: when every part is back at the start.
+    fn period(&self) -> u32 {
+        let mut n = 1u32;
+        let parts = self
+            .srt
+            .iter()
+            .filter(|_| !self.uses.is_empty())
+            .map(|s| s.frames)
+            .chain(self.swaps.iter().map(|s| s.duration));
+        for p in parts.filter(|&p| p > 0) {
+            n = (n / gcd(n, p)).saturating_mul(p).min(ANIM_LOOP_MAX);
+        }
+        n
+    }
+
+    /// What the picture looks like at a frame, as small numbers: equal for
+    /// frames that draw the same.
+    fn signature(&self, frame: u32) -> Vec<i32> {
+        let mut out: Vec<i32> = self.swaps.iter().map(|s| s.key(frame) as i32).collect();
+        if let Some(srt) = &self.srt {
+            for u in &self.uses {
+                let m = srt.at(u.track, frame).matrix(u.w, u.h);
+                out.extend(m[..4].iter().map(|v| (v * 32.0).round() as i32));
+                // The textures repeat: a shift by whole textures changes
+                // nothing, and a texel is the finest shift worth a picture.
+                out.push(m[4].rem_euclid(u.w).round() as i32);
+                out.push(m[5].rem_euclid(u.h).round() as i32);
+            }
+        }
+        out
+    }
+}
+
+/// The longest loop reported (frames).
+const ANIM_LOOP_MAX: u32 = 7200;
+/// The most steps listed for a loop.
+const ANIM_STEPS_MAX: usize = 60;
+
+fn gcd(a: u32, b: u32) -> u32 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+/// The key table of a swap entry: key frames, picture indices, where each
+/// group starts, and the loop length (`FIELD_GROUND_ANIME_KeyTableUnpack`).
+struct KeyTable {
+    frames: Vec<u16>,
+    pictures: Vec<u8>,
+    starts: Vec<u8>,
+    duration: u32,
+}
+
+fn key_table(m: &[u8], at: usize) -> Option<KeyTable> {
+    let pad = |p: usize| (p + 3) & !3;
+    let count = rd32(m, at)? as usize;
+    let mut p = at + 4;
+    let frames = (0..count)
+        .map(|i| rd16(m, p + i * 2))
+        .collect::<Option<Vec<u16>>>()?;
+    p = pad(p + count * 2);
+    let pictures = m.get(p..p + count)?.to_vec();
+    // The palette indices follow; the game never reads them.
+    p = pad(p + count);
+    p = pad(p + count);
+    let groups = rd32(m, p)? as usize;
+    p += 4;
+    let starts = m.get(p..p + groups)?.to_vec();
+    p = pad(p + groups);
+    Some(KeyTable {
+        frames,
+        pictures,
+        starts,
+        duration: rd32(m, p)?,
+    })
+}
+
+/// The swap animations of one a/0/7/0 member: a count, then per animation the
+/// offsets of its key table and of a BTX0 with the pictures. Each group of
+/// keys animates the ground texture that has the name of its lowest picture.
+fn load_swaps(member: &[u8], ground: &mut Textures) -> Vec<Swap> {
+    let mut out = Vec::new();
+    let count = rd32(member, 0).unwrap_or(0) as usize;
+    let offsets: Vec<usize> = (0..count * 2)
+        .filter_map(|i| rd32(member, 4 + i * 4))
+        .map(|v| v as usize)
+        .collect();
+    for i in 0..count {
+        let (Some(keys_at), Some(file_at)) = (offsets.get(i * 2), offsets.get(i * 2 + 1)) else {
+            continue;
+        };
+        let end = offsets
+            .iter()
+            .copied()
+            .filter(|&o| o > *file_at)
+            .min()
+            .unwrap_or(member.len());
+        let Some(table) = key_table(member, *keys_at) else {
+            continue;
+        };
+        let Some(block) = member
+            .get(*file_at..end)
+            .and_then(|f| g3d::find_tex0(f).into_iter().next())
+        else {
+            continue;
+        };
+        let Some(tex0) = g3d::Tex0::parse(block) else {
+            continue;
+        };
+        let pictures: Vec<Option<Arc<Tex>>> = (0..tex0.textures.len())
+            .map(|j| tex0.decode(j).map(|img| Arc::new(Tex::new(img))))
+            .collect();
+        for g in 0..table.starts.len() {
+            let from = table.starts[g] as usize;
+            let to = table
+                .starts
+                .get(g + 1)
+                .map_or(table.frames.len(), |&s| s as usize);
+            if from >= to || to > table.frames.len() {
+                continue;
+            }
+            let keys: Vec<(u32, usize)> = (from..to)
+                .map(|k| (table.frames[k] as u32, table.pictures[k] as usize))
+                .collect();
+            // The lowest picture the group shows before its last key.
+            let last = keys[keys.len() - 1].0;
+            let lowest = (0..last.max(1))
+                .map(|f| {
+                    let mut k = 0;
+                    while k + 1 < keys.len() && keys[k + 1].0 <= f {
+                        k += 1;
+                    }
+                    keys[k].1
+                })
+                .min()
+                .unwrap_or(keys[0].1);
+            let Some(name) = tex0.textures.get(lowest).map(|t| t.name.as_str()) else {
+                continue;
+            };
+            let Some(target) = ground.get(name) else {
+                continue;
+            };
+            // A picture of another size cannot take the texture's place.
+            let shown: Vec<Arc<Tex>> = pictures
+                .iter()
+                .map(|p| {
+                    p.clone()
+                        .filter(|t| {
+                            t.img.width == target.img.width && t.img.height == target.img.height
+                        })
+                        .unwrap_or_else(|| target.clone())
+                })
+                .collect();
+            if keys.iter().any(|k| k.1 >= shown.len()) {
+                continue;
+            }
+            out.push(Swap {
+                target,
+                duration: table.duration,
+                keys,
+                pictures: shown,
+            });
+        }
+    }
+    out
 }
 
 /// The scene's ground, by tile, for height lookups.
@@ -650,6 +942,7 @@ struct Scene {
     /// zone has far more above than a few tiles.
     tall_roofs: bool,
     lights: Option<Lights>,
+    anim: Anim,
 }
 
 /// Buildings taller than this many tiles make `Roofs::Auto` cut.
@@ -676,6 +969,25 @@ fn build_scene(bridge: &Bridge, c: &Cells, key: &SceneKey) -> Result<Scene, Erro
         .ok_or_else(|| Error::Missing(format!("area {index}")))?;
     let tex_set = rd16(rec, 2).unwrap_or(0) as usize;
     let indoor = rec[6] != 0;
+    let member = |arc: u16, index: u8| {
+        (index != 0xFF)
+            .then(|| {
+                bridge
+                    .member(Member {
+                        arc,
+                        index: index as usize,
+                    })
+                    .ok()
+            })
+            .flatten()
+    };
+    let srt = member(TEXTURE_SRT, rec[4])
+        .and_then(|m| SrtAnim::parse(&m, 0))
+        .map(Arc::new);
+    let mut binder = srt.clone().map(|anim| SrtBinder {
+        anim,
+        uses: Vec::new(),
+    });
     let lights = key
         .light
         .then(|| load_lights(bridge, rec[7], key.season, key.hour()));
@@ -717,7 +1029,15 @@ fn build_scene(bridge: &Bridge, c: &Cells, key: &SceneKey) -> Result<Scene, Erro
             ..Affine::IDENTITY
         };
         if let Some(model) = &model {
-            add_model(&mut polys, model, &mut ground, &base, lights.as_ref(), true);
+            add_model(
+                &mut polys,
+                model,
+                &mut ground,
+                &base,
+                lights.as_ref(),
+                true,
+                binder.as_mut(),
+            );
         }
         let (Some((a, b)), Some(bs)) = (ch.objects, buildings.as_mut()) else {
             continue;
@@ -751,9 +1071,18 @@ fn build_scene(bridge: &Bridge, c: &Cells, key: &SceneKey) -> Result<Scene, Erro
                 &place,
                 lights.as_ref(),
                 false,
+                None,
             );
         }
     }
+    let swaps = member(TEXTURE_SWAPS, rec[5])
+        .map(|m| load_swaps(&m, &mut ground))
+        .unwrap_or_default();
+    let anim = Anim {
+        srt,
+        uses: binder.map(|b| b.uses).unwrap_or_default(),
+        swaps,
+    };
     let (w, h) = (c.wc * CHUNK_TILES, c.hc * CHUNK_TILES);
     let ground = GroundIndex::new(&polys, w, h);
     // How far each opaque polygon hangs above the ground beneath it.
@@ -780,6 +1109,7 @@ fn build_scene(bridge: &Bridge, c: &Cells, key: &SceneKey) -> Result<Scene, Erro
         ground,
         tall_roofs,
         lights,
+        anim,
     })
 }
 
@@ -947,9 +1277,13 @@ struct Surface<'a> {
 }
 
 impl<'a> Surface<'a> {
-    fn of(p: &'a Poly) -> Self {
+    fn of(p: &'a Poly, anim: &'a FrameAnim) -> Self {
+        let tex = p
+            .tex
+            .as_ref()
+            .map(|t| anim.texture(t).unwrap_or(t.as_ref()));
         Surface {
-            tex: p.tex.as_deref(),
+            tex,
             alpha: p.alpha,
             cull: p.cull,
             vertex_color: p.vertex_color,
@@ -1124,9 +1458,8 @@ struct ViewVertex {
 
 impl Camera {
     /// The polygon turned to face the camera about its pivot.
-    fn face(&self, p: &Poly, kind: Billboard, pivot: [f32; 3]) -> [V; 3] {
+    fn face(&self, mut v: [V; 3], kind: Billboard, pivot: [f32; 3]) -> [V; 3] {
         let (x, y, z) = self.basis(kind);
-        let mut v = p.v;
         for vk in &mut v {
             let d = [vk.p[0] - pivot[0], vk.p[1] - pivot[1], vk.p[2] - pivot[2]];
             for k in 0..3 {
@@ -1218,7 +1551,14 @@ impl Camera {
 impl Projection {
     /// The screen triangles of a polygon (none when it is behind the
     /// camera or off the screen), pushed to `out`.
-    fn project(&self, p: &Poly, out: &mut Vec<[SV; 3]>) {
+    fn project(&self, p: &Poly, map: Option<&[f32; 6]>, out: &mut Vec<[SV; 3]>) {
+        let mut verts = p.v;
+        if let Some(m) = map {
+            for v in &mut verts {
+                let [u, w] = v.uv;
+                v.uv = [m[0] * u + m[2] * w + m[4], m[1] * u + m[3] * w + m[5]];
+            }
+        }
         match self {
             Projection::TopDown { scale, roof_limit } => {
                 // A billboard faces the camera: nothing to see from above.
@@ -1236,12 +1576,12 @@ impl Projection {
                     uv: v.uv,
                     c: v.c,
                 };
-                out.push([sv(&p.v[0]), sv(&p.v[1]), sv(&p.v[2])]);
+                out.push([sv(&verts[0]), sv(&verts[1]), sv(&verts[2])]);
             }
             Projection::Camera(cam) => {
                 let verts = match p.billboard {
-                    Some((kind, pivot)) => cam.face(p, kind, pivot),
-                    None => p.v,
+                    Some((kind, pivot)) => cam.face(verts, kind, pivot),
+                    None => verts,
                 };
                 let view = [
                     cam.view(&verts[0]),
@@ -1320,7 +1660,7 @@ impl Projection {
                 out.push([a, c, d]);
             }
             Projection::Camera(cam) => {
-                let (bx, by, _) = cam.basis(Billboard::Y);
+                let (bx, by, _) = cam.basis(Billboard::Full);
                 let pivot = [x, ground, z];
                 let corner = |dx: f32, dy: f32, u: f32, v: f32| {
                     let mut p = pivot;
@@ -1350,7 +1690,13 @@ impl Projection {
 /// Samples below which one thread draws the whole screen.
 const THREAD_MIN_SAMPLES: usize = 60_000;
 
-fn draw(screen: &mut Screen, scene: &Scene, people: &[Person], proj: &Projection) {
+fn draw(
+    screen: &mut Screen,
+    scene: &Scene,
+    people: &[Person],
+    proj: &Projection,
+    anim: &FrameAnim,
+) {
     let mut tris: Vec<[SV; 3]> = Vec::with_capacity(4);
     // People take the time of day's light: full at noon, dimmer and bluer
     // at night (the sum of the field lights against plain daylight).
@@ -1374,11 +1720,12 @@ fn draw(screen: &mut Screen, scene: &Scene, people: &[Person], proj: &Projection
         let translucent = pass == 1;
         for p in scene.polys.iter().filter(|p| p.translucent == translucent) {
             tris.clear();
-            proj.project(p, &mut tris);
+            let map = p.srt.and_then(|i| anim.uv.get(i as usize));
+            proj.project(p, map, &mut tris);
             if tris.is_empty() {
                 continue;
             }
-            surfaces.push(Surface::of(p));
+            surfaces.push(Surface::of(p, anim));
             jobs.extend(tris.iter().map(|t| (surfaces.len() as u32 - 1, *t)));
         }
         // Shadows are see-through: drawn with the translucent pass, under
@@ -1585,7 +1932,13 @@ pub fn render(bridge: &Bridge, zone: usize, opts: &Options) -> Result<Render, Er
     } else {
         Vec::new()
     };
-    draw(&mut screen, &scene, &crowd, &proj);
+    draw(
+        &mut screen,
+        &scene,
+        &crowd,
+        &proj,
+        &scene.anim.at(opts.frame),
+    );
     Ok(Render {
         layout,
         image: finish(&screen, ss),
@@ -1608,6 +1961,11 @@ pub struct CameraOptions {
     pub season: u8,
     pub hour: f32,
     pub light: bool,
+    /// Animation frame (60 Hz); `None` draws the textures as stored.
+    pub frame: Option<u32>,
+    /// Fog of the zone and of the weather.
+    pub fog: bool,
+    pub weather: WeatherSel,
 }
 
 impl Default for CameraOptions {
@@ -1624,6 +1982,9 @@ impl Default for CameraOptions {
             season: 0,
             hour: DAY_HOUR,
             light: true,
+            frame: None,
+            fog: true,
+            weather: WeatherSel::Zone,
         }
     }
 }
@@ -1659,6 +2020,8 @@ pub fn render_camera(bridge: &Bridge, zone: usize, opts: &CameraOptions) -> Resu
     let (distance, pitch, yaw) = (s32(0) as f32, angle(s32(4)), angle(s32(8)));
     let fov_half = angle(rd16(rec, 0x12).unwrap_or(0) as i32);
     let near = (s32(0x14) as f32 / 4096.0).max(0.5);
+    let far = (s32(0x18) as f32 / 4096.0).max(near + 1.0);
+    let w_buffer = rec[0x11] != 0;
     let vec = [s32(0x20), s32(0x24), s32(0x28)].map(|v| v as f32 / 4096.0);
     let scene = scene(
         bridge,
@@ -1704,8 +2067,23 @@ pub fn render_camera(bridge: &Bridge, zone: usize, opts: &CameraOptions) -> Resu
     } else {
         Vec::new()
     };
+    let weather = match opts.weather {
+        WeatherSel::Off => None,
+        WeatherSel::Kind(k) => Some(k),
+        WeatherSel::Zone => zone_weather(bridge, zone),
+    };
+    let fog = if opts.fog {
+        field_fog(bridge, zone, weather)
+    } else {
+        None
+    };
     let mut screen = Screen::new(w * ss, h * ss);
-    draw(&mut screen, &scene, &crowd, &Projection::Camera(cam));
+    let anim = scene.anim.at(opts.frame);
+    draw(&mut screen, &scene, &crowd, &Projection::Camera(cam), &anim);
+    if let Some(fog) = fog {
+        let colour = scene.lights.as_ref().map_or(Lights::fixed().fog, |l| l.fog);
+        fog.apply(&mut screen, colour, near, far, w_buffer);
+    }
     let mut image = finish(&screen, ss);
     // The sky: what the game clears the screen to.
     if let Some(l) = &scene.lights {
@@ -1717,7 +2095,441 @@ pub fn render_camera(bridge: &Bridge, zone: usize, opts: &CameraOptions) -> Resu
             px[3] = 255;
         }
     }
+    if let Some(kind) = weather {
+        draw_weather(&mut image, kind, opts.frame.unwrap_or(0), zone as u32);
+    }
     Ok(image)
+}
+
+/// What the loop of a zone's moving textures looks like, for a viewer that
+/// steps through it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnimInfo {
+    pub zone: usize,
+    /// Some texture moves.
+    pub animated: bool,
+    /// Frames (60 Hz) until everything is back at the start.
+    #[serde(rename = "loop")]
+    pub loop_frames: u32,
+    /// How many different pictures the loop holds.
+    pub distinct: usize,
+    /// The steps were thinned to fit `steps`.
+    pub sampled: bool,
+    /// Where the picture changes: from loop frame `at` on, the picture is
+    /// the render at `frame` (equal pictures name the same frame).
+    pub steps: Vec<AnimStep>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnimStep {
+    pub at: u32,
+    pub frame: u32,
+}
+
+/// The moving textures of a zone in a season.
+pub fn anim_info(bridge: &Bridge, zone: usize, season: u8) -> Result<AnimInfo, Error> {
+    let scene = scene(
+        bridge,
+        zone,
+        &SceneKey {
+            buildings: true,
+            season: season % 4,
+            minutes: minutes(DAY_HOUR),
+            light: true,
+        },
+    )?;
+    let anim = &scene.anim;
+    let animated = !(anim.uses.is_empty() && anim.swaps.is_empty());
+    if !animated {
+        return Ok(AnimInfo {
+            zone,
+            animated,
+            loop_frames: 1,
+            distinct: 1,
+            sampled: false,
+            steps: vec![AnimStep { at: 0, frame: 0 }],
+        });
+    }
+    let period = anim.period();
+    let mut first: HashMap<Vec<i32>, u32> = HashMap::new();
+    let mut steps: Vec<AnimStep> = Vec::new();
+    let mut last: Option<Vec<i32>> = None;
+    for f in 0..period {
+        let sig = anim.signature(f);
+        if last.as_ref() != Some(&sig) {
+            let frame = *first.entry(sig.clone()).or_insert(f);
+            steps.push(AnimStep { at: f, frame });
+            last = Some(sig);
+        }
+    }
+    let distinct = first.len();
+    let sampled = steps.len() > ANIM_STEPS_MAX;
+    if sampled {
+        let n = steps.len();
+        steps = (0..ANIM_STEPS_MAX)
+            .map(|i| {
+                let s = &steps[i * n / ANIM_STEPS_MAX];
+                AnimStep {
+                    at: s.at,
+                    frame: s.frame,
+                }
+            })
+            .collect();
+    }
+    Ok(AnimInfo {
+        zone,
+        animated,
+        loop_frames: period,
+        distinct,
+        sampled,
+        steps,
+    })
+}
+
+/// Weather the camera view can show.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Weather {
+    Rain,
+    HeavyRain,
+    Thunderstorm,
+    Snow,
+    Blizzard,
+    DiamondDust,
+    Sandstorm,
+    Fog,
+}
+
+impl Weather {
+    /// The weather of a weather id (zone header, low six bits at 0x1C); the
+    /// kinds follow the overlay each id loads (`gWeatherTable`).
+    pub fn from_id(id: u8) -> Option<Weather> {
+        Some(match id {
+            1 | 5 => Weather::Snow,
+            2 => Weather::Rain,
+            3 | 12 => Weather::Sandstorm,
+            4 => Weather::Blizzard,
+            6 => Weather::HeavyRain,
+            7 => Weather::Thunderstorm,
+            8 => Weather::DiamondDust,
+            9..=11 | 13 | 14 => Weather::Fog,
+            _ => return None,
+        })
+    }
+
+    /// A name (`rain`, `snow`, ...) or a weather id.
+    pub fn parse(s: &str) -> Option<Weather> {
+        Some(match s {
+            "rain" => Weather::Rain,
+            "heavyrain" => Weather::HeavyRain,
+            "storm" | "thunderstorm" => Weather::Thunderstorm,
+            "snow" => Weather::Snow,
+            "blizzard" => Weather::Blizzard,
+            "dust" | "diamonddust" => Weather::DiamondDust,
+            "sand" | "sandstorm" => Weather::Sandstorm,
+            "fog" => Weather::Fog,
+            id => return Weather::from_id(id.parse().ok()?),
+        })
+    }
+
+    /// The fog the weather task sets: slope and offset (`WEATHER_TASK_InitFog`
+    /// calls of each weather overlay).
+    fn fog(self) -> Fog {
+        let (slope, offset) = match self {
+            Weather::Rain | Weather::Snow => (8, 0x7F5F),
+            Weather::HeavyRain | Weather::Thunderstorm => (9, 0x7F80),
+            Weather::Blizzard => (4, 0x7B18),
+            Weather::DiamondDust => (8, 0x7F57),
+            Weather::Sandstorm => (8, 0x7F5E),
+            Weather::Fog => (9, 0x7F78),
+        };
+        Fog { slope, offset }
+    }
+}
+
+/// Which weather the camera view draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WeatherSel {
+    /// The zone header's weather.
+    #[default]
+    Zone,
+    Off,
+    Kind(Weather),
+}
+
+/// The weather a zone starts with.
+fn zone_weather(bridge: &Bridge, zone: usize) -> Option<Weather> {
+    let headers = bridge
+        .member(Member {
+            arc: ZONE_HEADERS,
+            index: 0,
+        })
+        .ok()?;
+    Weather::from_id((rd16(&headers, zone * 48 + 0x1C)? & 63) as u8)
+}
+
+/// The 3D engine's fog (`FIELD_FOG_*`): from a depth of `offset` (15 bits)
+/// the density rises over 32 table steps of `0x400 >> slope` each.
+#[derive(Debug, Clone, Copy)]
+struct Fog {
+    slope: u32,
+    offset: u32,
+}
+
+/// The fog of the weather, else the zone's own fog record (a/0/8/1: the
+/// table at member 13 gives a zone's record, which holds offset and slope).
+fn field_fog(bridge: &Bridge, zone: usize, weather: Option<Weather>) -> Option<Fog> {
+    if let Some(w) = weather {
+        return Some(w.fog());
+    }
+    let table = bridge
+        .member(Member {
+            arc: ZONE_FOG,
+            index: ZONE_FOG_TABLE,
+        })
+        .ok()?;
+    let id = table
+        .chunks(4)
+        .filter(|c| c.len() == 4)
+        .find(|c| u16::from_le_bytes([c[0], c[1]]) as usize == zone)
+        .map(|c| u16::from_le_bytes([c[2], c[3]]))?;
+    let rec = bridge
+        .member(Member {
+            arc: ZONE_FOG,
+            index: id as usize,
+        })
+        .ok()?;
+    Some(Fog {
+        offset: rd32(&rec, 0)?,
+        slope: rd32(&rec, 4)?,
+    })
+}
+
+impl Fog {
+    /// Blends the drawn samples toward the fog colour by their depth. The
+    /// depth buffer holds 1 over the view depth; the game's buffer holds
+    /// the projected depth (Z buffering) or the view depth (W buffering).
+    fn apply(&self, screen: &mut Screen, colour: [u8; 3], near: f32, far: f32, w_buffer: bool) {
+        if self.offset >= 0x7FFF {
+            return;
+        }
+        let step = (0x400u32 >> self.slope.min(10)).max(1) as f32;
+        let offset = self.offset as f32;
+        // The default density table is a ramp from 0 to 127; the density
+        // between two entries is linear, kept here in 16ths of a step.
+        let table = |i: usize| (i * 4 + i * 4 / 32) as f32;
+        let lut: Vec<u16> = (0..32 * 16 + 1)
+            .map(|k| {
+                let (i, f) = ((k / 16).min(31), (k % 16) as f32 / 16.0);
+                let d = if i >= 31 {
+                    table(31)
+                } else {
+                    table(i) + (table(i + 1) - table(i)) * f
+                };
+                (d * 2.0) as u16
+            })
+            .collect();
+        // The depth buffer holds 1 over the view depth, so the Z-buffer
+        // depth is linear in it: depth = base - slope * inv.
+        let k1 = (far + near) / (far - near);
+        let (base, slope) = (
+            16383.0 * (1.0 + k1),
+            16383.0 * 2.0 * far * near / (far - near),
+        );
+        // Samples nearer than the fog start (inv above this) stay as drawn.
+        let start = if w_buffer {
+            8.0 / offset.max(1.0)
+        } else {
+            (base - offset) / slope
+        };
+        let rows = screen.h.div_ceil(8).max(1) * screen.w;
+        let work = |colors: &mut [[u8; 4]], depths: &[f32]| {
+            for (px, &inv) in colors.iter_mut().zip(depths) {
+                if px[3] == 0 || inv <= 0.0 || inv >= start {
+                    continue;
+                }
+                let depth = if w_buffer {
+                    8.0 / inv
+                } else {
+                    base - slope * inv
+                }
+                .min(32767.0);
+                let pos = (depth - offset) / step;
+                if pos <= 0.0 {
+                    continue;
+                }
+                // Density in 256ths (0 to 254).
+                let d = lut[((pos * 16.0) as usize).min(32 * 16)] as i32;
+                for (c, f) in px.iter_mut().zip(colour) {
+                    *c = (*c as i32 + (((f as i32 - *c as i32) * d) >> 8)) as u8;
+                }
+            }
+        };
+        let (colors, depths) = (&mut screen.color, &screen.depth);
+        if colors.len() < THREAD_MIN_SAMPLES {
+            work(colors, depths);
+        } else {
+            std::thread::scope(|sc| {
+                for (c, d) in colors.chunks_mut(rows).zip(depths.chunks(rows)) {
+                    sc.spawn(|| work(c, d));
+                }
+            });
+        }
+    }
+}
+
+fn hash(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x7FEB_352D);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x846C_A68B);
+    x ^ (x >> 16)
+}
+
+/// A number in [0, 1) from a seed.
+fn unit(seed: u32) -> f32 {
+    (hash(seed) >> 8) as f32 / 16_777_216.0
+}
+
+fn mix_pixel(img: &mut Rgba, x: i32, y: i32, c: [u8; 3], a: f32) {
+    if x < 0 || y < 0 || x as usize >= img.width || y as usize >= img.height {
+        return;
+    }
+    let i = (y as usize * img.width + x as usize) * 4;
+    for (k, &v) in c.iter().enumerate() {
+        img.pixels[i + k] = (img.pixels[i + k] as f32 * (1.0 - a) + v as f32 * a) as u8;
+    }
+}
+
+/// A veil over the whole picture.
+fn wash(img: &mut Rgba, c: [u8; 3], a: f32) {
+    for px in img.pixels.chunks_mut(4) {
+        for (k, &v) in c.iter().enumerate() {
+            px[k] = (px[k] as f32 * (1.0 - a) + v as f32 * a) as u8;
+        }
+    }
+}
+
+fn mix_line(img: &mut Rgba, from: (f32, f32), to: (f32, f32), c: [u8; 3], a: f32) {
+    let n = (to.0 - from.0)
+        .abs()
+        .max((to.1 - from.1).abs())
+        .ceil()
+        .max(1.0) as i32;
+    for s in 0..=n {
+        let t = s as f32 / n as f32;
+        mix_pixel(
+            img,
+            (from.0 + (to.0 - from.0) * t) as i32,
+            (from.1 + (to.1 - from.1) * t) as i32,
+            c,
+            a,
+        );
+    }
+}
+
+/// A simple stand-in for the weather particles: streaks and flakes that
+/// fall (or blow) with the frame number, over a veil of the weather's colour.
+fn draw_weather(img: &mut Rgba, kind: Weather, frame: u32, seed: u32) {
+    let (w, h) = (img.width as f32, img.height as f32);
+    let k = (h / 384.0).max(0.5);
+    let t = frame as f32;
+    let seed = hash(seed.wrapping_add(0x9E37_79B9));
+    let area = w * h;
+    match kind {
+        Weather::Rain | Weather::HeavyRain | Weather::Thunderstorm => {
+            let (veil, count, alpha) = match kind {
+                Weather::Rain => (0.10, area / 1700.0, 0.7),
+                Weather::HeavyRain => (0.18, area / 800.0, 0.8),
+                _ => (0.26, area / 700.0, 0.85),
+            };
+            wash(img, [70, 80, 100], veil);
+            let slant = -0.22;
+            for i in 0..count as u32 {
+                let s = seed.wrapping_add(i * 5);
+                let len = (10.0 + 8.0 * unit(s + 1)) * k;
+                let speed = (15.0 + 8.0 * unit(s + 2)) * k;
+                let span = h + len;
+                let y = (unit(s + 3) * span + speed * t) % span;
+                let x0 = unit(s) * (w + h * 0.3) + h * 0.1;
+                let x = x0 + slant * y;
+                let tail = (x - slant * len, y - len);
+                mix_line(
+                    img,
+                    tail,
+                    (x, y),
+                    [200, 214, 232],
+                    alpha * (0.6 + 0.4 * unit(s + 4)),
+                );
+            }
+            // Lightning: a short bright flash every few seconds.
+            if kind == Weather::Thunderstorm && (frame + (seed & 255)) % 300 < 3 {
+                wash(img, [255, 255, 255], 0.35);
+            }
+        }
+        Weather::Snow | Weather::Blizzard | Weather::DiamondDust => {
+            let (count, fall, drift, alpha) = match kind {
+                Weather::Snow => (area / 1500.0, 1.6, 0.3, 0.9),
+                Weather::Blizzard => (area / 500.0, 4.5, 7.0, 0.85),
+                _ => (area / 5000.0, 0.5, 0.1, 0.9),
+            };
+            if kind == Weather::Blizzard {
+                wash(img, [235, 240, 248], 0.25);
+            } else if kind == Weather::DiamondDust {
+                wash(img, [215, 230, 250], 0.08);
+            }
+            for i in 0..count as u32 {
+                let s = seed.wrapping_add(i * 7);
+                let speed = fall * (0.6 + 0.8 * unit(s + 1)) * k;
+                let sway = (t * 0.05 * (0.5 + unit(s + 2)) + unit(s + 3) * std::f32::consts::TAU)
+                    .sin()
+                    * 6.0
+                    * k;
+                let x = (unit(s) * w + sway + drift * k * t).rem_euclid(w);
+                let y = (unit(s + 4) * h + speed * t).rem_euclid(h);
+                let twinkle = if kind == Weather::DiamondDust {
+                    0.5 + 0.5 * (t * 0.15 + unit(s + 5) * std::f32::consts::TAU).sin()
+                } else {
+                    1.0
+                };
+                let big = unit(s + 6) > 0.6;
+                let a = alpha * twinkle;
+                let (xi, yi) = (x as i32, y as i32);
+                if kind == Weather::Blizzard {
+                    // Blown sideways: a short streak.
+                    mix_line(img, (x - 7.0 * k, y - 1.5 * k), (x, y), [255, 255, 255], a);
+                    continue;
+                }
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    mix_pixel(img, xi + dx, yi + dy, [255, 255, 255], a);
+                }
+                if big || kind == Weather::DiamondDust {
+                    for (dx, dy) in [(-1, 0), (2, 0), (0, -1), (0, 2)] {
+                        mix_pixel(img, xi + dx, yi + dy, [255, 255, 255], a * 0.5);
+                    }
+                }
+            }
+        }
+        Weather::Sandstorm => {
+            wash(img, [196, 160, 100], 0.30);
+            for i in 0..(area / 1100.0) as u32 {
+                let s = seed.wrapping_add(i * 5);
+                let len = (20.0 + 30.0 * unit(s + 1)) * k;
+                let speed = (28.0 + 14.0 * unit(s + 2)) * k;
+                let span = w + len;
+                let x = (unit(s) * span + speed * t) % span;
+                let y = unit(s + 3) * h;
+                mix_line(
+                    img,
+                    (x - len, y + len * 0.08),
+                    (x, y),
+                    [226, 196, 140],
+                    0.4 * (0.5 + 0.5 * unit(s + 4)),
+                );
+            }
+        }
+        Weather::Fog => wash(img, [225, 230, 236], 0.12),
+    }
 }
 
 /// A building or prop model of a zone's area, posed for a thumbnail.
@@ -1761,6 +2573,7 @@ fn prop_scene(bridge: &Bridge, zone: usize, model: u16) -> Result<PropScene, Err
         &Affine::IDENTITY,
         Some(&lights),
         false,
+        None,
     );
     let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
     // Solid polygons give the bounds; a model of billboards only uses those.
@@ -1881,8 +2694,15 @@ pub fn render_prop(bridge: &Bridge, zone: usize, model: u16, px: usize) -> Resul
         ground: GroundIndex::new(&[], 1, 1),
         tall_roofs: false,
         lights: Some(s.lights),
+        anim: Anim::default(),
     };
     let mut screen = Screen::new(size, size);
-    draw(&mut screen, &scene, &[], &Projection::Camera(cam));
+    draw(
+        &mut screen,
+        &scene,
+        &[],
+        &Projection::Camera(cam),
+        &FrameAnim::default(),
+    );
     Ok(finish(&screen, ss))
 }
