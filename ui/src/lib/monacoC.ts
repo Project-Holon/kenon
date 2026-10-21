@@ -4,6 +4,7 @@
 // once, when the first code editor opens.
 import { loadMonaco } from "./monaco";
 import type { CodeApi } from "./modApi";
+import { completionDocs, hoverFor, loadApi, type Api } from "./moddocs";
 
 export const C_LANGUAGE = "c";
 
@@ -18,6 +19,8 @@ const TYPES = [
 
 let api: CodeApi = { functions: [], constants: [] };
 let registered = false;
+// The mod docs: events, services and constants explained in the editor.
+let docs: Api | null = null;
 
 /// The names to complete, from the mod's header.
 export function setCodeApi(next: CodeApi) {
@@ -28,6 +31,9 @@ export async function ensureC() {
   if (registered) return;
   registered = true;
   const { monaco } = await loadMonaco();
+  loadApi()
+    .then((a) => (docs = a))
+    .catch(() => {});
   const K = monaco.languages.CompletionItemKind;
   monaco.languages.register({ id: C_LANGUAGE, extensions: [".c", ".h"] });
   monaco.languages.setLanguageConfiguration(C_LANGUAGE, {
@@ -101,6 +107,16 @@ export async function ensureC() {
             insertText: c.name,
             range,
           })),
+          ...(docs ? completionDocs(docs) : [])
+            .filter((d) => !api.functions.some((f) => f.name === d.name))
+            .map((d) => ({
+              label: d.name,
+              kind: K.Function,
+              detail: d.detail,
+              documentation: d.doc,
+              insertText: d.name,
+              range,
+            })),
           ...KEYWORDS.map((k) => ({ label: k, kind: K.Keyword, insertText: k, range })),
           ...TYPES.map((t) => ({ label: t, kind: K.Class, insertText: t, range })),
         ],
@@ -112,12 +128,15 @@ export async function ensureC() {
     provideHover(model, position) {
       const word = model.getWordAtPosition(position)?.word;
       if (!word) return null;
+      const note = docs ? hoverFor(docs, word) : null;
+      const extra = note ? [{ value: note }] : [];
       const f = api.functions.find((x) => x.name === word);
       if (f) {
-        return { contents: [{ value: "```c\n" + f.signature + "\n```" }, ...(f.doc ? [{ value: f.doc }] : [])] };
+        return { contents: [{ value: "```c\n" + f.signature + "\n```" }, ...(f.doc ? [{ value: f.doc }] : []), ...extra] };
       }
       const c = api.constants.find((x) => x.name === word);
-      return c ? { contents: [{ value: `${c.name} = ${c.value}${c.group ? ` (${c.group})` : ""}` }] } : null;
+      if (c) return { contents: [{ value: `${c.name} = ${c.value}${c.group ? ` (${c.group})` : ""}` }, ...extra] };
+      return extra.length ? { contents: extra } : null;
     },
   });
 }

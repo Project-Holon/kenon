@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import CodeEditor from "../lib/CodeEditor.svelte";
+  import ModDocs from "../lib/ModDocs.svelte";
   import { debounced } from "../lib/cache.svelte";
   import { HOOK_LANGUAGE, setDeclared, type Marker } from "../lib/monaco";
   import {
@@ -25,6 +26,7 @@
   let error = $state<string | null>(null);
   let busy = $state(false);
   let loaded = $state(false);
+  let docs = $state(false);
 
   const dirty = $derived(text !== original);
   const watched = debounced(() => text, 250);
@@ -111,6 +113,7 @@
     <h2>Hooks</h2>
     <span class="muted">{listed}</span>
     <div class="spacer"></div>
+    <button title="The hookable functions and how hooks work" onclick={() => (docs = true)}>Docs</button>
     {#if !readOnly}
       <button
         title="The list is eidos's mod/declared_set.txt. It names the game functions a hook can reach."
@@ -159,6 +162,8 @@
     </div>
   {/if}
 </div>
+
+{#if docs}<ModDocs select="page:hooks" onClose={() => (docs = false)} />{/if}
 
 <style>
   .hooks {

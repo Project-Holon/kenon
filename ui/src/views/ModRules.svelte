@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
   import CodeEditor from "../lib/CodeEditor.svelte";
+  import ModDocs from "../lib/ModDocs.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
   import { debounced } from "../lib/cache.svelte";
   import { RULE_LANGUAGE, setRuleNames, type Marker } from "../lib/monaco";
@@ -37,9 +38,11 @@
   let newEvent = $state(0);
   let renaming = $state<string | null>(null);
   let confirmDelete = $state(false);
+  let docs = $state(false);
 
   const dirty = $derived(path !== null && text !== original);
   const current = $derived(entries.find((e) => e.path === path));
+  const docsEvent = $derived(current?.fileEvent ?? current?.bound ?? null);
 
   async function refresh() {
     entries = await modListRules();
@@ -177,6 +180,7 @@
     <div class="head">
       <h3>Rules</h3>
       <div class="spacer"></div>
+      <button class="quiet" title="Events, payloads, state fields and examples" onclick={() => (docs = true)}>Docs</button>
       {#if !readOnly}<button onclick={() => (creating = !creating)}>New</button>{/if}
     </div>
     {#if creating}
@@ -247,6 +251,8 @@
     {/if}
   </section>
 </div>
+
+{#if docs}<ModDocs select={docsEvent ? `event:${docsEvent}` : "page:overview"} onClose={() => (docs = false)} />{/if}
 
 <style>
   .rules {

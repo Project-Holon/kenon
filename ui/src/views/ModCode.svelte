@@ -4,6 +4,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
   import CodeEditor from "../lib/CodeEditor.svelte";
+  import ModDocs from "../lib/ModDocs.svelte";
   import type { Marker } from "../lib/monaco";
   import { C_LANGUAGE, ensureC, setCodeApi } from "../lib/monacoC";
   import {
@@ -39,6 +40,7 @@
   const drafts = new SvelteMap<string, string>();
 
   let creating = $state(false);
+  let docs = $state(false);
   let newName = $state("");
   let renaming = $state<string | null>(null);
   let confirmDelete = $state(false);
@@ -396,6 +398,7 @@
         <button class="primary" disabled={building || !zig?.path} onclick={build} title="Ctrl+B">
           {building ? "Building" : "Build"}
         </button>
+        <button title="Events, services and examples for code mods" onclick={() => (docs = true)}>Docs</button>
         <span class={result && !result.ok ? "bad" : "muted"}>{summary}</span>
         {#if error}<span class="bad">{error}</span>{/if}
       </div>
@@ -416,6 +419,8 @@
     {/if}
   </section>
 </div>
+
+{#if docs}<ModDocs select="page:code-mods" onClose={() => (docs = false)} />{/if}
 
 <style>
   .code {
