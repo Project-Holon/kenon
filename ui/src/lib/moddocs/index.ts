@@ -24,6 +24,8 @@ export interface ApiEvent {
   refusable?: boolean;
   modifyText: string | null;
   when: string | null;
+  /** More about the event, after the sentence. */
+  details?: string | null;
   notes: string[];
   payload: PayloadField[];
   functions: string[];

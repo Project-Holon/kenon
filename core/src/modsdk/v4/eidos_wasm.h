@@ -136,6 +136,8 @@ enum {
     EIDOS_PP_BATTLE = 1,
     EIDOS_FORM_FIELD = 0,
     EIDOS_FORM_BATTLE = 1,
+    EIDOS_ZONE_WARP = 0,
+    EIDOS_ZONE_WALK = 1,
     EIDOS_LEVELUP_BATTLE = 0,
     EIDOS_LEVELUP_ITEM = 1,
     EIDOS_ITEM_FROM_OTHER = 0,
@@ -260,6 +262,7 @@ typedef struct EidosRouteChange {
     uint16_t zone;  /* the new zone */
     uint16_t prev_zone;  /* the zone left */
     uint8_t season;
+    uint8_t how;  /* EIDOS_ZONE_* */
 } EidosRouteChange;  /* 16 bytes */
 
 typedef struct EidosMapWarp {

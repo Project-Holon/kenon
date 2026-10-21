@@ -1,5 +1,4 @@
-// kenon's own text for the mod docs: when each event fires, what each
-// function does, the rules-language pages and the recipes. tools/mod-docs.mjs
+// kenon's own text for the mod docs: what each function does, the rules-language pages and the recipes. tools/mod-docs.mjs
 // merges it with what it reads from eidos and writes api.json. Facts about
 // the API come from eidos (docs/mod-*.md, sdk/*.h); only add text here that
 // you can trace to one of those.
@@ -25,38 +24,41 @@ const mon = (m, arrow = ".") => `${m}${arrow}handle, ${m}${arrow}place, ${m}${ar
 
 export default {
   // The titles of the constant groups of sdk/api/v4/enums.json, by the prefix
-  // of the BW_ name. They are the comments of eidos's mod_api.h.
+  // of the EIDOS_ name. They are the comments of eidos's mod_api.h.
   enumTitles: {
-    BW_MON_: "Where a Pokemon is.",
-    BW_EVENT_: "What a handler returns.",
-    BW_ENCOUNTER_: "How an encounter was rolled (encounter.wild).",
-    BW_RECEIVE_: "How a Pokemon reached the player (mon.receive).",
-    BW_FORMAT_: "The battle format (battle.start, encounter.trainer).",
-    BW_ACTION_: "What the player chose in battle (battle.action).",
-    BW_OUTCOME_: "How a battle ended (battle.end).",
-    BW_MOVE_SOURCE_: "How a Pokemon learns a move (move.learn).",
-    BW_EVOLVE_: "How a Pokemon evolves (mon.evolve).",
-    BW_HEAL_: "Where a heal came from (heal).",
-    BW_EXP_: "Where experience comes from (mon.exp).",
-    BW_LEVELUP_: "How a level was gained (mon.levelup).",
-    BW_ITEM_FROM_: "Where an item comes from (item.add).",
-    BW_MONEY_: "Where a money change comes from (money.change).",
-    BW_REVIVE_: "What brought a fainted Pokemon back (mon.revive).",
-    BW_CURE_: "Where a status cure comes from (mon.cure).",
-    BW_PP_: "Where a PP restore comes from (mon.pp).",
-    BW_FORM_: "Where a form change comes from (mon.form).",
-    BW_HEAL_HP_: "Where an HP restore happens (heal.hp).",
-    BW_SCRIPT_VM_: "The two script machines.",
-    BW_SCRIPT_: "What a script handler answers.",
-    BW_MON_FIELD_: "Pokemon field ids (party_get, party_set, box_get, box_set, battle_get, battle_set)",
-    BW_SESSION_: "What a session handler is told about",
-    BW_RESTART_: "The flags of a run restart",
+    EIDOS_MON_: "Where a Pokemon is.",
+    EIDOS_EVENT_: "What a handler returns.",
+    EIDOS_ENCOUNTER_: "How an encounter was rolled (encounter.wild).",
+    EIDOS_RECEIVE_: "How a Pokemon reached the player (mon.receive).",
+    EIDOS_FORMAT_: "The battle format (battle.start, encounter.trainer).",
+    EIDOS_ACTION_: "What the player chose in battle (battle.action).",
+    EIDOS_OUTCOME_: "How a battle ended (battle.end).",
+    EIDOS_MOVE_SOURCE_: "How a Pokemon learns a move (move.learn).",
+    EIDOS_EVOLVE_: "How a Pokemon evolves (mon.evolve).",
+    EIDOS_HEAL_: "Where a heal came from (heal).",
+    EIDOS_EXP_: "Where experience comes from (mon.exp).",
+    EIDOS_LEVELUP_: "How a level was gained (mon.levelup).",
+    EIDOS_ITEM_FROM_: "Where an item comes from (item.add).",
+    EIDOS_MONEY_: "Where a money change comes from (money.change).",
+    EIDOS_REVIVE_: "What brought a fainted Pokemon back (mon.revive).",
+    EIDOS_CURE_: "Where a status cure comes from (mon.cure).",
+    EIDOS_PP_: "Where a PP restore comes from (mon.pp).",
+    EIDOS_FORM_: "Where a form change comes from (mon.form).",
+    EIDOS_HEAL_HP_: "Where an HP restore happens (heal.hp).",
+    EIDOS_SCRIPT_VM_: "The two script machines.",
+    EIDOS_SCRIPT_: "What a script handler answers.",
+    EIDOS_MON_FIELD_: "Pokemon field ids (party_get, party_set, box_get, box_set, battle_get, battle_set)",
+    EIDOS_SESSION_: "What a session handler is told about",
+    EIDOS_RESTART_: "The flags of a run restart",
+    EIDOS_ZONE_: "How the zone was entered (route.change).",
   },
 
-  // Per event: `when` replaces v4's sentence only where v4's is technical (these
-  // go back to eidos); `facts` are details v4 does not carry; `functions` are
-  // the calls the page links.
+  // Per event: `facts` are details v4 does not carry; `functions` are the calls
+  // the page links. The sentence of when an event fires and its details are v4's.
   events: {
+    "route.change": {
+      facts: ["how is EIDOS_ZONE_WARP (0) for a map change and EIDOS_ZONE_WALK (1) for a walk over a zone border on the same map. A rule that only wants map changes tests event.how == 0."],
+    },
     "battle.action": { facts: ["For a fight it fires several times a turn, once per move checked."] },
     "battle.faint": {
       facts: [
@@ -69,46 +71,35 @@ export default {
     "money.change": { facts: ["source says why: a script, a purchase, a sale or a battle. A handler may change the amount only in the direction of the call."] },
     heal: { facts: ["Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp."] },
     "heal.hp": {
-      when: "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
       facts: [
-        "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
-        "On the field the item is used up even when the restore is refused: refuse item.use to keep it.",
+        "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY.",
       ],
       functions: ["party_get", "battle_get", "item_count", "message"],
     },
     "mon.revive": {
-      when: "A fainted Pokemon is about to come back: a Revive, Max Revive, Revival Herb or Sacred Ash, a revive item in battle, or a party heal. A handler may change the HP it comes back with, or refuse and leave it fainted.",
       facts: [
         "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command.",
-        "hp is at least 1 and at most max_hp.",
       ],
       functions: ["party_get", "battle_get", "species_base", "message"],
     },
     "mon.cure": {
-      when: "A status is about to be cured: by an item on the party screen, in a battle, or by a party heal. Refusing keeps the status.",
       facts: [
-        "status is the game's own number: 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison. In a battle, 6 and up are the battle's own conditions, such as confusion.",
-        "Refused on the party screen, the item is not used. Refused in a battle, the game's text may still say the status was cured.",
         "A party heal fires it only for members that have a status.",
       ],
       functions: ["party_get", "battle_get", "message"],
     },
     "mon.pp": {
-      when: "A move is about to get PP back, from an item on the party screen or in a battle. A handler may change the amount. Refusing gives none.",
-      facts: ["amount is the PP the move gets, before the cap at its maximum. move is 0 when the port cannot read it."],
+      facts: ["move is 0 when the port cannot read it."],
       functions: ["party_get", "battle_get", "message"],
     },
     "mon.form": {
-      when: "A Pokemon is about to change form, on the field or in a battle. A handler may change the new form. Refusing keeps the form it has.",
       functions: ["party_get", "battle_get", "species_base", "message"],
     },
     "battle.exp": {
-      when: "The battle hands out experience after an opposing Pokemon fainted, as a whole, before mon.exp fires for each member that gains. A handler may scale every share. Refused, nobody gains and mon.exp does not fire.",
       facts: ["members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."],
       functions: ["party_get", "battle_get", "battle_wild"],
     },
     "battle.trainer_mon": {
-      when: "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form. Refused, the member leaves the party before the battle; the last one always stays.",
     },
   },
 
@@ -216,53 +207,6 @@ export default {
     state_info: { what: "Reads the header of the mod's saved data.", tiers: ["c"] },
     state_dir: { what: "The path of the mod's own folder.", tiers: ["c"] },
     state_in_step: { what: "Whether the mod's saved data was written together with the game save now in force.", result: "1 in step, 0 out of step, -1 unknown.", tiers: ["c"] },
-  },
-
-  // One plain line for each rule read the port added in version 4. The state
-  // page shows it instead of the engine's table row.
-  // Rule state fields: v4 describes some fields together or not at all; these
-  // say each field alone (they go back to eidos). The rest use v4's text.
-  state: {
-    hp: "The current HP of the Pokemon.",
-    max_hp: "The maximum HP of the Pokemon.",
-    type1: "The first type of the Pokemon.",
-    type2: "The second type of the Pokemon.",
-    species_type1: "The first type of species s.",
-    species_type2: "The second type of species s.",
-    personality: "The personality value of the Pokemon.",
-    ot_id: "The id of the trainer who first had the Pokemon.",
-    exp: "The experience points the Pokemon holds.",
-    friendship: "The friendship value of the Pokemon.",
-    ability: "The id of the Pokemon's ability.",
-    move1: "The id of the Pokemon's first move.",
-    move2: "The id of the Pokemon's second move.",
-    move3: "The id of the Pokemon's third move.",
-    move4: "The id of the Pokemon's fourth move.",
-    is_egg: "1 when the Pokemon is an egg.",
-    gender: "The Pokemon's gender, as the game stores it.",
-    form: "The Pokemon's form number.",
-    nature: "The id of the Pokemon's nature.",
-    has_nickname: "1 when the Pokemon has a nickname.",
-    met_location: "The id of the place where the Pokemon was met.",
-    met_level: "The level the Pokemon had when it was met.",
-    origin_game: "The id of the game the Pokemon comes from.",
-    fateful: "1 when the Pokemon was met in a fateful encounter.",
-    ball: "The id of the ball the Pokemon was caught in.",
-    place: "Where a reference points: the EIDOS_MON_* place id (party, box or battle).",
-    side: "In a battle, the side a reference belongs to: 0 is the player's.",
-    species_stage: "The evolution stage of species s: 0 for the first stage of a line.",
-    catch_rate: "The catch rate of species s.",
-    battle_trainer: "The trainer id of the first opposing trainer of the battle in progress, 0 for none.",
-    battle_trainer2: "The trainer id of the second opposing trainer, 0 for none.",
-    gender_ratio: "The gender ratio byte of species s.",
-    growth: "The growth rate id of species s.",
-    egg_group1: "The first egg group of species s.",
-    egg_group2: "The second egg group of species s.",
-    party_max_level: "The highest level in the party, eggs left out.",
-    party_alive: "How many party Pokemon have HP left, eggs left out.",
-    move_type: "The type id of move v.",
-    move_power: "The power of move v.",
-    move_class: "The damage class of move v.",
   },
 
   functionGroups: [
@@ -652,7 +596,7 @@ ${start("    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_f
       events: ["route.change"],
       functions: ["item_add", "item_count"],
       steps: [
-        "`route.change` fires on every map change; `event.zone` is the zone entered. Replace 115 with the zone you want.",
+        "`route.change` fires whenever the player enters a new zone, by a map change or by walking over a zone border; `event.zone` is the zone entered. Replace 115 with the zone you want.",
         "`give <item> <count>` puts the items in the bag at once. If the bag cannot take them, the rule stops for that firing and tries again on the next entry.",
         "The cell `state.gift_given` is saved with the game and reads 0 until it is set, so the gift is given once. The `give` line comes first, so the cell is set only after a successful gift.",
       ],
@@ -796,7 +740,7 @@ ${start("    return eidos_on(EIDOS_EVENT_MON_EXP, (uint32_t)(uintptr_t)on_exp);"
       events: ["item.use"],
       functions: ["message"],
       steps: [
-        "`item.use` fires when an item is used and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
+        "`item.use` fires when the party screen checks an item on a Pokemon, and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
         "`event.item` is the item and `event.target` the Pokemon it is used on. Item 50 is the Rare Candy in the game's item list.",
         "The cap comes from the `caps` table of the level cap recipe.",
       ],

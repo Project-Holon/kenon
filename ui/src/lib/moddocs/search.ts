@@ -173,7 +173,7 @@ export function buildIndex(api: Api, entries: Entry[]): SearchIndex {
         x.payload.map((q) => join(q.name, q.cName)).join(" "),
         join(x.where, x.cStruct),
         x.category,
-        join(x.when, x.refuse, x.modifyText, ...x.notes, ...x.payload.map((q) => q.meaning), ...x.functions, ...x.recipes.map((z) => recipeTitle(z))),
+        join(x.when, x.details, x.refuse, x.modifyText, ...x.notes, ...x.payload.map((q) => q.meaning), ...x.functions, ...x.recipes.map((z) => recipeTitle(z))),
       ];
     } else if (y) {
       f = [y.name, y.params.map(lastWord).join(" "), y.signature, y.group, join(y.what, y.result, y.rule, ...y.notes)];

@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "235f1fd",
+  "eidosRevision": "4a4fa48",
   "apiVersion": 4,
   "sources": [
    "sdk/api/v4/core.json",
@@ -33,6 +33,7 @@
    "where": "EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [],
    "cStruct": "EidosGameNew",
@@ -55,6 +56,7 @@
    "where": "SAVE_CONTROL_StartSave 0x02007150",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -96,6 +98,7 @@
    "where": "the return of SAVE_CONTROL_MainSave 0x02007168",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -146,6 +149,7 @@
    "where": "GAME_DATA_LoadFromSave 0x02012C18",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -196,6 +200,7 @@
    "where": "EVENT_GAMECLEAR_Create 0x0215F8A8, the ending: Hall of Fame (ov180), credits (ov181), save screen (ov205)",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -243,10 +248,13 @@
    "name": "route.change",
    "category": "World",
    "since": 3,
-   "where": "FIELD_MAP_CHANGE_SetupZone 0x021643E8",
+   "where": "FIELD_MAP_CHANGE_SetupZone 0x021643E8 (ov010, every map change: how warp); the return of FIELDMAP_ChangeZone 0x021893C0 (ov021, a walk over a zone border: how walk)",
    "refuse": null,
    "modifyText": null,
-   "notes": [],
+   "details": null,
+   "notes": [
+    "how is EIDOS_ZONE_WARP (0) for a map change and EIDOS_ZONE_WALK (1) for a walk over a zone border on the same map. A rule that only wants map changes tests event.how == 0."
+   ],
    "payload": [
     {
      "name": "zone",
@@ -274,6 +282,16 @@
      "cName": "season",
      "cType": "u8",
      "ruleKind": "int"
+    },
+    {
+     "name": "how",
+     "type": "uint8_t",
+     "meaning": "EIDOS_ZONE_WARP (a map change: a door, stairs, a warp tile, Fly, Dig, an Escape Rope, a whiteout, a script) or EIDOS_ZONE_WALK (a walk over a zone border on the same map)",
+     "writable": false,
+     "cName": "how",
+     "cType": "u8",
+     "ruleKind": "int",
+     "enum": "EIDOS_ZONE_"
     }
    ],
    "cStruct": "EidosRouteChange",
@@ -281,7 +299,7 @@
    "refusable": false,
    "ruleEvent": true,
    "id": "event:route.change",
-   "when": "The player walks into another zone without a warp (a route border, a town edge).",
+   "when": "The player is in a new zone, by any way in: a map change (a door, stairs, a warp tile, Fly, Dig, an Escape Rope, a whiteout, a script) or a walk over a zone border on the same map.",
    "functions": [
     "zone",
     "flag",
@@ -299,6 +317,7 @@
    "where": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0",
    "refuse": null,
    "modifyText": "destination",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -359,6 +378,7 @@
    "where": "FIELD_EVENT_CHECK_CheckStepEvents 0x0218A9B0",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -437,6 +457,7 @@
    "where": "EVENT_TRAINER_EYE_Check 0x021AE0CC",
    "refuse": "the trainer does not see the player (the function returns no event)",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -488,6 +509,7 @@
    "where": "FIELD_EVENT_CHECK_SearchGridFrontMmdl 0x0218B4B0; on rails FIELD_EVENT_CHECK_SearchRailFrontMmdl 0x0218B53C",
    "refuse": "no person is found ahead; the A press goes on to the sign and tile checks",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -539,6 +561,7 @@
    "where": "EVENT_FIELD_MENU_Create 0x0215FC40 (the X-button menu event) and EVENT_FIELD_MENU_CreateForZone 0x0215FCE0",
    "refuse": "the menu does not open (no event is returned)",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [],
    "cStruct": "EidosMenuOpen",
@@ -562,6 +585,7 @@
    "where": "the return of FIELD_MENU_Create 0x021A836C",
    "refuse": null,
    "modifyText": "entries (a cleared entry is hidden; one added is not built)",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -593,14 +617,15 @@
    "category": "World",
    "since": 3,
    "where": "FIELD_SKILL_CHECK_CallHandler 0x021644C4",
-   "refuse": "the field move shows as unusable",
+   "refuse": "the field action slot answers \"not allowed\"",
    "modifyText": null,
+   "details": "The bag and the Y shortcut menu read these slots: slot 0 is the bicycle; the other slots are zone and tile checks whose items are not mapped yet. Refused, the slot answers \"not allowed\".  move is the slot number, not a move id.  The party screen's field moves (Cut, Surf, Fly, Dig, Teleport...) do not go through this check and do not fire it yet.",
    "notes": [],
    "payload": [
     {
      "name": "move",
      "type": "uint16_t",
-     "meaning": "the field move",
+     "meaning": "the field action slot, 0 to 9 (0 the bicycle); not a move id",
      "writable": false,
      "cName": "move",
      "cType": "u16",
@@ -621,7 +646,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:field.move",
-   "when": "The player uses a field move (Cut, Surf, Strength, Fly...); refused, the move cannot be used.",
+   "when": "The game checks whether one of its ten field action slots is allowed here (FIELD_SKILL_CHECK_FillUseFlags asks for each, slot 0 to 9).",
    "functions": [
     "party_get",
     "party_set",
@@ -639,6 +664,7 @@
    "where": "SCRCMD_PROC_FLD_CallOv170Event 0x021B4D60, the script command that opens the box screen (the PC, and the battle box with its kind 4)",
    "refuse": "the PC does not open; the script reads a plain exit",
    "modifyText": null,
+   "details": "It is the only way into the box screen.  Refused, it does not open.",
    "notes": [],
    "payload": [],
    "cStruct": "EidosPcOpen",
@@ -646,7 +672,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:pc.open",
-   "when": "The player opens the Pokemon storage system; refused, it does not open.",
+   "when": "A script opens the Pokemon storage system: a PC (in a Pokemon Centre or anywhere else) or the Battle Box.",
    "functions": [
     "zone",
     "flag",
@@ -662,6 +688,7 @@
    "where": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
    "refuse": "no battle; the player keeps walking; the payload names the area, the method (grass, surf, fishing, shaking grass) and the slot",
    "modifyText": "species, level, shiny; the second Pokemon of a double; a reroll",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -785,6 +812,7 @@
    "where": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8",
    "refuse": null,
    "modifyText": "species, level",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -846,6 +874,7 @@
    "where": "FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -897,6 +926,7 @@
    "where": "POKE_TOOL_CreateEx 0x02017430; personality POKE_TOOL_CreatePersonalRnd 0x020186C8",
    "refuse": null,
    "modifyText": "species, level, shiny, nature",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -964,6 +994,7 @@
    "where": "catch EVENT_BATTLE_RETURN_Main 0x021B9614 (ov092, the store step); gifts SCRCMD_PROC_AddMonToParty 0x0215C510, SCRCMD_PROC_AddMonToBox 0x0215C4C8, SCRCMD_PROC_AddEggToParty 0x0215C2D0 (ov010); SCRCMD_POKEMON_FLD_ReceiveGiftMon 0x021B6F18, daycare egg SODATEYA_ReceiveEgg 0x021C32F4 (ov021); in-game trade FLD_TRADE_CreateEvent 0x021CC500 (ov021)",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1051,6 +1082,7 @@
    "where": "EVENT_NAMEIN_Create 0x021CD2A4 (ov021); after a catch ZUKAN_NICKNAME_Create 0x0220B55C (ov207)",
    "refuse": null,
    "modifyText": "force the prompt (marked, but the row carries no applier, so a write to it has no effect)",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1092,6 +1124,7 @@
    "where": "the return of SHINKA_CHECK_CheckEvolution 0x0201B2B0",
    "refuse": "no evolution starts; an evolution stone has no effect",
    "modifyText": "target species",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1151,6 +1184,7 @@
    "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093); daycare SODATEYA_GrantExp 0x021C3530 (ov021)",
    "refuse": null,
    "modifyText": "the amount",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1235,6 +1269,7 @@
    "where": "the return of BTL_POKEPARAM_AddExp 0x021D69B8, inside BTL_SERVER_FLOW_ApplyPartyExp 0x021C5350 (the level crossing)",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [
     "For a Rare Candy it fires after the level-up. To stop the candy, refuse item.use."
    ],
@@ -1308,6 +1343,7 @@
    "where": "level-up POKE_TOOL_GetLevelUpMove 0x02018328 (arm9); daycare SODATEYA_LearnMove 0x021C360C (ov021); the party screen's POKELIST_TryLearnMove 0x021BA5B4 and POKELIST_ReplaceMoveSlot 0x021BA5E0 (ov091); the nurse's relearner POKE_SUMMARY_MAIN_ApplyMove 0x021B6B0C (ov173); the script command that writes a move SCRCMD_PROC_SetMonMove 0x0215BD2C (ov010)",
    "refuse": "the level-up, the day care and the script: the move is not learned. The party screen's rows and the relearner's cannot be refused; the payload names the move and the source",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1376,6 +1412,7 @@
    "where": "BOX2_MAIN_ClearSlot 0x021DD314, whose only caller is the release step BOX2_SEQ_StateMoveItemF 0x021E81D0, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the Pokemon stays; the box redraws it",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1420,6 +1457,7 @@
    "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a party Pokemon placed in a box",
    "refuse": "the move is not applied; the box screen's own next step redraws the icons",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1472,6 +1510,7 @@
    "where": "BOX2_MAIN_UpdateBoxSlots 0x021DD530, a box Pokemon placed in the party",
    "refuse": "as box.deposit",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1524,6 +1563,7 @@
    "where": "POKEPARTY_SwapMembers 0x0201AB8C, not inside BOX2_MAIN_UpdateBoxSlots",
    "refuse": "the order does not change; the party screen redraws from the party",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1563,6 +1603,7 @@
    "where": "POKELIST_SetHeldItem 0x021BA624",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1613,6 +1654,7 @@
    "where": "SCRCMD_POKEMON_FLD_StartEggHatch 0x021B63D4",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1655,6 +1697,7 @@
    "where": "SCRCMD_POKEMON_FLD_StartTradeEvent 0x021B654C",
    "refuse": "the trade does not happen and the script goes on",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1705,9 +1748,8 @@
    "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 (ov091); BTL_SERVER_FLOW_CureSick 0x021C5620 (ov093); after the party heals of heal, for each member they cured",
    "refuse": "the status stays; an item on the party screen is kept",
    "modifyText": null,
+   "details": "status is the game's own number: 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison; in a battle, 6 and up are the battle's own conditions (confusion and the others).  A refusal keeps the status (on the party screen the item is not used; in a battle the game's text may still say it was cured).",
    "notes": [
-    "status is the game's own number: 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison. In a battle, 6 and up are the battle's own conditions, such as confusion.",
-    "Refused on the party screen, the item is not used. Refused in a battle, the game's text may still say the status was cured.",
     "A party heal fires it only for members that have a status."
    ],
    "payload": [
@@ -1754,7 +1796,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.cure",
-   "when": "A status is about to be cured: by an item on the party screen, in a battle, or by a party heal. Refusing keeps the status.",
+   "when": "A Pokemon's status is about to be cured, by an item, a move, an ability, a berry or a party heal.",
    "functions": [
     "party_get",
     "battle_get",
@@ -1771,8 +1813,9 @@
    "where": "POKE_TOOL_RestorePP 0x0201B970 (arm9); BTL_SERVER_FLOW_RestoreMovePp 0x021C6080 (ov093)",
    "refuse": "no PP",
    "modifyText": "the PP",
+   "details": "amount is the PP it gets, before the cap at its max.  A refusal gives none.",
    "notes": [
-    "amount is the PP the move gets, before the cap at its maximum. move is 0 when the port cannot read it."
+    "move is 0 when the port cannot read it."
    ],
    "payload": [
     {
@@ -1827,7 +1870,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.pp",
-   "when": "A move is about to get PP back, from an item on the party screen or in a battle. A handler may change the amount. Refusing gives none.",
+   "when": "A move is about to get PP back, from an Ether or an Elixir or in a battle.",
    "functions": [
     "party_get",
     "battle_get",
@@ -1844,6 +1887,7 @@
    "where": "POKE_TOOL_ChangeForm 0x02017988 (arm9); BTL_SERVER_FLOW_ProcHandExChangeForm 0x021CA748 (ov093)",
    "refuse": "the form stays",
    "modifyText": "the new form",
+   "details": "A refusal keeps the form it has; to can be changed.",
    "notes": [],
    "payload": [
     {
@@ -1898,7 +1942,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.form",
-   "when": "A Pokemon is about to change form, on the field or in a battle. A handler may change the new form. Refusing keeps the form it has.",
+   "when": "A Pokemon is about to change form, outside a battle or in one.",
    "functions": [
     "party_get",
     "battle_get",
@@ -1914,6 +1958,7 @@
    "where": "BTL_SETUP_Create 0x02013090 (arm9); the return of the setups: the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021), the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010)",
    "refuse": null,
    "modifyText": "format, levels; the payload names the trainer ids and whether the battle is wild",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -1982,6 +2027,7 @@
    "where": "fight BTL_CLIENT_IsMoveSelectionBlocked 0x021CF5B0; run BTL_CLIENT_GetEscapeBlockerForSide 0x021CF918 (inside BTL_CLIENT_StepSelectRun); switch the return of BTL_PICK_GetLast 0x0689CB1C (ov095, inside BTL_CLIENT_StepSelectSwitchTarget)",
    "refuse": "the choice is not accepted and the action menu stays; the payload names the action and, for fight, the move",
    "modifyText": null,
+   "details": null,
    "notes": [
     "For a fight it fires several times a turn, once per move checked."
    ],
@@ -2052,6 +2098,7 @@
    "where": "the return of BTLV_CORE_GetSelectedItem 0x021EA01C, inside BTL_CLIENT_StepSelectItem",
    "refuse": "back to the action menu; the item stays in the bag and the turn is not spent",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2111,6 +2158,7 @@
    "where": "BTL_SERVER_FLOW_ProcMemberIn 0x021BD9D4",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2161,6 +2209,7 @@
    "where": "BTL_SERVER_FLOW_TryEscape 0x021BD60C",
    "refuse": "the escape fails as a failed run: \"Can't escape!\" and the turn is spent",
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2193,6 +2242,7 @@
    "where": "BTL_SERVER_FLOW_RunMoveUsedEvent 0x021C1A10",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2252,6 +2302,7 @@
    "where": "the return of BTL_SERVER_FLOW_CalcMoveDamage 0x021C1E74",
    "refuse": null,
    "modifyText": "the amount; the payload names attacker, target, move and the target's HP before",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2347,6 +2398,7 @@
    "where": "BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [
     "mon is a battle reference (place EIDOS_MON_BATTLE); side 0 is the player's. cause, cause_move and cause_damage are empty or 0 when the faint came from weather, a hazard or a status.",
     "A whiteout has its own event, whiteout. It is not the same moment as a single faint.",
@@ -2433,6 +2485,7 @@
    "where": "BTL_SERVER_FLOW_TryThrowBall 0x021CBA40",
    "refuse": "the ball is blocked as in a trainer battle: the block message shows, the ball stays in the bag, the turn is spent; the payload names the ball and the target's species and level",
    "modifyText": "catch rate (BTL_SERVER_FLOW_GetBallCatchRate 0x021CBD48)",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2526,6 +2579,7 @@
    "where": "the return of BTL_SERVER_FLOW_CalcCaptureShakes 0x021CBB34",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2599,6 +2653,7 @@
    "where": "EVENT_BATTLE_NotifyBattleEnd 0x0216EE7C",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2660,6 +2715,7 @@
    "where": "BTL_CLIENT_StepShowBlackoutMessages 0x021D1960 (ov093); SCRIPT_SYS_RunRecoverScript 0x02158A20 (ov010)",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2701,6 +2757,7 @@
    "where": "the rows that build a trainer battle's setup (battle.start), once per opposing member",
    "refuse": "the member leaves the party (the last stays)",
    "modifyText": "species, level, item, moves, ability, form",
+   "details": "It fires once per member, in party order.  A refusal takes the member out of the party (the last one always stays).  A changed field is written to the Pokemon with the game's own setters: a new species or level works out the stats again, a new move gets its full PP.  0 in a *mod field leaves the game's value.",
    "notes": [],
    "payload": [
     {
@@ -2808,7 +2865,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:battle.trainer_mon",
-   "when": "Once for each Pokemon of the opposing trainer, in party order, after the game builds the party and before the battle starts. A rule may change the level, species, item, moves, ability and form. Refused, the member leaves the party before the battle; the last one always stays.",
+   "when": "A trainer battle is about to start: once for each Pokemon of the opposing trainer's party.",
    "functions": [
     "battle_get",
     "battle_ref",
@@ -2826,6 +2883,7 @@
    "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093), before mon.exp",
    "refuse": "nobody gains",
    "modifyText": "the scale of every share",
+   "details": "It fires before mon.exp fires for each member that gains.  A refusal gives nobody any experience (and mon.exp does not fire); scale changes every member's share.",
    "notes": [
     "members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."
    ],
@@ -2872,7 +2930,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:battle.exp",
-   "when": "The battle hands out experience after an opposing Pokemon fainted, as a whole, before mon.exp fires for each member that gains. A handler may scale every share. Refused, nobody gains and mon.exp does not fire.",
+   "when": "The battle is about to hand out experience to the party after an opposing Pokemon fainted.",
    "functions": [
     "party_get",
     "battle_get",
@@ -2889,6 +2947,7 @@
    "where": "MYITEM_SAVEDATA_AddItem 0x02007E50",
    "refuse": null,
    "modifyText": "count",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -2949,6 +3008,7 @@
    "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78",
    "refuse": "the game's \"it won't have any effect\"; the item stays",
    "modifyText": null,
+   "details": "Items used straight from the bag on the field (Escape Rope, Repel, the bicycle, the Dowsing Machine) do not go through the party screen and do not fire this event yet.",
    "notes": [],
    "payload": [
     {
@@ -2994,6 +3054,7 @@
    "where": "SCRCMD_PROC_FLD_PickQuantityOutcome 0x021B3370",
    "refuse": "back to the item list; no money changes hands",
    "modifyText": "price",
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -3035,6 +3096,7 @@
    "where": "BEACON_AddPoints 0x0200C278; BEACON_SubPoints 0x0200C29C",
    "refuse": null,
    "modifyText": "the amount",
+   "details": null,
    "notes": [
     "source says why: a script, a purchase, a sale or a battle. A handler may change the amount only in the direction of the call."
    ],
@@ -3088,6 +3150,7 @@
    "where": "SCRCMD_PROC_HealParty 0x0215B5A8 (ov010, a centre or a script); GPOWER_UseHpRestore 0x0201104C (arm9, the HP-restore power)",
    "refuse": "the heal does not happen; the script's own text still plays",
    "modifyText": "which Pokemon heal",
+   "details": null,
    "notes": [
     "Refused, the whole heal does not happen: no member event fires. To spare one member, see mon.revive and heal.hp."
    ],
@@ -3133,9 +3196,9 @@
    "where": "PLIST_DEMO_RestoreHp 0x021BE914 (ov091, an item on the field); BTL_SERVER_FLOW_ApplyHpRecover 0x021C33E8 (ov093, every restore in a battle); after the party heals of heal, for each member they gave HP to",
    "refuse": "no HP is added",
    "modifyText": "the HP added",
+   "details": "The amount is the HP the game is about to add, before the cap at max_hp; a handler changes it, or refuses the event and the Pokemon gets nothing.  A fainted Pokemon coming back is mon.revive, not this event.  On the field the item is still used up: a mod that wants the item kept refuses item.use instead.",
    "notes": [
-    "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. The amount is capped at max HP after the handler runs.",
-    "On the field the item is used up even when the restore is refused: refuse item.use to keep it."
+    "source is 0 (EIDOS_HEAL_HP_FIELD) on the field and 1 (EIDOS_HEAL_HP_BATTLE) in a battle. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY."
    ],
    "payload": [
     {
@@ -3189,7 +3252,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:heal.hp",
-   "when": "The game is about to add HP to a Pokemon that has HP. On the field it fires when the party screen restores HP with an item. In a battle it fires for every HP restore: a bag item, a berry, Leftovers, a move or an ability. A handler may change the amount, or refuse to add nothing. A party heal fires it once for each member that has lost HP, with source EIDOS_HEAL_HP_PARTY and the amount that fills it; refused, that member keeps the HP it had. A fainted Pokemon coming back is mon.revive.",
+   "when": "A Pokemon that has HP is about to get more, from an item, a move, an ability, a held item or a party heal.",
    "functions": [
     "party_get",
     "battle_get",
@@ -3209,9 +3272,9 @@
    "where": "PLIST_DEMO_CheckItemUsable 0x021BDD78 and PLIST_DEMO_RestoreHp 0x021BE914 (ov091); BTL_SERVER_FLOW_ItemEffectRevive 0x021CC008 (ov093); after the party heals of heal, for each member they revived",
    "refuse": "the Pokemon stays fainted; an item is kept where the game allows (docs/mod-payloads.md)",
    "modifyText": "the HP",
+   "details": "A refusal keeps it fainted; for an item, the item is not used up.  The hp is what it comes back with, at least 1, at most max_hp.",
    "notes": [
-    "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command.",
-    "hp is at least 1 and at most max_hp."
+    "source says what brought it back: EIDOS_REVIVE_FIELD_ITEM, _BATTLE_ITEM, _MOVE, _CENTRE, _POWER or _SCRIPT. The port reports every script heal as _SCRIPT, the Centre's too, because the nurse runs the same script command."
    ],
    "payload": [
     {
@@ -3275,7 +3338,7 @@
    "refusable": true,
    "ruleEvent": true,
    "id": "event:mon.revive",
-   "when": "A fainted Pokemon is about to come back: a Revive, Max Revive, Revival Herb or Sacred Ash, a revive item in battle, or a party heal. A handler may change the HP it comes back with, or refuse and leave it fainted.",
+   "when": "A fainted Pokemon is about to come back, from a revive item, Sacred Ash or a party heal.",
    "functions": [
     "party_get",
     "battle_get",
@@ -3295,6 +3358,7 @@
    "where": "the return of BEACON_SetFlag 0x0200C248",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -3337,6 +3401,7 @@
    "where": "ZONEDATA_SetEventFlag 0x02014314",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -3379,6 +3444,7 @@
    "where": "ZUKAN_SAVE_RegisterSeen 0x0200CFA0; ZUKAN_SAVE_RegisterCaught 0x0200CDE0",
    "refuse": null,
    "modifyText": null,
+   "details": null,
    "notes": [],
    "payload": [
     {
@@ -3705,6 +3771,20 @@
     },
     {
      "name": "EIDOS_FORM_BATTLE",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "title": "How the zone was entered (route.change).",
+   "prefix": "EIDOS_ZONE_",
+   "members": [
+    {
+     "name": "EIDOS_ZONE_WARP",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_ZONE_WALK",
      "value": 1
     }
    ]
@@ -4050,7 +4130,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "Whether badge n is held.",
+   "value": "Whether badge n (0 to 7) is held.",
    "fromC": true
   },
   {
@@ -4070,7 +4150,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "Pokemon in the party.",
+   "value": "How many Pokemon the party holds.",
    "fromC": true
   },
   {
@@ -4100,7 +4180,7 @@
    "readable": true,
    "writableOk": true,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The current HP of the Pokemon.",
+   "value": "A Pokemon's current HP.",
    "fromC": true
   },
   {
@@ -4110,7 +4190,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The maximum HP of the Pokemon.",
+   "value": "A Pokemon's maximum HP.",
    "fromC": true
   },
   {
@@ -4120,7 +4200,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The first type of the Pokemon.",
+   "value": "A Pokemon's first type.",
    "fromC": true
   },
   {
@@ -4130,7 +4210,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The second type of the Pokemon.",
+   "value": "A Pokemon's second type (the first again for a single type).",
    "fromC": true
   },
   {
@@ -4150,7 +4230,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "A Pokemon's held item.",
+   "value": "A Pokemon's held item, 0 for none.",
    "fromC": true
   },
   {
@@ -4160,7 +4240,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The first type of species s.",
+   "value": "A species' first type.",
    "fromC": true
   },
   {
@@ -4170,7 +4250,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The second type of species s.",
+   "value": "A species' second type.",
    "fromC": true
   },
   {
@@ -4190,7 +4270,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "Whether a species is registered caught.",
+   "value": "Whether a species is registered caught in the Pokedex.",
    "fromC": true
   },
   {
@@ -4210,7 +4290,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The personality value of the Pokemon.",
+   "value": "A Pokemon's personality value (the number its nature, gender and shininess come from).",
    "fromC": true
   },
   {
@@ -4220,7 +4300,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the trainer who first had the Pokemon.",
+   "value": "The id of a Pokemon's original trainer.",
    "fromC": true
   },
   {
@@ -4230,7 +4310,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The experience points the Pokemon holds.",
+   "value": "A Pokemon's experience points.",
    "fromC": true
   },
   {
@@ -4240,7 +4320,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The friendship value of the Pokemon.",
+   "value": "A Pokemon's friendship, 0 to 255.",
    "fromC": true
   },
   {
@@ -4250,7 +4330,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's ability.",
+   "value": "A Pokemon's ability.",
    "fromC": true
   },
   {
@@ -4260,7 +4340,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's first move.",
+   "value": "A Pokemon's first move, 0 for none.",
    "fromC": true
   },
   {
@@ -4270,7 +4350,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's second move.",
+   "value": "A Pokemon's second move, 0 for none.",
    "fromC": true
   },
   {
@@ -4280,7 +4360,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's third move.",
+   "value": "A Pokemon's third move, 0 for none.",
    "fromC": true
   },
   {
@@ -4290,7 +4370,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's fourth move.",
+   "value": "A Pokemon's fourth move, 0 for none.",
    "fromC": true
   },
   {
@@ -4300,7 +4380,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "1 when the Pokemon is an egg.",
+   "value": "Whether a Pokemon is an egg.",
    "fromC": true
   },
   {
@@ -4310,7 +4390,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The Pokemon's gender, as the game stores it.",
+   "value": "A Pokemon's gender: 0 male, 1 female, 2 none.",
    "fromC": true
   },
   {
@@ -4320,7 +4400,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The Pokemon's form number.",
+   "value": "A Pokemon's form, 0 for the first.",
    "fromC": true
   },
   {
@@ -4330,7 +4410,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the Pokemon's nature.",
+   "value": "A Pokemon's nature, 0 to 24.",
    "fromC": true
   },
   {
@@ -4340,7 +4420,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "1 when the Pokemon has a nickname.",
+   "value": "Whether a Pokemon has a nickname.",
    "fromC": true
   },
   {
@@ -4350,7 +4430,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "1 when the Pokemon was met in a fateful encounter.",
+   "value": "Whether a Pokemon came from a fateful encounter (an event gift).",
    "fromC": true
   },
   {
@@ -4360,7 +4440,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the game the Pokemon comes from.",
+   "value": "The game a Pokemon comes from.",
    "fromC": true
   },
   {
@@ -4370,7 +4450,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the place where the Pokemon was met.",
+   "value": "Where a Pokemon was met (the place name).",
    "fromC": true
   },
   {
@@ -4380,7 +4460,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The id of the ball the Pokemon was caught in.",
+   "value": "The ball a Pokemon was caught in.",
    "fromC": true
   },
   {
@@ -4390,7 +4470,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "The level the Pokemon had when it was met.",
+   "value": "The level a Pokemon was met at.",
    "fromC": true
   },
   {
@@ -4400,7 +4480,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "Where a reference points: the EIDOS_MON_* place id (party, box or battle).",
+   "value": "Where a reference points: EIDOS_MON_PARTY, EIDOS_MON_BOX, EIDOS_MON_BATTLE or EIDOS_MON_WILD.",
    "fromC": true
   },
   {
@@ -4410,7 +4490,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a Pokemon, usually event.mon",
-   "value": "In a battle, the side a reference belongs to: 0 is the player's.",
+   "value": "In a battle, the side of a Pokemon: 0 the player's, 1 the opponent's.",
    "fromC": true
   },
   {
@@ -4420,7 +4500,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The evolution stage of species s: 0 for the first stage of a line.",
+   "value": "A species' stage in its evolution line, as the species data stores it.",
    "fromC": true
   },
   {
@@ -4430,7 +4510,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The gender ratio byte of species s.",
+   "value": "A species' gender ratio: 0 always male, 254 always female, 255 no gender, the share of females out of 254 otherwise.",
    "fromC": true
   },
   {
@@ -4440,7 +4520,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The first egg group of species s.",
+   "value": "A species' first egg group.",
    "fromC": true
   },
   {
@@ -4450,7 +4530,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The second egg group of species s.",
+   "value": "A species' second egg group.",
    "fromC": true
   },
   {
@@ -4460,7 +4540,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The growth rate id of species s.",
+   "value": "A species' experience growth group.",
    "fromC": true
   },
   {
@@ -4470,7 +4550,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The catch rate of species s.",
+   "value": "A species' catch rate, 0 to 255.",
    "fromC": true
   },
   {
@@ -4480,7 +4560,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The first stage of species s's evolution line; two species are in one line when their bases are equal.",
+   "value": "The first stage of a species' evolution line; two species are in one line when their bases are equal.",
    "fromC": true
   },
   {
@@ -4510,7 +4590,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The battle in progress is a wild one.",
+   "value": "Whether the battle in progress is a wild one.",
    "fromC": true
   },
   {
@@ -4520,7 +4600,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The trainer id of the first opposing trainer of the battle in progress, 0 for none.",
+   "value": "The first opposing trainer of the battle in progress, 0 for none.",
    "fromC": true
   },
   {
@@ -4530,7 +4610,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The trainer id of the second opposing trainer, 0 for none.",
+   "value": "The second opposing trainer (a multi battle), 0 for none.",
    "fromC": true
   },
   {
@@ -4550,7 +4630,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "Whether the party or a box holds a Pokemon of species s that is not an egg.",
+   "value": "Whether the party or a box holds a Pokemon of the species that is not an egg.",
    "fromC": true
   },
   {
@@ -4600,7 +4680,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The type id of move v.",
+   "value": "A move's type.",
    "fromC": true
   },
   {
@@ -4610,7 +4690,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The power of move v.",
+   "value": "A move's power, 0 for a move that does no direct damage.",
    "fromC": true
   },
   {
@@ -4620,7 +4700,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": "a number",
-   "value": "The damage class of move v.",
+   "value": "A move's damage class (physical, special or status), as the move data stores it.",
    "fromC": true
   },
   {
@@ -4630,7 +4710,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "Shift or set.",
+   "value": "The battle style option: shift or set.",
    "fromC": true,
    "note": "It cannot be changed yet."
   },
@@ -4641,7 +4721,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "A battle is in progress.",
+   "value": "Whether a battle is in progress.",
    "fromC": true
   }
  ],
@@ -8451,6 +8531,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov021:0x021893C0",
+   "name": "FIELDMAP_ChangeZone",
+   "region": "ov021",
+   "addr": "0x021893C0",
+   "key": "ov021:0x021893C0",
+   "events": [
+    "route.change"
+   ],
+   "proto": "void (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov021:0x021894E0",
    "name": "FIELDMAP_AddZoneNpcs",
    "region": "ov021",
@@ -10931,7 +11024,7 @@
     "item_count"
    ],
    "steps": [
-    "`route.change` fires on every map change; `event.zone` is the zone entered. Replace 115 with the zone you want.",
+    "`route.change` fires whenever the player enters a new zone, by a map change or by walking over a zone border; `event.zone` is the zone entered. Replace 115 with the zone you want.",
     "`give <item> <count>` puts the items in the bag at once. If the bag cannot take them, the rule stops for that firing and tries again on the next entry.",
     "The cell `state.gift_given` is saved with the game and reads 0 until it is set, so the gift is given once. The `give` line comes first, so the cell is set only after a successful gift."
    ],
@@ -11050,7 +11143,7 @@
     "message"
    ],
    "steps": [
-    "`item.use` fires when an item is used and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
+    "`item.use` fires when the party screen checks an item on a Pokemon, and can be refused. A refusal keeps the Rare Candy in the bag and the level as it was.",
     "`event.item` is the item and `event.target` the Pokemon it is used on. Item 50 is the Rare Candy in the game's item list.",
     "The cap comes from the `caps` table of the level cap recipe."
    ],

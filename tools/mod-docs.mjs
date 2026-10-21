@@ -10,9 +10,8 @@
 // outcome, writable fields and field meanings; rule names and state fields;
 // the core imports; services and state calls; constants; hooks with their
 // prototypes. eidos_wasm.h supplies the C signature of each call. curated.mjs
-// holds only what v4 does not carry: the group of each event, the plain
-// sentence of when an event fires where v4 has none or a less clear one, what
-// each call does, rules-language pages, recipes and group names.
+// holds only what v4 does not carry: extra facts and linked calls of an event,
+// what each call does, rules-language pages, recipes and group names.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -35,10 +34,6 @@ const read = (rel) => {
 };
 const v4 = (name) => JSON.parse(read(`sdk/api/v4/${name}`));
 
-// enums.json still spells the constants BW_; the wasm header, which a code mod
-// includes, spells them EIDOS_. This is the one rename left.
-const eidosName = (s) => s.replace(/\bBW_(?=[A-Z])/g, "EIDOS_");
-
 // ---------------------------------------------------------------- v4 files
 
 const coreJson = v4("core.json");
@@ -58,15 +53,8 @@ const curated = (await import(pathToFileURL(join(outDir, "curated.mjs")).href)).
 
 // ---------------------------------------------------------------- events
 
-// v4 writes the version into some documents ("version 4: ...", "... (version
-// 4)"); the entry's "new in 4" tag says it. The text is shown without code ticks.
-const prose = (t) =>
-  t
-    .replace(/^[\w.]+ \(version \d+\):\s*/, "")
-    .replace(/^version \d+:\s*/, "")
-    .replace(/\s*\(version \d+\)\s*$/, "")
-    .replace(/`/g, "")
-    .trim();
+// The text is shown without code ticks.
+const prose = (t) => t.replace(/`/g, "").trim();
 // A sentence: first letter up, a full stop at the end.
 const sentenceCase = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : t);
 
@@ -99,6 +87,7 @@ for (const e of eventsJson.events) {
     refuse: e.refuse ? prose(e.refuse) : null,
     modifyText: e.modify ? prose(e.modify) : null,
     doc: prose(e.doc ?? ""),
+    details: prose(e.details ?? ""),
     notes: [],
     payload,
     cStruct,
@@ -120,7 +109,7 @@ const titles = curated.enumTitles;
 const prefixes = Object.keys(titles).sort((a, b) => b.length - a.length);
 const enums = [];
 for (const c of enumsJson.constants) {
-  if (/^BW_EVENT_/.test(c.name) && !/^BW_EVENT_(CONTINUE|REFUSE)$/.test(c.name)) continue;
+  if (/^EIDOS_EVENT_/.test(c.name) && !/^EIDOS_EVENT_(CONTINUE|REFUSE)$/.test(c.name)) continue;
   const prefix = prefixes.find((p) => c.name.startsWith(p));
   if (!prefix) {
     warn(`constant ${c.name} has no group in curated.enumTitles`);
@@ -131,9 +120,8 @@ for (const c of enumsJson.constants) {
     g = { title: titles[prefix], prefix, members: [] };
     enums.push(g);
   }
-  g.members.push({ name: eidosName(c.name), value: c.value });
+  g.members.push({ name: c.name, value: c.value });
 }
-for (const g of enums) g.prefix = eidosName(g.prefix);
 // A field whose doc starts with a constant (EIDOS_FORM_FIELD) links to the group the
 // constant belongs to, found by the longest group prefix.
 for (const ev of events.values()) {
@@ -148,7 +136,7 @@ for (const ev of events.values()) {
     }
   }
 }
-for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === eidosName(p))) warn(`enum title for ${p} matches no constant`);
+for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === p)) warn(`enum title for ${p} matches no constant`);
 
 // ---------------------------------------------------------------- rule state
 
@@ -156,8 +144,7 @@ for (const p of Object.keys(titles)) if (!enums.some((g) => g.prefix === eidosNa
 // port really writes.
 const state = rulesJson.state_fields.map((s) => {
   const sub = s.subscript ?? "plain";
-  // v4's text unless kenon's override says it better (curated.state).
-  const value = curated.state?.[s.name] ?? (s.doc ? sentenceCase(prose(s.doc)) : null);
+  const value = s.doc ? sentenceCase(prose(s.doc)) : null;
   if (!value) warn(`state ${s.name} has no text`);
   const out = {
     name: s.name,
@@ -260,9 +247,8 @@ const eventList = [...events.values()]
   .sort((a, b) => a.numId - b.numId)
   .map((e) => {
     const c = curated.events[e.name] ?? {};
-    // v4's sentence says when the event fires; a curated one replaces it only
-    // where v4's is technical (curated.events[..].when).
-    const when = c.when ?? e.doc;
+    // v4's sentence says when the event fires; its details follow it.
+    const when = e.doc;
     need(when, `no 'when' text for ${e.name}`);
     return {
       ...e,
@@ -270,6 +256,7 @@ const eventList = [...events.values()]
       notes: c.facts ?? [],
       id: `event:${e.name}`,
       when: when || null,
+      details: e.details || null,
       functions: c.functions ?? defaultFns(e),
       recipes: [],
     };
@@ -286,7 +273,6 @@ for (const g of curated.functionGroups) {
 }
 for (const f of functions) if (!f.group) warn(`${f.name} is in no function group`);
 for (const name of Object.keys(curated.events)) if (!events.has(name)) warn(`curated event ${name} is not in sdk/api/v4`);
-for (const name of Object.keys(curated.state ?? {})) if (!state.some((s) => s.name === name)) warn(`curated state ${name} is not in sdk/api/v4`);
 
 const recipes = curated.recipes.map((r) => ({ ...r, id: `recipe:${r.slug}` }));
 for (const r of recipes) {

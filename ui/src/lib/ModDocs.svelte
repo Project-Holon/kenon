@@ -464,6 +464,7 @@
             {#if !e.ruleEvent}<span class="tag">Code only</span>{/if}
           </div>
           <p class="lead">{e.when}</p>
+          {#if e.details}<p>{e.details}</p>{/if}
 
           <h3>Game function</h3>
           <p>{e.where}</p>

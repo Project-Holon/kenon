@@ -165,8 +165,9 @@ at that event.
   continue after a whiteout. A rule may block the return. How the port binds
   the two names is still to build (`docs/mod-events.md`, still-to-build item
   1).
-- **`route.change`.** Fires when the field loads a new zone. The payload
-  names the map. Read-only. Nuzlocke keys the used-route set on it. A rule
+- **`route.change`.** Fires when the player enters a new zone, by a map
+  change or by walking over a zone border. The payload names the zone and
+  how it was entered (`how`). Read-only. Nuzlocke keys the used-route set on it. A rule
   may read the map.
 - **`save.begin`, `save.done`.** Fire around a game save. A mod writes its
   state here, through its state namespace. A rule may persist its state.
