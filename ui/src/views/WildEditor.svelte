@@ -29,15 +29,12 @@
   let species = $state<string[]>([]);
   let busy = $state(false);
   let error = $state<string | null>(null);
-  // "slots": the game's slots one by one; "pokemon": one line per Pokemon
-  // with its chance, the slots worked out from it.
+  // "pokemon": one line per Pokemon with its chance; "slots": the game's
+  // slots one by one.
   let view = $state<"slots" | "pokemon">("pokemon");
-  // "ratio": changing one chance scales the others; "free": type any
-  // numbers, applied once they add up to 100.
-  let mode = $state<"ratio" | "free">("ratio");
   let shares = $state<Share[]>([]);
-  // Free mode numbers not applied yet.
-  let pending = $state(false);
+  // The Pokemon that clicks on the slot bar hand slots to.
+  let brush = $state(0);
 
   async function load() {
     error = null;
@@ -77,7 +74,7 @@
   const label = (l: List) => NAMES[l.key] ?? l.label.replace(/ slots$/, "");
   const col = (l: List, name: string) => l.columns.findIndex((c) => c.name === name || c.label.toLowerCase().startsWith(name));
 
-  // The method's Pokemon with what they get now (empty slots left out).
+  // The method's Pokemon and the chance their slots give them now.
   function readShares(l: List) {
     const [sp, form, min, max] = [col(l, "species"), col(l, "form"), col(l, "min"), col(l, "max")];
     const o = slotOdds(l.key, l.rows.length);
@@ -93,82 +90,145 @@
       } else out.push({ species: row[sp], form: f, min: row[min], max: row[max], want: o[i] });
     });
     shares = out;
-    pending = false;
+    if (brush >= out.length) brush = 0;
   }
 
-  // Lays the Pokemon out over the slots, as close to their shares as the
-  // game's fixed slot odds allow.
-  function writeShares(l: List) {
+  // Lays the Pokemon out over the slots for the wanted chances, as close as
+  // the game's fixed slot odds allow, then reads back what they got.
+  function layOut(l: List, wanted: number[]) {
     const [sp, form, min, max] = [col(l, "species"), col(l, "form"), col(l, "min"), col(l, "max")];
     const o = slotOdds(l.key, l.rows.length);
-    const live = shares.filter((s) => s.species > 0 && s.want > 0);
-    if (!live.length) {
-      l.rows.forEach((row) => {
-        row[sp] = 0;
-        row[min] = 0;
-        row[max] = 0;
-        if (form >= 0) row[form] = 0;
-      });
-      return;
-    }
-    const owner = assignSlots(o, live.map((s) => s.want));
+    const live = shares.map((s, k) => ({ s, want: wanted[k] ?? 0 })).filter((x) => x.want > 0);
+    if (!live.length) return;
+    const owner = assignSlots(o, live.map((x) => x.want));
     l.rows.forEach((row, i) => {
-      const s = live[owner[i]];
+      const { s } = live[owner[i]];
       row[sp] = s.species;
       row[min] = s.min;
       row[max] = Math.max(s.min, s.max);
       if (form >= 0) row[form] = s.form;
     });
-    pending = false;
+    const keep = shares.filter((s) => s.species <= 0);
+    readShares(l);
+    shares.push(...keep);
   }
 
-  // What each Pokemon really gets with the slots as they are now.
-  const actual = $derived.by(() => {
-    const l = lists[method];
-    if (!l) return [] as number[];
-    const sp = col(l, "species");
-    const form = col(l, "form");
-    const o = slotOdds(l.key, l.rows.length);
-    return shares.map((s) =>
-      l.rows.reduce((n, row, i) => n + (row[sp] === s.species && (form < 0 || row[form] === s.form) ? o[i] : 0), 0),
+  // Wanted chances when Pokemon k asks for `value`: the others keep their
+  // ratios to each other and fill the rest.
+  function scaled(k: number, value: number): number[] {
+    const others = shares.reduce((n, s, i) => (i === k ? n : n + s.want), 0);
+    const rest = 100 - value;
+    const free = shares.filter((s, i) => i !== k && s.species > 0).length;
+    return shares.map((s, i) =>
+      i === k ? value : s.species <= 0 ? 0 : others > 0 ? (s.want / others) * rest : rest / Math.max(1, free),
     );
-  });
-  const total = $derived(Math.round(shares.reduce((n, s) => n + (Number(s.want) || 0), 0) * 10) / 10);
+  }
 
-  // Ratio mode: one chance changes, the others keep their ratios to each
-  // other and fill the rest.
-  function setShare(l: List, k: number, value: number) {
-    const v = Math.max(0, Math.min(100, Number(value) || 0));
-    if (mode === "free") {
-      shares[k].want = v;
-      pending = true;
+  // One step up or down: the next chance the slots can give this Pokemon.
+  function step(l: List, k: number, dir: 1 | -1) {
+    const now = shares[k].want;
+    const o = slotOdds(l.key, l.rows.length);
+    for (const d of [...new Set(o)].sort((a, b) => a - b).concat([25, 30, 50])) {
+      const want = Math.max(0, Math.min(100, now + dir * d));
+      const w = scaled(k, want);
+      const live = w.map((x, i) => ({ x, i })).filter((v) => v.x > 0 && shares[v.i].species > 0);
+      if (!live.length) continue;
+      const owner = assignSlots(o, live.map((v) => v.x));
+      const got = achieved(o, owner, live.length);
+      const mine = live.findIndex((v) => v.i === k);
+      const result = mine < 0 ? 0 : got[mine];
+      if (dir > 0 ? result > now : result < now) {
+        layOut(l, w);
+        play("select");
+        return;
+      }
+    }
+  }
+
+  // Splits the slots as evenly as they allow.
+  function even(l: List) {
+    const n = shares.filter((s) => s.species > 0).length;
+    if (!n) return;
+    layOut(l, shares.map((s) => (s.species > 0 ? 100 / n : 0)));
+    play("decide");
+  }
+
+  // A new Pokemon (one not on the list yet, to change from there) takes
+  // the smallest slot of whoever holds the most.
+  function addShare(l: List) {
+    let pick = 1;
+    while (shares.some((x) => x.species === pick)) pick++;
+    shares.push({ species: pick, form: 0, min: shares[0]?.min ?? 5, max: shares[0]?.max ?? 5, want: 0 });
+    brush = shares.length - 1;
+    giveSmallest(l, brush);
+  }
+
+  function giveSmallest(l: List, k: number) {
+    const sp = col(l, "species");
+    const o = slotOdds(l.key, l.rows.length);
+    const counts = new Map<number, number>();
+    l.rows.forEach((row) => counts.set(row[sp], (counts.get(row[sp]) ?? 0) + 1));
+    const order = o.map((_, i) => i).sort((a, b) => o[a] - o[b]);
+    const slot = order.find((i) => l.rows[i][sp] <= 0) ?? order.find((i) => (counts.get(l.rows[i][sp]) ?? 0) > 1);
+    if (slot !== undefined) paint(l, slot, k);
+  }
+
+  // Gives one slot to Pokemon k.
+  function paint(l: List, slot: number, k: number) {
+    const s = shares[k];
+    if (!s) return;
+    const [sp, form, min, max] = [col(l, "species"), col(l, "form"), col(l, "min"), col(l, "max")];
+    const row = l.rows[slot];
+    row[sp] = s.species;
+    row[min] = s.min;
+    row[max] = Math.max(s.min, s.max);
+    if (form >= 0) row[form] = s.form;
+    const keep = shares.filter((x) => x.species <= 0);
+    const at = shares[k];
+    readShares(l);
+    shares.push(...keep);
+    brush = Math.max(0, shares.findIndex((x) => x.species === at.species && x.form === at.form));
+  }
+
+  // A removed Pokemon's slots go to the others, keeping their ratios.
+  function removeShare(l: List, k: number) {
+    const w = scaled(k, 0);
+    shares.splice(k, 1);
+    w.splice(k, 1);
+    if (!shares.some((s) => s.species > 0)) {
+      const [sp, min, max] = [col(l, "species"), col(l, "min"), col(l, "max")];
+      l.rows.forEach((row) => ((row[sp] = 0), (row[min] = 0), (row[max] = 0)));
+      shares = [];
       return;
     }
-    const others = shares.reduce((n, s, i) => (i === k ? n : n + s.want), 0);
-    const rest = 100 - v;
-    shares.forEach((s, i) => {
-      if (i === k) s.want = v;
-      else s.want = others > 0 ? (s.want / others) * rest : rest / Math.max(1, shares.length - 1);
-    });
-    writeShares(l);
+    layOut(l, w);
   }
 
-  function addShare(l: List) {
-    shares.push({ species: 0, form: 0, min: 5, max: 5, want: 0 });
-    if (mode === "free") pending = true;
-    void l;
+  // Species or levels of a Pokemon changed: rewrite its slots.
+  function editShare(l: List, k: number, before: { species: number; form: number }) {
+    const s = shares[k];
+    s.max = Math.max(s.min, s.max);
+    const [sp, form, min, max] = [col(l, "species"), col(l, "form"), col(l, "min"), col(l, "max")];
+    for (const row of l.rows) {
+      if (row[sp] !== before.species || (form >= 0 && row[form] !== before.form)) continue;
+      row[sp] = s.species;
+      row[min] = s.min;
+      row[max] = s.max;
+      if (form >= 0) row[form] = s.form;
+    }
+    if (before.species <= 0) giveSmallest(l, k);
+    else readShares(l);
   }
 
-  function removeShare(l: List, k: number) {
-    const gone = shares[k].want;
-    shares.splice(k, 1);
-    const left = shares.reduce((n, s) => n + s.want, 0);
-    if (mode === "ratio" && left > 0) shares.forEach((s) => (s.want += (s.want / left) * gone));
-    if (mode === "ratio") writeShares(l);
-    else pending = true;
-  }
+  // Colours that tell the Pokemon apart on the slot bar.
+  const HUES = [205, 25, 130, 280, 50, 340, 175, 0, 90, 240, 310, 155];
+  const hue = (k: number) => HUES[k % HUES.length];
+  const ownerOf = (l: List, i: number) => {
+    const [sp, form] = [col(l, "species"), col(l, "form")];
+    return shares.findIndex((s) => s.species === l.rows[i][sp] && (form < 0 || s.form === l.rows[i][form]));
+  };
 
-  // Load the per-Pokemon list when the method or the data changes.
+  // Reread when the method or the data changes.
   $effect(() => {
     const l = lists[method];
     void original;
@@ -191,7 +251,7 @@
   function keys(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
       e.preventDefault();
-      if (!readOnly && dirty && !busy && !pending) save();
+      if (!readOnly && dirty && !busy) save();
     }
   }
 
@@ -227,8 +287,8 @@
     {/if}
     <div class="spacer"></div>
     {#if !readOnly}
-      <button disabled={(!dirty && !pending) || busy} onclick={load}>Discard</button>
-      <button class="primary" disabled={!dirty || busy || pending} title={pending ? "The chances must add up to 100%" : ""} onclick={save}>Save</button>
+      <button disabled={!dirty || busy} onclick={load}>Discard</button>
+      <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
     {/if}
   </div>
   {#if error}<p class="bad">{error}</p>{/if}
@@ -241,7 +301,6 @@
           aria-selected={method === i}
           class:primary={method === i}
           class:empty={!used(l)}
-          disabled={pending && method !== i}
           onclick={() => (method = i)}>{label(l)}</button>
       {/each}
     </div>
@@ -259,50 +318,56 @@
       {/if}
       <div class="views">
         <div class="seg" role="radiogroup" aria-label="View">
-          <button class:primary={view === "pokemon"} disabled={pending} onclick={() => (view = "pokemon")}>By Pokemon</button>
-          <button class:primary={view === "slots"} disabled={pending} onclick={() => (view = "slots")}>By slot</button>
+          <button class:primary={view === "pokemon"} onclick={() => (view = "pokemon")}>By Pokemon</button>
+          <button class:primary={view === "slots"} onclick={() => (view = "slots")}>By slot</button>
         </div>
-        {#if view === "pokemon" && !readOnly}
-          <label class="check" title="On: change one chance and the others adjust to keep 100%. Off: type freely, then apply.">
-            <input
-              type="checkbox"
-              checked={mode === "ratio"}
-              disabled={pending}
-              onchange={(e) => (mode = (e.currentTarget as HTMLInputElement).checked ? "ratio" : "free")}
-            />Keep 100% automatically
-          </label>
-        {/if}
       </div>
       {#if view === "pokemon"}
-        <div class="share-head muted">
-          <span>Pokemon</span>
-          <span>Chance</span>
-          <span>Level</span>
-          <span></span>
+        {@const o = slotOdds(l.key, l.rows.length)}
+        <!-- The game's slots, sized by their odds and coloured by who has them. -->
+        <div class="bar" role="group" aria-label="Slots">
+          {#each l.rows as _, i}
+            {@const k = ownerOf(l, i)}
+            <button
+              class="slot"
+              style="flex: {o[i]}; --h: {k < 0 ? 0 : hue(k)}"
+              class:none={k < 0}
+              disabled={readOnly || !shares[brush]}
+              title="{o[i]}%: {k < 0 ? 'empty' : species[shares[k].species] || 'Pokemon'}"
+              onclick={() => (paint(l, i, brush), play("select"))}
+            >
+              {#if k >= 0 && o[i] >= 10 && speciesIcon(shares[k].species)}<img class="px" src={speciesIcon(shares[k].species)} alt="" />{/if}
+            </button>
+          {/each}
         </div>
+        {#if !readOnly && shares.length}
+          <p class="muted small">Pick a Pokemon below, then click slots to give them to it.</p>
+        {/if}
         <ul class="shares">
           {#each shares as s, k}
-            <li>
-              <SearchSelect bind:value={s.species} options={speciesOptions} icon={speciesIcon} disabled={readOnly} label="Pokemon" onchange={() => mode === "ratio" ? writeShares(l) : (pending = true)} />
+            <li class:brush={brush === k && !readOnly}>
+              <button class="swatch" style="--h: {hue(k)}" aria-label="Give slots to this Pokemon" aria-pressed={brush === k} disabled={readOnly} onclick={() => (brush = k)}></button>
+              <SearchSelect
+                value={s.species}
+                options={speciesOptions}
+                icon={speciesIcon}
+                disabled={readOnly}
+                label="Pokemon"
+                onchange={(v) => {
+                  const before = { species: s.species, form: s.form };
+                  s.species = v;
+                  editShare(l, k, before);
+                }}
+              />
               <span class="chance">
-                <input
-                  class="num"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={Math.round(s.want * 10) / 10}
-                  readonly={readOnly}
-                  onchange={(e) => setShare(l, k, Number((e.currentTarget as HTMLInputElement).value))}
-                  aria-label="Chance"
-                />%
-                {#if !pending && Math.abs((actual[k] ?? 0) - s.want) >= 0.5}
-                  <span class="got" title="The game's slots allow this much">{actual[k]}%</span>
-                {/if}
+                {#if !readOnly}<button class="step" onclick={() => step(l, k, -1)} disabled={s.want <= 0} aria-label="Less often">-</button>{/if}
+                <strong>{s.want}%</strong>
+                {#if !readOnly}<button class="step" onclick={() => step(l, k, 1)} disabled={s.want >= 100} aria-label="More often">+</button>{/if}
               </span>
               <span class="levels">
-                <input class="num" type="number" min="0" max="100" bind:value={s.min} readonly={readOnly} onchange={() => (mode === "ratio" ? writeShares(l) : (pending = true))} aria-label="Lowest level" />
+                <input class="num" type="number" min="0" max="100" bind:value={s.min} readonly={readOnly} onchange={() => editShare(l, k, { species: s.species, form: s.form })} aria-label="Lowest level" />
                 <span class="muted">-</span>
-                <input class="num" type="number" min="0" max="100" bind:value={s.max} readonly={readOnly} onchange={() => (mode === "ratio" ? writeShares(l) : (pending = true))} aria-label="Highest level" />
+                <input class="num" type="number" min="0" max="100" bind:value={s.max} readonly={readOnly} onchange={() => editShare(l, k, { species: s.species, form: s.form })} aria-label="Highest level" />
               </span>
               {#if !readOnly}
                 <button class="quiet x" onclick={() => removeShare(l, k)} aria-label="Remove">Remove</button>
@@ -315,13 +380,8 @@
         {#if !readOnly}
           <div class="share-foot">
             <button disabled={shares.length >= l.rows.length} onclick={() => addShare(l)}>Add Pokemon</button>
-            {#if mode === "free"}
-              <span class:bad={total !== 100}>Total {total}%</span>
-              <button class="primary" disabled={total !== 100 || !pending} onclick={() => writeShares(l)}>Apply</button>
-              {#if pending}<button onclick={() => readShares(l)}>Undo</button>{/if}
-            {/if}
+            <button disabled={shares.length < 2} onclick={() => even(l)} title="Share the slots as evenly as they allow">Even split</button>
           </div>
-          <p class="muted small">The game gives each slot fixed odds; the chances snap to what those slots allow.</p>
         {/if}
       {:else}
       <div class="slots-head muted">
@@ -430,12 +490,6 @@
     padding: 0.15rem 0.55rem;
     font-size: 0.8rem;
   }
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.8rem;
-  }
   .shares {
     list-style: none;
     margin: 0;
@@ -444,29 +498,77 @@
     flex-direction: column;
     gap: 2px;
   }
-  .shares li,
-  .share-head {
+  .shares li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 5.2rem 6.5rem auto;
+    grid-template-columns: 1rem minmax(0, 1fr) 5.4rem 6rem auto;
     align-items: center;
     gap: 0.3rem;
     font-size: 0.85rem;
+    padding: 1px 2px;
+    border-radius: var(--radius-s);
   }
-  .share-head {
-    font-size: 0.75rem;
+  .shares li.brush {
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
+  }
+  .swatch {
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--outline);
+    box-shadow: none;
+    background: hsl(var(--h) 65% 55%);
+  }
+  .swatch[aria-pressed="true"] {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
   }
   .chance {
     display: flex;
     align-items: center;
-    gap: 0.15rem;
-    position: relative;
+    justify-content: center;
+    gap: 0.25rem;
+    font-variant-numeric: tabular-nums;
   }
-  .got {
-    position: absolute;
-    right: 0;
-    bottom: -0.8rem;
-    font-size: 0.65rem;
-    color: var(--muted);
+  .chance strong {
+    min-width: 2.4rem;
+    text-align: center;
+  }
+  .step {
+    padding: 0 0.4rem;
+    line-height: 1.3;
+  }
+  .bar {
+    display: flex;
+    height: 2rem;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+  }
+  .slot {
+    min-width: 0;
+    padding: 0;
+    border: none;
+    border-right: 1px solid color-mix(in srgb, var(--outline) 60%, transparent);
+    border-radius: 0;
+    box-shadow: none;
+    background: hsl(var(--h) 65% 55%);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .slot:last-child {
+    border-right: none;
+  }
+  .slot.none {
+    background: var(--stage);
+  }
+  .slot:hover:not(:disabled) {
+    filter: brightness(1.15);
+  }
+  .slot img {
+    width: 24px;
+    height: 24px;
   }
   .x {
     padding: 0.1rem 0.4rem;
