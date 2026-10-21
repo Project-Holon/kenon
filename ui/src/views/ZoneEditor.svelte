@@ -244,7 +244,7 @@
   let music = $state<SoundInfo[]>([]);
   let playing = $state<number | null>(null);
   // Object code -> its billboard texture member, for drawing people.
-  let objTex = $state<(number | null)[]>([]);
+  let objTex = $state<({ tex: number; frames: number } | null)[]>([]);
   let spritePicker = $state(false);
   // What each event says and does, and text being edited (bank:id -> text).
   let scripts = $state<EventScript[]>([]);
@@ -451,7 +451,7 @@
     tableEntries("items").then((t) => (items = t)).catch(() => {});
     tableEntries("species").then((t) => (species = t)).catch(() => {});
     invoke<ZoneInfo[]>("zones").then((z) => (allZones = z)).catch(() => {});
-    once("objtex", () => invoke<(number | null)[]>("object_textures"))
+    once("objsprites", () => invoke<({ tex: number; frames: number } | null)[]>("object_sprites"))
       .then((t) => (objTex = t))
       .catch(() => {});
     sounds().then((s) => (music = s.filter((x) => x.group === "music"))).catch(() => {});
@@ -1175,10 +1175,33 @@
     if (ev.kind !== "npc") return null;
     return spriteOf(value(ev, "objCode"), value(ev, "dirHeader"));
   }
+  // Some characters have fewer frames (a trainer hiding in sand has one):
+  // a frame that fails falls back to the first, then to the plain marker.
+  let failed = $state<Set<string>>(new Set());
+  // The frame for a facing and whether it is mirrored (zonemap::sprite_frame).
+  function frameOf(frames: number, dir: number): [number, boolean] {
+    const d = Math.max(0, Math.min(3, dir));
+    if (frames >= 16) return [[0, 3, 6, 9][d], false];
+    if (frames >= 12) return [[0, 3, 6, 6][d], d === 3];
+    if (frames >= 7) return [[0, 2, 4, 4][d], d === 3];
+    return [0, false];
+  }
   function spriteOf(code: number, dir = 1): string | null {
-    const tex = objTex[code];
-    if (tex === null || tex === undefined) return null;
-    return asset(`texture/49:${tex}/0/${[0, 3, 6, 9][dir] ?? 3}`);
+    const sp = objTex[code];
+    if (!sp) return null;
+    for (const frame of [frameOf(sp.frames, dir)[0], 0]) {
+      const url = asset(`texture/49:${sp.tex}/0/${frame}`);
+      if (!failed.has(url)) return url;
+    }
+    return null;
+  }
+  const mirrored = (ev: MapEvent) => {
+    const sp = objTex[value(ev, "objCode")];
+    return !!sp && frameOf(sp.frames, value(ev, "dirHeader"))[1];
+  };
+  function spriteFailed(e: Event) {
+    const url = (e.currentTarget as HTMLImageElement).getAttribute("src") ?? "";
+    failed = new Set([...failed, url]);
   }
   const scriptOf = (ev: MapEvent) =>
     ev.trainer !== null ? null : (scripts.find((s) => s.kind === ev.kind && s.index === ev.index)?.script ?? null);
@@ -1388,7 +1411,7 @@
                 onpointerleave={() => (hoverEvent = null)}
               >
                 {#if pic}
-                  <img class="person" src={pic} alt="" draggable="false" style="width: {scale * 2}px; height: {scale * 2}px; left: {-scale / 2}px" />
+                  <img class="person" class:mirror={mirrored(ev)} src={pic} alt="" draggable="false" onerror={spriteFailed} style="width: {scale * 2}px; height: {scale * 2}px; left: {-scale / 2}px" />
                   {#if ev.trainer !== null}<span class="flag">!</span>{/if}
                 {:else}
                   {eventIcon(ev)}
@@ -1506,7 +1529,7 @@
         {@const ev = picked}
         <div class="head">
           {#if sprite(ev)}
-            <img class="badge pic" src={sprite(ev)} alt="" />
+            <img class="badge pic" class:mirror={mirrored(ev)} src={sprite(ev)} alt="" onerror={spriteFailed} />
           {:else}
             <span class="badge {ev.kind}" class:trainer={ev.trainer !== null} class:item={isItem(ev)}>{eventIcon(ev) || "+"}</span>
           {/if}
@@ -1525,7 +1548,7 @@
         {@const tabs = [
           ["main", ev.trainer !== null ? "Person" : KIND_LABEL[ev.kind]],
           ...(scriptOf(ev) || ev.trainer !== null ? [["says", "Says"]] : []),
-          ...(ev.trainer !== null ? [["trainer", "Trainer"]] : []),
+          ...(ev.trainer !== null ? [["trainer", "Trainer"], ["party", "Party"]] : []),
           ["values", "Values"],
         ]}
         <div class="ptabs" role="tablist">
@@ -1552,7 +1575,7 @@
           <div class="field">
             <span>Looks like</span>
             <button class="look" disabled={readOnly} onclick={() => (spritePicker = !spritePicker)}>
-              {#if sprite(ev)}<img src={sprite(ev)} alt="" />{/if}
+              {#if sprite(ev)}<img class:mirror={mirrored(ev)} src={sprite(ev)} alt="" onerror={spriteFailed} />{/if}
               <span>Character {value(ev, "objCode")}</span>
             </button>
           </div>
@@ -1568,7 +1591,7 @@
                       spritePicker = false;
                       save(ev, { objCode: code }, false);
                     }}
-                  ><img src={spriteOf(code)} alt="Character {code}" loading="lazy" /></button>
+                  ><img src={spriteOf(code)} alt="Character {code}" loading="lazy" onerror={spriteFailed} /></button>
                 {/if}
               {/each}
             </div>
@@ -1726,10 +1749,18 @@
         </div>
         {/if}
 
-        {#if ptab === "trainer" && ev.trainer !== null}
+        {#if (ptab === "trainer" || ptab === "party") && ev.trainer !== null}
           <div class="embed">
             {#key ev.trainer}
-              <TableEditor tables={["trainers", "trainerParties"]} single start={ev.trainer} {readOnly} version={0} {onSaved} />
+              <TableEditor
+                tables={["trainers", "trainerParties"]}
+                single
+                only={ptab === "party" ? 1 : 0}
+                start={ev.trainer}
+                {readOnly}
+                version={0}
+                {onSaved}
+              />
             {/key}
           </div>
         {/if}
@@ -1995,6 +2026,9 @@
     cursor: grab;
     min-width: 6px;
     min-height: 6px;
+  }
+  .mirror {
+    transform: scaleX(-1);
   }
   .ev.sprite {
     background: transparent !important;
@@ -2288,7 +2322,14 @@
     gap: 0.2rem;
     font-size: 0.85rem;
     min-width: 0;
+  }
+  /* Side by side in a row they share the width; in the panel they take
+     only their own height. */
+  .row .field {
     flex: 1;
+  }
+  .panel > * {
+    flex: none;
   }
   .field > span {
     color: var(--muted);

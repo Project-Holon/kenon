@@ -599,6 +599,55 @@ pub fn set_music(bridge: &Bridge, zone_id: usize, music: [u16; 4]) -> Result<(),
     crate::catalog::write_member(bridge, m, &headers)
 }
 
+/// A character's picture: its a/0/4/9 member and how many frames it has.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Sprite {
+    pub tex: u16,
+    pub frames: u16,
+}
+
+/// The frame showing a facing (0 up, 1 down, 2 left, 3 right) and whether
+/// it is drawn mirrored. Sheets hold walk cycles of 3 (12 or more frames)
+/// or 2 (7 frames); with fewer than 16 the right side is the left mirrored.
+pub fn sprite_frame(frames: u16, dir: i64) -> (usize, bool) {
+    let dir = dir.clamp(0, 3) as usize;
+    match frames {
+        16.. => ([0, 3, 6, 9][dir], false),
+        12..=15 => ([0, 3, 6, 6][dir], dir == 3),
+        7..=11 => ([0, 2, 4, 4][dir], dir == 3),
+        _ => (0, false),
+    }
+}
+
+/// For each object code, its billboard picture with its frame count.
+pub fn object_sprites(bridge: &Bridge) -> Result<std::sync::Arc<Vec<Option<Sprite>>>, Error> {
+    bridge.cached("objsprites", || {
+        let textures = object_textures(bridge)?;
+        let mut counts: HashMap<u16, u16> = HashMap::new();
+        Ok(textures
+            .iter()
+            .map(|t| {
+                let tex = (*t)?;
+                let frames = *counts.entry(tex).or_insert_with(|| {
+                    bridge
+                        .member(Member {
+                            arc: 49,
+                            index: tex as usize,
+                        })
+                        .ok()
+                        .and_then(|b| {
+                            let block = crate::g3d::find_tex0(&b).into_iter().next()?;
+                            crate::g3d::Tex0::parse(block).map(|t| t.textures.len() as u16)
+                        })
+                        .unwrap_or(0)
+                });
+                (frames > 0).then_some(Sprite { tex, frames })
+            })
+            .collect())
+    })
+}
+
 /// For each object code (a/0/4/8), the a/0/4/9 member of its billboard
 /// texture: one 32x32 frame per texture, three per facing (up, down,
 /// left, right). `None` for codes drawn another way.

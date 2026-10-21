@@ -576,6 +576,14 @@ async fn add_trainer_line(
 }
 
 #[tauri::command]
+async fn object_sprites(
+    state: State<'_, AppState>,
+) -> Result<Arc<Vec<Option<kenon_core::zonemap::Sprite>>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::object_sprites(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -694,6 +702,7 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            object_sprites,
             trainer_lines,
             add_trainer_line,
             props,

@@ -24,6 +24,7 @@
     version,
     start,
     single = false,
+    only,
     onSaved,
   }: {
     tables: string[];
@@ -31,6 +32,8 @@
     version: number;
     start?: number;
     single?: boolean;
+    /// Show just this section (by order over all tables), without tabs.
+    only?: number;
     onSaved: () => void;
   } = $props();
 
@@ -278,7 +281,7 @@
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
 
-    {#if single && allSections.length > 1}
+    {#if single && only === undefined && allSections.length > 1}
       <div class="sec-tabs" role="tablist">
         {#each allSections as s, i}
           <button role="tab" aria-selected={secTab === i} class:primary={secTab === i} onclick={() => (secTab = i)}>{s.label}</button>
@@ -288,7 +291,7 @@
     <div class="scroll body">
       {#each records as r, ri}
         {#each r?.sections ?? [] as s, si}
-          {#if !single || allSections.length < 2 || sectionIndex(ri, si) === secTab}
+          {#if !single || allSections.length < 2 || sectionIndex(ri, si) === (only ?? secTab)}
           <div class="window block">
             {#if !single}<h3>{s.label}</h3>{/if}
             {#if s.kind === "fields"}

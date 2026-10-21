@@ -855,13 +855,13 @@ struct Person {
 
 /// The zone's people with their facing pictures.
 fn people(bridge: &Bridge, zone: usize) -> Vec<Person> {
-    let (Ok(map), Ok(textures)) = (
+    let (Ok(map), Ok(sprites)) = (
         zonemap::zone_map(bridge, zone),
-        zonemap::object_textures(bridge),
+        zonemap::object_sprites(bridge),
     ) else {
         return Vec::new();
     };
-    let mut cache: HashMap<(u16, usize), Option<Arc<Tex>>> = HashMap::new();
+    let mut cache: HashMap<(u16, usize, bool), Option<Arc<Tex>>> = HashMap::new();
     let mut out = Vec::new();
     for ev in map.events.iter().filter(|e| e.kind == "npc") {
         if ev.x < 0 || ev.z < 0 {
@@ -869,16 +869,13 @@ fn people(bridge: &Bridge, zone: usize) -> Vec<Person> {
         }
         let value = |key: &str| ev.values.iter().find(|v| v.key == key).map(|v| v.value);
         let code = value("objCode").unwrap_or(0).max(0) as usize;
-        let Some(Some(member)) = textures.get(code).copied() else {
+        let Some(Some(sprite)) = sprites.get(code).copied() else {
             continue;
         };
-        // Frame 0, 3, 6, 9: up, down, left, right.
-        let frame = [0usize, 3, 6, 9]
-            .get(value("dirHeader").unwrap_or(1).max(0) as usize)
-            .copied()
-            .unwrap_or(3);
+        let (frame, mirror) = zonemap::sprite_frame(sprite.frames, value("dirHeader").unwrap_or(1));
+        let member = sprite.tex;
         let tex = cache
-            .entry((member, frame))
+            .entry((member, frame, mirror))
             .or_insert_with(|| {
                 let bytes = bridge
                     .member(Member {
@@ -887,7 +884,17 @@ fn people(bridge: &Bridge, zone: usize) -> Vec<Person> {
                     })
                     .ok()?;
                 let block = g3d::find_tex0(&bytes).into_iter().next()?;
-                let img = g3d::Tex0::parse(block)?.decode(frame)?;
+                let mut img = g3d::Tex0::parse(block)?.decode(frame)?;
+                if mirror {
+                    let w = img.width;
+                    for row in img.pixels.chunks_mut(w * 4) {
+                        for x in 0..w / 2 {
+                            for c in 0..4 {
+                                row.swap(x * 4 + c, (w - 1 - x) * 4 + c);
+                            }
+                        }
+                    }
+                }
                 Some(Arc::new(Tex::new(img)))
             })
             .clone();
