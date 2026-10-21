@@ -125,13 +125,13 @@
     ["fill", "Fill", "G"],
     ["pick", "Pick", "I"],
   ];
-  const ADDS: [Add, string][] = [
-    ["npc", "Person"],
-    ["bg", "Sign"],
-    ["item", "Hidden item"],
-    ["warp", "Warp"],
-    ["pos", "Trigger"],
-    ["prop", "Object"],
+  const ADDS: [Add, string, string][] = [
+    ["npc", "Person", "Someone who stands on the map"],
+    ["bg", "Sign", "Something you read or check"],
+    ["item", "Hidden item", "An item lying out of sight"],
+    ["warp", "Warp", "A door or map edge that leads to another map"],
+    ["pos", "Trigger", "An area that starts something when you step on it"],
+    ["prop", "Object", "A building, tree or other model"],
   ];
   const KIND_LABEL: Record<Kind, string> = { npc: "Person", warp: "Warp", pos: "Trigger", bg: "Sign" };
   const HINT: Record<Tool, string> = {
@@ -151,6 +151,48 @@
   let terrain = $state.raw<number[]>([]);
   let flags = $state.raw<number[]>([]);
   let tick = $state(0);
+  // Redraws are batched to one per frame, however many tiles change.
+  let bumping = false;
+  function bump() {
+    if (bumping) return;
+    bumping = true;
+    requestAnimationFrame(() => {
+      bumping = false;
+      tick++;
+    });
+  }
+  let loadSeq = 0;
+  // Footprint of each model in tiles, fetched once per map and model.
+  let propInfo = $state<Record<string, { width: number; depth: number; height: number }>>({});
+  const asked = new Set<string>();
+  const propThumb = (m: number) => asset(`propmodel/${current}/${m}?px=64`);
+  const infoOf = (pr: Prop) => propInfo[`${current}/${pr.model}`];
+  async function loadPropInfo(models: number[]) {
+    const zone = current;
+    for (const m of new Set(models)) {
+      const key = `${zone}/${m}`;
+      if (propInfo[key] || asked.has(key)) continue;
+      asked.add(key);
+      try {
+        propInfo[key] = await (await fetch(asset(`propmodel/${zone}/${m}/info`))).json();
+      } catch {
+        asked.delete(key);
+      }
+    }
+  }
+  // Marker box of a model: its footprint centred on x, z, turned by rot.
+  function propBox(pr: Prop) {
+    const info = infoOf(pr);
+    let w = Math.max(0.5, info?.width ?? 1);
+    let d = Math.max(0.5, info?.depth ?? 1);
+    const turns = Math.round((((pr.rot % 360) + 360) % 360) / 90) % 4;
+    if (turns % 2 === 1) [w, d] = [d, w];
+    return { x: pr.x - w / 2, z: pr.z - d / 2, w, d };
+  }
+  const num = (e: Event) => {
+    const v = (e.currentTarget as HTMLInputElement).value;
+    return v.trim() === "" ? null : Number(v);
+  };
   let tool = $state<Tool>("select");
   let adding = $state<Add | null>(null);
   let brush = $state({ terrain: 0, flags: 0 });
@@ -170,8 +212,9 @@
     picked ? `e:${picked.kind}:${picked.index}` : pickedProp ? `p:${pickedProp.chunk}:${pickedProp.index}` : "",
   );
   let lastKey = "";
+  const pickedTrainer = $derived(picked?.trainer ?? null);
   $effect(() => {
-    const t = picked?.trainer ?? null;
+    const t = pickedTrainer;
     speech = null;
     if (t === null) return;
     invoke<TrainerLine[]>("trainer_lines", { trainer: t })
@@ -220,6 +263,8 @@
     if (selKey !== lastKey) {
       lastKey = selKey;
       ptab = "main";
+      edits = {};
+      spritePicker = false;
     }
   });
   let sel = $state<Rect | null>(null);
@@ -273,15 +318,17 @@
     | { t: "size"; ev: MapEvent }
     | { t: "marquee"; from: Pt }
     | { t: "tiles"; from: Pt; copy: boolean }
-    | { t: "paint"; before: Map<number, [number, number]> }
+    | { t: "paint"; before: Map<number, [number, number]>; last?: Pt }
     | { t: "box"; from: Pt }
     | null
   >(null);
 
-  async function load(keepView = true) {
+  async function load(keepView = true, props = true) {
     error = null;
+    const seq = ++loadSeq;
     try {
       const next = await invoke<ZoneMap>("zone_map", { zone: current });
+      if (seq !== loadSeq) return;
       terrain = next.terrain;
       flags = next.flags;
       map = next;
@@ -291,17 +338,22 @@
       edits = {};
       if (!keepView) requestAnimationFrame(fit);
       loadScripts();
-      loadProps();
+      if (props) loadProps();
     } catch (e) {
-      error = String(e);
+      if (seq === loadSeq) error = String(e);
     }
   }
 
   async function loadProps() {
+    const zone = current;
     try {
-      placed = await invoke<Prop[]>("props", { zone: current });
-      propModels = await invoke<number[]>("prop_models", { zone: current });
+      const list = await invoke<Prop[]>("props", { zone });
+      const models = await invoke<number[]>("prop_models", { zone });
+      if (zone !== current) return;
+      placed = list;
+      propModels = models;
       if (newModel === null || !propModels.includes(newModel)) newModel = propModels[0] ?? null;
+      loadPropInfo([...list.map((q) => q.model), ...models]);
     } catch {
       placed = [];
     }
@@ -411,8 +463,10 @@
   }
 
   async function loadScripts() {
+    const zone = current;
     try {
-      scripts = await invoke<EventScript[]>("event_scripts", { zone: current });
+      const list = await invoke<EventScript[]>("event_scripts", { zone });
+      if (zone === current) scripts = list;
     } catch {
       scripts = [];
     }
@@ -543,17 +597,20 @@
   });
 
   // The tile kinds this map uses, most common first.
+  // The order stays put while a stroke is painted, so the list does not jump.
+  let paletteCache: { terrain: number; flags: number; count: number }[] | null = null;
   const palette = $derived.by(() => {
     void tick;
+    if (drag?.t === "paint" && paletteCache) return paletteCache;
     const counts = new Map<number, number>();
     for (let i = 0; i < terrain.length; i++) {
       if (terrain[i] < 0) continue;
       const key = terrain[i] * 0x10000 + flags[i];
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return [...counts]
+    return (paletteCache = [...counts]
       .map(([key, count]) => ({ terrain: Math.floor(key / 0x10000), flags: key % 0x10000, count }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => b.count - a.count));
   });
 
   function at(e: PointerEvent | MouseEvent): Pt {
@@ -621,7 +678,7 @@
         play("select");
         return;
       case "fill":
-        if (readOnly) return;
+        if (readOnly || terrain[i] < 0) return;
         drag = { t: "paint", before: new Map() };
         flood(p);
         finishPaint();
@@ -633,7 +690,7 @@
         break;
       case "paint":
         if (readOnly) return;
-        drag = { t: "paint", before: new Map() };
+        drag = { t: "paint", before: new Map(), last: p };
         touch(i);
         break;
     }
@@ -644,7 +701,8 @@
     const r = stage!.getBoundingClientRect();
     mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
     const p = at(e);
-    hover = inside(p) ? p : null;
+    const h = inside(p) ? p : null;
+    if (h?.x !== hover?.x || h?.z !== hover?.z) hover = h;
     if (!drag || !map) return;
     switch (drag.t) {
       case "pan":
@@ -672,9 +730,18 @@
       case "tiles":
         moving = { x: p.x - drag.from.x, z: p.z - drag.from.z };
         break;
-      case "paint":
-        if (inside(p)) touch(p.z * map.width + p.x);
+      case "paint": {
+        // Fill the gap when the pointer jumps several tiles.
+        const from = drag.last ?? p;
+        const n = Math.max(Math.abs(p.x - from.x), Math.abs(p.z - from.z));
+        for (let s = 1; s <= n; s++) {
+          const q = { x: Math.round(from.x + ((p.x - from.x) * s) / n), z: Math.round(from.z + ((p.z - from.z) * s) / n) };
+          if (inside(q)) touch(q.z * map.width + q.x);
+        }
+        if (n === 0 && inside(p)) touch(p.z * map.width + p.x);
+        drag.last = p;
         break;
+      }
       case "box":
         boxing = rectOf(drag.from, clampPt(p));
         break;
@@ -725,7 +792,7 @@
     if (!drag.before.has(i)) drag.before.set(i, [terrain[i], flags[i]]);
     terrain[i] = brush.terrain;
     flags[i] = brush.flags;
-    tick++;
+    bump();
   }
 
   function flood(p: Pt) {
@@ -781,7 +848,7 @@
       terrain[i] = t;
       flags[i] = f;
     }
-    tick++;
+    bump();
     return before;
   }
 
@@ -879,12 +946,20 @@
       undo = [...undo.slice(-99), { t: "move", kind: ev.kind, index: ev.index, x: x0, z: z0 }];
       play("select");
       onSaved();
-      refreshValues();
+      stale = true;
     } catch (err) {
       error = String(err);
       await load();
     }
   }
+  // Event values (positions) are re-read only when the Values tab needs them.
+  let stale = $state(false);
+  $effect(() => {
+    if (stale && ptab === "values" && picked) {
+      stale = false;
+      refreshValues();
+    }
+  });
 
   // Re-reads the event values after a change without touching the view.
   async function refreshValues() {
@@ -948,7 +1023,7 @@
       await invoke("save_event", { zone: current, kind: ev.kind, index: ev.index, values });
       play("save");
       onSaved();
-      if (reload) await load();
+      if (reload) await load(true, false);
       else await refreshValues();
     } catch (err) {
       error = String(err);
@@ -965,7 +1040,7 @@
       await invoke("set_trainer", { zone: current, index: ev.index, trainer });
       play("save");
       onSaved();
-      await load();
+      await load(true, false);
     } catch (err) {
       error = String(err);
     } finally {
@@ -1020,6 +1095,7 @@
           ev.z = step.z;
         }
         await invoke("move_event", { zone: current, kind: step.kind, index: step.index, x: step.x, z: step.z });
+        stale = true;
       } else {
         await invoke("remove_event", { zone: current, kind: step.kind, index: step.index });
         if (picked?.kind === step.kind && picked.index === step.index) picked = null;
@@ -1042,6 +1118,7 @@
     try {
       await invoke("set_music", { zone: current, music: next });
       map.zone.music = next;
+      if (playing === season) toggleMusic(season);
       play("save");
       onSaved();
     } catch (err) {
@@ -1068,8 +1145,20 @@
   function switchZone(id: number) {
     play("select");
     current = id;
+    map = null;
     picked = null;
+    pickedProp = null;
+    placed = [];
+    scripts = [];
+    adding = null;
+    drag = null;
+    moving = null;
+    boxing = null;
+    hover = null;
+    hoverEvent = null;
     sel = null;
+    stale = false;
+    ptab = "main";
     undo = [];
     renderOk = true;
     audio?.pause();
@@ -1080,7 +1169,9 @@
   // ---- keys ----
 
   function onKey(e: KeyboardEvent) {
-    if ((e.target as HTMLElement).closest("input, select, textarea, .monaco-editor")) return;
+    // Letting go of space always ends panning, wherever the focus is.
+    if (e.type === "keyup" && e.key === " ") space = false;
+    if ((e.target as HTMLElement).closest("input, select, textarea, [contenteditable], .monaco-editor")) return;
     if (e.key === " ") {
       space = e.type === "keydown";
       e.preventDefault();
@@ -1134,15 +1225,16 @@
       duplicate(picked);
       return;
     }
-    if (mod) return;
+    if (mod || e.altKey) return;
     if (e.key === "Escape") {
+      spritePicker = false;
       pickedProp = null;
       picked = null;
       sel = null;
       adding = null;
       return;
     }
-    if ((e.key === "Delete" || e.key === "Backspace") && !readOnly) {
+    if (e.key === "Delete" && !readOnly) {
       if (pickedProp) removeProp(pickedProp);
       else if (picked) remove(picked);
       else if (sel) applySelection((_, x, z) => [x, z, brush.terrain, brush.flags]);
@@ -1227,8 +1319,8 @@
   // The preview follows the focus once it settles.
   let previewAt = $state({ x: 0, z: 0 });
   $effect(() => {
-    const f = focus;
     if (!preview) return;
+    const f = focus;
     const t = setTimeout(() => (previewAt = f), 250);
     return () => clearTimeout(t);
   });
@@ -1253,6 +1345,18 @@
     ] as [string, MapEvent[]][];
   });
   const painting = $derived(tool !== "select");
+  const objectOptions = $derived(propModels.map((m) => [m, `Object ${m}`] as [number, string]));
+  const tipLeft = $derived(Math.min(mouse.x + 14, (stage?.clientWidth ?? 9999) - 190));
+  const stageCursor = $derived(adding ? "copy" : painting ? "crosshair" : "default");
+
+  // Brings a thing into view when it is off screen.
+  function reveal(x: number, z: number) {
+    if (!stage) return;
+    const sx = pan.x + x * scale;
+    const sz = pan.y + z * scale;
+    if (sx < 0 || sz < 0 || sx > stage.clientWidth - scale || sz > stage.clientHeight - scale)
+      setPan(stage.clientWidth / 2 - x * scale, stage.clientHeight / 2 - z * scale);
+  }
   const showTiles = $derived(look === "tiles" || !renderOk || painting || sel !== null);
   const commonKinds = $derived([...new Set([...palette.map((p) => p.terrain), 0, 4, 6, 8, 0x0c, 0x3d, 0x3f, 0x72, 0x73, 0x74, 0x75])]);
   const hint = $derived(
@@ -1260,7 +1364,7 @@
   );
 </script>
 
-<svelte:window onkeydown={onKey} onkeyup={onKey} />
+<svelte:window onkeydown={onKey} onkeyup={onKey} onblur={() => (space = false)} />
 
 <div class="zone-editor">
   <header class="bar">
@@ -1274,8 +1378,8 @@
     <div class="spacer"></div>
     {#if renderOk}
       <div class="seg" role="radiogroup" aria-label="Look">
-        <button class:primary={look === "game"} onclick={() => (look = "game")}>Game</button>
-        <button class:primary={look === "tiles"} onclick={() => (look = "tiles")}>Tile kinds</button>
+        <button class:primary={look === "game"} aria-pressed={look === "game"} title="The map as the game draws it" onclick={() => (look = "game")}>Game</button>
+        <button class:primary={look === "tiles"} aria-pressed={look === "tiles"} title="Colours for what each tile is" onclick={() => (look = "tiles")}>Tile kinds</button>
       </div>
     {/if}
     {#if renderOk}
@@ -1306,14 +1410,14 @@
           class="tool"
           class:primary={tool === t && !adding}
           disabled={readOnly && t !== "select"}
-          title="{label} ({key})"
+          title="{label} ({key}): {HINT[t]}"
           onclick={() => ((tool = t), (adding = null), play("select"))}
         >{label}<kbd>{key}</kbd></button>
       {/each}
       {#if !readOnly}
         <h3>Add</h3>
-        {#each ADDS as [a, label]}
-          <button class="tool" class:primary={adding === a} onclick={() => ((adding = adding === a ? null : a), play("select"))}>
+        {#each ADDS as [a, label, desc]}
+          <button class="tool" class:primary={adding === a} title={desc} onclick={() => ((adding = adding === a ? null : a), play("select"))}>
             <i class="dot {a}"></i>{label}
           </button>
         {/each}
@@ -1321,7 +1425,7 @@
       {#if adding === "prop" && propModels.length}
         <h3>Object to place</h3>
         {#if newModel !== null}
-          <SearchSelect bind:value={newModel} options={propModels.map((m) => [m, `Object ${m}`] as [number, string])} label="Object to place" />
+          <SearchSelect bind:value={newModel} options={objectOptions} icon={propThumb} label="Object to place" />
         {/if}
       {/if}
       {#if painting}
@@ -1331,6 +1435,19 @@
           <span class="brush-name">{tileLabel(brush.terrain, brush.flags)}</span>
         </div>
         <label class="check"><input type="checkbox" checked={(brush.flags & FLAG_BLOCKED) !== 0} onchange={() => (brush.flags ^= FLAG_BLOCKED)} />Blocked</label>
+        <select
+          aria-label="Other kind"
+          title="Paint with a kind this map does not use yet"
+          value={-1}
+          onchange={(e) => {
+            const t = Number((e.currentTarget as HTMLSelectElement).value);
+            if (t >= 0) brush = { terrain: t, flags: brush.flags };
+            (e.currentTarget as HTMLSelectElement).value = "-1";
+          }}
+        >
+          <option value={-1} disabled>Other kind...</option>
+          {#each commonKinds as t}<option value={t}>{kindName(t)}</option>{/each}
+        </select>
         <div class="kinds">
           {#each palette as p (p.terrain * 0x10000 + p.flags)}
             <button
@@ -1345,16 +1462,19 @@
           {/each}
         </div>
       {/if}
+      <p class="muted small tool-hint">{hint}</p>
     </aside>
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="stage"
+      style="cursor: {space || drag?.t === 'pan' ? 'grab' : stageCursor}"
       class:panning={space || drag?.t === "pan"}
       bind:this={stage}
       onpointerdown={onDown}
       onpointermove={onMove}
       onpointerup={onUp}
+      onlostpointercapture={onUp}
       onpointerleave={() => ((hover = null), (hoverEvent = null))}
       oncontextmenu={(e) => e.preventDefault()}
       onauxclick={(e) => e.preventDefault()}
@@ -1399,7 +1519,7 @@
                 class="prop-mark"
                 class:on={pickedProp === pr}
                 class:passive={tool !== "select" || adding !== null}
-                style="left: {(pr.x - 0.5) * scale}px; top: {(pr.z - 0.5) * scale}px; width: {scale}px; height: {scale}px"
+                style="left: {propBox(pr).x * scale}px; top: {propBox(pr).z * scale}px; width: {propBox(pr).w * scale}px; height: {propBox(pr).d * scale}px"
                 title="Object {pr.model}"
                 onpointerdown={(e) => onPropDown(pr, e)}
               ></div>
@@ -1449,7 +1569,7 @@
           {/if}
         </div>
         {#if (hoverEvent || hoverIndex >= 0) && !drag}
-          <div class="tip window" style="left: {mouse.x + 14}px; top: {mouse.y + 14}px">
+          <div class="tip window" style="left: {tipLeft}px; top: {mouse.y + 14}px">
             {#if hoverEvent}
               <strong>{eventLabel(hoverEvent)}</strong>
             {:else}
@@ -1475,10 +1595,10 @@
       {#if pickedProp && map}
         {@const pr = pickedProp}
         <div class="head">
-          <span class="badge prop-badge">O</span>
+          <img class="prop-pic" src={propThumb(pr.model)} alt="" />
           <div class="title">
             <strong>Object {pr.model}</strong>
-            <span class="muted">at {pr.x}, {pr.z}</span>
+            <span class="muted">at {pr.x}, {pr.z}{infoOf(pr) ? `, ${infoOf(pr).width} x ${infoOf(pr).depth} tiles` : ""}</span>
           </div>
         </div>
         {#if !readOnly}
@@ -1486,17 +1606,30 @@
             <button onclick={() => copyProp(pr)} disabled={busy}>Duplicate</button>
             <button onclick={() => removeProp(pr)} disabled={busy}>Delete</button>
           </div>
-          <label class="field">
+          <div class="field">
             <span>Model</span>
-            <select
+            <SearchSelect
               value={pr.model}
+              options={objectOptions}
+              icon={propThumb}
               disabled={busy}
-              onchange={async (e) => {
-                const model = Number((e.currentTarget as HTMLSelectElement).value);
+              label="Model"
+              onchange={async (model) => {
+                if (model === pr.model) return;
                 busy = true;
+                const old = { ...pr };
                 try {
-                  await invoke("remove_prop", { chunk: pr.chunk, index: pr.index });
-                  const [chunk, index] = await invoke<[number, number]>("add_prop", { zone: current, model, x: pr.x, z: pr.z, y: pr.y, rot: pr.rot });
+                  await invoke("remove_prop", { chunk: old.chunk, index: old.index });
+                  let made: [number, number];
+                  try {
+                    made = await invoke<[number, number]>("add_prop", { zone: current, model, x: old.x, z: old.z, y: old.y, rot: old.rot });
+                  } catch (err) {
+                    // Put the old one back so nothing is lost.
+                    await invoke("add_prop", { zone: current, model: old.model, x: old.x, z: old.z, y: old.y, rot: old.rot });
+                    throw err;
+                  }
+                  const [chunk, index] = made;
+                  undo = undo.filter((s) => s.t !== "prop");
                   play("save");
                   onSaved();
                   renderStamp++;
@@ -1504,14 +1637,14 @@
                   pickedProp = placed.find((q) => q.chunk === chunk && q.index === index) ?? null;
                 } catch (err) {
                   error = String(err);
+                  await loadProps();
+                  pickedProp = null;
                 } finally {
                   busy = false;
                 }
               }}
-            >
-              {#each propModels as m}<option value={m}>Object {m}</option>{/each}
-            </select>
-          </label>
+            />
+          </div>
           <div class="field">
             <span>Turn</span>
             <div class="row">
@@ -1523,15 +1656,24 @@
           <div class="row">
             <label class="field">
               <span>Across</span>
-              <input type="number" step="0.5" value={pr.x} onchange={(e) => saveProp(pr, Number((e.currentTarget as HTMLInputElement).value), pr.z, pr.y, pr.rot)} />
+              <input type="number" step="0.5" value={pr.x} onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null) saveProp(pr, v, pr.z, pr.y, pr.rot);
+                }} />
             </label>
             <label class="field">
               <span>Down</span>
-              <input type="number" step="0.5" value={pr.z} onchange={(e) => saveProp(pr, pr.x, Number((e.currentTarget as HTMLInputElement).value), pr.y, pr.rot)} />
+              <input type="number" step="0.5" value={pr.z} onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null) saveProp(pr, pr.x, v, pr.y, pr.rot);
+                }} />
             </label>
             <label class="field">
               <span>Height</span>
-              <input type="number" step="0.5" value={pr.y} onchange={(e) => saveProp(pr, pr.x, pr.z, Number((e.currentTarget as HTMLInputElement).value), pr.rot)} />
+              <input type="number" step="0.5" value={pr.y} onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null) saveProp(pr, pr.x, pr.z, v, pr.rot);
+                }} />
             </label>
           </div>
           <p class="muted small">Drag it on the map to move it.</p>
@@ -1657,11 +1799,17 @@
           <div class="row">
             <label class="field">
               <span>Width</span>
-              <input type="number" min="1" max="255" value={ev.w} readonly={readOnly} onchange={(e) => save(ev, { sizeX: Number((e.currentTarget as HTMLInputElement).value) })} />
+              <input type="number" min="1" max="255" value={ev.w} readonly={readOnly} onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null && v >= 1) save(ev, { sizeX: v });
+                }} />
             </label>
             <label class="field">
               <span>Height</span>
-              <input type="number" min="1" max="255" value={ev.h} readonly={readOnly} onchange={(e) => save(ev, { sizeZ: Number((e.currentTarget as HTMLInputElement).value) })} />
+              <input type="number" min="1" max="255" value={ev.h} readonly={readOnly} onchange={(e) => {
+                  const v = num(e);
+                  if (v !== null && v >= 1) save(ev, { sizeZ: v });
+                }} />
             </label>
           </div>
         {/if}
@@ -1820,13 +1968,16 @@
         </div>
         {#if ptab === "main"}
         <section>
+          {#if !counts.some(([, l]) => l.length)}
+            <p class="muted">Nothing placed yet. Pick something under Add on the left, then click the map.</p>
+          {/if}
           {#each counts as [label, list]}
             {#if list.length}
               <details>
                 <summary>{label} <span class="muted">{list.length}</span></summary>
                 <ul class="list">
                   {#each list as ev (ev.kind + ev.index)}
-                    <li><button class="row-item" onclick={() => ((picked = ev), (tool = "select"), play("select"))}>{eventLabel(ev)}</button></li>
+                    <li><button class="row-item" onclick={() => ((picked = ev), (pickedProp = null), (sel = null), (tool = "select"), reveal(ev.x, ev.z), play("select"))}>{eventLabel(ev)}</button></li>
                   {/each}
                 </ul>
               </details>
@@ -1874,17 +2025,25 @@
   }
   .bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.3rem 0.6rem;
     padding: 0.35rem 0.9rem;
     border-bottom: 2px solid var(--outline);
   }
   .bar h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     margin: 0;
     font-size: 1.05rem;
   }
   .bar button {
     padding: 0.2rem 0.7rem;
+  }
+  .bar select {
+    max-width: 14rem;
   }
   .spacer {
     flex: 1;
@@ -2185,18 +2344,37 @@
   .prop-mark {
     position: absolute;
     box-sizing: border-box;
-    border: 2px solid #fff;
-    outline: 2px solid #0009;
+    border: 2px solid rgba(255, 140, 0, 0.95);
+    outline: 1px solid #0007;
     border-radius: 2px;
-    background: rgba(255, 140, 0, 0.55);
-    transform: rotate(45deg) scale(0.7);
+    background: rgba(255, 140, 0, 0.08);
     cursor: grab;
     z-index: 1;
   }
+  .prop-mark:hover {
+    background: rgba(255, 140, 0, 0.3);
+  }
   .prop-mark.on {
-    background: var(--gold);
+    border-color: var(--gold);
+    background: color-mix(in srgb, var(--gold) 25%, transparent);
     outline-color: var(--outline);
     z-index: 4;
+  }
+  .prop-pic {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    flex: none;
+  }
+  .tool-hint {
+    margin: 0.5rem 0 0;
+  }
+  .kind:hover,
+  .sprite-pick:hover {
+    background: color-mix(in srgb, var(--gold) 20%, transparent);
+  }
+  .kind {
+    width: 100%;
   }
   .prop-mark.passive {
     pointer-events: none;
