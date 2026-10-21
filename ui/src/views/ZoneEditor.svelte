@@ -9,7 +9,7 @@
   import TableEditor from "./TableEditor.svelte";
   import WildEditor from "./WildEditor.svelte";
   import SearchSelect from "../lib/SearchSelect.svelte";
-  import { itemIcon, loadIcons } from "../lib/icons.svelte";
+  import { itemIcon, loadIcons, trainerIcon } from "../lib/icons.svelte";
 
   // One map: click things to edit them, drag to move them, paint tiles.
   let {
@@ -1574,6 +1574,7 @@
             <SearchSelect
               value={ev.trainer ?? -1}
               options={trainerOptions}
+              icon={trainerIcon}
               disabled={readOnly || busy}
               label="Battles"
               onchange={(v) => setTrainer(ev, v < 0 ? null : v)}

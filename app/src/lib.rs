@@ -583,6 +583,30 @@ async fn object_sprites(
     kenon_core::zonemap::object_sprites(&bridge).map_err(|e| e.to_string())
 }
 
+/// Each trainer's class, for list icons.
+#[tauri::command]
+async fn trainer_classes(state: State<'_, AppState>) -> Result<Vec<i64>, String> {
+    let bridge = state.need_bridge()?;
+    let entries = kenon_core::tables::entries(&bridge, "trainers").map_err(|e| e.to_string())?;
+    Ok(entries
+        .iter()
+        .map(|e| {
+            kenon_core::tables::record(&bridge, "trainers", e.index, 0)
+                .ok()
+                .and_then(|r| {
+                    r.sections.iter().find_map(|s| match s {
+                        kenon_core::tables::Section::Fields { values, .. } => values
+                            .iter()
+                            .find(|v| v.key == "trainerClass")
+                            .map(|v| v.value),
+                        _ => None,
+                    })
+                })
+                .unwrap_or(-1)
+        })
+        .collect())
+}
+
 #[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
@@ -702,6 +726,7 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            trainer_classes,
             object_sprites,
             trainer_lines,
             add_trainer_line,

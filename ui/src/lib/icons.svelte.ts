@@ -9,6 +9,7 @@ const state = $state({
   iconOffset: new Map<number, number>(),
   itemIcons: [] as number[],
   trainerGraphic: [] as number[],
+  trainerClass: [] as number[],
 });
 
 let started = false;
@@ -24,6 +25,9 @@ export function loadIcons() {
     once(`table/${name}`, () => fetch(asset(`table/${name}`)).then((r) => (r.ok ? r.json() : [])));
   table("item_icons").then((t: number[]) => (state.itemIcons = t)).catch(() => {});
   table("trainer_graphic").then((t: number[]) => (state.trainerGraphic = t)).catch(() => {});
+  once("trainerClasses", () => invoke<number[]>("trainer_classes"))
+    .then((c) => (state.trainerClass = c))
+    .catch(() => {});
 }
 
 export function speciesIcon(sp: number): string | null {
@@ -44,6 +48,12 @@ export function itemIcon(item: number): string | null {
 export function trainerClassIcon(cls: number): string | null {
   const g = state.trainerGraphic[cls];
   return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=2`);
+}
+
+/// A trainer's sprite, through its class.
+export function trainerIcon(trainer: number): string | null {
+  const cls = state.trainerClass[trainer];
+  return cls === undefined || cls < 0 ? null : trainerClassIcon(cls);
 }
 
 /// The icon function for an enum, when its entries have pictures.
