@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { appStatus, closeProject, type Status } from "../lib/backend";
+  import { appStatus, closeProject, isReady, type Status } from "../lib/backend";
   import { ALL, GROUPS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
   import { forget } from "../lib/cache.svelte";
@@ -63,7 +63,7 @@
       {/if}
     </div>
     <div class="right">
-      <ThemePicker />
+      <ThemePicker gameOpen={isReady(status)} />
       <button class="quiet" aria-pressed={sound} onclick={() => ((sound = !sound), setSfx(sound), play("select"))}>
         {sound ? "Sound on" : "Sound off"}
       </button>

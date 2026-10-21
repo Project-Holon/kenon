@@ -95,7 +95,7 @@
       <p class="muted">Modding for Pokemon Black and White</p>
     </div>
     <div class="tools">
-      <ThemePicker />
+      <ThemePicker gameOpen={ready} />
     <button class="quiet" onclick={toggleSound} aria-pressed={sound} title="Menu sounds">
       {sound ? "Sound on" : "Sound off"}
     </button>

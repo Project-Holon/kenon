@@ -125,6 +125,8 @@ pub const UI_TABLES: &[(&str, Image, u32, usize)] = &[
     ("trainer_graphic", Image::Arm9, 0x020A_023C, 106),
     // item_gfx_member: per item, the u16 tile and palette members in a/0/2/5.
     ("item_icons", Image::Arm9, 0x0209_EB6C, 627 * 4),
+    // _IconPaletteTable: per icon, the palette bank (low nibble; female high).
+    ("icon_palette", Image::Arm9, 0x0209_E474, 700),
 ];
 
 /// The list-menu cursor tile (BMP_CURSOR_SetTileBitmap), one 4bpp tile.
