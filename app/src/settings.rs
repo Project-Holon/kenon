@@ -20,7 +20,23 @@ pub struct Settings {
     /// eidos's `mod/declared_set.txt`, when it is not found beside the mods
     /// folder.
     pub declared_set: Option<PathBuf>,
+    /// Where the window was and how big, so it opens the same way.
+    pub window: Option<WindowPlace>,
 }
+
+/// The main window's size and position (logical pixels) and whether it was
+/// maximized. The size is the one it had before maximizing.
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct WindowPlace {
+    pub width: f64,
+    pub height: f64,
+    pub x: f64,
+    pub y: f64,
+    pub maximized: bool,
+}
+
+impl Eq for WindowPlace {}
 
 impl Settings {
     /// Reads the settings. A missing or unreadable file gives the defaults.
@@ -56,6 +72,13 @@ mod tests {
             recent: vec![dir.path().join("mod")],
             mods_folder: Some(dir.path().join("mods")),
             declared_set: None,
+            window: Some(WindowPlace {
+                width: 1200.0,
+                height: 800.0,
+                x: 10.0,
+                y: 20.0,
+                maximized: true,
+            }),
         };
         settings.save(&path).unwrap();
         assert_eq!(Settings::load(&path), settings);

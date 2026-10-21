@@ -1022,20 +1022,39 @@ fn member([arc, index]: [usize; 2]) -> Member {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
-        // Save size, position and maximized state as they change: a dev
-        // restart or a crash ends the app without the plugin's exit save.
+        // Keep where the window is and whether it is maximized, so the next
+        // start opens it the same way at once.
         .on_window_event(|window, event| {
-            use tauri_plugin_window_state::{AppHandleExt, StateFlags};
-            if matches!(
+            if !matches!(
                 event,
                 tauri::WindowEvent::Resized(_)
                     | tauri::WindowEvent::Moved(_)
                     | tauri::WindowEvent::CloseRequested { .. }
             ) {
-                let _ = window
-                    .app_handle()
-                    .save_window_state(StateFlags::all() & !StateFlags::VISIBLE);
+                return;
+            }
+            let Some(state) = window.try_state::<AppState>() else {
+                return;
+            };
+            let maximized = window.is_maximized().unwrap_or(false);
+            let minimized = window.is_minimized().unwrap_or(false);
+            let scale = window.scale_factor().unwrap_or(1.0);
+            let mut settings = state.settings.lock().unwrap();
+            let mut place = settings.window.clone().unwrap_or_default();
+            if !minimized {
+                place.maximized = maximized;
+                if !maximized {
+                    if let (Ok(size), Ok(pos)) = (window.inner_size(), window.outer_position()) {
+                        place.width = size.width as f64 / scale;
+                        place.height = size.height as f64 / scale;
+                        place.x = pos.x as f64 / scale;
+                        place.y = pos.y as f64 / scale;
+                    }
+                }
+            }
+            if settings.window.as_ref() != Some(&place) {
+                settings.window = Some(place);
+                let _ = settings.save(&state.settings_path);
             }
         })
         .setup(|app| {
@@ -1048,13 +1067,27 @@ pub fn run() {
                 settings_path,
                 open: RwLock::new(open),
             });
-            // The window starts hidden (tauri.conf.json): put it back where
-            // and how it was, maximized included, then show it once.
-            if let Some(window) = app.get_webview_window("main") {
-                use tauri_plugin_window_state::{StateFlags, WindowExt};
-                let _ = window.restore_state(StateFlags::all() & !StateFlags::VISIBLE);
-                let _ = window.show();
-            }
+            // The window is made here, already at its last size and place and
+            // already maximized when it was, so it opens in one step.
+            let place = app
+                .state::<AppState>()
+                .settings
+                .lock()
+                .unwrap()
+                .window
+                .clone();
+            let mut window =
+                tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+                    .title("kenon")
+                    .min_inner_size(640.0, 480.0);
+            window = match place.filter(|p| p.width >= 640.0 && p.height >= 480.0) {
+                Some(p) => window
+                    .inner_size(p.width, p.height)
+                    .position(p.x, p.y)
+                    .maximized(p.maximized),
+                None => window.inner_size(1024.0, 720.0).center(),
+            };
+            window.build()?;
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("kenon", |ctx, request, responder| {
