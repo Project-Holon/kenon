@@ -6,6 +6,8 @@
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { debounced } from "../lib/cache.svelte";
+  import { copyText, guarded, saveWav } from "../lib/exporter";
+  import { openMenu } from "../lib/menu.svelte";
 
   // Cries are one wave each, wave archive n for species n (names from the
   // ROM's species table).
@@ -30,6 +32,14 @@
     const q = query.value.trim().toLowerCase();
     return q ? list.filter((e) => e.name.toLowerCase().includes(q) || String(e.index) === q) : list;
   });
+
+  const menu = (ev: MouseEvent, e: Entry) =>
+    openMenu(ev, [
+      { label: playing === e.index ? "Stop" : "Play", run: () => play(e) },
+      { label: "Save as WAV", run: guarded(() => saveWav(`cry/${e.index}`, `${e.name} cry`)) },
+      "-",
+      { label: "Copy name", run: () => copyText(e.name) },
+    ]);
 
   function play(e: Entry) {
     audio?.pause();
@@ -63,7 +73,7 @@
   <div class="scroll">
     <VirtualList items={shown} height={42} key={(e) => e.index} label="Cries">
       {#snippet row(e)}
-        <div class="row-item" aria-current={playing === e.index}>
+        <div class="row-item" role="presentation" aria-current={playing === e.index} oncontextmenu={(ev) => menu(ev, e)}>
           <button class="play" onclick={() => play(e)}>{playing === e.index ? "Stop" : "Play"}</button>
           <span class="icon"><Thumb src={speciesIcon(e.index) ?? ""} /></span>
           <span class="label">{e.name}</span>

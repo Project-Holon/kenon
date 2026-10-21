@@ -703,6 +703,51 @@ async fn move_types(state: State<'_, AppState>) -> Result<Vec<u8>, String> {
         .collect())
 }
 
+/// Writes the bytes of a bridge asset (a picture, a sound, JSON) to a file.
+#[tauri::command]
+async fn export_asset(
+    state: State<'_, AppState>,
+    path: String,
+    dest: PathBuf,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let asset = bridge.serve(&path).map_err(|e| e.to_string())?;
+    write_out(&dest, &asset.bytes)
+}
+
+/// Writes a game file to a file: decompressed, or as stored when `raw`.
+#[tauri::command]
+async fn export_member(
+    state: State<'_, AppState>,
+    arc: u16,
+    index: usize,
+    dest: PathBuf,
+    raw: bool,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let m = Member { arc, index };
+    let bytes = if raw {
+        bridge.member_raw(m)
+    } else {
+        bridge.member(m)
+    };
+    write_out(&dest, &bytes.map_err(|e| e.to_string())?)
+}
+
+/// Writes text to a file.
+#[tauri::command]
+fn export_text(dest: PathBuf, text: String) -> Result<(), String> {
+    write_out(&dest, text.as_bytes())
+}
+
+/// The archive a table's records live in.
+#[tauri::command]
+fn table_archive(table: String) -> Result<u16, String> {
+    tables::table(&table)
+        .map(|t| t.archive)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
@@ -754,6 +799,10 @@ async fn set_trainer(
 async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
+}
+
+fn write_out(dest: &Path, bytes: &[u8]) -> Result<(), String> {
+    std::fs::write(dest, bytes).map_err(|e| format!("could not write {}: {e}", dest.display()))
 }
 
 fn member([arc, index]: [usize; 2]) -> Member {
@@ -837,6 +886,10 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            export_asset,
+            export_member,
+            export_text,
+            table_archive,
             event_record,
             insert_event,
             move_events,

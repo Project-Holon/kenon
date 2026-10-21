@@ -19,6 +19,8 @@
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { debounced } from "../lib/cache.svelte";
+  import { openMenu } from "../lib/menu.svelte";
+  import { pictureMenu, picturePath, type Picture } from "../lib/graphicsMenu";
 
   let {
     archive,
@@ -214,23 +216,29 @@
     if (arc !== null) await load(arc);
   });
 
-  const thumb = (i: Item) =>
-    i.scr !== undefined
-      ? asset(`screen/${arc}:${i.chr}/${arc}:${i.pal}/${arc}:${i.scr}`, version)
-      : i.pal === null
-      ? ""
-      : i.rig && i.cells === null && arc !== null
-      ? // A picture kept in parts: the first frame of its animation.
-        asset(`rigframe/${rigPath(i.rig, i.pal)}/0`, version)
-      : asset(
-          `preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}` +
-            (i.cells === undefined ? "" : `&cells=${i.cells ?? "none"}`),
-          version,
-        );
+  const picture = (i: Item, pal = i.pal): Picture => ({
+    arc: arc ?? 0,
+    label: i.label,
+    chr: i.chr,
+    pal,
+    offset: i.offset,
+    cells: i.cells,
+    anims: i.anims,
+    rig: i.rig,
+    scr: i.scr,
+  });
+  const thumb = (i: Item) => {
+    const path = picturePath(picture(i));
+    return path ? asset(path, version) : "";
+  };
   const changed = (chr: number) => changedSet.has(chr);
   // The bridge path of a rig: picture, palette, then its banks.
   const rigPath = (rig: number[], pal: number) =>
     [rig[0], pal, ...rig.slice(1)].map((m) => `${arc}:${m}`).join("/");
+
+  const menuFor = (e: MouseEvent, i: Item) =>
+    arc !== null &&
+    openMenu(e, pictureMenu(picture(i), { changed: changed(i.chr), readOnly, onChanged: onSaved }));
 
   const chr = $derived<Ref | null>(arc !== null && selected ? [arc, selected.chr] : null);
   const pal = $derived<Ref | null>(arc !== null && palette !== null ? [arc, palette] : null);
@@ -271,7 +279,7 @@
     />
     <VirtualList items={shown} height={54} key={(i) => i.key} label="Pictures">
       {#snippet row(item)}
-        <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)}>
+        <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)} oncontextmenu={(e) => menuFor(e, item)}>
           <span class="thumb"><Thumb src={thumb(item)} /></span>
           <span class="label">{item.label}</span>
           {#if someAnimated && animated(item)}<span class="tag">animated</span>{/if}
@@ -315,6 +323,7 @@
             ? { cer: [arc!, rig[1]], anr: [arc!, rig[2]], mcr: [arc!, rig[3]], mna: rig[4] !== undefined ? ([arc!, rig[4]] as [number, number]) : null, frame: rigFrameIndex }
             : null}
           {pal}
+          picture={picture(selected, pal[1])}
           {version}
           bind:dirty
           {readOnly}

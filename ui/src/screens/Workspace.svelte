@@ -43,6 +43,16 @@
     current = c;
   }
 
+  // Other views ask to open a category ("Open in Files" and the like).
+  $effect(() => {
+    const go = (e: Event) => {
+      const d = (e as CustomEvent<{ category: string; index?: number }>).detail;
+      openAt(d.category, d.index);
+    };
+    window.addEventListener("kenon:open", go);
+    return () => window.removeEventListener("kenon:open", go);
+  });
+
   function openAt(id: string, index?: number) {
     const c = ALL.find((x) => x.id === id);
     if (!c) return;

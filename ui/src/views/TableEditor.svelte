@@ -6,7 +6,9 @@
   import SearchSelect from "../lib/SearchSelect.svelte";
   import { enumIcon, itemIcon, loadIcons, moveIcon, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
   import { debounced } from "../lib/cache.svelte";
-  import { asset } from "../lib/backend";
+  import { asset, changedMembers, revert } from "../lib/backend";
+  import { copyText, guarded, openInFiles, saveMember } from "../lib/exporter";
+  import { keepNative, openMenu, toast } from "../lib/menu.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import {
     enumValues,
@@ -284,6 +286,88 @@
   const hasIcons = $derived(["species", "items", "trainers", "moves"].includes(tables[0]));
   const edited = (index: number) => drafts.has(index) || (index === current && dirty);
 
+  // The archive of each table, and which of its members the mod changes.
+  let archiveIds = $state<number[]>([]);
+  let changedSets = $state<Set<number>[]>([]);
+  onMount(() => {
+    Promise.all(tables.map((t) => invoke<number>("table_archive", { table: t })))
+      .then((ids) => (archiveIds = ids))
+      .catch(() => {});
+  });
+  $effect(() => {
+    void version;
+    const ids = archiveIds;
+    Promise.all(ids.map((a) => changedMembers(a).catch(() => [] as number[])))
+      .then((all) => (changedSets = all.map((c) => new Set(c))))
+      .catch(() => {});
+  });
+  const isChanged = (index: number) => changedSets.some((s) => s.has(index));
+
+  const nameOf = (index: number) => entries.find((e) => e.index === index)?.name ?? `Entry ${index}`;
+
+  // The values of an entry as text: one line per field, one per list row.
+  function recordText(index: number, rs: (TableRecord | null)[]): string {
+    const show = (v: number, en: string | null) => (en && names[en]?.[v]) || String(v);
+    const out = [nameOf(index)];
+    for (const s of rs.flatMap((r) => r?.sections ?? [])) {
+      out.push("", s.label);
+      if (s.kind === "fields") for (const v of s.values) out.push(`${v.label}: ${show(Number(v.value), v.enum)}`);
+      else {
+        out.push(s.columns.map((c) => c.label).join("\t"));
+        for (const row of s.rows) out.push(row.map((v, i) => show(Number(v), s.columns[i].enum)).join("\t"));
+      }
+    }
+    return out.join("\n");
+  }
+
+  async function copyValues(index: number) {
+    if (index === current) return copyText(recordText(index, $state.snapshot(records) as (TableRecord | null)[]), "Copied values");
+    const rs = await Promise.all(tables.map((t) => tableRecord(t, index, 0).catch(() => null)));
+    await loadNames(rs);
+    await copyText(recordText(index, rs), "Copied values");
+  }
+
+  async function revertEntry(index: number) {
+    for (let i = 0; i < tables.length; i++) if (changedSets[i]?.has(index)) await revert([archiveIds[i], index]);
+    drafts.delete(index);
+    toast("Reverted to the game's version");
+    onSaved();
+  }
+
+  // `table` picks which of the entry's files to save (the first by default).
+  function entryMenu(e: MouseEvent, index: number, table = 0) {
+    if (keepNative(e)) return;
+    const arc = archiveIds[table];
+    openMenu(e, [
+      { label: "Copy name", run: () => copyText(nameOf(index)) },
+      { label: "Copy values as text", run: guarded(() => copyValues(index)) },
+      "-",
+      {
+        label: "Save game file",
+        disabled: arc === undefined,
+        run: guarded(() => saveMember(arc, index, nameOf(index))),
+      },
+      { label: "Open in Files", disabled: arc === undefined, run: () => openInFiles(arc, index) },
+      ...(isChanged(index) && !readOnly ? ["-" as const, { label: "Revert entry to game", run: guarded(() => revertEntry(index)) }] : []),
+    ]);
+  }
+
+  // On the record: the file of the section shown.
+  function recordMenu(e: MouseEvent) {
+    if (current === null) return;
+    let table = 0;
+    if (only !== undefined || tabbed) {
+      const at = only ?? activeTab;
+      let n = 0;
+      records.forEach((r, ri) => {
+        const k = r?.sections.length ?? 0;
+        if (at >= n && at < n + k) table = ri;
+        n += k;
+      });
+    }
+    entryMenu(e, current, table);
+  }
+
   const sectionLabel = (s: Section) => (s.kind === "list" ? `${s.label} (${s.rows.length})` : s.label);
 </script>
 
@@ -308,7 +392,7 @@
     <input class="search" placeholder="Search {entries.length} entries" aria-label="Search entries" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
     <VirtualList bind:this={list} items={shown} height={34} key={(e) => e.index} label="Entries">
       {#snippet row(e)}
-        <button class="row-item" aria-current={e.index === current} onclick={() => open(e.index)}>
+        <button class="row-item" aria-current={e.index === current} onclick={() => open(e.index)} oncontextmenu={(ev) => entryMenu(ev, e.index)}>
           <span class="num muted">{e.index}</span>
           {#if hasIcons}
             {@const src = rowIcon(e.index)}
@@ -325,7 +409,7 @@
   </aside>
   {/if}
 
-  <section class="record">
+  <section class="record" role="presentation" oncontextmenu={recordMenu}>
     <div class="head">
       {#if portrait}<img class="px portrait" src={portrait} alt="" />{/if}
       {#if mini}

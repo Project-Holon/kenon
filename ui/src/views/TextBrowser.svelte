@@ -4,6 +4,9 @@
   import { debounced } from "../lib/cache.svelte";
   import { gameText, members, saveTextBank, textBank, type MemberInfo } from "../lib/backend";
   import { play } from "../lib/sfx";
+  import { archiveLabel } from "../lib/archiveLabels";
+  import { copyText, guarded, openInFiles, saveMember, saveText } from "../lib/exporter";
+  import { keepNative, openMenu } from "../lib/menu.svelte";
 
   let {
     archive,
@@ -124,6 +127,36 @@
     }
   }
 
+  const bankName = () => `${archiveLabel(archive)} bank ${bank}`;
+  const allText = () => strings.join("\n");
+
+  // A bank in the list: saved as it was last read, or as the game file.
+  function bankMenu(e: MouseEvent, index: number) {
+    const name = `${archiveLabel(archive)} bank ${index}`;
+    openMenu(e, [
+      {
+        label: "Save bank as text",
+        run: guarded(async () => saveText(index === bank ? allText() : (await textBank(archive, index)).join("\n"), name)),
+      },
+      { label: "Save game file", run: guarded(() => saveMember(archive, index, name, "bin")) },
+      "-",
+      { label: "Copy name", run: () => copyText(name) },
+      { label: "Open in Files", run: () => openInFiles(archive, index) },
+    ]);
+  }
+
+  function lineMenu(e: MouseEvent, i: number) {
+    if (keepNative(e)) return;
+    openMenu(e, [
+      { label: "Copy line", run: () => copyText(strings[i]) },
+      { label: "Copy all", run: () => copyText(allText()) },
+      { label: "Save bank as text", run: guarded(() => saveText(allText(), bankName())) },
+      ...(strings[i] !== original[i] && !readOnly
+        ? ["-" as const, { label: "Revert line", run: () => (strings[i] = original[i] ?? "") }]
+        : []),
+    ]);
+  }
+
   // Control codes ({...}) and escapes stay as written in the preview.
   const preview = (s: string) => s.replaceAll("\\n", "\n");
 </script>
@@ -133,7 +166,7 @@
     <h3 class="muted">Banks</h3>
     <div class="scroll">
       {#each banks as b (b.index)}
-        <button class="row-item" data-bank={b.index} aria-current={b.index === bank} onclick={() => open(b.index)}>
+        <button class="row-item" data-bank={b.index} aria-current={b.index === bank} onclick={() => open(b.index)} oncontextmenu={(e) => bankMenu(e, b.index)}>
           <span class="label">Bank {b.index}</span>
           {#if (b.index === bank ? dirty : drafts.has(b.index))}
             <span class="tag changed" title="Not saved yet">edited</span>
@@ -159,7 +192,7 @@
     {#if error}<p class="bad pad">{error}</p>{/if}
     <div class="scroll list">
       {#each shown.slice(0, limit) as { i } (i)}
-        <div class="entry" class:changed={strings[i] !== original[i]}>
+        <div class="entry" role="presentation" class:changed={strings[i] !== original[i]} oncontextmenu={(e) => lineMenu(e, i)}>
           <span class="num muted">{i}</span>
           <div class="fields">
             <textarea

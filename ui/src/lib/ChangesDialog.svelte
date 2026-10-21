@@ -4,6 +4,8 @@
   import RigPreview from "./RigPreview.svelte";
   import { asset } from "./backend";
   import { play } from "./sfx";
+  import { copyText } from "./exporter";
+  import { openMenu } from "./menu.svelte";
   import { tileLabel, tileRgb } from "./terrain";
 
   // Everything the mod changes, the game's version next to yours, and a
@@ -82,6 +84,12 @@
       busy = false;
     }
   }
+
+  const menu = (e: MouseEvent, c: ChangeInfo) =>
+    openMenu(e, [
+      { label: "Undo this change", disabled: busy, run: () => undo([c.path]) },
+      { label: "Copy title", run: () => copyText(c.title) },
+    ]);
 
   const groups = $derived.by(() => {
     const out = new Map<string, ChangeInfo[]>();
@@ -170,7 +178,7 @@
           <h3>{category} <span class="muted">{items.length}</span></h3>
           {#each items as c (c.path)}
             {@const open = toggled[c.path] ?? (position.get(c.path) ?? 0) < OPEN_FIRST}
-            <article class="change">
+            <article class="change" oncontextmenu={(e) => menu(e, c)}>
               <div class="row">
                 <button class="title quiet" onclick={() => (toggled[c.path] = !open)} aria-expanded={open} title={c.path}>
                   <span class="caret" class:open></span>

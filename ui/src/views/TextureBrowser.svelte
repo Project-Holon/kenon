@@ -6,6 +6,8 @@
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { copyText, guarded, openInFiles, saveAssets, savePng } from "../lib/exporter";
+  import { openMenu, toast } from "../lib/menu.svelte";
 
   // The 3D textures of an archive: the overworld's ground, buildings,
   // trees and characters are 3D, and these textures are their look.
@@ -62,6 +64,41 @@
     const q = query.value.trim().toLowerCase();
     return q ? textures.filter((t) => t.name.toLowerCase().includes(q)) : textures;
   });
+  const pathOf = (set: number, t: Texture) => `texture/${archive}:${set}/${t.block}/${t.index}`;
+
+  // Every texture of a set into a folder; a repeated name gets its number.
+  async function saveSet(set: number) {
+    const list: Texture[] = await once(`textures/${archive}:${set}`, () =>
+      fetch(asset(`textures/${archive}:${set}`)).then((r) => r.json()),
+    );
+    if (!list.length) return toast("No textures in this set.");
+    const seen = new Set<string>();
+    await saveAssets(
+      list.map((t, i): [string, string] => {
+        const name = seen.has(t.name) ? `${t.name} ${i}` : t.name;
+        seen.add(t.name);
+        return [pathOf(set, t), `${name}.png`];
+      }),
+    );
+  }
+
+  const setMenu = (e: MouseEvent, set: number) =>
+    openMenu(e, [
+      { label: "Save all textures of the set", run: guarded(() => saveSet(set)) },
+      "-",
+      { label: "Copy name", run: () => copyText(`${noun} ${set}`) },
+      { label: "Open in Files", run: () => openInFiles(archive, set) },
+    ]);
+
+  const textureMenu = (e: MouseEvent, t: Texture) =>
+    current !== null &&
+    openMenu(e, [
+      { label: "Save texture as PNG", run: guarded(() => savePng(pathOf(current!, t), t.name)) },
+      { label: "Save all textures of the set", run: guarded(() => saveSet(current!)) },
+      "-",
+      { label: "Copy name", run: () => copyText(t.name) },
+    ]);
+
   const src = (t: Texture) => asset(`texture/${archive}:${current}/${t.block}/${t.index}`);
 </script>
 
@@ -71,7 +108,7 @@
   <aside class="sets">
     <VirtualList items={sets} height={34} key={(i) => i} label="Texture sets">
       {#snippet row(i)}
-        <button class="row-item" aria-current={i === current} onclick={() => open(i)}>
+        <button class="row-item" aria-current={i === current} onclick={() => open(i)} oncontextmenu={(e) => setMenu(e, i)}>
           <span class="label">{noun} {i}</span>
         </button>
       {/snippet}
@@ -103,7 +140,7 @@
     {/if}
     <div class="grid">
       {#each shown as t (`${t.block}/${t.index}`)}
-        <button class="tile window" class:on={t === big} aria-pressed={t === big} onclick={() => ((big = t), play("decide"))} title="{t.name}, {t.width}x{t.height}, {t.format}">
+        <button class="tile window" class:on={t === big} aria-pressed={t === big} onclick={() => ((big = t), play("decide"))} oncontextmenu={(e) => textureMenu(e, t)} title="{t.name}, {t.width}x{t.height}, {t.format}">
           <span class="pic"><Thumb src={src(t)} /></span>
           <span class="name">{t.name}</span>
         </button>

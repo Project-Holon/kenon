@@ -834,6 +834,18 @@ impl Bridge {
         Ok(lz::decompress_if_compressed(raw).into_owned())
     }
 
+    /// A member's bytes as stored, compressed or not.
+    pub fn member_raw(&self, m: Member) -> Result<Vec<u8>, Error> {
+        if let Some(bytes) = self.project.as_ref().and_then(|p| p.member(m.arc, m.index)) {
+            return Ok(bytes);
+        }
+        let archive = self.archive(m.arc)?;
+        archive
+            .raw(m.index)
+            .map(|raw| raw.to_vec())
+            .map_err(|e| Error::Missing(format!("{}:{}: {e}", m.arc, m.index)))
+    }
+
     fn ncgr(&self, m: Member) -> Result<Ncgr, Error> {
         Ncgr::parse(&self.member(m)?)
             .map_err(|e| Error::Format(format!("{}:{}: {e}", m.arc, m.index)))
@@ -1008,6 +1020,28 @@ mod tests {
         assert_eq!(img.get(0, 0), palette.rgba(2));
         assert_eq!(img.get(8, 0), [0, 0, 0, 0]);
         assert_eq!(img.get(0, 8), palette.rgba(1));
+    }
+
+    #[test]
+    fn raw_and_decompressed_members() {
+        let dir = tempfile::tempdir().unwrap();
+        let plain: Vec<u8> = (0..200u32).map(|i| (i % 7) as u8).collect();
+        let packed = crate::lz::compress(crate::lz::Kind::Lz10, &plain);
+        assert_ne!(packed, plain);
+        let file = dir.path().join("data").join(narc::archive_path(5).unwrap());
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, narc::build(&[&packed, &plain])).unwrap();
+        let crate::data_root::DataRootCheck::Ready(root) = crate::data_root::check(dir.path())
+        else {
+            panic!()
+        };
+        let bridge = Bridge::new(root);
+        let m = Member { arc: 5, index: 0 };
+        assert_eq!(bridge.member_raw(m).unwrap(), packed);
+        assert_eq!(bridge.member(m).unwrap(), plain);
+        let m = Member { arc: 5, index: 1 };
+        assert_eq!(bridge.member_raw(m).unwrap(), plain);
+        assert!(bridge.member_raw(Member { arc: 5, index: 2 }).is_err());
     }
 
     #[test]

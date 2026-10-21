@@ -14,6 +14,8 @@
   } from "../lib/backend";
   import { play } from "../lib/sfx";
   import AnimationPlayer from "./AnimationPlayer.svelte";
+  import { isTextField, openMenu } from "../lib/menu.svelte";
+  import { pictureMenu, type Picture } from "../lib/graphicsMenu";
 
   let {
     chr,
@@ -27,6 +29,7 @@
     rigFrame,
     screen = null,
     version = 0,
+    picture = null,
     dirty = $bindable(false),
     onPalette,
     onSaved,
@@ -49,6 +52,8 @@
     screen?: Ref | null;
     /// Changes after a save or a revert: the picture is read again.
     version?: number;
+    /// What the right-click menu saves.
+    picture?: Picture | null;
     /// True while there are edits not yet saved.
     dirty?: boolean;
     onPalette: (index: number) => void;
@@ -435,6 +440,13 @@
     }
   }
 
+  // The menu opens on the bars and the grey around the picture; right click
+  // on the picture picks a colour.
+  function menu(e: MouseEvent) {
+    if (!picture || isTextField(e.target) || e.target instanceof HTMLCanvasElement) return;
+    openMenu(e, pictureMenu(picture, { changed, readOnly, onChanged: onSaved }));
+  }
+
   async function undoAll() {
     if (!confirmRevert) {
       confirmRevert = true;
@@ -457,7 +469,8 @@
 
 <svelte:window onkeydown={key} />
 
-<div class="pixel-editor">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pixel-editor" oncontextmenu={menu}>
   <div class="toolbar">
     <div class="group" role="radiogroup" aria-label="Tool">
       {#each [["pencil", "Pencil (B)"], ["fill", "Fill (G)"], ["picker", "Pick (I)"]] as [t, label]}

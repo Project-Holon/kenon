@@ -3,6 +3,8 @@
   import { asset, sounds, type SoundInfo } from "../lib/backend";
   import VirtualList from "../lib/VirtualList.svelte";
   import { debounced } from "../lib/cache.svelte";
+  import { copyText, guarded, saveWav } from "../lib/exporter";
+  import { openMenu } from "../lib/menu.svelte";
 
   let { group }: { group: SoundInfo["group"] } = $props();
 
@@ -40,6 +42,18 @@
       .replaceAll("_", " ")
       .toLowerCase()
       .replace(/^./, (c) => c.toUpperCase());
+
+  // Saved songs run to their end, up to four minutes.
+  const menu = (e: MouseEvent, s: SoundInfo) =>
+    openMenu(e, [
+      { label: playing === s.index ? "Stop" : "Play", run: () => toggle(s) },
+      {
+        label: "Save as WAV",
+        run: guarded(() => saveWav(`sound/${s.index}?seconds=${group === "music" ? 240 : 30}`, pretty(s.name))),
+      },
+      "-",
+      { label: "Copy name", run: () => copyText(pretty(s.name)) },
+    ]);
 
   function toggle(s: SoundInfo) {
     audio?.pause();
@@ -79,7 +93,7 @@
   <div class="scroll">
     <VirtualList items={shown} height={42} key={(s) => s.index} label="Sounds">
       {#snippet row(s)}
-        <div class="row-item sound" aria-current={playing === s.index}>
+        <div class="row-item sound" role="presentation" aria-current={playing === s.index} oncontextmenu={(e) => menu(e, s)}>
           <button class="play" onclick={() => toggle(s)} aria-label={playing === s.index ? "Stop" : "Play"}>
             {loading === s.index ? "..." : playing === s.index ? "Stop" : "Play"}
           </button>

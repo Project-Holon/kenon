@@ -6,10 +6,13 @@
   import { play } from "../lib/sfx";
   import { debounced } from "../lib/cache.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
+  import { copyText, filesTarget, guarded, memberExt, saveMember } from "../lib/exporter";
+  import { openMenu } from "../lib/menu.svelte";
+  import { tick } from "svelte";
 
   // Every archive of the game, with what each holds. The lists in the
   // sidebar cover the common ones; this reaches the rest.
-  let { version, onGo }: { version: number; onGo: (category: string) => void } = $props();
+  let { version, onGo }: { version: number; onGo: (category: string, index?: number) => void } = $props();
 
   let list = $state<ArchiveInfo[]>([]);
   let current = $state<number | null>(null);
@@ -18,14 +21,35 @@
   let changedOnly = $state(false);
   let error = $state<string | null>(null);
   let loadingMembers = $state(false);
+  let archiveList = $state<{ reveal: (index: number) => void } | null>(null);
+  let memberList = $state<{ reveal: (index: number) => void } | null>(null);
+  // The member another view asked to show.
+  let target = $state<number | null>(null);
 
   onMount(async () => {
     try {
       list = [...(await archives())].sort((a, b) => archiveGroup(a.id).localeCompare(archiveGroup(b.id)) || a.id - b.id);
+      goto();
     } catch (e) {
       error = String(e);
     }
   });
+
+  // Opens the archive (and member) another view sent the user to.
+  async function goto() {
+    const { arc, index } = filesTarget;
+    if (arc === null) return;
+    filesTarget.arc = filesTarget.index = null;
+    open(arc);
+    target = index;
+    await tick();
+    archiveList?.reveal(shown.findIndex((a) => a.id === arc));
+    if (index !== null) {
+      await load(arc);
+      await tick();
+      memberList?.reveal(rows.findIndex((m) => m.index === index));
+    }
+  }
 
   async function load(id: number) {
     loadingMembers = true;
@@ -72,6 +96,34 @@
   // The sidebar list that shows this archive properly, when there is one.
   const home = $derived(ALL.find((c) => "archive" in c && c.archive === current));
 
+  const homeOf = (id: number) => ALL.find((c) => "archive" in c && c.archive === id);
+
+  function archiveMenu(e: MouseEvent, a: ArchiveInfo) {
+    const h = homeOf(a.id);
+    openMenu(e, [
+      ...(h ? [{ label: `Open in ${h.label}`, run: () => onGo(h.id) }] : []),
+      { label: "Copy name", run: () => copyText(archiveLabel(a.id)) },
+      { label: "Copy path", run: () => copyText(a.path) },
+    ]);
+  }
+
+  function memberMenu(e: MouseEvent, m: MemberInfo) {
+    if (current === null) return;
+    const arc = current;
+    const h = homeOf(arc);
+    const name = `${archiveLabel(arc)} #${m.index}`;
+    const ext = memberExt(m.kind);
+    openMenu(e, [
+      { label: "Save file", run: guarded(() => saveMember(arc, m.index, name, ext)) },
+      ...(m.compressed
+        ? [{ label: "Save raw file", run: guarded(() => saveMember(arc, m.index, name, ext, true)) }]
+        : []),
+      ...(h ? ["-" as const, { label: `Open in ${h.label}`, run: () => onGo(h.id, m.index) }] : []),
+      "-",
+      { label: "Copy name", run: () => copyText(name) },
+    ]);
+  }
+
   const summary = (kinds: Record<string, number>) =>
     Object.entries(kinds)
       .sort((a, b) => b[1] - a[1])
@@ -83,9 +135,9 @@
 <div class="files">
   <aside class="archives">
     <input class="search" placeholder="Search {list.length || ''} game files" aria-label="Search game files" bind:value={filter} />
-    <VirtualList items={shown} height={48} key={(a) => a.id} label="Game files">
+    <VirtualList bind:this={archiveList} items={shown} height={48} key={(a) => a.id} label="Game files">
       {#snippet row(a)}
-        <button class="row-item" aria-current={a.id === current} title={archiveGroup(a.id)} onclick={() => open(a.id)}>
+        <button class="row-item" aria-current={a.id === current} title={archiveGroup(a.id)} onclick={() => open(a.id)} oncontextmenu={(e) => archiveMenu(e, a)}>
           <span class="two">
             <span class="name">{archiveLabel(a.id)}</span>
             <span class="muted path"><code>{a.path}</code></span>
@@ -119,9 +171,9 @@
         {/if}
       </div>
       <div class="scroll">
-        <VirtualList items={rows} height={34} key={(m) => m.index} label="Entries">
+        <VirtualList bind:this={memberList} items={rows} height={34} key={(m) => m.index} label="Entries">
           {#snippet row(m)}
-            <div class="row-item member">
+            <div class="row-item member" role="presentation" aria-current={m.index === target} oncontextmenu={(e) => memberMenu(e, m)}>
               <strong class="num">#{m.index}</strong>
               <span class="label">{kindName(m.kind)}</span>
               <span class="muted">{size(m.size)}{m.compressed ? ", compressed" : ""}</span>
