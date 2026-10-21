@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { appStatus, closeProject, isReady, type Status } from "../lib/backend";
+  import { save } from "@tauri-apps/plugin-dialog";
+  import { appStatus, closeProject, exportBw, isReady, type Status } from "../lib/backend";
   import { ALL, GROUPS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
   import { forget } from "../lib/cache.svelte";
@@ -87,6 +88,27 @@
     onHome();
   }
 
+  let exportNote = $state("");
+  let exportTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function exportPackage() {
+    play("decide");
+    const name = status.project?.name ?? "mod";
+    const path = await save({
+      defaultPath: `${name}.bw`,
+      filters: [{ name: "Mod package", extensions: ["bw"] }],
+    });
+    if (!path) return;
+    try {
+      await exportBw(path);
+      exportNote = "Exported";
+    } catch (e) {
+      exportNote = `Export failed: ${e}`;
+    }
+    clearTimeout(exportTimer);
+    exportTimer = setTimeout(() => (exportNote = ""), 5000);
+  }
+
   const changes = $derived(status.project?.changes.length ?? 0);
   const changeText = $derived(changes === 0 ? "No changes" : `${changes} change${changes === 1 ? "" : "s"}`);
 </script>
@@ -114,6 +136,8 @@
         {sound ? "Sound on" : "Sound off"}
       </button>
       {#if !readOnly && status.project}
+        {#if exportNote}<span class="tag" role="status">{exportNote}</span>{/if}
+        <button onclick={exportPackage} title="Pack this project into one .bw file">Export .bw</button>
         <button onclick={close} title="Your changes are already saved">Close project</button>
       {/if}
     </div>

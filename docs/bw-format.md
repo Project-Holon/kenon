@@ -100,32 +100,38 @@ forms differ only by packaging:
 - the metadata, which is the manifest itself. `version` and `dependencies`
   are not keys the port reads; see "Metadata the port does not read".
 
-### The container format is not decided
+### What kenon writes
 
-The `.bw` is most likely a zip. The container is kenon's to fix, because kenon
-writes it; the port only reads or unpacks one.
+A `.bw` is a zip file. kenon writes it as follows (`core/src/package.rs`):
 
-Evidence for a zip:
+- **Compression.** Every member uses deflate. Deflate is lossless: unpacking
+  returns the exact bytes that were packed, so a member holds the game's own
+  bytes after a round trip. No member is stored uncompressed, and no member
+  is changed.
+- **Contents.** Every file of the mod folder, except kenon's own notes:
+  `kenon.json` and the half-written files of its saves (names that start with
+  `~` and end with `.kenon`). A package written inside the mod folder leaves
+  itself out. Empty folders are not stored.
+- **Paths.** Relative to the mod root, with forward slashes, never absolute,
+  never with `..`. Names are kept as they are, so a member override named
+  `<index>` or `<index>.<ext>` keeps its name.
+- **Manifest.** `eidos_mod.txt` is the first member. A folder with no manifest
+  is not packed.
+- **Order.** After the manifest, the members sort by path (byte order).
+- **Metadata.** Every member has the timestamp 1980-01-01 00:00:00 and the
+  permissions 0644. The same mod folder gives the same `.bw` bytes.
+- **Extension.** `.bw`.
 
-- a zip carries a directory tree, so the whole-file layout and the member
-  override directories both survive packing without a second format;
-- the port's own first-run extractor already recognises zip as an archive
-  kind when a player drops a ROM file (`docs/installer.md`, the archive
-  cases), so the tooling's environment already treats zip as ordinary;
-- the file layer needs no change if the port unpacks a zip into its own
-  cache.
+kenon reads a `.bw` the same way. It lists the members and reads the manifest
+without unpacking (`inspect`). It unpacks into a folder (`unpack`) only if the
+package has a manifest and every path stays inside that folder; it checks all
+paths before it writes any file. It refuses an absolute path, a path with `..`,
+an empty part, a backslash or a drive prefix. The unpacked folder is a mod
+folder, which kenon opens as a project (it has no `kenon.json`, so no ROM is
+recorded).
 
-Evidence against a fixed zip:
-
-- nothing in the port reads a `.bw`, so any container needs a reader or an
-  unpack step, and a zip is only one of several choices;
-- a mod is small and a zip adds a central directory and compression, which
-  the port does not need and which a pack must be able to remove losslessly;
-- compression would change bytes, and the file layer compares a member's
-  bytes in the game's own format (`docs/mods.md`, "A worked example"), so a
-  pack must store members uncompressed or unpack them unchanged.
-
-The format, the compression policy and the file extension are not decided.
+A reader in the port can use any zip library. The port can unpack to a cache
+or read the members in place; both work with this layout.
 
 ### How a packed mod reaches the port
 
@@ -275,13 +281,18 @@ A pack must preserve:
   overrides"; `sdk/vfs_narc.c`, `member_index`);
 - the native library the `code` key names, when present.
 
-A pack must not reorder, rename or recompress a member, because a member file
-holds the game's own bytes and the port serves them unchanged (`docs/mods.md`,
-"A worked example"; `README.md`, "The file layer").
+A pack must not rename or change a member, because a member file holds the
+game's own bytes and the port serves them unchanged (`docs/mods.md`, "A worked
+example"; `README.md`, "The file layer"). Deflate returns the same bytes on
+unpack, so it meets this rule.
 
 ## What is decided and what is not
 
 Decided:
+
+- a `.bw` is a zip with deflate, the extension is `.bw`, the manifest is the
+  first member, members sort by path, and the timestamps are fixed
+  ("What kenon writes");
 
 - the loose directory is the mod root the port reads, and a path resolves to
   the latest layer holding a regular file there (`sdk/vfs.c`);
@@ -310,8 +321,6 @@ Not decided:
 
 - whether the port unpacks a `.bw` to its own cache or reads the container
   directly;
-- the container format, the compression policy and the file extension of a
-  `.bw`, which are kenon's to fix;
 - the `version` and `dependencies` keys, which the port does not read;
 - the menu that changes a mod's priority (`docs/mod-interface.md`, item 11;
   `docs/modding.md`, "Settings and UI: partial");

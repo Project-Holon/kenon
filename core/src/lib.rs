@@ -24,6 +24,7 @@ pub mod nftr;
 pub mod nitro;
 pub mod nsbmd;
 pub mod nscr;
+pub mod package;
 pub mod project;
 pub mod props;
 pub mod rig;

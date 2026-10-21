@@ -83,6 +83,8 @@ export const setRom = (path: string | null) => invoke<Status>("set_rom", { path 
 export const newProject = (root: string, name: string) => invoke<Status>("new_project", { root, name });
 export const openProject = (root: string) => invoke<Status>("open_project", { root });
 export const closeProject = () => invoke<Status>("close_project");
+export const exportBw = (path: string) => invoke<void>("export_bw", { path });
+export const importBw = (bwPath: string, intoDir: string) => invoke<string>("import_bw", { bwPath, intoDir });
 export const archives = () => once("archives", () => invoke<ArchiveInfo[]>("archives"));
 export const members = (arc: number) => once(`members/${arc}`, () => invoke<MemberInfo[]>("members", { arc }));
 export const changedMembers = (arc: number) => invoke<number[]>("changed_members", { arc });

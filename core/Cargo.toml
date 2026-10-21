@@ -11,6 +11,7 @@ png = "0.18"
 serde.workspace = true
 serde_json.workspace = true
 sha1_smol = "1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -168,6 +168,22 @@ fn open_project(state: State<AppState>, root: PathBuf) -> Result<Status, String>
     Ok(status(&state))
 }
 
+/// Packs the open project into a `.bw` file.
+#[tauri::command]
+fn export_bw(state: State<AppState>, path: PathBuf) -> Result<(), String> {
+    let project = state.open.read().unwrap().project.clone();
+    let project = project.ok_or_else(|| "open a project first".to_string())?;
+    kenon_core::package::pack(&project.root, &path).map_err(|e| e.to_string())
+}
+
+/// Unpacks a `.bw` into `into_dir` and returns that folder, the new
+/// project's root. The caller opens it with `open_project`.
+#[tauri::command]
+fn import_bw(bw_path: PathBuf, into_dir: PathBuf) -> Result<PathBuf, String> {
+    kenon_core::package::unpack(&bw_path, &into_dir).map_err(|e| e.to_string())?;
+    Ok(into_dir)
+}
+
 /// Closes the project: back to the game as it is.
 #[tauri::command]
 fn close_project(state: State<AppState>) -> Status {
@@ -711,6 +727,8 @@ pub fn run() {
             new_project,
             open_project,
             close_project,
+            export_bw,
+            import_bw,
             archives,
             members,
             changed_members,
