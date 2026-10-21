@@ -29,6 +29,46 @@ pub struct ChangeInfo {
     pub lines: Vec<DiffLine>,
     /// Lines left out after the first `LINE_LIMIT`.
     pub more: usize,
+    /// An asset path that shows it; `game/<path>` shows the game's version.
+    pub preview: Option<String>,
+    /// For a map piece: its tiles before and after.
+    pub tiles: Option<TileDiff>,
+}
+
+/// A map piece's tiles, as (terrain id, flags), before and after.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TileDiff {
+    pub width: usize,
+    pub height: usize,
+    pub old: Vec<(u16, u16)>,
+    pub new: Vec<(u16, u16)>,
+}
+
+/// What archives.json says of an archive: its label and group.
+fn archive_label(arc: u16) -> Option<(String, String)> {
+    static LIST: std::sync::OnceLock<Vec<(u16, String, String)>> = std::sync::OnceLock::new();
+    let list = LIST.get_or_init(|| {
+        let v: serde_json::Value =
+            serde_json::from_str(include_str!("archives.json")).unwrap_or_default();
+        v["archives"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| {
+                        Some((
+                            x["id"].as_u64()? as u16,
+                            x["label"].as_str()?.to_string(),
+                            x["group"].as_str().unwrap_or("Files").to_string(),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
+    list.iter()
+        .find(|(id, ..)| *id == arc)
+        .map(|(_, l, g)| (l.clone(), g.clone()))
 }
 
 const LINE_LIMIT: usize = 40;
@@ -45,8 +85,10 @@ pub fn member_of(path: &str) -> Option<(u16, usize)> {
     Some((arc, index))
 }
 
-/// Describes every change of the open project.
+/// Describes every change of the open project. Overrides that hold the
+/// game's own bytes are dropped first: they change nothing.
 pub fn describe_all(bridge: &Bridge) -> Vec<ChangeInfo> {
+    prune(bridge);
     let Some(project) = bridge.project() else {
         return Vec::new();
     };
@@ -55,6 +97,30 @@ pub fn describe_all(bridge: &Bridge) -> Vec<ChangeInfo> {
         .iter()
         .map(|c| describe(bridge, &c.path))
         .collect()
+}
+
+/// Drops member overrides equal to the game's member. Returns how many.
+pub fn prune(bridge: &Bridge) -> usize {
+    let Some(project) = bridge.project() else {
+        return 0;
+    };
+    let mut dropped = 0;
+    for c in project.changes() {
+        let Some((arc, index)) = member_of(&c.path) else {
+            continue;
+        };
+        let same = bridge.base_archive(arc).ok().is_some_and(|a| {
+            a.raw(index).ok().is_some_and(|raw| {
+                project.member(arc, index).is_some_and(|mine| {
+                    lz::decompress_if_compressed(raw) == lz::decompress_if_compressed(&mine)
+                })
+            })
+        });
+        if same && crate::catalog::revert(bridge, Member { arc, index }).is_ok() {
+            dropped += 1;
+        }
+    }
+    dropped
 }
 
 /// Describes one changed file.
@@ -66,6 +132,8 @@ pub fn describe(bridge: &Bridge, path: &str) -> ChangeInfo {
         title: path.to_string(),
         lines: Vec::new(),
         more: 0,
+        preview: None,
+        tiles: None,
     };
     let Some((arc, index)) = info.member else {
         return info;
@@ -77,19 +145,18 @@ pub fn describe(bridge: &Bridge, path: &str) -> ChangeInfo {
     });
     let current = bridge.member(Member { arc, index }).ok();
     let (Some(base), Some(current)) = (base, current) else {
-        info.title = format!(
-            "New file {index} in {}",
-            path.rsplit_once('/').map_or(path, |p| p.0)
-        );
+        let (label, group) = archive_label(arc).unwrap_or_else(|| ("Files".into(), "Files".into()));
+        info.category = group;
+        info.title = format!("{label}: new entry {index}");
         return info;
     };
     let mut lines = match arc {
         12 => zone_headers(bridge, &base, &current, &mut info),
-        8 => map_chunk(&base, &current, index, &mut info),
+        8 => map_chunk(bridge, &base, &current, index, &mut info),
         125 => events(bridge, &base, &current, index, &mut info),
         2 | 3 => text(bridge, &base, &current, arc, index, &mut info),
         _ => table(bridge, &base, &current, arc, index, &mut info)
-            .unwrap_or_else(|| bytes(&base, &current, arc, index, &mut info)),
+            .unwrap_or_else(|| bytes(bridge, &base, &current, arc, index, &mut info)),
     };
     if lines.len() > LINE_LIMIT {
         info.more = lines.len() - LINE_LIMIT;
@@ -232,10 +299,26 @@ fn text(
     info: &mut ChangeInfo,
 ) -> Vec<DiffLine> {
     info.category = "Text".into();
-    info.title = format!(
-        "{} text, bank {index}",
-        if arc == 2 { "System" } else { "Story" }
-    );
+    // Story banks are named by the maps that speak them.
+    let mut places: Vec<String> = Vec::new();
+    if arc == 3 {
+        if let Ok(zs) = crate::world::zones(bridge) {
+            for z in zs.iter() {
+                if crate::scripts::zone_text_bank(bridge, z.id) == Some(index as u16)
+                    && !places.contains(&z.place)
+                {
+                    places.push(z.place.clone());
+                }
+            }
+        }
+    }
+    info.title = if !places.is_empty() {
+        format!("Dialogue: {}", places.join(", "))
+    } else if arc == 3 {
+        format!("Story text {index}")
+    } else {
+        format!("Game text {index}")
+    };
     let table = bridge.packed_table();
     let strings = |b: &[u8]| -> Vec<String> {
         crate::msg::Bank::parse(b).map_or_else(
@@ -306,9 +389,32 @@ fn zone_headers(
     out
 }
 
-fn map_chunk(base: &[u8], current: &[u8], index: usize, info: &mut ChangeInfo) -> Vec<DiffLine> {
+fn map_chunk(
+    bridge: &Bridge,
+    base: &[u8],
+    current: &[u8],
+    index: usize,
+    info: &mut ChangeInfo,
+) -> Vec<DiffLine> {
     info.category = "Maps".into();
-    info.title = format!("Map piece {index}");
+    let places = crate::zonemap::chunk_places(bridge, index);
+    info.title = if places.is_empty() {
+        format!("Map piece {index}")
+    } else {
+        let names: Vec<&str> = places.iter().map(|p| p.1.as_str()).collect();
+        format!("Map tiles: {}", names.join(", "))
+    };
+    if let (Some((w, h, old)), Some((_, _, new))) = (
+        crate::zonemap::chunk_tiles(base),
+        crate::zonemap::chunk_tiles(current),
+    ) {
+        info.tiles = Some(TileDiff {
+            width: w,
+            height: h,
+            old,
+            new,
+        });
+    }
     let tiles = crate::zonemap::changed_tiles(base, current);
     vec![line("Tiles", "", format!("{tiles} changed"))]
 }
@@ -343,6 +449,7 @@ fn events(
 }
 
 fn bytes(
+    bridge: &Bridge,
     base: &[u8],
     current: &[u8],
     arc: u16,
@@ -350,26 +457,79 @@ fn bytes(
     info: &mut ChangeInfo,
 ) -> Vec<DiffLine> {
     let kind = crate::catalog::kind_of(current);
-    info.category = match kind.as_str() {
-        "NCGR" | "NCLR" | "NCER" | "NSCR" | "NANR" => "Graphics".into(),
-        "BTX0" | "BMD0" => "Textures".into(),
-        _ => "Files".into(),
+    let (label, group) = archive_label(arc).unwrap_or_else(|| ("Files".into(), "Files".into()));
+    info.category = group;
+    let noun = match kind.as_str() {
+        "NCGR" => "picture",
+        "NCLR" => "palette",
+        "NCER" => "sprite layout",
+        "NSCR" => "screen",
+        "NANR" => "animation",
+        "BTX0" | "BMD0" => "model",
+        _ => "entry",
     };
-    info.title = format!(
-        "{} {index} in {}",
-        match kind.as_str() {
-            "NCGR" => "Picture",
-            "NCLR" => "Palette",
-            "NCER" => "Sprite layout",
-            "NSCR" => "Screen",
-            "NANR" => "Animation",
-            _ => "File",
-        },
-        crate::narc::archive_path(arc).unwrap_or_default()
-    );
+    // A picture the browser names (Charmander, Master Ball, ...).
+    let named = crate::catalog::named_sheets(bridge, arc).ok();
+    let sheet = named
+        .as_ref()
+        .and_then(|n| n.as_ref().as_ref())
+        .and_then(|list| {
+            list.iter()
+                .find(|n| match kind.as_str() {
+                    "NCGR" => n.chr == index || n.rig.is_some_and(|r| r[0] == index),
+                    "NCLR" => n.pal == index || n.palettes.iter().any(|p| p.1 == index),
+                    _ => false,
+                })
+                .cloned()
+        });
+    info.title = match &sheet {
+        Some(n) => format!("{label}: {}", n.label),
+        None => format!("{label}: {noun} {index}"),
+    };
+    info.preview = match (&sheet, kind.as_str()) {
+        (Some(n), "NCGR" | "NCLR") => {
+            let big = n.rig.filter(|r| r[0] == index && kind == "NCGR");
+            let (chr, cells) = match big {
+                Some(r) => (r[0], None),
+                None => (n.chr, n.cells),
+            };
+            let pal = if kind == "NCLR" { index } else { n.pal };
+            Some(format!(
+                "preview/{arc}:{chr}/{arc}:{pal}?cells={}&paloffset={}",
+                cells.map_or("none".to_string(), |c| c.to_string()),
+                n.palette_offset
+            ))
+        }
+        (None, "NCGR" | "NCLR") => {
+            let want = if kind == "NCGR" { "NCLR" } else { "NCGR" };
+            nearest(bridge, arc, index, want).map(|other| {
+                let (chr, pal) = if kind == "NCGR" {
+                    (index, other)
+                } else {
+                    (other, index)
+                };
+                format!("preview/{arc}:{chr}/{arc}:{pal}")
+            })
+        }
+        (_, "BTX0") => Some(format!("texture/{arc}:{index}/0/0")),
+        _ => None,
+    };
+    if info.preview.is_some() {
+        return Vec::new();
+    }
     let differ = base.iter().zip(current).filter(|(a, b)| a != b).count()
         + base.len().abs_diff(current.len());
     vec![line("Bytes", "", format!("{differ} changed"))]
+}
+
+/// The closest member of a kind to `index` in an archive, later first.
+fn nearest(bridge: &Bridge, arc: u16, index: usize, kind: &str) -> Option<usize> {
+    let members = crate::catalog::members(bridge, arc).ok()?;
+    members
+        .iter()
+        .filter(|m| m.kind == kind)
+        .min_by_key(|m| (m.index.abs_diff(index), m.index < index))
+        .map(|m| m.index)
 }
 
 #[cfg(test)]

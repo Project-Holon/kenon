@@ -1,16 +1,28 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { asset } from "./backend";
   import { play } from "./sfx";
+  import { tileLabel, tileRgb } from "./terrain";
 
-  // Everything the mod changes, with the game's value and the mod's, and
-  // a way to undo each change or all of them.
-  let { onClose, onChanged }: { onClose: () => void; onChanged: () => void } = $props();
+  // Everything the mod changes, the game's version next to yours, and a
+  // way to undo each change or all of them.
+  let {
+    onClose,
+    onChanged,
+    onRefresh,
+  }: { onClose: () => void; onChanged: () => void; onRefresh: () => void } = $props();
 
   interface DiffLine {
     label: string;
     old: string;
     new: string;
+  }
+  interface TileDiff {
+    width: number;
+    height: number;
+    old: [number, number][];
+    new: [number, number][];
   }
   interface ChangeInfo {
     path: string;
@@ -19,18 +31,25 @@
     title: string;
     lines: DiffLine[];
     more: number;
+    preview: string | null;
+    tiles: TileDiff | null;
   }
 
   let list = $state<ChangeInfo[] | null>(null);
   let error = $state<string | null>(null);
   let busy = $state(false);
-  let open = $state<Record<string, boolean>>({});
+  let closed = $state<Record<string, boolean>>({});
   let confirmAll = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
+  // Defeats the webview's image cache: a picture can change between opens.
+  let stamp = $state(Date.now());
 
   async function load() {
     try {
       list = await invoke<ChangeInfo[]>("describe_changes");
+      stamp = Date.now();
+      // Listing drops changes that change nothing: the count may move.
+      onRefresh();
     } catch (e) {
       error = String(e);
     }
@@ -62,12 +81,61 @@
     for (const c of list ?? []) out.set(c.category, [...(out.get(c.category) ?? []), c]);
     return [...out];
   });
+
+  const withStamp = (path: string) => `${path}${path.includes("?") ? "&" : "?"}v=${stamp}`;
+
+  // Tile changes summed up by kind: "Grass -> Water: 12 tiles".
+  function tileSummary(t: TileDiff): [string, string, number][] {
+    const counts = new Map<string, [string, string, number]>();
+    t.old.forEach(([ot, of], i) => {
+      const [nt, nf] = t.new[i];
+      if (ot === nt && of === nf) return;
+      const key = `${ot}:${of}>${nt}:${nf}`;
+      const c = counts.get(key) ?? [tileLabel(ot, of), tileLabel(nt, nf), 0];
+      c[2]++;
+      counts.set(key, c);
+    });
+    return [...counts.values()].sort((a, b) => b[2] - a[2]);
+  }
+
+  // Draws a tile grid; changed tiles get a gold frame on the new side.
+  function tiles(canvas: HTMLCanvasElement, args: { t: TileDiff; side: "old" | "new" }) {
+    const draw = ({ t, side }: typeof args) => {
+      const px = 6;
+      canvas.width = t.width * px;
+      canvas.height = t.height * px;
+      const ctx = canvas.getContext("2d")!;
+      const cells = side === "old" ? t.old : t.new;
+      cells.forEach(([tt, f], i) => {
+        const [r, g, b] = tileRgb(tt, f);
+        ctx.fillStyle = `rgb(${r} ${g} ${b})`;
+        ctx.fillRect((i % t.width) * px, Math.floor(i / t.width) * px, px, px);
+      });
+      ctx.strokeStyle = side === "new" ? "#f5c400" : "#e5484d";
+      ctx.lineWidth = 1.5;
+      t.old.forEach(([ot, of], i) => {
+        const [nt, nf] = t.new[i];
+        if (ot !== nt || of !== nf) ctx.strokeRect((i % t.width) * px + 0.75, Math.floor(i / t.width) * px + 0.75, px - 1.5, px - 1.5);
+      });
+    };
+    draw(args);
+    return { update: draw };
+  }
 </script>
 
-<dialog bind:this={dialog} class="changes window" onclose={onClose} aria-label="Changes">
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+<dialog
+  bind:this={dialog}
+  class="changes window"
+  onclose={onClose}
+  onclick={(e) => {
+    if (e.target === dialog) dialog?.close();
+  }}
+  aria-label="Changes"
+>
   <header>
     <h2>Changes</h2>
-    <span class="muted">{list ? `${list.length} file${list.length === 1 ? "" : "s"}` : ""}</span>
+    <span class="muted">{list ? `${list.length} change${list.length === 1 ? "" : "s"}` : ""}</span>
     <div class="spacer"></div>
     {#if list?.length}
       {#if confirmAll}
@@ -81,7 +149,7 @@
     <button onclick={() => dialog?.close()} aria-label="Close">Close</button>
   </header>
 
-  {#if error}<p class="bad">{error}</p>{/if}
+  {#if error}<p class="bad pad">{error}</p>{/if}
 
   <div class="body">
     {#if list === null}
@@ -93,29 +161,68 @@
         <section>
           <h3>{category} <span class="muted">{items.length}</span></h3>
           {#each items as c (c.path)}
+            {@const open = !closed[c.path]}
             <article class="change">
               <div class="row">
-                <button class="title quiet" onclick={() => (open[c.path] = !open[c.path])} aria-expanded={open[c.path] ?? true}>
-                  <span class="caret">{(open[c.path] ?? true) ? "v" : ">"}</span>
+                <button class="title quiet" onclick={() => (closed[c.path] = open)} aria-expanded={open} title={c.path}>
+                  <span class="caret" class:open></span>
                   <strong>{c.title}</strong>
-                  <span class="muted path">{c.path}</span>
                 </button>
                 <button disabled={busy} onclick={() => undo([c.path])}>Undo</button>
               </div>
-              {#if (open[c.path] ?? true) && c.lines.length}
-                <table>
-                  <tbody>
-                    {#each c.lines as l}
-                      <tr>
-                        <th>{l.label}</th>
-                        <td class="old">{l.old}</td>
-                        <td class="arrow">{l.old ? "->" : ""}</td>
-                        <td class="new">{l.new}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-                {#if c.more}<p class="muted small">{c.more} more</p>{/if}
+              {#if open}
+                {#if c.preview}
+                  <div class="compare">
+                    <figure>
+                      <img class="px" src={asset(withStamp(`game/${c.preview}`))} alt="Game" />
+                      <figcaption>Game</figcaption>
+                    </figure>
+                    <span class="arrow">-></span>
+                    <figure>
+                      <img class="px" src={asset(withStamp(c.preview))} alt="Yours" />
+                      <figcaption>Yours</figcaption>
+                    </figure>
+                  </div>
+                {/if}
+                {#if c.tiles}
+                  <div class="compare">
+                    <figure>
+                      <canvas use:tiles={{ t: c.tiles, side: "old" }}></canvas>
+                      <figcaption>Game</figcaption>
+                    </figure>
+                    <span class="arrow">-></span>
+                    <figure>
+                      <canvas use:tiles={{ t: c.tiles, side: "new" }}></canvas>
+                      <figcaption>Yours</figcaption>
+                    </figure>
+                  </div>
+                  <table>
+                    <tbody>
+                      {#each tileSummary(c.tiles) as [from, to, n]}
+                        <tr>
+                          <th>{n} tile{n === 1 ? "" : "s"}</th>
+                          <td class="old">{from}</td>
+                          <td class="arrow">-></td>
+                          <td class="new">{to}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                {:else if c.lines.length}
+                  <table>
+                    <tbody>
+                      {#each c.lines as l}
+                        <tr>
+                          <th>{l.label}</th>
+                          <td class="old">{l.old}</td>
+                          <td class="arrow">{l.old ? "->" : ""}</td>
+                          <td class="new">{l.new}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                  {#if c.more}<p class="muted small">{c.more} more</p>{/if}
+                {/if}
               {/if}
             </article>
           {/each}
@@ -127,7 +234,7 @@
 
 <style>
   .changes {
-    width: min(56rem, calc(100vw - 2rem));
+    width: min(60rem, calc(100vw - 2rem));
     max-height: calc(100vh - 4rem);
     padding: 0;
     display: flex;
@@ -186,7 +293,7 @@
     flex: 1;
     min-width: 0;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.5rem;
     text-align: left;
     box-shadow: none;
@@ -197,13 +304,47 @@
     white-space: nowrap;
   }
   .caret {
-    font-family: monospace;
+    width: 0;
+    height: 0;
+    border-left: 5px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
     opacity: 0.6;
+    transition: transform 0.12s;
   }
-  .path {
-    font-family: monospace;
-    font-size: 0.75rem;
-    white-space: nowrap;
+  .caret.open {
+    transform: rotate(90deg);
+  }
+  .compare {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.6rem;
+    border-top: 1px solid color-mix(in srgb, var(--outline) 40%, transparent);
+    background: var(--stage);
+  }
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  figure img,
+  figure canvas {
+    max-width: 24rem;
+    max-height: 16rem;
+    min-width: 96px;
+    image-rendering: pixelated;
+    object-fit: contain;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    background: var(--bg);
+  }
+  figcaption {
+    font-size: 0.8rem;
+    color: var(--muted);
   }
   table {
     width: 100%;
@@ -225,7 +366,6 @@
   td {
     padding: 0.25rem 0.4rem;
     overflow-wrap: anywhere;
-    font-family: monospace;
   }
   .old {
     background: color-mix(in srgb, #e5484d 16%, transparent);

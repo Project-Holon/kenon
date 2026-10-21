@@ -161,6 +161,8 @@ pub struct Bridge {
     listings: Mutex<HashMap<String, Arc<dyn std::any::Any + Send + Sync>>>,
     fonts: Mutex<HashMap<Member, Arc<Font>>>,
     served: Mutex<HashMap<String, Arc<Asset>>>,
+    /// The same game without the project, for showing what a change was.
+    game: std::sync::OnceLock<Arc<Bridge>>,
 }
 
 impl Bridge {
@@ -176,7 +178,15 @@ impl Bridge {
             archives: Mutex::new(HashMap::new()),
             fonts: Mutex::new(HashMap::new()),
             served: Mutex::new(HashMap::new()),
+            game: std::sync::OnceLock::new(),
         }
+    }
+
+    /// The game as it ships, without the project's changes.
+    pub fn game(&self) -> Arc<Bridge> {
+        self.game
+            .get_or_init(|| Arc::new(Bridge::new(self.source.clone())))
+            .clone()
     }
 
     pub fn source(&self) -> &Source {
@@ -263,6 +273,10 @@ impl Bridge {
         let path = path.trim_start_matches('/');
         if let Some(asset) = lock(&self.served).get(path) {
             return Ok(asset.clone());
+        }
+        // `game/<path>`: the same asset as the game ships it.
+        if let Some(rest) = path.strip_prefix("game/") {
+            return self.game().serve(rest);
         }
         let asset = Arc::new(self.render(path)?);
         let mut served = lock(&self.served);

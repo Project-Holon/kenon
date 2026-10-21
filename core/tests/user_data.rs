@@ -1020,3 +1020,35 @@ fn event_scripts() {
     assert!(total > 1000 && complete * 100 >= total * 99);
     assert!(shown > 0);
 }
+
+/// Object codes name their billboard textures; most people have one.
+#[test]
+fn object_textures() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let tex = kenon_core::zonemap::object_textures(&bridge).unwrap();
+    let with = tex.iter().filter(|t| t.is_some()).count();
+    eprintln!(
+        "{} codes, {with} with a texture; code 2 -> {:?}",
+        tex.len(),
+        tex.get(2)
+    );
+    assert_eq!(tex.get(2), Some(&Some(7)));
+    assert!(with > 300);
+    // Route 2's people mostly resolve.
+    let map = kenon_core::zonemap::zone_map(&bridge, 319).unwrap();
+    let people: Vec<_> = map.events.iter().filter(|e| e.kind == "npc").collect();
+    let drawn = people
+        .iter()
+        .filter(|e| {
+            let code = e.values.iter().find(|v| v.key == "objCode").unwrap().value as usize;
+            tex.get(code).copied().flatten().is_some()
+        })
+        .count();
+    eprintln!("Route 2: {drawn} of {} people have a sprite", people.len());
+    assert!(drawn * 2 > people.len());
+}

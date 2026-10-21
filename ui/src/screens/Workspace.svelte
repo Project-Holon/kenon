@@ -112,6 +112,7 @@
         reverted = true;
         saved();
       }}
+      onRefresh={async () => onStatus(await appStatus())}
     />
   {/if}
 

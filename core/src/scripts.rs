@@ -577,6 +577,20 @@ fn ranges(bridge: &Bridge) -> Vec<Range> {
 }
 
 /// The zone's script file and dialogue bank, its local scripts and its
+/// The dialogue bank (a/0/0/3) a zone's scripts speak from.
+pub fn zone_text_bank(bridge: &Bridge, zone: usize) -> Option<u16> {
+    let headers = bridge
+        .member(Member {
+            arc: ZONE_HEADERS,
+            index: 0,
+        })
+        .ok()?;
+    rd16(
+        headers.get(zone * ZONE_RECORD..(zone + 1) * ZONE_RECORD)?,
+        0x0A,
+    )
+}
+
 /// map scripts.
 pub fn zone_scripts(bridge: &Bridge, zone: usize) -> Result<ZoneScripts, Error> {
     let mut ctx = Ctx::new(bridge, zone)?;

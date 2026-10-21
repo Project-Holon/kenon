@@ -964,6 +964,12 @@
         <button class:primary={look === "tiles"} onclick={() => (look = "tiles")}>Tile kinds</button>
       </div>
     {/if}
+    <div class="zoomer">
+      <button class="quiet" onclick={() => stage && zoomAt(scale - Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom out">-</button>
+      <button class="quiet zoom" onclick={fit} title="Fit (F)">{Math.round((scale / 16) * 100)}%</button>
+      <button class="quiet" onclick={() => stage && zoomAt(scale + Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom in">+</button>
+    </div>
+    <button class:primary={grid} onclick={() => (grid = !grid)} title="Grid (H)">Grid</button>
     <button class:primary={preview} onclick={() => (preview = !preview)} title="See the spot as the game shows it">Preview</button>
     <button disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
   </header>
@@ -1094,9 +1100,12 @@
             {#if hoverEvent}
               <strong>{eventLabel(hoverEvent)}</strong>
             {:else}
-              {tileLabel(terrain[hoverIndex], flags[hoverIndex])}
+              {tileLabel(terrain[hoverIndex], flags[hoverIndex])} <span class="muted">{hover?.x}, {hover?.z}</span>
             {/if}
           </div>
+        {/if}
+        {#if adding}
+          <div class="banner window">{hint}</div>
         {/if}
         {#if preview}
           <figure class="preview window">
@@ -1364,21 +1373,13 @@
     </aside>
   </div>
 
-  <footer class="status">
-    <span class="hint">{hint}</span>
-    {#if hover && hoverIndex >= 0}<span>{hover.x}, {hover.z}</span>{/if}
-    <label class="check"><input type="checkbox" bind:checked={grid} />Grid</label>
-    <button class="quiet" onclick={() => stage && zoomAt(scale - Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom out">-</button>
-    <span class="zoom">{Math.round((scale / 16) * 100)}%</span>
-    <button class="quiet" onclick={() => stage && zoomAt(scale + Math.max(1, Math.round(scale * 0.2)), stage.clientWidth / 2, stage.clientHeight / 2)} aria-label="Zoom in">+</button>
-    <button class="quiet" onclick={fit} title="F">Fit</button>
-  </footer>
 </div>
 
 <style>
+  /* Bars keep their size; the body takes the rest, whatever is shown. */
   .zone-editor {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
   }
@@ -1404,6 +1405,7 @@
     gap: 0.2rem;
   }
   .body {
+    flex: 1 1 0;
     display: grid;
     grid-template-columns: 11rem minmax(0, 1fr) 24rem;
     min-height: 0;
@@ -1610,6 +1612,27 @@
   }
   .sprite-pick.on {
     border-color: var(--gold);
+  }
+  .zoomer {
+    display: flex;
+    align-items: center;
+  }
+  .zoomer button {
+    padding: 0.2rem 0.5rem;
+  }
+  .zoomer .zoom {
+    min-width: 3.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .banner {
+    position: absolute;
+    top: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 20;
   }
   .preview {
     position: absolute;
@@ -1864,30 +1887,6 @@
   }
   .small {
     font-size: 0.8rem;
-  }
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0.25rem 0.9rem;
-    border-top: 2px solid var(--outline);
-    font-size: 0.85rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .status .hint {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--muted);
-  }
-  .status button {
-    padding: 0.1rem 0.6rem;
-  }
-  .zoom {
-    min-width: 3rem;
-    text-align: center;
   }
   .pad {
     padding: 1rem;

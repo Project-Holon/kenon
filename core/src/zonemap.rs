@@ -586,16 +586,65 @@ pub fn object_textures(bridge: &Bridge) -> Result<Vec<Option<u16>>, Error> {
         arc: OBJECT_CODES,
         index: 0,
     })?;
-    let count = rd16(&table, 0).unwrap_or(0) as usize;
-    Ok((0..count)
+    // A u32 count, then 28-byte records that start with their code.
+    let count = rd32(&table, 0).unwrap_or(0) as usize;
+    let mut out: Vec<Option<u16>> = Vec::new();
+    for i in 0..count {
+        let at = 4 + i * 28;
+        let (Some(code), Some(&draw), Some(tex)) =
+            (rd16(&table, at), table.get(at + 2), rd16(&table, at + 0x10))
+        else {
+            break;
+        };
+        // drawType 1: a billboard with a frame texture.
+        if draw == 1 {
+            let code = code as usize;
+            if out.len() <= code {
+                out.resize(code + 1, None);
+            }
+            out[code] = Some(tex);
+        }
+    }
+    Ok(out)
+}
+
+/// The places whose maps use a chunk, as (zone, place name), one per
+/// place name.
+pub fn chunk_places(bridge: &Bridge, chunk: usize) -> Vec<(usize, String)> {
+    let Ok(zones) = world::zones(bridge) else {
+        return Vec::new();
+    };
+    let mut seen: HashMap<u16, Option<Matrix>> = HashMap::new();
+    let mut out: Vec<(usize, String)> = Vec::new();
+    for z in zones.iter() {
+        let m = seen
+            .entry(z.matrix)
+            .or_insert_with(|| matrix(bridge, z.matrix).ok());
+        let Some(m) = m else { continue };
+        let uses = (0..m.chunks.len()).any(|i| {
+            m.chunks[i] as usize == chunk && (m.mode != 1 || m.zones.get(i) == Some(&(z.id as u32)))
+        });
+        if uses && !out.iter().any(|(_, p)| *p == z.place) {
+            out.push((z.id, z.place.clone()));
+        }
+    }
+    out
+}
+
+/// A chunk's tile grid: width, height and (terrain id, flags) per tile.
+pub type ChunkTiles = (usize, usize, Vec<(u16, u16)>);
+
+/// Reads a chunk's tile grid.
+pub fn chunk_tiles(bytes: &[u8]) -> Option<ChunkTiles> {
+    let (first, w, h) = chunk_grid(bytes)?;
+    let (w, h) = (w as usize, h as usize);
+    let tiles = (0..w * h)
         .map(|i| {
-            let at = 2 + i * 28;
-            // drawType 1: a billboard with a frame texture.
-            (table.get(at + 2) == Some(&1))
-                .then(|| rd16(&table, at + 0x12))
-                .flatten()
+            let attr = rd32(bytes, first + i * TILE_RECORD + 4).unwrap_or(0);
+            ((attr & 0xFFFF) as u16, ((attr >> 16) & 0x7FFF) as u16)
         })
-        .collect())
+        .collect();
+    Some((w, h, tiles))
 }
 
 /// How many tile records differ between two versions of a map chunk.

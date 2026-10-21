@@ -512,6 +512,14 @@ fn project_of(bridge: &Bridge) -> Result<&Arc<crate::project::Project>, Error> {
 pub fn write_member(bridge: &Bridge, m: Member, bytes: &[u8]) -> Result<(), Error> {
     let project = project_of(bridge)?;
     let base = bridge.base_archive(m.arc)?;
+    // Back to the game's bytes: drop the override instead of keeping a
+    // copy that changes nothing.
+    if base
+        .raw(m.index)
+        .is_ok_and(|raw| *lz::decompress_if_compressed(raw) == *bytes)
+    {
+        return revert(bridge, m);
+    }
     let packed = match base.raw(m.index).ok().and_then(lz::sniff) {
         Some((kind, _)) if lz::decompress(base.raw(m.index).unwrap()).is_ok() => {
             lz::compress(kind, bytes)
