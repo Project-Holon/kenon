@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
+    animBank,
     cellBank,
     revert,
     savePalette,
@@ -11,6 +12,7 @@
     type SheetData,
   } from "../lib/backend";
   import { play } from "../lib/sfx";
+  import AnimationPlayer from "./AnimationPlayer.svelte";
 
   let {
     chr,
@@ -20,6 +22,7 @@
     palettes,
     paletteOffset = 0,
     cells,
+    anims,
     onPalette,
     onSaved,
   }: {
@@ -33,6 +36,8 @@
     paletteOffset?: number;
     /// The known cell bank (null: a plain picture; undefined: find it).
     cells?: number | null;
+    /// The known animation bank (null: none; undefined: find it).
+    anims?: number | null;
     onPalette: (index: number) => void;
     onSaved: () => void;
   } = $props();
@@ -46,6 +51,7 @@
   let tiles = $state<number[][]>([]);
   let colors = $state<number[]>([]);
   let bankFor = $state<number | null>(null);
+  let animFor = $state<number | null>(null);
   let view = $state<"cells" | "grid">("grid");
   let cols = $state(16);
   let zoom = $state(4);
@@ -101,6 +107,9 @@
       }
     }
     view = bankFor !== null ? "cells" : "grid";
+    if (bankFor !== null) {
+      animFor = anims !== undefined ? anims : await animBank(chr[0], bankFor).catch(() => null);
+    }
     await load(false);
   });
 
@@ -334,6 +343,9 @@
     {/if}
   </div>
 
+  {#if view === "cells" && bankFor !== null && animFor !== null}
+    <AnimationPlayer {chr} {pal} cer={[chr[0], bankFor]} anr={[chr[0], animFor]} offset={paletteOffset} version={tilesDirty || paletteDirty ? -1 : 0} />
+  {/if}
   <div class="stage" bind:this={stage}>
     {#if error}
       <p class="bad">{error}</p>
@@ -396,7 +408,7 @@
 <style>
   .pixel-editor {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     height: 100%;
   }
   .toolbar {

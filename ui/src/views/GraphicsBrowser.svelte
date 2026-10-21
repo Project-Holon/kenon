@@ -35,6 +35,7 @@
     offset: number;
     /// Known layout: a cell bank, null for a plain picture, undefined to find.
     cells?: number | null;
+    anims?: number | null;
   }
 
   // The archive shown; fixed per category (the view is rebuilt on a new one).
@@ -90,6 +91,7 @@
             palettes: [["Normal", n.pal] as [string, number], ...n.palettes],
             offset: n.paletteOffset,
             cells: n.cells,
+            anims: n.anims,
           }))
         : ms
             .filter((m) => m.kind === "NCGR")
@@ -180,6 +182,7 @@
           palettes={selected.palettes.length ? selected.palettes : palettes.map((p) => [`#${p.index}`, p.index] as [string, number])}
           paletteOffset={selected.offset}
           cells={selected.cells}
+          anims={selected.anims}
           onPalette={(i) => (palette = i)}
           {onSaved}
         />

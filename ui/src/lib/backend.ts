@@ -88,6 +88,7 @@ export const saveTextBank = (arc: number, bank: number, strings: string[]) =>
   invoke<void>("save_text_bank", { arc, bank, strings });
 export const sheetData = (chr: Ref, pal: Ref, layout: Layout) => invoke<SheetData>("sheet_data", { chr, pal, layout });
 export const cellBank = (chr: Ref) => invoke<number | null>("cell_bank", { chr });
+export const animBank = (arc: number, cer: number) => invoke<number | null>("anim_bank", { arc, cer });
 export const saveSheet = (chr: Ref, tiles: number[][]) => invoke<void>("save_sheet", { chr, tiles });
 export const savePalette = (pal: Ref, colors: number[]) => invoke<void>("save_palette", { pal, colors });
 export const revert = (m: Ref) => invoke<void>("revert", { m });
@@ -101,6 +102,8 @@ export interface NamedSheet {
   paletteOffset: number;
   /// The cell bank that draws it, or null for a plain picture.
   cells: number | null;
+  /// The animation bank that plays it, if any.
+  anims: number | null;
 }
 
 /// Named pictures for archives whose layout is known; names from the ROM.

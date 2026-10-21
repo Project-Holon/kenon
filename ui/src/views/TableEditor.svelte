@@ -142,7 +142,7 @@
       case "trainers": {
         const cls = fieldValue("trainerClass");
         const g = cls === null ? undefined : trainerGraphic[cls];
-        return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=${8 * g + 2}`);
+        return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=2`);
       }
       case "species":
         return current > 0 && current < 650 ? asset(`preview/4:${20 * current}/4:${20 * current + 18}?cells=4`) : null;

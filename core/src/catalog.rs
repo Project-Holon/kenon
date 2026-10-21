@@ -304,6 +304,33 @@ fn member_of([arc, index]: [usize; 2]) -> Member {
     }
 }
 
+/// The animation bank that plays a cell bank: the nearest animation bank
+/// after it (else before it, within 8 members) whose frames only name
+/// cells the bank has.
+pub fn anim_bank(bridge: &Bridge, arc: u16, cer: usize) -> Result<Option<usize>, Error> {
+    let archive = bridge.base_archive(arc)?;
+    let bank = Ncer::parse(&bridge.member(Member { arc, index: cer })?)
+        .map_err(|e| Error::Format(e.to_string()))?;
+    let fits = |i: usize| -> bool {
+        let Ok(raw) = archive.raw(i) else {
+            return false;
+        };
+        let bytes = lz::decompress_if_compressed(raw);
+        if !bytes.starts_with(b"RNAN") {
+            return false;
+        }
+        crate::nanr::Nanr::parse(&bytes).is_ok_and(|a| {
+            !a.sequences.is_empty()
+                && a.sequences
+                    .iter()
+                    .flat_map(|s| &s.frames)
+                    .all(|f| (f.cell as usize) < bank.cells.len())
+        })
+    };
+    let after = (cer + 1..(cer + 9).min(archive.len())).find(|&i| fits(i));
+    Ok(after.or_else(|| (cer.saturating_sub(8)..cer).rev().find(|&i| fits(i))))
+}
+
 /// The cell bank of the archive that best assembles a sheet: the one whose
 /// cells use the most of the sheet's tiles while their pieces stay inside
 /// it (the nearest such bank on a tie). `None` when no bank fits.
@@ -451,6 +478,8 @@ pub struct NamedSheet {
     /// The cell bank that draws it, when it is a sprite; `None` for a sheet
     /// that is a picture as it is.
     pub cells: Option<usize>,
+    /// The animation bank that plays its cells, when it has one.
+    pub anims: Option<usize>,
 }
 
 /// Named pictures for the archives whose member layout is known
@@ -502,6 +531,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     palettes: Vec::new(),
                     palette_offset: (nibble & 0xF) as usize,
                     cells: Some(2),
+                    anims: Some(1),
                 });
                 if size(8 + 2 * n) > 0 {
                     out.push(NamedSheet {
@@ -511,6 +541,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                         palettes: Vec::new(),
                         palette_offset: (nibble >> 4) as usize,
                         cells: Some(2),
+                        anims: Some(1),
                     });
                 }
                 n += 1;
@@ -545,6 +576,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                             palettes: shiny.clone(),
                             palette_offset: 0,
                             cells: Some(cells),
+                            anims: None,
                         });
                     }
                 }
@@ -590,6 +622,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     palettes: Vec::new(),
                     palette_offset: 0,
                     cells: Some(1),
+                    anims: Some(0),
                 })
                 .collect()
         }
@@ -625,7 +658,11 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     pal: 8 * g + 7,
                     palettes: Vec::new(),
                     palette_offset: 0,
-                    cells: Some(8 * g + 2),
+                    // The small sheet is laid out by the shared one-cell
+                    // bank; a graphic's own bank at +2 is either a copy of
+                    // it or, for some (N), the rig of the battle texture.
+                    cells: Some(2),
+                    anims: None,
                 })
                 .collect()
         }

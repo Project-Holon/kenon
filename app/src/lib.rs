@@ -266,6 +266,17 @@ async fn cell_bank(state: State<'_, AppState>, chr: [usize; 2]) -> Result<Option
     bridge.cell_bank(member(chr)).map_err(|e| e.to_string())
 }
 
+/// The animation bank that plays a cell bank, if one is near it.
+#[tauri::command]
+async fn anim_bank(
+    state: State<'_, AppState>,
+    arc: u16,
+    cer: usize,
+) -> Result<Option<usize>, String> {
+    let bridge = state.need_bridge()?;
+    catalog::anim_bank(&bridge, arc, cer).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn save_sheet(
     state: State<'_, AppState>,
@@ -383,6 +394,7 @@ pub fn run() {
             save_text_bank,
             sheet_data,
             cell_bank,
+            anim_bank,
             save_sheet,
             save_palette,
             revert,
