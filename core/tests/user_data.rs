@@ -914,9 +914,17 @@ fn changes_described() {
     zonemap::set_trainer(&bridge, 319, copy, Some(2)).unwrap();
     zonemap::write_tiles(&bridge, 319, &[(0, 0, 4, 0), (1, 0, 4, 1)]).unwrap();
     let after = zonemap::zone_map(&bridge, 319).unwrap();
-    let moved = after.events.iter().find(|e| e.kind == "npc" && e.index == jimmy.index).unwrap();
+    let moved = after
+        .events
+        .iter()
+        .find(|e| e.kind == "npc" && e.index == jimmy.index)
+        .unwrap();
     assert_eq!((moved.x, moved.z), (jimmy.x + 2, jimmy.z));
-    let c = after.events.iter().find(|e| e.kind == "npc" && e.index == copy).unwrap();
+    let c = after
+        .events
+        .iter()
+        .find(|e| e.kind == "npc" && e.index == copy)
+        .unwrap();
     assert_eq!((c.x, c.z, c.trainer), (3, 3, Some(2)));
     assert_eq!((after.terrain[0], after.flags[1]), (4, 1));
 
@@ -927,8 +935,12 @@ fn changes_described() {
             eprintln!("    {}: {} -> {}", l.label, l.old, l.new);
         }
     }
-    assert!(all.iter().any(|c| c.category == "Trainers" && !c.lines.is_empty()));
-    assert!(all.iter().any(|c| c.title.starts_with("Map events") && !c.lines.is_empty()));
+    assert!(all
+        .iter()
+        .any(|c| c.category == "Trainers" && !c.lines.is_empty()));
+    assert!(all
+        .iter()
+        .any(|c| c.title.starts_with("Map events") && !c.lines.is_empty()));
     // Undo everything.
     for c in &all {
         changes::revert(&bridge, &c.path).unwrap();
