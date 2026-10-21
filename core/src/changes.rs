@@ -488,12 +488,22 @@ fn bytes(
     };
     info.preview = match (&sheet, kind.as_str()) {
         (Some(n), "NCGR" | "NCLR") => {
-            let big = n.rig.as_ref().filter(|r| r[0] == index && kind == "NCGR");
-            let (chr, cells) = match big {
-                Some(r) => (r[0], None),
-                None => (n.chr, n.cells),
-            };
             let pal = if kind == "NCLR" { index } else { n.pal };
+            // A picture in parts shows as its animation (first frame here;
+            // the list plays the rest from riginfo).
+            let big = n.rig.as_ref().filter(|r| {
+                (r[0] == index && kind == "NCGR") || (n.cells.is_none() && kind == "NCLR")
+            });
+            if let Some(r) = big {
+                let parts: Vec<String> = std::iter::once(r[0])
+                    .chain(std::iter::once(pal))
+                    .chain(r[1..].iter().copied())
+                    .map(|m| format!("{arc}:{m}"))
+                    .collect();
+                info.preview = Some(format!("rigframe/{}/0", parts.join("/")));
+                return Vec::new();
+            }
+            let (chr, cells) = (n.chr, n.cells);
             Some(format!(
                 "preview/{arc}:{chr}/{arc}:{pal}?cells={}&paloffset={}",
                 cells.map_or("none".to_string(), |c| c.to_string()),

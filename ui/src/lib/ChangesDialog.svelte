@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import RigPreview from "./RigPreview.svelte";
   import { asset } from "./backend";
   import { play } from "./sfx";
   import { tileLabel, tileRgb } from "./terrain";
@@ -181,12 +182,12 @@
                 {#if c.preview}
                   <div class="compare">
                     <figure>
-                      <img class="px" src={asset(withStamp(`game/${c.preview}`))} alt="Game" />
+                      {#if c.preview.startsWith("rigframe/")}<span class="anim"><RigPreview path={`game/${c.preview}`} alt="Game" /></span>{:else}<img class="px" src={asset(withStamp(`game/${c.preview}`))} alt="Game" />{/if}
                       <figcaption>Game</figcaption>
                     </figure>
                     <span class="arrow">-></span>
                     <figure>
-                      <img class="px" src={asset(withStamp(c.preview))} alt="Yours" />
+                      {#if c.preview.startsWith("rigframe/")}<span class="anim"><RigPreview path={c.preview} {stamp} alt="Yours" /></span>{:else}<img class="px" src={asset(withStamp(c.preview))} alt="Yours" />{/if}
                       <figcaption>Yours</figcaption>
                     </figure>
                   </div>
@@ -359,6 +360,14 @@
     border: 2px solid var(--outline);
     border-radius: var(--radius-s);
     background: var(--bg);
+  }
+  .anim {
+    display: block;
+    padding: 4px;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    background: var(--bg);
+    zoom: 2;
   }
   figcaption {
     font-size: 0.8rem;
