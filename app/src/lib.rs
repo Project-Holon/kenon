@@ -390,6 +390,81 @@ async fn map_place(
     kenon_core::world::place(&bridge, zone).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn zone_map(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<kenon_core::zonemap::ZoneMap, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::zone_map(&bridge, zone).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+    values: std::collections::HashMap<String, i64>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::save_event(&bridge, zone, &kind, index, &values).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn add_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    x: i32,
+    z: i32,
+) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::add_event(&bridge, zone, &kind, x, z).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn remove_event(
+    state: State<'_, AppState>,
+    zone: usize,
+    kind: String,
+    index: usize,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::remove_event(&bridge, zone, &kind, index).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_tile(
+    state: State<'_, AppState>,
+    zone: usize,
+    x: usize,
+    z: usize,
+    terrain: u16,
+    flags: u16,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_tile(&bridge, zone, x, z, terrain, flags).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_tiles(
+    state: State<'_, AppState>,
+    zone: usize,
+    tiles: Vec<(usize, usize)>,
+    terrain: u16,
+    flags: u16,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_tiles(&bridge, zone, &tiles, terrain, flags).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
+}
+
 fn member([arc, index]: [usize; 2]) -> Member {
     Member {
         arc: arc as u16,
@@ -448,6 +523,13 @@ pub fn run() {
             trainer_locations,
             map_spots,
             map_place,
+            zone_map,
+            save_event,
+            add_event,
+            remove_event,
+            set_tile,
+            set_tiles,
+            set_music,
         ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");

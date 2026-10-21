@@ -808,3 +808,73 @@ fn textures_3d() {
         assert!(ok > 0 && bad * 20 < ok + 1, "archive {arc}");
     }
 }
+
+/// A zone's map and events, and an event edit round trip.
+#[test]
+fn zone_map() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    use kenon_core::zonemap;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project = std::sync::Arc::new(Project::create(&dir.path().join("m"), "T", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
+    // Route 2 (zone 319): Jimmy stands there.
+    let map = zonemap::zone_map(&bridge, 319).unwrap();
+    let drawn = map.terrain.iter().filter(|&&t| t >= 0).count();
+    let counts = |k: &str| map.events.iter().filter(|e| e.kind == k).count();
+    eprintln!(
+        "Route 2: {}x{} tiles ({drawn} with terrain), {} npcs, {} warps, {} triggers, {} signs",
+        map.width,
+        map.height,
+        counts("npc"),
+        counts("warp"),
+        counts("pos"),
+        counts("bg")
+    );
+    assert!(drawn > 0);
+    let jimmy = map
+        .events
+        .iter()
+        .find(|e| e.trainer == Some(1))
+        .expect("Jimmy");
+    assert!(jimmy.x >= 0 && (jimmy.x as usize) < map.width && jimmy.z >= 0);
+    // Move Jimmy one tile right, add a sign, remove it.
+    let mut v = std::collections::HashMap::new();
+    let gx = jimmy
+        .values
+        .iter()
+        .find(|v| v.key == "gridX")
+        .unwrap()
+        .value;
+    v.insert("gridX".to_string(), gx + 1);
+    zonemap::save_event(&bridge, 319, "npc", jimmy.index, &v).unwrap();
+    let again = zonemap::zone_map(&bridge, 319).unwrap();
+    assert_eq!(
+        again
+            .events
+            .iter()
+            .find(|e| e.trainer == Some(1))
+            .unwrap()
+            .x,
+        jimmy.x + 1
+    );
+    let n = zonemap::add_event(&bridge, 319, "bg", 5, 5).unwrap();
+    let added = zonemap::zone_map(&bridge, 319).unwrap();
+    assert_eq!(
+        added.events.iter().filter(|e| e.kind == "bg").count(),
+        counts("bg") + 1
+    );
+    assert!(added
+        .events
+        .iter()
+        .any(|e| e.kind == "bg" && e.index == n && e.x == 5 && e.z == 5));
+    zonemap::remove_event(&bridge, 319, "bg", n).unwrap();
+    assert_eq!(
+        zonemap::zone_map(&bridge, 319).unwrap().events.len(),
+        again.events.len()
+    );
+}

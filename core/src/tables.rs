@@ -110,6 +110,16 @@ pub struct Seasons {
     pub block_size: usize,
 }
 
+/// One record array of the event file layout (schemas.json eventData).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EventArray {
+    pub name: String,
+    pub label: String,
+    pub record_size: usize,
+    pub fields: Vec<Field>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Table {
@@ -131,6 +141,7 @@ pub struct Table {
     pub count_from: Option<TableField>,
     pub variant_by: Option<TableField>,
     pub seasons: Option<Seasons>,
+    pub arrays: Option<Vec<EventArray>>,
 }
 
 pub fn schemas() -> &'static Schemas {
@@ -286,6 +297,12 @@ pub struct Edit {
     pub lists: HashMap<String, Vec<Vec<i64>>>,
     #[serde(default)]
     pub season: usize,
+}
+
+/// The values of a record's fields (conditional fields only when they
+/// apply).
+pub fn values(bytes: &[u8], base: usize, fields: &[Field]) -> Vec<Value> {
+    values_of(bytes, base, fields, "")
 }
 
 fn values_of(bytes: &[u8], base: usize, fields: &[Field], prefix: &str) -> Vec<Value> {

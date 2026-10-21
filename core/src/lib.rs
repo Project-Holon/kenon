@@ -28,3 +28,4 @@ pub mod sdat;
 pub mod source;
 pub mod tables;
 pub mod world;
+pub mod zonemap;

@@ -5,10 +5,15 @@
   import { once } from "../lib/cache.svelte";
   import { tableEntries, type Entry } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import ZoneEditor from "./ZoneEditor.svelte";
 
   // Unova as the game's Town Map draws it, with its cities, routes and
   // places from the map's own table.
-  let { onOpen }: { onOpen: (category: string, index: number) => void } = $props();
+  let {
+    readOnly,
+    onOpen,
+    onSaved,
+  }: { readOnly: boolean; onOpen: (category: string, index: number) => void; onSaved: () => void } = $props();
 
   interface Spot {
     zone: number;
@@ -37,6 +42,8 @@
   let scale = $state(3);
   let frame = $state<HTMLElement | null>(null);
   let error = $state<string | null>(null);
+  // The map open in the editor, with the place's other maps.
+  let editing = $state<{ zone: number; zones: { id: number; label: string }[] } | null>(null);
   let audio: HTMLAudioElement | null = null;
 
   onMount(() => {
@@ -62,6 +69,14 @@
     selected = spot;
     zones = [];
     zones = await invoke<Zone[]>("map_place", { zone: spot.zone });
+    edit(spot.zone);
+  }
+
+  function edit(zone: number) {
+    editing = {
+      zone,
+      zones: zones.map((z, i) => ({ id: z.id, label: i === 0 ? z.place : `${z.place} (map ${z.id})` })),
+    };
   }
 
   function playMusic(seq: number) {
@@ -74,6 +89,16 @@
   const size = (s: Spot) => (s.kind === "city" ? 10 : s.kind === "route" ? 7 : 8);
 </script>
 
+{#if editing}
+  <ZoneEditor
+    zone={editing.zone}
+    zones={editing.zones}
+    {readOnly}
+    {onOpen}
+    {onSaved}
+    onBack={() => (editing = null)}
+  />
+{:else}
 <div class="world">
   <section class="map" bind:this={frame}>
     {#if error}
@@ -112,7 +137,8 @@
         {#each zones as z (z.id)}
           <div class="window zone">
             <div class="zone-head">
-              <strong>Zone {z.id}</strong>
+              <strong>Map {z.id}</strong>
+              <button class="quiet" onclick={() => edit(z.id)}>Edit</button>
               {#if z.encounters !== null}
                 <button class="quiet" onclick={() => onOpen("encounters", z.encounters!)}>Wild encounters</button>
               {/if}
@@ -140,6 +166,7 @@
     {/if}
   </aside>
 </div>
+{/if}
 
 <style>
   .world {

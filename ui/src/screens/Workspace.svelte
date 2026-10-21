@@ -107,7 +107,7 @@
       {:else if current.kind === "textures"}
         <TextureBrowser archive={current.archive} noun={current.noun} />
       {:else if current.kind === "worldmap"}
-        <WorldMap onOpen={openAt} />
+        <WorldMap {readOnly} onOpen={openAt} onSaved={saved} />
       {:else if current.kind === "cries"}
         <CryBrowser />
       {:else if current.kind === "files"}
