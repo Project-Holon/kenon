@@ -291,6 +291,52 @@
   let season = $state(0);
   let time = $state("day");
   const look3d = $derived(`season=${season}&time=${time}`);
+  // The preview's weather ("" is the map's own) and fog.
+  let weather = $state("");
+  let fog = $state(true);
+  const previewLook = $derived(`${look3d}${weather ? `&weather=${weather}` : ""}${fog ? "" : "&fog=0"}`);
+  // Moving textures (water and the like): the frames worth showing and
+  // when each starts, played in the preview.
+  let animSteps = $state<{ at: number; frame: number }[]>([{ at: 0, frame: 0 }]);
+  let animLoop = $state(1);
+  let animStep = $state(0);
+  $effect(() => {
+    const zone = current;
+    const s = season;
+    animSteps = [{ at: 0, frame: 0 }];
+    animLoop = 1;
+    animStep = 0;
+    if (!preview) return;
+    fetch(asset(`maprender/${zone}/anim?season=${s}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j || zone !== current || !j.animated) return;
+        animSteps = j.steps;
+        animLoop = j.loop;
+      })
+      .catch(() => {});
+  });
+  $effect(() => {
+    if (!preview || animSteps.length < 2) return;
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const next = () => {
+      if (stop) return;
+      const k = animStep;
+      const end = animSteps[k + 1]?.at ?? animLoop;
+      timer = setTimeout(() => {
+        animStep = (k + 1) % animSteps.length;
+        next();
+      }, Math.max(1, end - animSteps[k].at) * (1000 / 60));
+    };
+    next();
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  });
+  // Each distinct frame once; the playing one shows.
+  const previewFrames = $derived([...new Set(animSteps.map((s) => s.frame))]);
   let undo = $state<Step[]>([]);
   let edits = $state<Record<string, number>>({});
   let trainers = $state<Entry[]>([]);
@@ -1579,6 +1625,12 @@
     <button class:primary={grid} onclick={() => (grid = !grid)} title="Grid (H)">Grid</button>
     <button class:primary={showProps} onclick={() => (showProps = !showProps)} title="Show buildings, trees and other objects">Objects</button>
     <button class:primary={preview} onclick={() => (preview = !preview)} title="See the spot as the game shows it">Preview</button>
+    {#if preview}
+      <select bind:value={weather} aria-label="Weather" title="Weather in the preview">
+        {#each [["", "Map's weather"], ["off", "Clear"], ["rain", "Rain"], ["heavyrain", "Heavy rain"], ["storm", "Storm"], ["snow", "Snow"], ["blizzard", "Blizzard"], ["dust", "Diamond dust"], ["sand", "Sandstorm"], ["fog", "Fog"]] as [id, name]}<option value={id}>{name}</option>{/each}
+      </select>
+      <label class="check" title="Distance fog in the preview"><input type="checkbox" bind:checked={fog} />Fog</label>
+    {/if}
     <button disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
   </header>
 
@@ -1765,7 +1817,16 @@
         {/if}
         {#if preview}
           <figure class="preview window">
-            <img src={asset(`maprender/${current}?view=camera&x=${previewAt.x}&z=${previewAt.z}&w=384&h=288&${look3d}`)} alt="In game" draggable="false" />
+            <span class="frames">
+              {#each previewFrames as f (f)}
+                <img
+                  class:on={f === (animSteps[animStep]?.frame ?? 0)}
+                  src={asset(`maprender/${current}?view=camera&x=${previewAt.x}&z=${previewAt.z}&w=384&h=288&${previewLook}${animSteps.length > 1 ? `&frame=${f}` : ""}`)}
+                  alt="In game"
+                  draggable="false"
+                />
+              {/each}
+            </span>
             <figcaption class="muted">{previewAt.x}, {previewAt.z}</figcaption>
           </figure>
         {/if}
@@ -2486,6 +2547,16 @@
     padding: 0.3rem;
     z-index: 20;
     pointer-events: none;
+  }
+  .frames {
+    display: grid;
+  }
+  .frames img {
+    grid-area: 1 / 1;
+    visibility: hidden;
+  }
+  .frames img.on {
+    visibility: visible;
   }
   .preview img {
     display: block;
