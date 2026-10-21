@@ -60,6 +60,17 @@
   let cols = $state(16);
   let zoom = $state(4);
   const pan = new Pan();
+  // Ctrl+wheel zooms; added by hand so it can stop the page zoom.
+  $effect(() => {
+    if (!stage) return;
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoom = Math.max(1, Math.min(maxZoom, zoom + (e.deltaY < 0 ? 1 : -1)));
+    };
+    stage.addEventListener("wheel", wheel, { passive: false });
+    return () => stage!.removeEventListener("wheel", wheel);
+  });
   let maxZoom = $state(12);
   // svelte-ignore state_referenced_locally
   let bank = $state(paletteOffset);
@@ -378,11 +389,6 @@
     onpointermovecapture={pan.move}
     onpointerupcapture={pan.up}
     onauxclick={(e) => e.preventDefault()}
-    onwheel={(e) => {
-      if (!e.ctrlKey) return;
-      e.preventDefault();
-      zoom = Math.max(1, Math.min(maxZoom, zoom + (e.deltaY < 0 ? 1 : -1)));
-    }}
   >
     {#if error}
       <p class="bad">{error}</p>

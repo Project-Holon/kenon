@@ -183,6 +183,14 @@
     pan = { x: cx - wx * next, y: cy - wy * next };
   }
 
+  // Added by hand so it can stop the page scroll and zoom.
+  $effect(() => {
+    if (!stage) return;
+    const el = stage;
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  });
+
   function onWheel(e: WheelEvent) {
     e.preventDefault();
     const r = stage!.getBoundingClientRect();
@@ -922,7 +930,6 @@
       onpointermove={onMove}
       onpointerup={onUp}
       onpointerleave={() => ((hover = null), (hoverEvent = null))}
-      onwheel={onWheel}
       oncontextmenu={(e) => e.preventDefault()}
       onauxclick={(e) => e.preventDefault()}
     >
