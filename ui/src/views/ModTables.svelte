@@ -179,7 +179,7 @@
     <div class="head">
       <h3>Tables</h3>
       <div class="spacer"></div>
-      <button class="quiet" title="How tables work, and examples" onclick={() => (docs = true)}>Docs</button>
+      <button title="How tables work, and examples" onclick={() => (docs = true)}>Docs</button>
       {#if !readOnly}<button onclick={() => (creating = !creating)}>New</button>{/if}
     </div>
     {#if creating}

@@ -183,7 +183,7 @@
     <div class="head">
       <h3>Rules</h3>
       <div class="spacer"></div>
-      <button class="quiet" title="Events, payloads, state fields and examples" onclick={() => (docs = true)}>Docs</button>
+      <button title="Events, payloads, state fields and examples" onclick={() => (docs = true)}>Docs</button>
       {#if !readOnly}<button onclick={() => (creating = !creating)}>New</button>{/if}
     </div>
     {#if creating}

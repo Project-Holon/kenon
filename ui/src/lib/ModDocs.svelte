@@ -17,6 +17,7 @@
     type Section,
   } from "./moddocs";
   import { buildIndex, queryMatcher, searchIndex, type SearchIndex } from "./moddocs/search";
+  import { colored, type CodeKind } from "./colorize";
 
   // A large window with the mod docs: events, functions, hookable game
   // functions, the rules language and worked recipes. `select` is the id of
@@ -190,6 +191,20 @@
     spans = [];
   }
 
+  // The colours of a snippet, from its label when the caller gives none.
+  function kindOf(label: string): CodeKind {
+    if (/^Rule/.test(label)) return "rule";
+    if (/^Hook/.test(label)) return "hooks";
+    if (/^(C\b|Signature)/.test(label)) return "c";
+    if (/^Table file|^tables\/|\.txt$/.test(label) && label !== "settings.txt") return "table";
+    return null;
+  }
+  const BLOCK_KINDS: Record<string, CodeKind> = { rule: "rule", hooks: "hooks", table: "table", c: "c" };
+  // A snippet turned coloured after the find ran: find again.
+  const recolored = () => {
+    if (findOpen) runFind();
+  };
+
   function runFind() {
     clearFind();
     if (!findOpen) return;
@@ -298,7 +313,7 @@
       {#each pieces(b.text) as p}{#if p.code !== undefined}<code>{p.code}</code>{:else}{p.text}{/if}{/each}
     </p>
   {:else if b.t === "code"}
-    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : b.lang === "manifest" ? "Manifest line" : b.lang === "table" ? "Table file" : b.lang === "options" ? "Options file" : "Code", b.text)}
+    {@render snip(b.lang === "rule" ? "Rule" : b.lang === "hooks" ? "Hook line" : b.lang === "manifest" ? "Manifest line" : b.lang === "table" ? "Table file" : b.lang === "options" ? "Options file" : "Code", b.text, BLOCK_KINDS[b.lang] ?? null)}
   {:else if b.t === "list"}
     <ul>
       {#each b.items as item}
@@ -317,13 +332,13 @@
   {/if}
 {/snippet}
 
-{#snippet snip(label: string, text: string)}
+{#snippet snip(label: string, text: string, kind?: CodeKind)}
   <div class="snippet">
     <div class="snip-head">
       <span class="muted">{label}</span>
       <button class="quiet" onclick={() => copyText(text)}>Copy</button>
     </div>
-    <pre>{text}</pre>
+    <pre use:colored={{ text, kind: kind === undefined ? kindOf(label) : kind, done: recolored }}></pre>
   </div>
 {/snippet}
 
@@ -600,7 +615,7 @@
               {#each api.actions as a}<tr><td><code>{a.syntax}</code></td><td>{a.what}</td></tr>{/each}
             </tbody>
           </table>
-          {#each api.actions as a}{@render snip(a.name, a.example + "\n")}{/each}
+          {#each api.actions as a}{@render snip(a.name, a.example + "\n", "rule")}{/each}
         {:else if stField(current.id)}
           {@const s = stField(current.id)!}
           <h1><code>{s.name}{s.sub === "plain" ? "" : s.sub === "mon" ? "[mon]" : "[n]"}</code></h1>
