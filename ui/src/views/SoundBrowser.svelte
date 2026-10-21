@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { asset, sounds, type SoundInfo } from "../lib/backend";
+  import VirtualList from "../lib/VirtualList.svelte";
+  import { debounced } from "../lib/cache.svelte";
 
   let { group }: { group: SoundInfo["group"] } = $props();
 
@@ -18,9 +20,11 @@
     return () => audio?.pause();
   });
 
-  const shown = $derived(
-    list.filter((s) => s.name.toLowerCase().includes(filter.trim().toLowerCase()) || String(s.index) === filter.trim()),
-  );
+  const query = debounced(() => filter);
+  const shown = $derived.by(() => {
+    const q = query.value.trim().toLowerCase();
+    return q ? list.filter((s) => s.name.toLowerCase().includes(q) || String(s.index) === q) : list;
+  });
 
   // "SEQ_BGM_E_ROUTE1" reads as "E route1".
   const pretty = (name: string) =>
@@ -58,18 +62,21 @@
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
-    {#each shown as s (s.index)}
-      <div class="row-item sound" aria-current={playing === s.index}>
-        <button class="play" onclick={() => toggle(s)} aria-label={playing === s.index ? "Stop" : "Play"}>
-          {loading === s.index ? "..." : playing === s.index ? "Stop" : "Play"}
-        </button>
-        <span class="label">{pretty(s.name)}</span>
-        <code class="muted name">{s.name}</code>
-        <span class="tag">#{s.index}</span>
-      </div>
-    {:else}
-      <p class="muted pad">{list.length ? "Nothing matches." : "Loading..."}</p>
-    {/each}
+    <VirtualList items={shown} height={42} key={(s) => s.index} label="Sounds">
+      {#snippet row(s)}
+        <div class="row-item sound" aria-current={playing === s.index}>
+          <button class="play" onclick={() => toggle(s)} aria-label={playing === s.index ? "Stop" : "Play"}>
+            {loading === s.index ? "..." : playing === s.index ? "Stop" : "Play"}
+          </button>
+          <span class="label">{pretty(s.name)}</span>
+          <code class="muted name">{s.name}</code>
+          <span class="tag">#{s.index}</span>
+        </div>
+      {/snippet}
+      {#snippet empty()}
+        <p class="muted pad">{list.length ? "Nothing matches." : "Loading..."}</p>
+      {/snippet}
+    </VirtualList>
   </div>
 </div>
 
@@ -91,12 +98,10 @@
     width: min(22rem, 100%);
   }
   .scroll {
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0.5rem 1rem 1.5rem;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    padding: 0.5rem 1rem 0.5rem;
   }
   .sound .play {
     min-width: 4.2rem;

@@ -187,9 +187,35 @@ async fn archives(state: State<'_, AppState>) -> Result<Arc<Vec<ArchiveInfo>>, S
 }
 
 #[tauri::command]
-async fn members(state: State<'_, AppState>, arc: u16) -> Result<Vec<MemberInfo>, String> {
+async fn members(state: State<'_, AppState>, arc: u16) -> Result<Arc<Vec<MemberInfo>>, String> {
     let bridge = state.need_bridge()?;
     catalog::members(&bridge, arc).map_err(|e| e.to_string())
+}
+
+/// The members of an archive the open project changes: cheap, unlike a
+/// full listing.
+#[tauri::command]
+fn changed_members(state: State<AppState>, arc: u16) -> Vec<usize> {
+    let open = state.open.read().unwrap();
+    let Some(project) = open.project.as_ref() else {
+        return Vec::new();
+    };
+    let Some(prefix) = kenon_core::narc::archive_path(arc) else {
+        return Vec::new();
+    };
+    project
+        .changes()
+        .iter()
+        .filter_map(|c| {
+            c.path
+                .strip_prefix(&prefix)?
+                .strip_prefix('/')?
+                .split('.')
+                .next()?
+                .parse()
+                .ok()
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -233,7 +259,7 @@ async fn sheet_data(
     catalog::sheet_data(&bridge, member(chr), member(pal), &layout).map_err(|e| e.to_string())
 }
 
-/// The cell bank that assembles a sheet, if the archive has one.
+/// The cell bank that assembles a sheet, if the archive has one near it.
 #[tauri::command]
 async fn cell_bank(state: State<'_, AppState>, chr: [usize; 2]) -> Result<Option<usize>, String> {
     let bridge = state.need_bridge()?;
@@ -270,7 +296,7 @@ async fn revert(state: State<'_, AppState>, m: [usize; 2]) -> Result<(), String>
 async fn named_sheets(
     state: State<'_, AppState>,
     arc: u16,
-) -> Result<Option<Vec<catalog::NamedSheet>>, String> {
+) -> Result<Arc<Option<Vec<catalog::NamedSheet>>>, String> {
     let bridge = state.need_bridge()?;
     catalog::named_sheets(&bridge, arc).map_err(|e| e.to_string())
 }
@@ -279,7 +305,7 @@ async fn named_sheets(
 async fn table_entries(
     state: State<'_, AppState>,
     table: String,
-) -> Result<Vec<tables::Entry>, String> {
+) -> Result<Arc<Vec<tables::Entry>>, String> {
     let bridge = state.need_bridge()?;
     tables::entries(&bridge, &table).map_err(|e| e.to_string())
 }
@@ -307,7 +333,7 @@ async fn save_record(
 }
 
 #[tauri::command]
-async fn enum_values(state: State<'_, AppState>, name: String) -> Result<Vec<String>, String> {
+async fn enum_values(state: State<'_, AppState>, name: String) -> Result<Arc<Vec<String>>, String> {
     let bridge = state.need_bridge()?;
     tables::enum_values(&bridge, &name).map_err(|e| e.to_string())
 }
@@ -351,6 +377,7 @@ pub fn run() {
             close_project,
             archives,
             members,
+            changed_members,
             sounds,
             text_bank,
             save_text_bank,

@@ -6,7 +6,8 @@ export type Category =
   | { id: string; label: string; kind: "sound"; group: "music" | "effect" | "cry" | "jingle" | "other" }
   | { id: string; label: string; kind: "text"; archive: number }
   | { id: string; label: string; kind: "table"; tables: string[] }
-  | { id: string; label: string; kind: "files" };
+  | { id: string; label: string; kind: "files" }
+  | { id: string; label: string; kind: "cries" };
 
 export interface Group {
   label: string;
@@ -51,6 +52,7 @@ export const GROUPS: Group[] = [
     label: "Sound",
     items: [
       { id: "music", label: "Music", kind: "sound", group: "music" },
+      { id: "cries", label: "Pokemon cries", kind: "cries" },
       { id: "effects", label: "Sound effects", kind: "sound", group: "effect" },
       { id: "jingles", label: "Jingles", kind: "sound", group: "jingle" },
     ],

@@ -4,12 +4,19 @@
   import Workspace from "./screens/Workspace.svelte";
   import { appStatus, isReady, type Status } from "./lib/backend";
   import { enableSfx } from "./lib/sfx";
+  import { forgetAll } from "./lib/cache.svelte";
+  import { clearEnums } from "./lib/tables";
 
   let status = $state<Status | null>(null);
   // "view" is the game as it is, read only; "project" edits a mod.
   let screen = $state<"start" | "view" | "project">("start");
 
   function update(next: Status) {
+    // A new game or project: nothing cached still holds.
+    if (status && (status.rom !== next.rom || status.project?.root !== next.project?.root)) {
+      forgetAll();
+      clearEnums();
+    }
     status = next;
     enableSfx(isReady(next));
   }

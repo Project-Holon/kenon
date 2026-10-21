@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { play } from "../lib/sfx";
+  import VirtualList from "../lib/VirtualList.svelte";
+  import { debounced, once } from "../lib/cache.svelte";
+  import { asset } from "../lib/backend";
   import {
     enumValues,
     saveRecord,
@@ -74,8 +77,9 @@
   }
 
   const dirty = $derived(JSON.stringify(records) !== original);
+  const query = debounced(() => filter);
   const shown = $derived.by(() => {
-    const q = filter.trim().toLowerCase();
+    const q = query.value.trim().toLowerCase();
     if (!q) return entries;
     return entries.filter((e) => e.name.toLowerCase().includes(q) || String(e.index) === q);
   });
@@ -111,6 +115,49 @@
     }
   }
 
+  // The picture of the entry, from the ROM's own tables: a trainer's
+  // sprite follows its class as it is edited, a species shows its battle
+  // sprite, an item its icon.
+  const codeTable = (name: string) =>
+    once(`table/${name}`, () => fetch(asset(`table/${name}`)).then((r) => (r.ok ? r.json() : [])));
+  let trainerGraphic = $state<number[]>([]);
+  let itemIcons = $state<number[]>([]);
+  onMount(() => {
+    if (tables[0] === "trainers") codeTable("trainer_graphic").then((t) => (trainerGraphic = t));
+    if (tables[0] === "items") codeTable("item_icons").then((t) => (itemIcons = t));
+  });
+
+  function fieldValue(key: string): number | null {
+    for (const s of records[0]?.sections ?? [])
+      if (s.kind === "fields") {
+        const v = s.values.find((v) => v.key === key);
+        if (v) return Number(v.value);
+      }
+    return null;
+  }
+
+  const portrait = $derived.by(() => {
+    if (current === null) return null;
+    switch (tables[0]) {
+      case "trainers": {
+        const cls = fieldValue("trainerClass");
+        const g = cls === null ? undefined : trainerGraphic[cls];
+        return g === undefined ? null : asset(`preview/72:${8 * g}/72:${8 * g + 7}?cells=${8 * g + 2}`);
+      }
+      case "species":
+        return current > 0 && current < 650 ? asset(`preview/4:${20 * current}/4:${20 * current + 18}?cells=4`) : null;
+      case "items": {
+        const at = current * 4;
+        if (at + 3 >= itemIcons.length) return null;
+        const tile = itemIcons[at] | (itemIcons[at + 1] << 8);
+        const pal = itemIcons[at + 2] | (itemIcons[at + 3] << 8);
+        return asset(`preview/25:${tile}/25:${pal}?cells=1`);
+      }
+      default:
+        return null;
+    }
+  });
+
   const label = (enumName: string | null, value: number) => {
     const list = enumName ? names[enumName] : null;
     return list?.[value] ?? "";
@@ -120,20 +167,22 @@
 <div class="tables">
   <aside class="entries">
     <input class="search" placeholder="Search {entries.length}" bind:value={filter} />
-    <div class="scroll">
-      {#each shown as e (e.index)}
+    <VirtualList items={shown} height={34} key={(e) => e.index} label="Entries">
+      {#snippet row(e)}
         <button class="row-item" aria-current={e.index === current} onclick={() => open(e.index)}>
           <span class="num muted">{e.index}</span>
           <span class="label">{e.name}</span>
         </button>
-      {:else}
+      {/snippet}
+      {#snippet empty()}
         <p class="muted pad">{error ?? (entries.length ? "Nothing matches." : "Loading...")}</p>
-      {/each}
-    </div>
+      {/snippet}
+    </VirtualList>
   </aside>
 
   <section class="record">
     <div class="head">
+      {#if portrait}<img class="px portrait" src={portrait} alt="" />{/if}
       <h2>{entries.find((e) => e.index === current)?.name ?? ""}</h2>
       {#if (records[0]?.seasons ?? 1) > 1}
         <select bind:value={season} onchange={reload} aria-label="Season">
@@ -260,6 +309,15 @@
     gap: 0.75rem;
     padding: 0.6rem 1rem;
     border-bottom: 2px solid var(--outline);
+  }
+  .portrait {
+    height: 64px;
+    width: auto;
+    max-width: 96px;
+    object-fit: contain;
+    background: var(--bg);
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
   }
   .head h2 {
     overflow: hidden;

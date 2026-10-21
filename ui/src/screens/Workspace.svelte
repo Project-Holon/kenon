@@ -2,10 +2,14 @@
   import { appStatus, closeProject, type Status } from "../lib/backend";
   import { ALL, GROUPS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
+  import { forget } from "../lib/cache.svelte";
+  import { forgetThumbs } from "../lib/thumbs";
+  import { clearEnums } from "../lib/tables";
   import GraphicsBrowser from "../views/GraphicsBrowser.svelte";
   import SoundBrowser from "../views/SoundBrowser.svelte";
   import TextBrowser from "../views/TextBrowser.svelte";
   import FilesBrowser from "../views/FilesBrowser.svelte";
+  import CryBrowser from "../views/CryBrowser.svelte";
   import TableEditor from "../views/TableEditor.svelte";
 
   let {
@@ -27,6 +31,10 @@
   }
 
   async function saved() {
+    // Listings carry changed flags and names: ask again after an edit.
+    forget("members/", "named/", "entries/");
+    forgetThumbs();
+    clearEnums();
     version++;
     onStatus(await appStatus());
   }
@@ -81,6 +89,8 @@
         <SoundBrowser group={current.group} />
       {:else if current.kind === "text"}
         <TextBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
+      {:else if current.kind === "cries"}
+        <CryBrowser />
       {:else if current.kind === "files"}
         <FilesBrowser {version} />
       {:else}

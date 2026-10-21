@@ -3,6 +3,7 @@
   import {
     archives,
     asset,
+    changedMembers,
     members,
     namedSheets,
     type ArchiveInfo,
@@ -12,6 +13,9 @@
   } from "../lib/backend";
   import { play } from "../lib/sfx";
   import PixelEditor from "./PixelEditor.svelte";
+  import VirtualList from "../lib/VirtualList.svelte";
+  import Thumb from "../lib/Thumb.svelte";
+  import { debounced } from "../lib/cache.svelte";
 
   let {
     archive,
@@ -29,6 +33,8 @@
     pal: number | null;
     palettes: [string, number][];
     offset: number;
+    /// Known layout: a cell bank, null for a plain picture, undefined to find.
+    cells?: number | null;
   }
 
   // The archive shown; fixed per category (the view is rebuilt on a new one).
@@ -41,10 +47,12 @@
   let palette = $state<number | null>(null);
   let filter = $state("");
   let error = $state<string | null>(null);
+  let changedSet = $state<Set<number>>(new Set());
 
   const palettes = $derived(list.filter((m) => m.kind === "NCLR"));
+  const query = debounced(() => filter);
   const shown = $derived.by(() => {
-    const q = filter.trim().toLowerCase();
+    const q = query.value.trim().toLowerCase();
     return q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
   });
 
@@ -67,7 +75,11 @@
     items = [];
     selected = null;
     try {
-      const [ms, named] = await Promise.all([members(id), namedSheets(id)]);
+      changedMembers(id).then((c) => (changedSet = new Set(c)));
+      // A named archive lists at once; only a bare one needs the full
+      // member listing (to find its sheets and palettes).
+      const named = await namedSheets(id);
+      const ms = named ? [] : await members(id);
       list = ms;
       items = named
         ? named.map((n: NamedSheet) => ({
@@ -77,6 +89,7 @@
             pal: n.pal,
             palettes: [["Normal", n.pal] as [string, number], ...n.palettes],
             offset: n.paletteOffset,
+            cells: n.cells,
           }))
         : ms
             .filter((m) => m.kind === "NCGR")
@@ -109,8 +122,14 @@
   });
 
   const thumb = (i: Item) =>
-    i.pal === null ? "" : asset(`preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}`, version);
-  const changed = (chr: number) => list.find((m) => m.index === chr)?.changed ?? false;
+    i.pal === null
+      ? ""
+      : asset(
+          `preview/${arc}:${i.chr}/${arc}:${i.pal}?cols=8&paloffset=${i.offset}` +
+            (i.cells === undefined ? "" : `&cells=${i.cells ?? "none"}`),
+          version,
+        );
+  const changed = (chr: number) => changedSet.has(chr);
 
   const chr = $derived<Ref | null>(arc !== null && selected ? [arc, selected.chr] : null);
   const pal = $derived<Ref | null>(arc !== null && palette !== null ? [arc, palette] : null);
@@ -136,17 +155,18 @@
       </label>
     {/if}
     <input class="search" placeholder="Search {items.length}" bind:value={filter} />
-    <div class="scroll" role="listbox" aria-label="Pictures">
-      {#each shown as item (item.key)}
+    <VirtualList items={shown} height={54} key={(i) => i.key} label="Pictures">
+      {#snippet row(item)}
         <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)}>
-          <span class="thumb"><img class="px" loading="lazy" src={thumb(item)} alt="" /></span>
+          <span class="thumb"><Thumb src={thumb(item)} /></span>
           <span class="label">{item.label}</span>
           {#if changed(item.chr)}<span class="tag changed">changed</span>{/if}
         </button>
-      {:else}
-        <p class="muted empty">{error ?? (list.length ? "Nothing matches." : "Loading...")}</p>
-      {/each}
-    </div>
+      {/snippet}
+      {#snippet empty()}
+        <p class="muted empty">{error ?? (items.length ? "Nothing matches." : "Loading...")}</p>
+      {/snippet}
+    </VirtualList>
   </aside>
 
   <section class="editor">
@@ -159,6 +179,7 @@
           changed={changed(selected.chr)}
           palettes={selected.palettes.length ? selected.palettes : palettes.map((p) => [`#${p.index}`, p.index] as [string, number])}
           paletteOffset={selected.offset}
+          cells={selected.cells}
           onPalette={(i) => (palette = i)}
           {onSaved}
         />
@@ -190,15 +211,6 @@
     flex-direction: column;
     gap: 0.25rem;
   }
-  .scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
   .sheet .thumb {
     width: 64px;
     height: 48px;
@@ -209,7 +221,7 @@
     overflow: hidden;
     flex: none;
   }
-  .sheet .thumb img {
+  .sheet .thumb :global(img) {
     max-width: 64px;
     max-height: 48px;
   }

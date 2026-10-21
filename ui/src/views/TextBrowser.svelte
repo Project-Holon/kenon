@@ -18,6 +18,18 @@
   let filter = $state("");
   let error = $state<string | null>(null);
   let busy = $state(false);
+  // Strings are drawn in pages of 80 as the list scrolls.
+  let limit = $state(80);
+  let sentinel = $state<HTMLDivElement | null>(null);
+
+  $effect(() => {
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((seen) => {
+      if (seen.some((e) => e.isIntersecting)) limit += 80;
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
 
   onMount(async () => {
     try {
@@ -33,6 +45,7 @@
     error = null;
     bank = index;
     focused = null;
+    limit = 80;
     strings = await textBank(archive, index);
     original = strings.slice();
   }
@@ -91,7 +104,7 @@
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
     <div class="scroll list">
-      {#each shown as { i } (i)}
+      {#each shown.slice(0, limit) as { i } (i)}
         <div class="entry" class:changed={strings[i] !== original[i]}>
           <span class="num muted">{i}</span>
           <div class="fields">
@@ -111,6 +124,7 @@
       {:else}
         <p class="muted pad">{strings.length ? "Nothing matches." : "Loading..."}</p>
       {/each}
+      {#if shown.length > limit}<div bind:this={sentinel} class="more muted">Loading more...</div>{/if}
     </div>
     <p class="hint muted">
       <code>\n</code> is a new line; <code>&#123;...&#125;</code> is a game code (names, colours, pauses), kept

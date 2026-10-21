@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { archives, members, type ArchiveInfo, type MemberInfo } from "../lib/backend";
   import { play } from "../lib/sfx";
+  import VirtualList from "../lib/VirtualList.svelte";
 
   let { version }: { version: number } = $props();
 
@@ -42,17 +43,18 @@
 <div class="files">
   <aside class="archives">
     <input class="search" placeholder="Filter, such as a/0/2" bind:value={filter} />
-    <div class="scroll">
-      {#if error}<p class="bad">{error}</p>{/if}
-      {#each shown as a (a.id)}
+    {#if error}<p class="bad">{error}</p>{/if}
+    <VirtualList items={shown} height={34} key={(a) => a.id} label="Archives">
+      {#snippet row(a)}
         <button class="row-item" aria-current={a.id === current} onclick={() => open(a.id)}>
           <span class="label"><code>{a.path}</code></span>
           <span class="tag">{a.members}</span>
         </button>
-      {:else}
+      {/snippet}
+      {#snippet empty()}
         <p class="muted pad">{list.length ? "Nothing matches." : "Reading the archives..."}</p>
-      {/each}
-    </div>
+      {/snippet}
+    </VirtualList>
   </aside>
   <section class="members">
     {#if current === null}

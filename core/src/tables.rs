@@ -598,7 +598,11 @@ fn readable(s: &str) -> String {
 }
 
 /// The names of an enum: a text bank of the ROM, or the schema's labels.
-pub fn enum_values(bridge: &Bridge, name: &str) -> Result<Vec<String>, Error> {
+pub fn enum_values(bridge: &Bridge, name: &str) -> Result<std::sync::Arc<Vec<String>>, Error> {
+    bridge.cached(&format!("enum/{name}"), || make_enum_values(bridge, name))
+}
+
+fn make_enum_values(bridge: &Bridge, name: &str) -> Result<Vec<String>, Error> {
     let def = schemas()
         .enums
         .get(name)
@@ -617,7 +621,11 @@ pub struct Entry {
 }
 
 /// The entries of a table, named from the ROM's text where it has names.
-pub fn entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
+pub fn entries(bridge: &Bridge, id: &str) -> Result<std::sync::Arc<Vec<Entry>>, Error> {
+    bridge.cached(&format!("entries/{id}"), || make_entries(bridge, id))
+}
+
+fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
     let t = table(id)?;
     let count = bridge.base_archive(t.archive)?.len();
     let names = t

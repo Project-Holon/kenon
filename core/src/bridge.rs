@@ -29,6 +29,7 @@
 //! preview/{chr}/{pal}                      a sheet as the game shows it (`?paloffset=N`): its
 //!                                          cells assembled when the archive
 //!                                          has a cell bank for it, else tiles
+//! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
 //! ```
@@ -114,13 +115,18 @@ pub const UI_TABLES: &[(&str, Image, u32, usize)] = &[
     ("move_kind_palette", Image::Arm9, 0x0209_FCEC, 3),
     // The text speed table.
     ("text_speed", Image::Arm9, 0x0209_DFB0, 5),
+    // TrainerGraIndexTable: the sprite graphic of each trainer class (the
+    // first member in a/0/7/2 is 8 * graphic).
+    ("trainer_graphic", Image::Arm9, 0x020A_023C, 106),
+    // item_gfx_member: per item, the u16 tile and palette members in a/0/2/5.
+    ("item_icons", Image::Arm9, 0x0209_EB6C, 627 * 4),
 ];
 
 /// The list-menu cursor tile (BMP_CURSOR_SetTileBitmap), one 4bpp tile.
 const CURSOR_TILE: (Image, u32) = (Image::Arm9, 0x0209_E8CC);
 
 /// The entries a cache keeps before it starts over.
-const CACHE_LIMIT: usize = 1024;
+const CACHE_LIMIT: usize = 4096;
 
 /// Serves assets from one data folder, caching archives, fonts and results.
 pub struct Bridge {
@@ -132,6 +138,10 @@ pub struct Bridge {
     sdat: std::sync::OnceLock<Option<Arc<crate::sdat::Sdat>>>,
     /// The cell bank that assembles each sheet, once found.
     cell_banks: Mutex<HashMap<Member, Option<usize>>>,
+    /// Listings and names, made once per game and dropped on an edit:
+    /// member listings per archive, named pictures per archive, entry
+    /// names per table.
+    listings: Mutex<HashMap<String, Arc<dyn std::any::Any + Send + Sync>>>,
     fonts: Mutex<HashMap<Member, Arc<Font>>>,
     served: Mutex<HashMap<String, Arc<Asset>>>,
 }
@@ -145,6 +155,7 @@ impl Bridge {
             project: None,
             sdat: std::sync::OnceLock::new(),
             cell_banks: Mutex::new(HashMap::new()),
+            listings: Mutex::new(HashMap::new()),
             archives: Mutex::new(HashMap::new()),
             fonts: Mutex::new(HashMap::new()),
             served: Mutex::new(HashMap::new()),
@@ -190,6 +201,23 @@ impl Bridge {
     pub fn invalidate(&self) {
         lock(&self.served).clear();
         lock(&self.fonts).clear();
+        lock(&self.listings).clear();
+    }
+
+    /// A listing made once and kept until the next edit.
+    pub fn cached<T: Send + Sync + 'static>(
+        &self,
+        key: &str,
+        make: impl FnOnce() -> Result<T, Error>,
+    ) -> Result<Arc<T>, Error> {
+        if let Some(found) = lock(&self.listings).get(key) {
+            if let Ok(value) = found.clone().downcast::<T>() {
+                return Ok(value);
+            }
+        }
+        let value = Arc::new(make()?);
+        lock(&self.listings).insert(key.to_string(), value.clone());
+        Ok(value)
     }
 
     /// The game's archive, without the project's overrides.
@@ -400,7 +428,17 @@ impl Bridge {
             }
             Some("preview") if parts.len() == 3 => {
                 let chr = member(1)?;
-                let layout = match self.cell_bank(chr)? {
+                // `?cells=N` names the bank, `?cells=none` the plain sheet;
+                // otherwise the bank is found.
+                let named = query
+                    .split('&')
+                    .find_map(|q| q.strip_prefix("cells="))
+                    .map(|v| v.parse::<usize>().ok());
+                let bank = match named {
+                    Some(given) => given,
+                    None => self.cell_bank(chr)?,
+                };
+                let layout = match bank {
                     Some(cer) => crate::catalog::Layout::Cells {
                         cer: [chr.arc as usize, cer],
                     },
@@ -417,6 +455,30 @@ impl Bridge {
                         .for_each(|b| *b = b.saturating_add(offset));
                 }
                 Ok(png(data.render()))
+            }
+            Some("cry") if parts.len() == 2 => {
+                // A Pokemon cry: wave archive n holds its one wave
+                // (docs/game-data-map.md, pm_voice.c).
+                let sdat = self
+                    .sdat()
+                    .ok_or_else(|| Error::Missing("the sound archive".to_string()))?;
+                let n: u32 = parts[1]
+                    .trim_end_matches(".wav")
+                    .parse()
+                    .map_err(|_| Error::BadPath(path.to_string()))?;
+                let swar = sdat
+                    .wave_archive_file(n)
+                    .ok_or_else(|| Error::Missing(path.to_string()))?;
+                let swar =
+                    crate::sdat::Swar::parse(swar).map_err(|e| Error::Format(e.to_string()))?;
+                let wave = swar.wave(0).map_err(|e| Error::Format(e.to_string()))?;
+                let mono = wave.decode();
+                let stereo: Vec<i16> = mono.iter().flat_map(|&v| [v, v]).collect();
+                Ok(Asset {
+                    mime: "audio/wav",
+                    bytes: crate::sdat::to_wav(&stereo, wave.native_rate().round() as u32),
+                    origin: None,
+                })
             }
             Some("sound") if parts.len() == 2 => {
                 let sdat = self

@@ -1,5 +1,6 @@
 // The data table commands (core/src/tables.rs) and an enum name cache.
 import { invoke } from "@tauri-apps/api/core";
+import { once } from "./cache.svelte";
 
 export interface Value {
   key: string;
@@ -42,7 +43,8 @@ export interface Edit {
   season: number;
 }
 
-export const tableEntries = (table: string) => invoke<Entry[]>("table_entries", { table });
+export const tableEntries = (table: string) =>
+  once(`entries/${table}`, () => invoke<Entry[]>("table_entries", { table }));
 export const tableRecord = (table: string, index: number, season = 0) =>
   invoke<TableRecord>("table_record", { table, index, season });
 export const saveRecord = (table: string, index: number, edit: Edit) =>

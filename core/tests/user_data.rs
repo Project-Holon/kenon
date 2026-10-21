@@ -660,17 +660,23 @@ fn tables_and_names() {
     assert_eq!(project.changes().len(), 1);
 
     // Named pictures.
-    let items = catalog::named_sheets(&bridge, 25).unwrap().unwrap();
+    let items = (*catalog::named_sheets(&bridge, 25).unwrap())
+        .clone()
+        .unwrap();
     assert!(
         items.iter().any(|s| s.label.starts_with("Master Ball")),
         "{:?}",
         &items[..5]
     );
-    let battle = catalog::named_sheets(&bridge, 4).unwrap().unwrap();
+    let battle = (*catalog::named_sheets(&bridge, 4).unwrap())
+        .clone()
+        .unwrap();
     assert!(battle
         .iter()
         .any(|s| s.label == "Charmander (front)" && s.palettes[0].0 == "Shiny"));
-    let icons = catalog::named_sheets(&bridge, 7).unwrap().unwrap();
+    let icons = (*catalog::named_sheets(&bridge, 7).unwrap())
+        .clone()
+        .unwrap();
     assert!(icons.iter().any(|s| s.label == "Pikachu"));
     // Trainer names are packed strings: they read as names, and every
     // message of every system bank survives the display form exactly.
@@ -694,7 +700,9 @@ fn tables_and_names() {
             );
         }
     }
-    let trainers = catalog::named_sheets(&bridge, 72).unwrap().unwrap();
+    let trainers = (*catalog::named_sheets(&bridge, 72).unwrap())
+        .clone()
+        .unwrap();
     eprintln!(
         "first trainer sprites: {:?}",
         trainers

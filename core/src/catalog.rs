@@ -69,29 +69,33 @@ pub fn archives(bridge: &Bridge) -> Vec<ArchiveInfo> {
         .collect()
 }
 
-/// The members of one archive.
-pub fn members(bridge: &Bridge, arc: u16) -> Result<Vec<MemberInfo>, Error> {
-    let archive = bridge.base_archive(arc)?;
-    let project = bridge.project();
-    Ok(archive
-        .iter_raw()
-        .enumerate()
-        .map(|(index, raw)| {
-            let changed = project.is_some_and(|p| p.member(arc, index).is_some());
-            let bytes = if changed {
-                bridge.member(Member { arc, index }).unwrap_or_default()
-            } else {
-                lz::decompress_if_compressed(raw).into_owned()
-            };
-            MemberInfo {
-                index,
-                kind: kind_of(&bytes),
-                size: bytes.len(),
-                compressed: lz::decompress(raw).is_ok(),
-                changed,
-            }
-        })
-        .collect())
+/// The members of one archive, listed once per game and edit.
+pub fn members(bridge: &Bridge, arc: u16) -> Result<Arc<Vec<MemberInfo>>, Error> {
+    bridge.cached(&format!("members/{arc}"), || {
+        let archive = bridge.base_archive(arc)?;
+        let project = bridge.project();
+        Ok(archive
+            .iter_raw()
+            .enumerate()
+            .map(|(index, raw)| {
+                let changed = project.is_some_and(|p| p.member(arc, index).is_some());
+                let unpacked = lz::decompress(raw);
+                let compressed = unpacked.is_ok();
+                let bytes = if changed {
+                    bridge.member(Member { arc, index }).unwrap_or_default()
+                } else {
+                    unpacked.unwrap_or_else(|_| raw.to_vec())
+                };
+                MemberInfo {
+                    index,
+                    kind: kind_of(&bytes),
+                    size: bytes.len(),
+                    compressed,
+                    changed,
+                }
+            })
+            .collect())
+    })
 }
 
 /// A sound the game can play.
@@ -308,7 +312,15 @@ pub fn best_cell_bank(bridge: &Bridge, chr: Member) -> Result<Option<usize>, Err
     let count = tiles.tile_count();
     let archive = bridge.base_archive(chr.arc)?;
     let mut best: Option<(usize, usize, usize)> = None;
-    for (index, raw) in archive.iter_raw().enumerate() {
+    // Banks sit near the sheets they draw; looking further only costs time
+    // in archives with thousands of members.
+    let near = chr.index.saturating_sub(64)..(chr.index + 64).min(archive.len());
+    for (index, raw) in archive
+        .iter_raw()
+        .enumerate()
+        .skip(near.start)
+        .take(near.len())
+    {
         let bytes = lz::decompress_if_compressed(raw);
         if !bytes.starts_with(b"RECN") {
             continue;
@@ -436,13 +448,20 @@ pub struct NamedSheet {
     /// Other palettes, by name.
     pub palettes: Vec<(String, usize)>,
     pub palette_offset: usize,
+    /// The cell bank that draws it, when it is a sprite; `None` for a sheet
+    /// that is a picture as it is.
+    pub cells: Option<usize>,
 }
 
 /// Named pictures for the archives whose member layout is known
 /// (docs/game-data-map.md): Pokemon icons, battle sprites, item icons and
 /// trainer sprites. Names come from the ROM's text banks and tables;
 /// `None` for other archives.
-pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>, Error> {
+pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Arc<Option<Vec<NamedSheet>>>, Error> {
+    bridge.cached(&format!("named/{arc}"), || make_named_sheets(bridge, arc))
+}
+
+fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>, Error> {
     let bank = |b: usize| {
         crate::tables::bank_strings(
             bridge,
@@ -482,6 +501,7 @@ pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>
                     pal: 0,
                     palettes: Vec::new(),
                     palette_offset: (nibble & 0xF) as usize,
+                    cells: Some(2),
                 });
                 if size(8 + 2 * n) > 0 {
                     out.push(NamedSheet {
@@ -490,6 +510,7 @@ pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>
                         pal: 0,
                         palettes: Vec::new(),
                         palette_offset: (nibble >> 4) as usize,
+                        cells: Some(2),
                     });
                 }
                 n += 1;
@@ -511,12 +532,19 @@ pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>
                     (10, "back, female"),
                 ] {
                     if size(block + role) > 0 {
+                        // The small sheets are 12x12 tiles in 1D order; the
+                        // one-cell banks at members 4 and 13 (block 0) lay
+                        // out the whole 96x96 picture for every species. The
+                        // per-species banks at +4 and +13 cut the large
+                        // battle texture into animated parts instead.
+                        let cells = if role < 9 { 4 } else { 13 };
                         out.push(NamedSheet {
                             label: format!("{} ({side})", name(n)),
                             chr: block + role,
                             pal: block + 18,
                             palettes: shiny.clone(),
                             palette_offset: 0,
+                            cells: Some(cells),
                         });
                     }
                 }
@@ -561,6 +589,7 @@ pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>
                     pal,
                     palettes: Vec::new(),
                     palette_offset: 0,
+                    cells: Some(1),
                 })
                 .collect()
         }
@@ -596,6 +625,7 @@ pub fn named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>>
                     pal: 8 * g + 7,
                     palettes: Vec::new(),
                     palette_offset: 0,
+                    cells: Some(8 * g + 2),
                 })
                 .collect()
         }

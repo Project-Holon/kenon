@@ -1,5 +1,6 @@
 // Typed wrappers for the commands in app/src/lib.rs.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { once } from "./cache.svelte";
 
 export interface Identity {
   title: string;
@@ -78,9 +79,10 @@ export const setRom = (path: string | null) => invoke<Status>("set_rom", { path 
 export const newProject = (root: string, name: string) => invoke<Status>("new_project", { root, name });
 export const openProject = (root: string) => invoke<Status>("open_project", { root });
 export const closeProject = () => invoke<Status>("close_project");
-export const archives = () => invoke<ArchiveInfo[]>("archives");
-export const members = (arc: number) => invoke<MemberInfo[]>("members", { arc });
-export const sounds = () => invoke<SoundInfo[]>("sounds");
+export const archives = () => once("archives", () => invoke<ArchiveInfo[]>("archives"));
+export const members = (arc: number) => once(`members/${arc}`, () => invoke<MemberInfo[]>("members", { arc }));
+export const changedMembers = (arc: number) => invoke<number[]>("changed_members", { arc });
+export const sounds = () => once("sounds", () => invoke<SoundInfo[]>("sounds"));
 export const textBank = (arc: number, bank: number) => invoke<string[]>("text_bank", { arc, bank });
 export const saveTextBank = (arc: number, bank: number, strings: string[]) =>
   invoke<void>("save_text_bank", { arc, bank, strings });
@@ -97,10 +99,13 @@ export interface NamedSheet {
   /// Other palettes, by name (shiny).
   palettes: [string, number][];
   paletteOffset: number;
+  /// The cell bank that draws it, or null for a plain picture.
+  cells: number | null;
 }
 
 /// Named pictures for archives whose layout is known; names from the ROM.
-export const namedSheets = (arc: number) => invoke<NamedSheet[] | null>("named_sheets", { arc });
+export const namedSheets = (arc: number) =>
+  once(`named/${arc}`, () => invoke<NamedSheet[] | null>("named_sheets", { arc }));
 
 export function isReady(status: Status | null): boolean {
   return status?.check?.state === "rom" || status?.check?.state === "folder";

@@ -19,6 +19,7 @@
     changed,
     palettes,
     paletteOffset = 0,
+    cells,
     onPalette,
     onSaved,
   }: {
@@ -30,6 +31,8 @@
     palettes: [string, number][];
     /// The palette bank the game adds for this picture (Pokemon icons).
     paletteOffset?: number;
+    /// The known cell bank (null: a plain picture; undefined: find it).
+    cells?: number | null;
     onPalette: (index: number) => void;
     onSaved: () => void;
   } = $props();
@@ -88,10 +91,14 @@
   }
 
   onMount(async () => {
-    try {
-      bankFor = await cellBank(chr);
-    } catch {
-      bankFor = null;
+    if (cells !== undefined) {
+      bankFor = cells;
+    } else {
+      try {
+        bankFor = await cellBank(chr);
+      } catch {
+        bankFor = null;
+      }
     }
     view = bankFor !== null ? "cells" : "grid";
     await load(false);
@@ -108,7 +115,8 @@
     if (!data) return;
     const avail = (stage?.clientWidth ?? 600) - 32;
     maxZoom = Math.max(1, Math.min(16, Math.floor(avail / Math.max(1, data.width))));
-    zoom = fitted ? Math.min(zoom, maxZoom) : maxZoom;
+    // Start at three quarters of the zoom that fills the pane.
+    zoom = fitted ? Math.min(zoom, maxZoom) : Math.max(1, Math.round(maxZoom * 0.75));
     fitted = true;
   }
 
