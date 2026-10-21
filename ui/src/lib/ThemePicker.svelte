@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { THEMES, savedTheme, setTheme, type Theme } from "./theme";
   import { play } from "./sfx";
   import { asset } from "./backend";
@@ -16,10 +15,14 @@
   let palettes = $state<number[] | null>(null);
   let bounce = $state(0);
 
-  onMount(() => {
-    // The bounce of the selected icon: its two frames, 8/60 s each, as the
-    // party screen plays them.
-    const timer = setInterval(() => (bounce = 1 - bounce), 133);
+  // The bounce of the selected icon: its two frames, 8/60 s each, as the
+  // party screen plays them. Only while the icons show and the window is
+  // in view, and not for people who ask for less motion.
+  $effect(() => {
+    if (!gameOpen || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = setInterval(() => {
+      if (!document.hidden) bounce = 1 - bounce;
+    }, 133);
     return () => clearInterval(timer);
   });
 

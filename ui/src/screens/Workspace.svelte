@@ -42,11 +42,34 @@
     current = c;
   }
 
-  function openAt(id: string, index: number) {
+  function openAt(id: string, index?: number) {
     const c = ALL.find((x) => x.id === id);
     if (!c) return;
+    play("select");
     start = index;
     current = c;
+  }
+
+  // Groups the user folded away; the one holding the open category stays
+  // open. Kept per viewer.
+  const FOLD = "kenon.folded";
+  let folded = $state<Record<string, boolean>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem(FOLD) ?? "{}");
+      } catch {
+        return {};
+      }
+    })(),
+  );
+  function fold(label: string) {
+    folded[label] = !folded[label];
+    play("select");
+    try {
+      localStorage.setItem(FOLD, JSON.stringify(folded));
+    } catch {
+      // Not saved; it lasts for this session.
+    }
   }
 
   async function saved() {
@@ -65,39 +88,53 @@
   }
 
   const changes = $derived(status.project?.changes.length ?? 0);
+  const changeText = $derived(changes === 0 ? "No changes" : `${changes} change${changes === 1 ? "" : "s"}`);
 </script>
 
 <div class="workspace">
   <header class="bar">
-    <button class="quiet" onclick={() => (play("cancel"), onHome())} title="Back to the start">kenon</button>
+    <button class="quiet" onclick={() => (play("cancel"), onHome())} title="Back to the start screen">kenon</button>
     <div class="where">
       {#if readOnly}
         <strong>Game data</strong>
-        <span class="tag">read only</span>
+        <span class="tag" title="You are looking at the game. Open a project to change it.">read only</span>
       {:else if status.project}
         <strong>{status.project.name}</strong>
-        <button class="tag changes" class:changed={changes > 0} onclick={() => ((showChanges = true), play("decide"))} title="See and undo changes">{changes} changed</button>
+        <button class="tag changes" class:changed={changes > 0} onclick={() => ((showChanges = true), play("decide"))} title="See and undo what this project changes">{changeText}</button>
       {/if}
     </div>
     <div class="right">
       <ThemePicker gameOpen={isReady(status)} />
-      <button class="quiet" aria-pressed={sound} onclick={() => ((sound = !sound), setSfx(sound), play("select"))}>
+      <button
+        class="quiet"
+        aria-pressed={sound}
+        title="Menu click sounds"
+        onclick={() => ((sound = !sound), setSfx(sound), play("select"))}
+      >
         {sound ? "Sound on" : "Sound off"}
       </button>
       {#if !readOnly && status.project}
-        <button onclick={close}>Close project</button>
+        <button onclick={close} title="Your changes are already saved">Close project</button>
       {/if}
     </div>
   </header>
 
   <nav class="sidebar" aria-label="Categories">
     {#each GROUPS as group}
-      <h3>{group.label}</h3>
-      {#each group.items as c}
-        <button class="row-item" aria-current={c.id === current.id} onclick={() => pick(c)}>
-          <span class="label">{c.label}</span>
+      {@const holds = group.items.some((c) => c.id === current.id)}
+      {@const shut = !!folded[group.label] && !holds}
+      <h3>
+        <button class="fold" aria-expanded={!shut} onclick={() => fold(group.label)}>
+          <span class="caret" class:open={!shut}></span>{group.label}
         </button>
-      {/each}
+      </h3>
+      {#if !shut}
+        {#each group.items as c}
+          <button class="row-item" aria-current={c.id === current.id} title={c.label} onclick={() => pick(c)}>
+            <span class="label">{c.label}</span>
+          </button>
+        {/each}
+      {/if}
     {/each}
   </nav>
 
@@ -131,7 +168,7 @@
       {:else if current.kind === "cries"}
         <CryBrowser />
       {:else if current.kind === "files"}
-        <FilesBrowser {version} />
+        <FilesBrowser {version} onGo={openAt} />
       {:else}
         <TableEditor tables={current.tables} {readOnly} {version} {start} onSaved={saved} />
       {/if}
@@ -174,6 +211,8 @@
   }
   .right {
     display: flex;
+    align-items: center;
+    flex: none;
     gap: 0.5rem;
   }
   .sidebar {
@@ -188,7 +227,37 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--faint);
-    margin: 0.9rem 0.6rem 0.3rem;
+    margin: 0.9rem 0 0.3rem;
+  }
+  .fold {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.15rem 0.6rem;
+    border: 2px solid transparent;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+  }
+  .fold:hover {
+    color: var(--ink);
+  }
+  .caret {
+    width: 0;
+    height: 0;
+    border-left: 5px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    opacity: 0.7;
+    transition: transform 0.12s;
+  }
+  .caret.open {
+    transform: rotate(90deg);
   }
   .sidebar h3:first-child {
     margin-top: 0.2rem;

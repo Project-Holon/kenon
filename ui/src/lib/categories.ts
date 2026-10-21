@@ -20,10 +20,9 @@ export const GROUPS: Group[] = [
   {
     label: "Pokemon",
     items: [
-      { id: "species", label: "Stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions"] },
-      { id: "battle-sprites", label: "Battle sprites", kind: "graphics", archive: 4 },
-      { id: "battle-scenes", label: "Battle backgrounds", kind: "textures", archive: 11, noun: "Model" },
-      { id: "pokemon-icons", label: "Icons", kind: "graphics", archive: 7 },
+      { id: "species", label: "Pokemon stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions"] },
+      { id: "battle-sprites", label: "Pokemon battle sprites", kind: "graphics", archive: 4 },
+      { id: "pokemon-icons", label: "Pokemon icons", kind: "graphics", archive: 7 },
     ],
   },
   {
@@ -39,14 +38,24 @@ export const GROUPS: Group[] = [
     items: [
       { id: "world-map", label: "World map", kind: "worldmap" },
       { id: "trainers", label: "Trainers", kind: "table", tables: ["trainers", "trainerParties"] },
-      { id: "trainer-sprites", label: "Trainer sprites", kind: "graphics", archive: 72 },
+      { id: "trainer-sprites", label: "Trainer sprites (front)", kind: "graphics", archive: 72 },
+      { id: "trainer-sprites-back", label: "Trainer sprites (back)", kind: "graphics", archive: 73 },
       { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },
+    ],
+  },
+  {
+    label: "Battle",
+    items: [
+      { id: "battle-scenes", label: "Battle backgrounds", kind: "textures", archive: 11, noun: "Model" },
+      { id: "battle-effects", label: "Battle effects", kind: "graphics", archive: 95 },
+      { id: "battle-bag", label: "Battle bag", kind: "graphics", archive: 99 },
+      { id: "battle-party", label: "Battle party list", kind: "graphics", archive: 100 },
     ],
   },
   {
     // The overworld is 3D: these are the textures of its models
     // (docs/game-data-map.md, core/src/archives.json).
-    label: "Overworld",
+    label: "Overworld textures",
     items: [
       { id: "map-textures", label: "Map ground textures", kind: "textures", archive: 14, noun: "Area" },
       { id: "building-out", label: "Building textures (outside)", kind: "textures", archive: 176, noun: "Set" },
@@ -56,7 +65,7 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    label: "Interface",
+    label: "Menus and screens",
     items: [
       { id: "ui-common", label: "Menu sprites", kind: "graphics", archive: 83 },
       { id: "ui-frames", label: "Windows and frames", kind: "graphics", archive: 5 },
@@ -67,7 +76,15 @@ export const GROUPS: Group[] = [
       { id: "ui-cgear", label: "C-Gear skins", kind: "graphics", archive: 30 },
       { id: "ui-fieldmenu", label: "Field menu", kind: "graphics", archive: 71 },
       { id: "ui-box", label: "Pokemon box", kind: "graphics", archive: 116 },
-      { id: "all-graphics", label: "All graphics", kind: "graphics", archive: null },
+      { id: "ui-title", label: "Title and credits", kind: "graphics", archive: 26 },
+      { id: "ui-startmenu", label: "Start menu", kind: "graphics", archive: 35 },
+      { id: "ui-party", label: "Party list", kind: "graphics", archive: 76 },
+      { id: "ui-trainercard", label: "Trainer card", kind: "graphics", archive: 40 },
+      { id: "ui-shop", label: "Shop", kind: "graphics", archive: 54 },
+      { id: "ui-nameentry", label: "Name entry", kind: "graphics", archive: 118 },
+      { id: "ui-mail", label: "Mail", kind: "graphics", archive: 155 },
+      { id: "ui-townmap", label: "Town map pictures", kind: "graphics", archive: 85 },
+      { id: "ui-weather", label: "Weather effects", kind: "graphics", archive: 56 },
     ],
   },
   {
@@ -82,13 +99,17 @@ export const GROUPS: Group[] = [
   {
     label: "Text",
     items: [
-      { id: "text-system", label: "Menus and names", kind: "text", archive: 2 },
+      { id: "text-system", label: "Names and system text", kind: "text", archive: 2 },
       { id: "text-story", label: "Story and dialogue", kind: "text", archive: 3 },
     ],
   },
   {
-    label: "Files",
-    items: [{ id: "files", label: "All archives", kind: "files" }],
+    // Every archive of the game, for what the lists above do not cover.
+    label: "Everything else",
+    items: [
+      { id: "all-graphics", label: "All pictures", kind: "graphics", archive: null },
+      { id: "files", label: "All game files", kind: "files" },
+    ],
   },
 ];
 

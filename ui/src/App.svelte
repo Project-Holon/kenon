@@ -21,11 +21,19 @@
     enableSfx(isReady(next));
   }
 
-  onMount(async () => update(await appStatus()));
+  let failure = $state<string | null>(null);
+
+  onMount(async () => {
+    try {
+      update(await appStatus());
+    } catch (e) {
+      failure = String(e);
+    }
+  });
 </script>
 
 {#if status === null}
-  <div class="loading muted">Loading...</div>
+  <div class="loading" class:muted={!failure} class:bad={!!failure}>{failure ?? "Loading..."}</div>
 {:else if screen === "start"}
   <Start
     {status}

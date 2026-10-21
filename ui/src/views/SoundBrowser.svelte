@@ -10,20 +10,27 @@
   let filter = $state("");
   let playing = $state<number | null>(null);
   let loading = $state<number | null>(null);
+  let loaded = $state(false);
   let error = $state<string | null>(null);
   let audio: HTMLAudioElement | null = null;
 
   onMount(() => {
     sounds()
       .then((all) => (list = all.filter((s) => s.group === group)))
-      .catch((e) => (error = String(e)));
+      .catch((e) => (error = String(e)))
+      .finally(() => (loaded = true));
     return () => audio?.pause();
   });
+
+  // What the list holds, for the search box.
+  const noun = $derived(group === "music" ? "songs" : group === "jingle" ? "jingles" : "sound effects");
 
   const query = debounced(() => filter);
   const shown = $derived.by(() => {
     const q = query.value.trim().toLowerCase();
-    return q ? list.filter((s) => s.name.toLowerCase().includes(q) || String(s.index) === q) : list;
+    return q
+      ? list.filter((s) => s.name.toLowerCase().includes(q) || pretty(s.name).toLowerCase().includes(q) || String(s.index) === q)
+      : list;
   });
 
   // "SEQ_BGM_E_ROUTE1" reads as "E route1".
@@ -36,28 +43,37 @@
 
   function toggle(s: SoundInfo) {
     audio?.pause();
+    // Cleared first, so the interrupted play() below reads as stopped.
+    audio = null;
+    loading = null;
     if (playing === s.index) {
       playing = null;
       return;
     }
+    error = null;
     loading = s.index;
     // Music loops: render a minute of it.
-    audio = new Audio(asset(`sound/${s.index}?seconds=${group === "music" ? 60 : 10}`));
-    audio.oncanplay = () => (loading = null);
-    audio.onended = () => (playing = null);
-    audio.onerror = () => {
+    const a = new Audio(asset(`sound/${s.index}?seconds=${group === "music" ? 60 : 10}`));
+    audio = a;
+    // A clip that was stopped must not touch the state of the next one.
+    a.oncanplay = () => audio === a && (loading = null);
+    a.onended = () => audio === a && (playing = null);
+    const fail = () => {
+      if (audio !== a) return;
       loading = null;
       playing = null;
-      error = `${s.name} could not be played.`;
+      error = `${pretty(s.name)} could not be played.`;
     };
+    a.onerror = fail;
     playing = s.index;
-    audio.play().catch(() => {});
+    a.play().catch(fail);
   }
 </script>
 
 <div class="sounds">
   <div class="head">
-    <input class="search" placeholder="Search {list.length} sounds" bind:value={filter} />
+    <input class="search" placeholder={loaded ? `Search ${list.length} ${noun}` : "Search"} bind:value={filter} />
+    {#if group === "music"}<span class="muted">Plays the first minute.</span>{/if}
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
@@ -69,11 +85,11 @@
           </button>
           <span class="label">{pretty(s.name)}</span>
           <code class="muted name">{s.name}</code>
-          <span class="tag">#{s.index}</span>
+          <span class="tag" title="Sound number">#{s.index}</span>
         </div>
       {/snippet}
       {#snippet empty()}
-        <p class="muted pad">{list.length ? "Nothing matches." : "Loading..."}</p>
+        <p class="muted pad">{!loaded ? "Loading..." : list.length ? "Nothing matches." : "Nothing here."}</p>
       {/snippet}
     </VirtualList>
   </div>
@@ -81,8 +97,8 @@
 
 <style>
   .sounds {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     height: 100%;
   }
   .head {
@@ -97,6 +113,7 @@
     width: min(22rem, 100%);
   }
   .scroll {
+    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;

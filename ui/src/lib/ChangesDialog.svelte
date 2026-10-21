@@ -38,7 +38,13 @@
   let list = $state<ChangeInfo[] | null>(null);
   let error = $state<string | null>(null);
   let busy = $state(false);
-  let closed = $state<Record<string, boolean>>({});
+  // Open or shut by the user; untouched entries follow `OPEN_FIRST`.
+  let toggled = $state<Record<string, boolean>>({});
+  // Pictures load when an entry opens: only the first few start open, and
+  // the list grows by pages.
+  const OPEN_FIRST = 5;
+  const PAGE = 100;
+  let limit = $state(PAGE);
   let confirmAll = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
   // Defeats the webview's image cache: a picture can change between opens.
@@ -78,9 +84,10 @@
 
   const groups = $derived.by(() => {
     const out = new Map<string, ChangeInfo[]>();
-    for (const c of list ?? []) out.set(c.category, [...(out.get(c.category) ?? []), c]);
+    for (const c of (list ?? []).slice(0, limit)) out.set(c.category, [...(out.get(c.category) ?? []), c]);
     return [...out];
   });
+  const position = $derived(new Map((list ?? []).map((c, i) => [c.path, i])));
 
   const withStamp = (path: string) => `${path}${path.includes("?") ? "&" : "?"}v=${stamp}`;
 
@@ -131,22 +138,22 @@
   onclick={(e) => {
     if (e.target === dialog) dialog?.close();
   }}
-  aria-label="Changes"
+  aria-label="Your changes"
 >
   <header>
-    <h2>Changes</h2>
+    <h2>Your changes</h2>
     <span class="muted">{list ? `${list.length} change${list.length === 1 ? "" : "s"}` : ""}</span>
     <div class="spacer"></div>
     {#if list?.length}
       {#if confirmAll}
-        <span>Undo every change?</span>
+        <span>Put back the game's version everywhere?</span>
         <button class="danger" disabled={busy} onclick={() => undo(list!.map((c) => c.path))}>Undo all</button>
         <button onclick={() => (confirmAll = false)}>Keep</button>
       {:else}
         <button onclick={() => (confirmAll = true)}>Undo all</button>
       {/if}
     {/if}
-    <button onclick={() => dialog?.close()} aria-label="Close">Close</button>
+    <button onclick={() => dialog?.close()}>Close</button>
   </header>
 
   {#if error}<p class="bad pad">{error}</p>{/if}
@@ -155,20 +162,20 @@
     {#if list === null}
       <p class="muted">Loading...</p>
     {:else if !list.length}
-      <p class="muted">No changes.</p>
+      <p class="muted">No changes yet. What you save in an editor is listed here.</p>
     {:else}
       {#each groups as [category, items]}
         <section>
           <h3>{category} <span class="muted">{items.length}</span></h3>
           {#each items as c (c.path)}
-            {@const open = !closed[c.path]}
+            {@const open = toggled[c.path] ?? (position.get(c.path) ?? 0) < OPEN_FIRST}
             <article class="change">
               <div class="row">
-                <button class="title quiet" onclick={() => (closed[c.path] = open)} aria-expanded={open} title={c.path}>
+                <button class="title quiet" onclick={() => (toggled[c.path] = !open)} aria-expanded={open} title={c.path}>
                   <span class="caret" class:open></span>
                   <strong>{c.title}</strong>
                 </button>
-                <button disabled={busy} onclick={() => undo([c.path])}>Undo</button>
+                <button disabled={busy} onclick={() => undo([c.path])} title="Put back the game's version">Undo</button>
               </div>
               {#if open}
                 {#if c.preview}
@@ -228,6 +235,9 @@
           {/each}
         </section>
       {/each}
+      {#if list.length > limit}
+        <button class="more" onclick={() => (limit += PAGE)}>Show more ({list.length - limit} left)</button>
+      {/if}
     {/if}
   </div>
 </dialog>
@@ -263,6 +273,14 @@
   }
   .spacer {
     flex: 1;
+  }
+  .pad {
+    padding: 0.5rem 1rem 0;
+    margin: 0;
+  }
+  .more {
+    display: block;
+    margin: 0.5rem auto 0;
   }
   .body {
     overflow-y: auto;

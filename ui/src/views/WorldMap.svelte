@@ -5,6 +5,8 @@
   import { once } from "../lib/cache.svelte";
   import { tableEntries, type Entry } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import { loadIcons, trainerIcon } from "../lib/icons.svelte";
+  import SearchSelect from "../lib/SearchSelect.svelte";
   import ZoneEditor from "./ZoneEditor.svelte";
 
   // Unova as the game's Town Map draws it, with its cities, routes and
@@ -39,7 +41,13 @@
   let hover = $state<Spot | null>(null);
   let zones = $state<Zone[]>([]);
   let trainerNames = $state<Entry[]>([]);
-  let scale = $state(3);
+  // The largest whole scale that fits the pane, unless the user zoomed.
+  let fit = $state(3);
+  let zoom = $state<number | null>(null);
+  const scale = $derived(zoom ?? fit);
+  let placeError = $state<string | null>(null);
+  let loadingPlace = $state(false);
+  let playingSeq = $state<number | null>(null);
   let frame = $state<HTMLElement | null>(null);
   let error = $state<string | null>(null);
   // The map open in the editor, with the place's other maps.
@@ -47,6 +55,7 @@
   let audio: HTMLAudioElement | null = null;
 
   onMount(() => {
+    loadIcons();
     once("spots", () => invoke<Spot[]>("map_spots"))
       .then((s) => (spots = s))
       .catch((e) => (error = String(e)));
@@ -54,35 +63,91 @@
     return () => audio?.pause();
   });
 
-  // The largest whole scale that fits the pane.
   $effect(() => {
     if (!frame) return;
+    const el = frame;
     const observer = new ResizeObserver(() => {
-      scale = Math.max(1, Math.min(5, Math.floor((frame!.clientWidth - 16) / WIDTH)));
+      const byWidth = Math.floor((el.clientWidth - 32) / WIDTH);
+      const byHeight = Math.floor((el.clientHeight - 16) / HEIGHT);
+      fit = Math.max(1, Math.min(5, byWidth, byHeight));
     });
-    observer.observe(frame);
-    return () => observer.disconnect();
+    observer.observe(el);
+    // Ctrl+wheel zooms; the listener must not be passive to stop the
+    // page from zooming too.
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const next = Math.max(1, Math.min(8, scale + (e.deltaY < 0 ? 1 : -1)));
+      zoom = next === fit ? null : next;
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("wheel", wheel);
+    };
   });
 
+  // Middle-drag pans a zoomed map.
+  function pan(e: PointerEvent) {
+    if (e.button !== 1 || !frame) return;
+    e.preventDefault();
+    const el = frame;
+    let x = e.clientX;
+    let y = e.clientY;
+    const move = (m: PointerEvent) => {
+      el.scrollLeft -= m.clientX - x;
+      el.scrollTop -= m.clientY - y;
+      x = m.clientX;
+      y = m.clientY;
+    };
+    const stop = () => {
+      removeEventListener("pointermove", move);
+      removeEventListener("pointerup", stop);
+    };
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", stop);
+  }
+
   async function choose(spot: Spot) {
+    if (loadingPlace) return;
     play("decide");
     selected = spot;
     zones = [];
-    zones = await invoke<Zone[]>("map_place", { zone: spot.zone });
-    edit(spot.zone);
+    placeError = null;
+    loadingPlace = true;
+    try {
+      zones = await invoke<Zone[]>("map_place", { zone: spot.zone });
+      edit(spot.zone);
+    } catch (e) {
+      placeError = String(e);
+    } finally {
+      loadingPlace = false;
+    }
   }
 
   function edit(zone: number) {
+    stopMusic();
     editing = {
       zone,
       zones: zones.map((z, i) => ({ id: z.id, label: i === 0 ? z.place : `${z.place} (map ${z.id})` })),
     };
   }
 
-  function playMusic(seq: number) {
+  function stopMusic() {
     audio?.pause();
-    audio = new Audio(asset(`sound/${seq}?seconds=60`));
-    audio.play().catch(() => {});
+    audio = null;
+    playingSeq = null;
+  }
+
+  function playMusic(seq: number) {
+    const again = playingSeq === seq;
+    stopMusic();
+    if (again) return;
+    const a = new Audio(asset(`sound/${seq}?seconds=60`));
+    audio = a;
+    playingSeq = seq;
+    a.onended = () => audio === a && stopMusic();
+    a.play().catch(() => audio === a && stopMusic());
   }
 
   const name = (id: number) => trainerNames[id]?.name ?? `Trainer ${id}`;
@@ -99,10 +164,28 @@
   />
 {:else}
 <div class="world">
-  <section class="map" bind:this={frame}>
+  <section class="map">
     {#if error}
       <p class="bad pad">{error}</p>
-    {:else}
+    {/if}
+    {#if placeError}<p class="bad pad">{placeError}</p>{/if}
+    {#if spots.length}
+      <div class="find">
+        <SearchSelect
+          value={selected?.zone ?? -1}
+          label="Find a place"
+          options={[[-1, "Find a place..."], ...spots.map((s): [number, string] => [s.zone, s.place])]}
+          onchange={(z) => {
+            const s = spots.find((x) => x.zone === z);
+            if (s) choose(s);
+          }}
+        />
+        <span class="muted">Click a place to edit its maps. Ctrl+wheel zooms, middle-drag moves.</span>
+      </div>
+    {/if}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="viewport" bind:this={frame} onpointerdown={pan}>
+    {#if !error}
       <div class="canvas" style="width: {WIDTH * scale}px; height: {HEIGHT * scale}px">
         <img class="px" src={asset("townmap")} alt="Unova" style="width: {WIDTH * scale}px" />
         {#each spots as s (s.zone)}
@@ -113,36 +196,39 @@
             aria-label={s.place}
             onmouseenter={() => (hover = s)}
             onmouseleave={() => (hover = null)}
+            onfocus={() => (hover = s)}
+            onblur={() => (hover = null)}
             onclick={() => choose(s)}
           ></button>
         {/each}
         {#if hover}
-          <span class="label window" style="left: {hover.x * scale}px; top: {hover.y * scale}px">{hover.place}</span>
+          <span class="label window" class:below={hover.y * scale < 36} style="left: {hover.x * scale}px; top: {hover.y * scale}px">{hover.place}</span>
         {/if}
       </div>
     {/if}
+    </div>
   </section>
 
   <aside class="details">
     {#if !selected}
-      <p class="muted pad">Choose a city, route or place.</p>
+      <p class="muted pad">Pick a city, route or place on the map.</p>
     {:else}
       <div class="head">
         <h2>{selected.place}</h2>
         <span class="tag">{selected.kind}</span>
-        {#if selected.fly}<span class="tag">fly</span>{/if}
+        {#if selected.fly}<span class="tag" title="You can fly here">fly spot</span>{/if}
       </div>
       <div class="zones">
         {#each zones as z (z.id)}
           <div class="window zone">
             <div class="zone-head">
               <strong>Map {z.id}</strong>
-              <button class="quiet" onclick={() => edit(z.id)}>Edit</button>
+              <button class="quiet" onclick={() => edit(z.id)}>Edit map</button>
               {#if z.encounters !== null}
                 <button class="quiet" onclick={() => onOpen("encounters", z.encounters!)}>Wild encounters</button>
               {/if}
               {#if z.music[0]}
-                <button class="quiet" onclick={() => playMusic(z.music[0])}>Music</button>
+                <button class="quiet" onclick={() => playMusic(z.music[0])}>{playingSeq === z.music[0] ? "Stop music" : "Play music"}</button>
               {/if}
             </div>
             {#if z.trainers.length}
@@ -150,6 +236,7 @@
                 {#each z.trainers as [id, tile]}
                   <li>
                     <button class="row-item" onclick={() => onOpen("trainers", id)}>
+                      {#if trainerIcon(id)}<img class="px icon" src={trainerIcon(id)} alt="" />{/if}
                       <span class="label">{name(id)}</span>
                       {#if tile}<span class="muted">{tile[0]}, {tile[1]}</span>{/if}
                     </button>
@@ -159,7 +246,7 @@
             {/if}
           </div>
         {:else}
-          <p class="muted pad">Loading...</p>
+          <p class="muted pad">{loadingPlace ? "Loading..." : "No maps."}</p>
         {/each}
       </div>
     {/if}
@@ -175,16 +262,32 @@
   }
   .map {
     min-width: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 1rem;
+    min-height: 0;
+    padding: 1rem 0 0;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .viewport {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    padding: 0 1rem 1rem;
+  }
+  .find {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+    width: min(100%, 48rem);
   }
   .canvas {
     position: relative;
     flex: none;
+    margin: 0 auto;
     border: 2px solid var(--outline);
     border-radius: var(--radius-s);
     overflow: hidden;
@@ -216,6 +319,14 @@
     font-weight: 600;
     white-space: nowrap;
     pointer-events: none;
+  }
+  .label.below {
+    transform: translate(-50%, 60%);
+  }
+  .icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
   }
   .details {
     border-left: 2px solid var(--outline);

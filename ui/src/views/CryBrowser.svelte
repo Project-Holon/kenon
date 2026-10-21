@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { asset } from "../lib/backend";
   import { tableEntries, type Entry } from "../lib/tables";
+  import { loadIcons, speciesIcon } from "../lib/icons.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { debounced } from "../lib/cache.svelte";
@@ -9,15 +10,18 @@
   // Cries are one wave each, wave archive n for species n (names from the
   // ROM's species table).
   let list = $state<Entry[]>([]);
+  let loaded = $state(false);
   let filter = $state("");
   let playing = $state<number | null>(null);
   let error = $state<string | null>(null);
   let audio: HTMLAudioElement | null = null;
 
   onMount(() => {
+    loadIcons();
     tableEntries("species")
       .then((all) => (list = all.filter((e) => e.index >= 1 && e.index <= 649)))
-      .catch((e) => (error = String(e)));
+      .catch((e) => (error = String(e)))
+      .finally(() => (loaded = true));
     return () => audio?.pause();
   });
 
@@ -29,24 +33,31 @@
 
   function play(e: Entry) {
     audio?.pause();
+    // Cleared first, so the interrupted play() below reads as stopped.
+    audio = null;
     if (playing === e.index) {
       playing = null;
       return;
     }
-    audio = new Audio(asset(`cry/${e.index}`));
-    audio.onended = () => (playing = null);
-    audio.onerror = () => {
+    error = null;
+    const a = new Audio(asset(`cry/${e.index}`));
+    audio = a;
+    // A cry that was stopped must not touch the state of the next one.
+    a.onended = () => audio === a && (playing = null);
+    const fail = () => {
+      if (audio !== a) return;
       playing = null;
       error = `The cry of ${e.name} could not be played.`;
     };
+    a.onerror = fail;
     playing = e.index;
-    audio.play().catch(() => {});
+    a.play().catch(fail);
   }
 </script>
 
 <div class="cries">
   <div class="head">
-    <input class="search" placeholder="Search {list.length} cries" bind:value={filter} />
+    <input class="search" placeholder={loaded ? `Search ${list.length} cries` : "Search"} bind:value={filter} />
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
   <div class="scroll">
@@ -54,13 +65,13 @@
       {#snippet row(e)}
         <div class="row-item" aria-current={playing === e.index}>
           <button class="play" onclick={() => play(e)}>{playing === e.index ? "Stop" : "Play"}</button>
-          <span class="icon"><Thumb src={asset(`preview/7:${7 + 2 * e.index}/7:0?cells=2`)} /></span>
+          <span class="icon"><Thumb src={speciesIcon(e.index) ?? ""} /></span>
           <span class="label">{e.name}</span>
-          <span class="tag">#{e.index}</span>
+          <span class="tag" title="Pokedex number">#{e.index}</span>
         </div>
       {/snippet}
       {#snippet empty()}
-        <p class="muted pad">{list.length ? "Nothing matches." : "Loading..."}</p>
+        <p class="muted pad">{!loaded ? "Loading..." : list.length ? "Nothing matches." : "Nothing here."}</p>
       {/snippet}
     </VirtualList>
   </div>
@@ -68,8 +79,8 @@
 
 <style>
   .cries {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     height: 100%;
   }
   .head {
@@ -84,6 +95,7 @@
     width: min(22rem, 100%);
   }
   .scroll {
+    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
