@@ -7,11 +7,14 @@
 
   // Plays a battle picture's rig: its parts move as in battle. Frames are
   // made by the back end once and loaded here in order.
+  import type { Snippet } from "svelte";
+
   let {
     path,
     label = "Battle animation",
     onFrame,
-  }: { path: string; label?: string; onFrame?: (frame: number) => void } = $props();
+    children,
+  }: { path: string; label?: string; onFrame?: (frame: number) => void; children?: Snippet } = $props();
 
   interface Info {
     frames: number;
@@ -24,7 +27,7 @@
   let urls = $state<string[]>([]);
   let frame = $state(0);
   let playing = $state(true);
-  let scale = $state(2);
+  let scale = $state(1);
   let error = $state<string | null>(null);
 
   onMount(() => {
@@ -67,28 +70,23 @@
   <p class="muted pad">No battle animation.</p>
 {:else if info}
   <div class="player">
-    <div class="frame window" style="width: {info.width * scale + 16}px; height: {info.height * scale + 16}px">
+    <div class="frame" style="width: {info.width * scale}px; height: {info.height * scale}px">
       {#if urls[Math.min(frame, urls.length - 1)]}
         <img class="px" src={urls[Math.min(frame, urls.length - 1)]} alt={label} style="width: {info.width * scale}px" />
       {/if}
     </div>
-    <div class="controls">
-      <strong>{label}</strong>
-      {#if info.frames > 1}
-        <div class="buttons">
-          <button onclick={() => step(-1)}>Prev</button>
-          <button class="primary" onclick={() => ((playing = !playing), sfx("select"))}>{playing ? "Pause" : "Play"}</button>
-          <button onclick={() => step(1)}>Next</button>
-        </div>
-        <span class="muted">
-          {urls.length < info.frames ? `Loading ${urls.length} / ${info.frames}` : `Frame ${frame + 1} / ${info.frames}`}
-        </span>
-      {/if}
-      <label>
-        <span class="muted">Size</span>
-        <input type="range" min="1" max="4" bind:value={scale} />
-      </label>
-    </div>
+    {#if info.frames > 1}
+      <div class="buttons">
+        <button onclick={() => step(-1)} aria-label="Previous frame">Prev</button>
+        <button class="primary" onclick={() => ((playing = !playing), sfx("select"))}>{playing ? "Pause" : "Play"}</button>
+        <button onclick={() => step(1)} aria-label="Next frame">Next</button>
+      </div>
+      <span class="muted count">
+        {urls.length < info.frames ? `${urls.length}/${info.frames}` : `${frame + 1}/${info.frames}`}
+      </span>
+    {/if}
+    <input class="size" type="range" min="1" max="3" bind:value={scale} aria-label="Size" />
+    {@render children?.()}
   </div>
 {/if}
 
@@ -97,35 +95,36 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    padding: 0.6rem 0.9rem;
+    gap: 0.6rem;
+    padding: 0.35rem 0.9rem;
     border-bottom: 2px solid var(--outline);
   }
   .frame {
     display: grid;
     place-items: center;
+    max-height: 96px;
+    overflow: hidden;
     background: var(--bg);
-    max-width: 100%;
+    border-radius: var(--radius-s);
   }
   .frame img {
     display: block;
-    max-width: 100%;
-  }
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .controls label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
   }
   .buttons {
     display: flex;
     gap: 0.25rem;
   }
+  .buttons button {
+    padding: 0.2rem 0.6rem;
+  }
+  .count {
+    font-variant-numeric: tabular-nums;
+    min-width: 3.5rem;
+  }
+  .size {
+    width: 5rem;
+  }
   .pad {
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 1rem;
   }
 </style>

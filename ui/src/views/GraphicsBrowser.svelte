@@ -209,13 +209,13 @@
           <RigPlayer
             path={`${arc}:${big}/${arc}:${pal[1]}/${arc}:${cer}/${arc}:${anr}/${arc}:${mcr}`}
             onFrame={(f) => (rigFrameIndex = f)}
-          />
+          >
+            <div class="mode" role="radiogroup" aria-label="Edit">
+              <button class:primary={editMode === "picture"} onclick={() => ((editMode = "picture"), play("select"))}>Picture</button>
+              <button class:primary={editMode === "animation"} onclick={() => ((editMode = "animation"), play("select"))}>Animation</button>
+            </div>
+          </RigPlayer>
         {/key}
-        <div class="mode" role="radiogroup" aria-label="Edit">
-          <span class="muted">Edit</span>
-          <button class:primary={editMode === "picture"} onclick={() => ((editMode = "picture"), play("select"))}>Picture</button>
-          <button class:primary={editMode === "animation"} onclick={() => ((editMode = "animation"), play("select"))}>Animation</button>
-        </div>
       {/if}
       {#key `${chr.join(":")}/${pal.join(":")}/${version}/${editMode}`}
         {@const rig = editMode === "animation" && selected.rig && arc !== null ? selected.rig : null}
@@ -287,26 +287,29 @@
   }
   .mode {
     display: flex;
-    align-items: center;
     gap: 0.25rem;
-    padding: 0.4rem 0.9rem;
-    border-bottom: 2px solid var(--outline);
+    margin-left: auto;
+  }
+  .mode button {
+    padding: 0.2rem 0.7rem;
   }
   .screen-view {
     display: flex;
     align-items: flex-end;
     gap: 1rem;
-    margin: 0.6rem 0.9rem;
-    padding: 0.6rem;
+    margin: 0.4rem 0.9rem;
+    padding: 0.4rem;
   }
   .screen-view img {
-    max-width: min(512px, 60%);
-    width: 512px;
-    height: auto;
+    height: 128px;
+    width: auto;
+    max-width: 60%;
+    object-fit: contain;
     background: var(--bg);
   }
   .editor > :global(.pixel-editor) {
     flex: 1;
     min-height: 0;
+    height: auto;
   }
 </style>

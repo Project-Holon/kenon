@@ -428,13 +428,15 @@
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
   .toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0.9rem;
+    gap: 0.6rem;
+    padding: 0.35rem 0.9rem;
     border-bottom: 2px solid var(--outline);
   }
   .toolbar label,
@@ -446,6 +448,9 @@
   .group {
     display: flex;
     gap: 0.25rem;
+  }
+  .toolbar button {
+    padding: 0.2rem 0.7rem;
   }
   .num {
     width: 4.5rem;
