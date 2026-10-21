@@ -36,6 +36,14 @@
 //! rigframe/{sheet}/{pal}/{cer}/{anr}/{mcr}/{i}  one frame of it as PNG
 //! townmap                                  the Town Map picture (terrain with
 //!                                          the routes drawn over it)
+//! maprender/{zone}                         the zone's map as the game draws it,
+//!                                          from above, tile (x, z) at pixels
+//!                                          [x*px, (x+1)*px) by [z*px, (z+1)*px);
+//!                                          `?px=N` (default 16), `?buildings=0`
+//! maprender/{zone}/info                    JSON: image size and the tile mapping
+//!                                          (matches `zonemap::zone_map`)
+//! maprender/{zone}?view=camera&x=&z=       the field camera's view around tile
+//!                                          (x, z): `w`, `h` (512x384), `cam`
 //! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
@@ -525,6 +533,45 @@ impl Bridge {
                     .get(number(6)?)
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
                 Ok(png(frame.clone()))
+            }
+            Some("maprender") if parts.len() == 2 || parts.len() == 3 => {
+                // A zone's map as the game draws it (see `maprender`).
+                let zone = number(1)?;
+                let flag = |key: &str| {
+                    query
+                        .split('&')
+                        .find_map(|q| q.strip_prefix(key)?.strip_prefix('='))
+                };
+                let float = |key: &str| flag(key).and_then(|v| v.parse::<f32>().ok());
+                let px = query_number("px").unwrap_or(16).clamp(1, 64);
+                let buildings = flag("buildings") != Some("0");
+                if parts.get(2) == Some(&"info") {
+                    let layout = crate::maprender::info(self, zone, px)?;
+                    return Ok(json(
+                        serde_json::to_string(&layout).map_err(|e| Error::Format(e.to_string()))?,
+                    ));
+                }
+                if parts.len() == 3 {
+                    return Err(Error::BadPath(path.to_string()));
+                }
+                if flag("view") == Some("camera") {
+                    let opts = crate::maprender::CameraOptions {
+                        x: float("x").unwrap_or(0.0),
+                        z: float("z").unwrap_or(0.0),
+                        width: query_number("w").unwrap_or(512),
+                        height: query_number("h").unwrap_or(384),
+                        setting: query_number("cam"),
+                        buildings,
+                        supersample: query_number("ss").unwrap_or(0),
+                    };
+                    return Ok(png(crate::maprender::render_camera(self, zone, &opts)?));
+                }
+                let opts = crate::maprender::Options {
+                    px,
+                    buildings,
+                    supersample: query_number("ss").unwrap_or(0),
+                };
+                Ok(png(crate::maprender::render(self, zone, &opts)?.image))
             }
             Some("townmap") => {
                 // The Town Map screen's two layers (townmap_grh.c): terrain

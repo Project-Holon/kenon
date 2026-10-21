@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
-  import { asset, sounds, type SoundInfo } from "../lib/backend";
+  import { asset, saveTextBank, sounds, textBank, type SoundInfo } from "../lib/backend";
   import { tableEntries, type Entry, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
   import { once } from "../lib/cache.svelte";
@@ -48,6 +48,29 @@
     terrain: number[];
     flags: number[];
     events: MapEvent[];
+  }
+  interface MessageRef {
+    bank: number;
+    id: number;
+    text: string;
+  }
+  interface ScriptInfo {
+    id: number;
+    messages: MessageRef[];
+    trainers: number[];
+    items: { item: number; count: number }[];
+    gifts: { species: number; level: number }[];
+    flagsSet: number[];
+    flagsCleared: number[];
+    warps: { zone: number; x: number | null; z: number | null }[];
+    music: number[];
+    complete: boolean;
+  }
+  interface EventScript {
+    kind: Kind;
+    index: number;
+    scriptId: number | null;
+    script: ScriptInfo | null;
   }
   type Pt = { x: number; z: number };
   type Rect = { x: number; z: number; w: number; h: number };
@@ -106,6 +129,7 @@
   let grid = $state(true);
   let look = $state<"game" | "tiles">("game");
   let renderOk = $state(true);
+  let preview = $state(false);
   let undo = $state<Step[]>([]);
   let edits = $state<Record<string, number>>({});
   let trainers = $state<Entry[]>([]);
@@ -116,6 +140,10 @@
   // Object code -> its billboard texture member, for drawing people.
   let objTex = $state<(number | null)[]>([]);
   let spritePicker = $state(false);
+  // What each event says and does, and text being edited (bank:id -> text).
+  let scripts = $state<EventScript[]>([]);
+  let lines = $state<Record<string, string>>({});
+  let species = $state<Entry[]>([]);
   let error = $state<string | null>(null);
   let busy = $state(false);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -149,8 +177,46 @@
       picked = keep ? (map.events.find((e) => e.kind === keep.kind && e.index === keep.index) ?? null) : null;
       edits = {};
       if (!keepView) requestAnimationFrame(fit);
+      loadScripts();
     } catch (e) {
       error = String(e);
+    }
+  }
+
+  async function loadScripts() {
+    try {
+      scripts = await invoke<EventScript[]>("event_scripts", { zone: current });
+    } catch {
+      scripts = [];
+    }
+  }
+
+  // Text in the editor's form: real line breaks instead of "\n" escapes.
+  function toEdit(text: string): string {
+    return text.replace(/\\(.)/g, (m, c) => (c === "n" ? "\n" : m));
+  }
+  function fromEdit(text: string): string {
+    return text.replace(/\r?\n/g, "\\n");
+  }
+
+  async function saveLine(m: MessageRef) {
+    const key = `${m.bank}:${m.id}`;
+    const text = lines[key];
+    if (text === undefined) return;
+    busy = true;
+    try {
+      const strings = await textBank(3, m.bank);
+      strings[m.id] = fromEdit(text);
+      await saveTextBank(3, m.bank, strings);
+      delete lines[key];
+      play("save");
+      onSaved();
+      await loadScripts();
+    } catch (err) {
+      error = String(err);
+      play("cancel");
+    } finally {
+      busy = false;
     }
   }
 
@@ -158,6 +224,7 @@
     load(false);
     tableEntries("trainers").then((t) => (trainers = t)).catch(() => {});
     tableEntries("items").then((t) => (items = t)).catch(() => {});
+    tableEntries("species").then((t) => (species = t)).catch(() => {});
     invoke<ZoneInfo[]>("zones").then((z) => (allZones = z)).catch(() => {});
     once("objtex", () => invoke<(number | null)[]>("object_textures"))
       .then((t) => (objTex = t))
@@ -833,9 +900,32 @@
     if (tex === null || tex === undefined) return null;
     return asset(`texture/49:${tex}/0/${[0, 3, 6, 9][dir] ?? 3}`);
   }
+  const scriptOf = (ev: MapEvent) =>
+    ev.trainer !== null ? null : (scripts.find((s) => s.kind === ev.kind && s.index === ev.index)?.script ?? null);
+  // A message once, even when several paths of a script show it.
+  const uniqueMessages = (sc: ScriptInfo) => sc.messages.filter((m, i, all) => all.findIndex((n) => n.bank === m.bank && n.id === m.id) === i);
   const eventIcon = (ev: MapEvent) =>
     ev.trainer !== null ? "T" : ev.kind === "npc" ? "P" : ev.kind === "warp" ? "W" : ev.kind === "pos" ? "" : isItem(ev) ? "I" : "S";
 
+  // The spot the preview looks at: the selected thing, the selection, else
+  // the middle of the view.
+  const focus = $derived.by(() => {
+    if (picked) return { x: picked.x, z: picked.z };
+    if (sel) return { x: sel.x + Math.floor(sel.w / 2), z: sel.z + Math.floor(sel.h / 2) };
+    if (!map || !stage) return { x: 0, z: 0 };
+    return {
+      x: Math.max(0, Math.min(map.width - 1, Math.floor((stage.clientWidth / 2 - pan.x) / scale))),
+      z: Math.max(0, Math.min(map.height - 1, Math.floor((stage.clientHeight / 2 - pan.y) / scale))),
+    };
+  });
+  // The preview follows the focus once it settles.
+  let previewAt = $state({ x: 0, z: 0 });
+  $effect(() => {
+    const f = focus;
+    if (!preview) return;
+    const t = setTimeout(() => (previewAt = f), 250);
+    return () => clearTimeout(t);
+  });
   const hoverIndex = $derived(hover && map ? hover.z * map.width + hover.x : -1);
   const counts = $derived.by(() => {
     const ev = map?.events ?? [];
@@ -874,6 +964,7 @@
         <button class:primary={look === "tiles"} onclick={() => (look = "tiles")}>Tile kinds</button>
       </div>
     {/if}
+    <button class:primary={preview} onclick={() => (preview = !preview)} title="See the spot as the game shows it">Preview</button>
     <button disabled={!undo.length || readOnly} onclick={undoStep} title="Undo (Ctrl+Z)">Undo</button>
   </header>
 
@@ -1007,6 +1098,12 @@
             {/if}
           </div>
         {/if}
+        {#if preview}
+          <figure class="preview window">
+            <img src={asset(`maprender/${current}?view=camera&x=${previewAt.x}&z=${previewAt.z}&w=384&h=288`)} alt="In game" draggable="false" />
+            <figcaption class="muted">{previewAt.x}, {previewAt.z}</figcaption>
+          </figure>
+        {/if}
       {:else}
         <p class="muted pad">Loading...</p>
       {/if}
@@ -1123,6 +1220,43 @@
               <input type="number" min="1" max="255" value={ev.h} readonly={readOnly} onchange={(e) => save(ev, { sizeZ: Number((e.currentTarget as HTMLInputElement).value) })} />
             </label>
           </div>
+        {/if}
+
+        {#if scriptOf(ev)}
+          {@const sc = scriptOf(ev)!}
+          <section class="does">
+            {#if sc.messages.length}
+              <h3>Says</h3>
+              {#each uniqueMessages(sc) as m (`${m.bank}:${m.id}`)}
+                {@const key = `${m.bank}:${m.id}`}
+                <div class="line">
+                  <textarea
+                    rows={Math.min(5, (lines[key] ?? toEdit(m.text)).split("\n").length + 1)}
+                    readonly={readOnly}
+                    value={lines[key] ?? toEdit(m.text)}
+                    oninput={(e) => (lines[key] = (e.currentTarget as HTMLTextAreaElement).value)}
+                  ></textarea>
+                  {#if lines[key] !== undefined && !readOnly}
+                    <div class="row">
+                      <button class="primary" disabled={busy} onclick={() => saveLine(m)}>Save</button>
+                      <button onclick={() => delete lines[key]}>Discard</button>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            {/if}
+            {#if sc.trainers.length || sc.items.length || sc.gifts.length || sc.warps.length || sc.music.length}
+              <h3>Does</h3>
+              <ul class="effects">
+                {#each sc.trainers as t}<li>Battles <strong>{trainerName(t)}</strong></li>{/each}
+                {#each sc.items as it}<li>Gives <strong>{itemName(it.item)}</strong>{it.count > 1 ? ` x${it.count}` : ""}</li>{/each}
+                {#each sc.gifts as g}<li>Gives <strong>{species[g.species]?.name || `Pokemon ${g.species}`}</strong>, level {g.level}</li>{/each}
+                {#each sc.warps as w}<li>Sends you to <button class="link" onclick={() => switchZone(w.zone)}>{zoneName(w.zone)}</button></li>{/each}
+                {#each sc.music as mu}<li>Plays {musicName(mu)}</li>{/each}
+              </ul>
+            {/if}
+            {#if !sc.complete}<p class="muted small">Some of this script could not be read.</p>{/if}
+          </section>
         {/if}
 
         <details class="raw">
@@ -1476,6 +1610,55 @@
   }
   .sprite-pick.on {
     border-color: var(--gold);
+  }
+  .preview {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    margin: 0;
+    padding: 0.3rem;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .preview img {
+    display: block;
+    width: 384px;
+    height: 288px;
+    image-rendering: pixelated;
+  }
+  .preview figcaption {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.2rem 0;
+  }
+  .does h3 {
+    margin: 0.3rem 0;
+    font-size: 0.9rem;
+  }
+  .line {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-bottom: 0.4rem;
+  }
+  .line textarea {
+    width: 100%;
+    resize: vertical;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  .effects {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+  }
+  .link {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border: none;
+    color: var(--accent, inherit);
+    text-decoration: underline;
+    cursor: pointer;
   }
   .ev.passive {
     pointer-events: none;

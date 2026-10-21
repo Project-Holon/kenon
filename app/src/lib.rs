@@ -486,6 +486,24 @@ async fn object_textures(state: State<'_, AppState>) -> Result<Vec<Option<u16>>,
 }
 
 #[tauri::command]
+async fn event_scripts(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<Vec<kenon_core::scripts::EventScript>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::scripts::event_scripts(&bridge, zone).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn zone_scripts(
+    state: State<'_, AppState>,
+    zone: usize,
+) -> Result<kenon_core::scripts::ZoneScripts, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::scripts::zone_scripts(&bridge, zone).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn write_tiles(
     state: State<'_, AppState>,
     zone: usize,
@@ -603,6 +621,8 @@ pub fn run() {
             set_tile,
             set_tiles,
             write_tiles,
+            event_scripts,
+            zone_scripts,
             object_textures,
             describe_changes,
             revert_change,

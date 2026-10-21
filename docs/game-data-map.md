@@ -630,6 +630,20 @@ They have no NPC with a 3000 or 5000 script id and no literal battle operand in 
 3. For scripted trainers: scan `a/0/5/7` member `scriptArcId` (or `scriptArcId + 1`: exactly one member of that pair has an entry table and is the script) for opcodes 133, 134, 148 and read the literal operands.
 4. Show "not placed on a map" for the rest.
 
+### Field scripts (`a/0/5/7`, `core/src/scripts.rs`)
+
+Sources are aletheia `src/game` paths; checked by walking all 899 members of the Black ROM. [V] = verified in code and data.
+
+- **Which file and bank.** Zone header `scriptArcId` (0x06) is the script member of `a/0/5/7`; `msgArcId` (0x0A) is the dialogue bank in `a/0/0/3` (`ov010/script_sys.c:624-650`, `SCRIPT_SYS_GetScriptFileId`). `initScriptArcId` (0x08) names the next member, which is a copy of the event file trailer (see Map scripts), not code. [V]
+- **File format.** `u32` offsets, one per script, each counted from the end of its own field; then `u16 0xFD13`; then code (`SCRIPT_SYS_CreateVm`, `script_sys.c:575-600`). The odd members of the archive are not scripts (trailer copies). 425 of 427 zone files have this header. [V]
+- **Code.** `u16` opcode (609 handlers, table at 0x0217062C of overlay 10), then operands. A `u16` operand below 0x4000 is a literal, above it a variable or work number (`SCRIPT_WORK_ReadWorkValue`). Some operands are single bytes. Jump (30), call (4): `s32` relative to the end of the instruction; if-jump (31) and if-call (32): `u8` condition then the `s32`. Ends: 2, 5, 29. Call script (28) and change script (27): `u16` script id. [V]
+- **Operand sizes.** Taken from the handlers (`ov010/script_work*.c`, `ov021/scrcmd_*.c`) and fixed by walking every script from every entry point: all 3206 entry points end cleanly. 58 opcodes never occur in the data, so their sizes are unchecked; nine opcodes (137, 143-145, 153, 154, 156, 157, 435) have no handler source and stop a walk.
+- **Script id to script.** The table at 0x021701A8 of overlay 10 has 46 rows of five `u16` (first id, last id, file, text archive 3 bank, message): the first row with `first <= id` is used; its script is index `id - first` of its file (shared scripts, trainer script 863, item and hidden item ids). Ids below every row are local: index `id - 1` of the zone's file, text from `msgArcId`. Event `eventId` (NPC) and `scriptId` (trigger, sign) use these ids. [V]
+- **Messages.** Window opcodes: 52, 53, 56, 58, 67, 69, 74 take the message id as the first operand from the zone's bank; 60, 61, 72, 73 take a bank first (0x400 means the zone's bank, else a bank of `a/0/0/3`) and the id after it (73 skips one operand in Black); 175 is a menu item with a help text. Trainer NPC lines come from trainer data (opcode 136), not from the script. [V for sizes and order, I for 52/53/67/69 being window kinds]
+- **Other effects read.** Trainer battles 133, 134 (ally first), 148; give item 181 (item, count, result); give Pokemon 268 (result, species, form, level); set and clear flag 35, 36; warps 190-194, 196, 602; BGM 152, 159, 169.
+- **Map scripts.** The event file trailer (`4 + trailerOffset`): rows of 6 bytes up to a zero key. Key 2 runs on zone change, 3 on recovery, 4 at field start (`u16` script id at +2); key 1 is a scene list: the `u32` at +2 is the offset, from the end of the row, of rows `(work u16, value u16, script id u16)` up to work 0 (`SCRIPT_SYS_FindSpecialScript`, `SCRIPT_SYS_FindSceneScript`, `script_sys.c:522-560`). [V]
+- **Gaps.** Variable operands are not resolved; scripts reached through other overlay code or computed ids are not followed; trainer speeches and shop stock are outside scripts.
+
 ## Gaps
 
 1. **Move tutors, TM shop and shop stock, static/gift/starter/trade/hidden grotto/hidden item contents**: stored in scripts or overlay data; not located as tables. The type chart is also in code/overlay data (no archive).

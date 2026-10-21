@@ -947,3 +947,76 @@ fn changes_described() {
     }
     assert!(changes::describe_all(&bridge).is_empty());
 }
+
+/// Event scripts on real data: signs and people resolve to messages, a
+/// trainer NPC starts its battle, and the map scripts of a zone are found.
+#[test]
+fn event_scripts() {
+    use kenon_core::bridge::Bridge;
+    use kenon_core::rom::Rom;
+    use kenon_core::scripts;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    let zones = kenon_core::world::zones(&bridge).unwrap();
+    let mut shown = 0;
+    let (mut with_text, mut complete, mut total) = (0, 0, 0);
+    for z in 0..zones.len() {
+        let zs = scripts::zone_scripts(&bridge, z).unwrap();
+        for s in &zs.scripts {
+            total += 1;
+            complete += usize::from(s.complete);
+            with_text += usize::from(!s.messages.is_empty());
+        }
+        let evs = scripts::event_scripts(&bridge, z).unwrap();
+        for e in &evs {
+            if e.kind != "bg" || shown >= 6 {
+                continue;
+            }
+            let Some(m) = e.script.as_ref().and_then(|s| s.messages.first()) else {
+                continue;
+            };
+            eprintln!(
+                "zone {z} ({}) sign {}: script {:?} bank {} msg {}: {:?}",
+                zones[z].place, e.index, e.script_id, m.bank, m.id, m.text
+            );
+            shown += 1;
+        }
+        if z == 319 {
+            eprintln!(
+                "Route 2: file {} bank {} {} scripts, {} map scripts",
+                zs.script_file,
+                zs.text_bank,
+                zs.scripts.len(),
+                zs.map_scripts.len()
+            );
+            for e in &evs {
+                if let Some(s) = &e.script {
+                    eprintln!(
+                        "  {} {} id {:?}: msgs {:?} trainers {:?} items {:?} calls {:?}",
+                        e.kind,
+                        e.index,
+                        e.script_id,
+                        s.messages
+                            .iter()
+                            .map(|m| (m.bank, m.id))
+                            .collect::<Vec<_>>(),
+                        s.trainers,
+                        s.items,
+                        s.calls
+                    );
+                }
+            }
+            // Jimmy (trainer 1) is an NPC whose script starts a battle.
+            let jimmy = evs
+                .iter()
+                .find(|e| e.script.as_ref().is_some_and(|s| s.trainers.contains(&1)))
+                .expect("Jimmy's script starts trainer 1");
+            assert_eq!(jimmy.kind, "npc");
+        }
+    }
+    eprintln!("{total} local scripts, {complete} walked completely, {with_text} show text");
+    assert!(total > 1000 && complete * 100 >= total * 99);
+    assert!(shown > 0);
+}
