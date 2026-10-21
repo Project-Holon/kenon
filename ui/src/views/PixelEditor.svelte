@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Pan } from "../lib/pan.svelte";
   import { onMount } from "svelte";
   import {
     animBank,
@@ -58,6 +59,7 @@
   let view = $state<"cells" | "grid">("grid");
   let cols = $state(16);
   let zoom = $state(4);
+  const pan = new Pan();
   let maxZoom = $state(12);
   // svelte-ignore state_referenced_locally
   let bank = $state(paletteOffset);
@@ -372,6 +374,10 @@
   <div
     class="stage"
     bind:this={stage}
+    onpointerdowncapture={pan.down}
+    onpointermovecapture={pan.move}
+    onpointerupcapture={pan.up}
+    onauxclick={(e) => e.preventDefault()}
     onwheel={(e) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
@@ -388,7 +394,7 @@
         bind:this={canvas}
         width={data.width}
         height={data.height}
-        style="width: {data.width * zoom}px; height: {data.height * zoom}px"
+        style="width: {data.width * zoom}px; height: {data.height * zoom}px; {pan.style}"
         onpointerdown={down}
         onpointermove={move}
         onpointerup={() => (drawing = false)}

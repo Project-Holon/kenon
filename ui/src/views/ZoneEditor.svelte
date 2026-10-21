@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Pan } from "../lib/pan.svelte";
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { asset, sounds, type SoundInfo } from "../lib/backend";
@@ -93,6 +94,7 @@
   let canvas = $state<HTMLCanvasElement | null>(null);
   let stage = $state<HTMLDivElement | null>(null);
   let audio: HTMLAudioElement | null = null;
+  const pan = new Pan();
   // The tiles of the stroke in progress, by index, with their old values.
   let stroke: Map<number, { terrain: number; flags: number }> | null = null;
   let drag: { ev: MapEvent; x: number; z: number; dx: number; dz: number } | null = null;
@@ -120,6 +122,7 @@
   // The largest tile size that shows the whole map in the pane.
   function fit() {
     if (!stage || !map) return;
+    pan.reset();
     const w = stage.clientWidth - 32;
     const h = stage.clientHeight - 32;
     scale = Math.max(4, Math.min(24, Math.floor(Math.min(w / map.width, h / map.height))));
@@ -541,6 +544,10 @@
       <div
         class="stage"
         bind:this={stage}
+        onpointerdowncapture={pan.down}
+        onpointermovecapture={pan.move}
+        onpointerupcapture={pan.up}
+        onauxclick={(e) => e.preventDefault()}
         onwheel={(e) => {
           if (!e.ctrlKey) return;
           e.preventDefault();
@@ -548,7 +555,7 @@
         }}
       >
         {#if map}
-          <div class="canvas" class:events={layer === "events"} style="width: {map.width * scale}px; height: {map.height * scale}px">
+          <div class="canvas" class:events={layer === "events"} style="width: {map.width * scale}px; height: {map.height * scale}px; {pan.style}">
             <canvas
               bind:this={canvas}
               width={map.width * scale}
