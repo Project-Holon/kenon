@@ -15,19 +15,19 @@ time; it ships no game data. Edits are saved as a mod folder that
   - [x] ROM check, NitroFS, archives, compression
   - [x] Mod folders: changes saved as member overrides, list of changes with undo
 - [x] **Milestone 2**: Graphics
-  - [x] Sprites, palettes, screens and animations as the game draws them
+  - [x] Sprites, palettes, screens and animations
   - [x] Pixel editor (also per animation frame)
   - [x] Pictures named from the ROM (Pokémon, items, trainers)
   - [x] Battle sprite, trainer and back sprite animations
   - [x] 3D textures (view only)
 - [x] **Milestone 3**: Data and text
   - [x] Tables: Pokémon, moves, items, trainers and parties, wild encounters
-  - [x] Wild encounters by Pokémon, on the game's slot odds
+  - [x] Wild encounters by Pokémon
   - [x] Text banks
   - [x] Trainer speech
 - [x] **Milestone 4**: Map editor
   - [x] World map with every place
-  - [x] Map drawn from the game's 3D data (lighting, time of day, seasons, camera preview)
+  - [x] 3D map view (lighting, time of day, seasons, camera preview)
   - [x] Tile kinds: paint, fill, select, move, copy
   - [x] People, trainers, signs, hidden items, warps and triggers
   - [x] What events say and do, editable
