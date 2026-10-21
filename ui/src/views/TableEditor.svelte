@@ -16,14 +16,23 @@
   } from "../lib/tables";
 
   // `tables[0]` names the entries; the others share its index (a species'
-  // learnset, a trainer's party) and are shown and saved with it.
+  // learnset, a trainer's party) and are shown and saved with it. `single`
+  // shows only the `start` entry, without the list.
   let {
     tables,
     readOnly,
     version,
     start,
+    single = false,
     onSaved,
-  }: { tables: string[]; readOnly: boolean; version: number; start?: number; onSaved: () => void } = $props();
+  }: {
+    tables: string[];
+    readOnly: boolean;
+    version: number;
+    start?: number;
+    single?: boolean;
+    onSaved: () => void;
+  } = $props();
 
   const SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
 
@@ -187,7 +196,8 @@
   };
 </script>
 
-<div class="tables">
+<div class="tables" class:single>
+  {#if !single}
   <aside class="entries">
     <input class="search" placeholder="Search {entries.length}" bind:value={filter} />
     <VirtualList items={shown} height={34} key={(e) => e.index} label="Entries">
@@ -202,6 +212,7 @@
       {/snippet}
     </VirtualList>
   </aside>
+  {/if}
 
   <section class="record">
     <div class="head">
@@ -308,6 +319,9 @@
     display: grid;
     grid-template-columns: 15rem minmax(0, 1fr);
     height: 100%;
+  }
+  .tables.single {
+    grid-template-columns: minmax(0, 1fr);
   }
   .entries {
     display: flex;

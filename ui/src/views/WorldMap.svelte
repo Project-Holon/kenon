@@ -94,7 +94,6 @@
     zone={editing.zone}
     zones={editing.zones}
     {readOnly}
-    {onOpen}
     {onSaved}
     onBack={() => (editing = null)}
   />

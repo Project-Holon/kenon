@@ -5,6 +5,7 @@
   import { asset, sounds, type SoundInfo } from "../lib/backend";
   import { tableEntries, type Entry, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
+  import TableEditor from "./TableEditor.svelte";
 
   // One zone, tile by tile: a tile layer to paint and an event layer to
   // place people, warps, triggers and signs on.
@@ -13,14 +14,12 @@
     zones = [],
     readOnly,
     onBack,
-    onOpen,
     onSaved,
   }: {
     zone: number;
     zones?: { id: number; label: string }[];
     readOnly: boolean;
     onBack: () => void;
-    onOpen: (category: string, index: number) => void;
     onSaved: () => void;
   } = $props();
 
@@ -76,7 +75,9 @@
   // svelte-ignore state_referenced_locally
   let current = $state(zone);
   let map = $state<ZoneMap | null>(null);
-  let tab = $state<"map" | "music" | "wild">("map");
+  let tab = $state<"map" | "trainer" | "music" | "wild">("map");
+  // The trainer open in the Trainer tab.
+  let trainer = $state<number | null>(null);
   let layer = $state<Layer>("tiles");
   let tool = $state<Tool>("pencil");
   let brush = $state<Brush>({ terrain: 0, flags: 1 });
@@ -479,7 +480,7 @@
       </select>
     {/if}
     <div class="tabs" role="tablist">
-      {#each [["map", "Map"], ["music", "Music"], ["wild", "Wild Pokemon"]] as [id, label]}
+      {#each [["map", "Map"], ...(trainer !== null ? [["trainer", trainerName(trainer)]] : []), ["music", "Music"], ["wild", "Wild Pokemon"]] as [id, label]}
         <button role="tab" aria-selected={tab === id} class:primary={tab === id} onclick={() => ((tab = id as typeof tab), play("select"))}>{label}</button>
       {/each}
     </div>
@@ -600,7 +601,7 @@
             <span class="tag">{KIND_LABEL[selected.kind]}</span>
           </div>
           {#if selected.trainer !== null}
-            <button class="primary" onclick={() => onOpen("trainers", selected!.trainer!)}>Edit trainer</button>
+            <button class="primary" onclick={() => ((trainer = selected!.trainer), (tab = "trainer"), play("decide"))}>Edit trainer</button>
           {/if}
           {#if selected.toZone !== null}
             <button onclick={() => switchZone(selected!.toZone!)}>Go to map {selected.toZone}</button>
@@ -667,15 +668,22 @@
         </label>
       {/each}
     </div>
-  {:else if tab === "wild" && map}
-    <div class="sheet">
-      {#if map.zone.encounters !== null}
-        <p>Encounter table {map.zone.encounters}</p>
-        <button class="primary" onclick={() => onOpen("encounters", map!.zone.encounters!)}>Edit wild Pokemon</button>
-      {:else}
-        <p class="muted">No wild Pokemon on this map.</p>
-      {/if}
+  {:else if tab === "trainer" && trainer !== null}
+    <div class="embed">
+      {#key trainer}
+        <TableEditor tables={["trainers", "trainerParties"]} single start={trainer} {readOnly} version={0} {onSaved} />
+      {/key}
     </div>
+  {:else if tab === "wild" && map}
+    {#if map.zone.encounters !== null}
+      <div class="embed">
+        {#key map.zone.encounters}
+          <TableEditor tables={["encounters"]} single start={map.zone.encounters} {readOnly} version={0} {onSaved} />
+        {/key}
+      </div>
+    {:else}
+      <p class="muted pad">No wild Pokemon on this map.</p>
+    {/if}
   {/if}
 </div>
 
@@ -952,6 +960,10 @@
     grid-template-columns: 6rem minmax(0, 22rem) auto;
     align-items: center;
     gap: 0.5rem;
+  }
+  .embed {
+    min-height: 0;
+    overflow: hidden;
   }
   .pad {
     padding: 1rem;
