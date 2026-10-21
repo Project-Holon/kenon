@@ -29,6 +29,8 @@
 //! preview/{chr}/{pal}                      a sheet as the game shows it (`?paloffset=N`): its
 //!                                          cells assembled when the archive
 //!                                          has a cell bank for it, else tiles
+//! textures/{m}                             JSON: the 3D textures of a member
+//! texture/{m}/{block}/{i}                  one 3D texture as PNG
 //! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
@@ -455,6 +457,34 @@ impl Bridge {
                         .for_each(|b| *b = b.saturating_add(offset));
                 }
                 Ok(png(data.render()))
+            }
+            Some("textures") if parts.len() == 2 => {
+                // The 3D textures of a member: every TEX0 block it holds.
+                let bytes = self.member(member(1)?)?;
+                let mut list = Vec::new();
+                for (b, block) in crate::g3d::find_tex0(&bytes).into_iter().enumerate() {
+                    if let Some(tex) = crate::g3d::Tex0::parse(block) {
+                        for (i, t) in tex.textures.iter().enumerate() {
+                            list.push(format!(
+                                r#"{{"block":{b},"index":{i},"name":{:?},"width":{},"height":{},"format":"{:?}"}}"#,
+                                t.name, t.width, t.height, t.format
+                            ));
+                        }
+                    }
+                }
+                Ok(json(format!("[{}]", list.join(","))))
+            }
+            Some("texture") if parts.len() == 4 => {
+                let bytes = self.member(member(1)?)?;
+                let blocks = crate::g3d::find_tex0(&bytes);
+                let tex = blocks
+                    .get(number(2)?)
+                    .and_then(|b| crate::g3d::Tex0::parse(b))
+                    .ok_or_else(|| Error::Format(format!("{path}: no texture block")))?;
+                let img = tex
+                    .decode(number(3)?)
+                    .ok_or_else(|| Error::Format(format!("{path}: does not decode")))?;
+                Ok(png(img))
             }
             Some("cry") if parts.len() == 2 => {
                 // A Pokemon cry: wave archive n holds its one wave

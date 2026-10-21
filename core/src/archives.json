@@ -1,0 +1,3792 @@
+{
+ "archives": [
+  {
+   "id": 0,
+   "path": "a/0/0/0",
+   "label": "Wireless link icon",
+   "group": "Menus",
+   "kind": "images",
+   "members": 5,
+   "formats": {
+    "NCGR": 3,
+    "NCLR": 2
+   },
+   "source": "wm_icon.c:318",
+   "confidence": "verified",
+   "note": "Signal mark drawn at the top right of the screen; palette and two tile variants."
+  },
+  {
+   "id": 1,
+   "path": "a/0/0/1",
+   "label": "Counter and status panels",
+   "group": "Menus",
+   "kind": "images",
+   "members": 8,
+   "formats": {
+    "NSCR": 4,
+    "NCLR": 2,
+    "NCGR": 2
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Panel-sized widgets (small face icon, digit counter, checkbox); no code consumer found."
+  },
+  {
+   "id": 2,
+   "path": "a/0/0/2",
+   "label": "Message banks (system and UI text)",
+   "group": "Text",
+   "kind": "text",
+   "members": 288,
+   "formats": {
+    "RAW": 288
+   },
+   "source": "msgdata.c:121",
+   "confidence": "verified",
+   "note": "288 banks; species, move, item, ability names and UI strings. Ciphered strings."
+  },
+  {
+   "id": 3,
+   "path": "a/0/0/3",
+   "label": "Message banks (field and script text)",
+   "group": "Text",
+   "kind": "text",
+   "members": 472,
+   "formats": {
+    "RAW": 472
+   },
+   "source": "zonedata.c:613",
+   "confidence": "verified",
+   "note": "472 banks of map and script dialogue; the zone header names the bank."
+  },
+  {
+   "id": 4,
+   "path": "a/0/0/4",
+   "label": "Pokemon battle sprites",
+   "group": "Pokemon",
+   "kind": "sprites",
+   "members": 14285,
+   "formats": {
+    "NCGR": 3234,
+    "EMPTY": 2464,
+    "NCLR": 1457,
+    "NCER": 1426,
+    "NANR": 1426,
+    "NMCR": 1426,
+    "NMAR": 1426,
+    "RAW": 1426
+   },
+   "source": "pokegra.c:73",
+   "confidence": "verified",
+   "note": "Cell-animation rig per species, form, sex and direction (NCGR, NCLR, NCER, NANR, NMCR, NMAR)."
+  },
+  {
+   "id": 5,
+   "path": "a/0/0/5",
+   "label": "Window frames and talk boxes",
+   "group": "Menus",
+   "kind": "images",
+   "members": 13,
+   "formats": {
+    "NCGR": 8,
+    "NCLR": 5
+   },
+   "source": "field_msgbg.c:1849",
+   "confidence": "verified",
+   "note": "Text window frames, system window, menu frame and key-wait arrow tiles; palettes."
+  },
+  {
+   "id": 6,
+   "path": "a/0/0/6",
+   "label": "Battle effect particles",
+   "group": "Battle",
+   "kind": "other",
+   "members": 733,
+   "formats": {
+    "APS": 733
+   },
+   "source": "btlv_effvm.c:1492",
+   "confidence": "verified",
+   "note": "Particle resources (SPA wrapper) loaded by the battle effect VM and the intro."
+  },
+  {
+   "id": 7,
+   "path": "a/0/0/7",
+   "label": "Pokemon icons (party and box)",
+   "group": "Pokemon",
+   "kind": "sprites",
+   "members": 1431,
+   "formats": {
+    "NCGR": 715,
+    "EMPTY": 709,
+    "NANR": 3,
+    "NCER": 3,
+    "NCLR": 1
+   },
+   "source": "poke_tool_ext.c:332",
+   "confidence": "verified",
+   "note": "Per-species full-colour icon tiles with shared cells and animations."
+  },
+  {
+   "id": 8,
+   "path": "a/0/0/8",
+   "label": "Map chunks (3D terrain and tile attributes)",
+   "group": "World",
+   "kind": "models",
+   "members": 649,
+   "formats": {
+    "RAW": 649
+   },
+   "source": "map_matrix.c",
+   "confidence": "verified",
+   "note": "BMD0 model per map chunk plus a grid of tile attribute records."
+  },
+  {
+   "id": 9,
+   "path": "a/0/0/9",
+   "label": "Map matrix",
+   "group": "World",
+   "kind": "data",
+   "members": 255,
+   "formats": {
+    "RAW": 255
+   },
+   "source": "map_matrix.c",
+   "confidence": "verified",
+   "note": "One grid of chunk ids per map matrix id."
+  },
+  {
+   "id": 10,
+   "path": "a/0/1/0",
+   "label": "Map replacement records",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "map_replace.c:132",
+   "confidence": "verified",
+   "note": "Flag-driven map tile replacement records."
+  },
+  {
+   "id": 11,
+   "path": "a/0/1/1",
+   "label": "Battle screens, stages and backgrounds",
+   "group": "Battle",
+   "kind": "models",
+   "members": 222,
+   "formats": {
+    "NSBMD": 61,
+    "NSCR": 59,
+    "NCLR": 29,
+    "NSBCA": 26,
+    "NCGR": 20,
+    "NCER": 13,
+    "NANR": 13,
+    "NSBTA": 1
+   },
+   "source": "btlv_scu.c:576",
+   "confidence": "verified",
+   "note": "Mixed: battle stage platforms and background models, message box, gauge, command and target screens, finger cursor."
+  },
+  {
+   "id": 12,
+   "path": "a/0/1/2",
+   "label": "Zone headers",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "zonedata.c:431",
+   "confidence": "verified",
+   "note": "One member of 427 records of 48 bytes, one per zone."
+  },
+  {
+   "id": 13,
+   "path": "a/0/1/3",
+   "label": "Map area data",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "zonedata.c:120",
+   "confidence": "verified",
+   "note": "Flat file, not a NARC: 282 records of 10 bytes."
+  },
+  {
+   "id": 14,
+   "path": "a/0/1/4",
+   "label": "Map area textures",
+   "group": "World",
+   "kind": "models",
+   "members": 282,
+   "formats": {
+    "NSBTX": 282
+   },
+   "source": "zonedata.c",
+   "confidence": "inferred",
+   "note": "BTX0 texture sets, one per area record (member id equals the texture set id of the area record in 280 of 282 records)."
+  },
+  {
+   "id": 15,
+   "path": "a/0/1/5",
+   "label": "Small colour tables",
+   "group": "Other",
+   "kind": "data",
+   "members": 5,
+   "formats": {
+    "RAW": 5
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Five 16-byte tables of eight BGR555 colours; no code consumer found."
+  },
+  {
+   "id": 16,
+   "path": "a/0/1/6",
+   "label": "Pokemon base stats (personal data)",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 669,
+   "formats": {
+    "RAW": 669
+   },
+   "source": "poke_personal.c:82",
+   "confidence": "verified",
+   "note": "One 60-byte record per species or form."
+  },
+  {
+   "id": 17,
+   "path": "a/0/1/7",
+   "label": "Experience growth curves",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 8,
+   "formats": {
+    "RAW": 8
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Eight members of 101 u32 values (experience needed per level)."
+  },
+  {
+   "id": 18,
+   "path": "a/0/1/8",
+   "label": "Level-up learnsets",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 668,
+   "formats": {
+    "RAW": 668
+   },
+   "source": "poke_personal.c:139",
+   "confidence": "verified",
+   "note": "One variable-length list per species or form."
+  },
+  {
+   "id": 19,
+   "path": "a/0/1/9",
+   "label": "Evolution data",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 668,
+   "formats": {
+    "RAW": 668
+   },
+   "source": "shinka_check.c:35",
+   "confidence": "verified",
+   "note": "One 42-byte record per species or form."
+  },
+  {
+   "id": 20,
+   "path": "a/0/2/0",
+   "label": "Species base index",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 650,
+   "formats": {
+    "EMPTY": 650
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "650 members of one u16; read as an evolution family base species index."
+  },
+  {
+   "id": 21,
+   "path": "a/0/2/1",
+   "label": "Move data",
+   "group": "Battle",
+   "kind": "data",
+   "members": 560,
+   "formats": {
+    "RAW": 560
+   },
+   "source": "waza_tool.c:29",
+   "confidence": "verified",
+   "note": "One 36-byte record per move."
+  },
+  {
+   "id": 22,
+   "path": "a/0/2/2",
+   "label": "Error, standby and power screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 3,
+   "formats": {
+    "NCLR": 1,
+    "NCGR": 1,
+    "NSCR": 1
+   },
+   "source": "idle_screen.c",
+   "confidence": "verified",
+   "note": "Palette, tiles and screen of the error and idle screens."
+  },
+  {
+   "id": 23,
+   "path": "a/0/2/3",
+   "label": "Fonts and text palettes",
+   "group": "Text",
+   "kind": "other",
+   "members": 8,
+   "formats": {
+    "NFTR": 5,
+    "NCLR": 3
+   },
+   "source": "gf_font.c",
+   "confidence": "verified",
+   "note": "Five NFTR fonts and three text palettes."
+  },
+  {
+   "id": 24,
+   "path": "a/0/2/4",
+   "label": "Item data",
+   "group": "Items",
+   "kind": "data",
+   "members": 627,
+   "formats": {
+    "RAW": 627
+   },
+   "source": "file_util.c:110",
+   "confidence": "verified",
+   "note": "One 36-byte record per item."
+  },
+  {
+   "id": 25,
+   "path": "a/0/2/5",
+   "label": "Item icons",
+   "group": "Items",
+   "kind": "sprites",
+   "members": 1005,
+   "formats": {
+    "NCLR": 552,
+    "NCGR": 451,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "file_util.c:322",
+   "confidence": "verified",
+   "note": "Interleaved tile and palette members with one shared cell and animation; mapped by a table in the ARM9 image."
+  },
+  {
+   "id": 26,
+   "path": "a/0/2/6",
+   "label": "Title and credits backgrounds",
+   "group": "Menus",
+   "kind": "images",
+   "members": 15,
+   "formats": {
+    "NSCR": 5,
+    "NCGR": 4,
+    "NCLR": 4,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "staff_roll.c:548",
+   "confidence": "inferred",
+   "note": "Mostly LZ10 tile and screen members used by the start menu and the staff roll."
+  },
+  {
+   "id": 27,
+   "path": "a/0/2/7",
+   "label": "Options menu",
+   "group": "Menus",
+   "kind": "images",
+   "members": 17,
+   "formats": {
+    "NCGR": 7,
+    "NCLR": 3,
+    "NSCR": 3,
+    "NANR": 2,
+    "NCER": 2
+   },
+   "source": "option_menu.c:579",
+   "confidence": "verified",
+   "note": "Backgrounds, choice and cursor sprites of the options screen."
+  },
+  {
+   "id": 28,
+   "path": "a/0/2/8",
+   "label": "IR battle match screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 17,
+   "formats": {
+    "NCLR": 5,
+    "NCGR": 4,
+    "NSCR": 4,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "ircbattlematch.c:1116",
+   "confidence": "verified",
+   "note": "Graphics of the infrared battle and match menus."
+  },
+  {
+   "id": 29,
+   "path": "a/0/2/9",
+   "label": "Wireless menu screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 18,
+   "formats": {
+    "NSCR": 7,
+    "NCLR": 4,
+    "NCGR": 3,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "ircbattlemenu.c",
+   "confidence": "verified",
+   "note": "Shared menu graphics of IR battle, Game Sync, C-Gear help and Entralink views."
+  },
+  {
+   "id": 30,
+   "path": "a/0/3/0",
+   "label": "C-Gear skins and screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 35,
+   "formats": {
+    "NCGR": 14,
+    "RAW": 10,
+    "NCLR": 6,
+    "NSCR": 3,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "c_gear.c:2343",
+   "confidence": "verified",
+   "note": "C-Gear backgrounds, buttons and ten skin records; also used by the no-gear screen."
+  },
+  {
+   "id": 31,
+   "path": "a/0/3/1",
+   "label": "2D character sprites (wireless apps)",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 24,
+   "formats": {
+    "NCER": 7,
+    "NANR": 7,
+    "NCGR": 7,
+    "NCLR": 3
+   },
+   "source": "wifi_2dchar.c",
+   "confidence": "inferred",
+   "note": "Seven small character sprite sets used by the Wi-Fi and trade screens."
+  },
+  {
+   "id": 32,
+   "path": "a/0/3/2",
+   "label": "2D trainer avatar sprites",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 97,
+   "formats": {
+    "NCGR": 32,
+    "NCER": 32,
+    "NANR": 32,
+    "NCLR": 1
+   },
+   "source": "wifi_2dchar.c",
+   "confidence": "inferred",
+   "note": "32 cell and animation sets of walking characters (Wi-Fi club map, GTS, Entralink views)."
+  },
+  {
+   "id": 33,
+   "path": "a/0/3/3",
+   "label": "Wi-Fi Club screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 33,
+   "formats": {
+    "NCLR": 11,
+    "NSCR": 10,
+    "NCGR": 8,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "wifi_club.c:1430",
+   "confidence": "verified",
+   "note": "Backgrounds, panels and palettes of the Wi-Fi Club."
+  },
+  {
+   "id": 34,
+   "path": "a/0/3/4",
+   "label": "Mystery Gift screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 39,
+   "formats": {
+    "NSCR": 15,
+    "NCLR": 9,
+    "NCGR": 8,
+    "NCER": 3,
+    "NANR": 3,
+    "APS": 1
+   },
+   "source": "mystery.c",
+   "confidence": "verified",
+   "note": "Mystery Gift and its album; also loaded by the download-play parent."
+  },
+  {
+   "id": 35,
+   "path": "a/0/3/5",
+   "label": "Start menu screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 16,
+   "formats": {
+    "NSCR": 4,
+    "NCGR": 4,
+    "NCLR": 4,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "startmenu.c:2059",
+   "confidence": "verified",
+   "note": "Continue and new game menu graphics (LZ10 members)."
+  },
+  {
+   "id": 36,
+   "path": "a/0/3/6",
+   "label": "Entralink Palace sub-screen",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 14,
+   "formats": {
+    "NCGR": 4,
+    "NSCR": 4,
+    "NCER": 2,
+    "NANR": 2,
+    "NCLR": 2
+   },
+   "source": "intrude_subdisp.c:1014",
+   "confidence": "verified",
+   "note": "Bottom-screen graphics of the Palace (Entralink) view."
+  },
+  {
+   "id": 37,
+   "path": "a/0/3/7",
+   "label": "G-Power data table",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "monolith_tool.c:1066",
+   "confidence": "inferred",
+   "note": "One 5376-byte table read by the Monolith (G-Power) tool."
+  },
+  {
+   "id": 38,
+   "path": "a/0/3/8",
+   "label": "G-Power power table",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "gpower.c",
+   "confidence": "inferred",
+   "note": "One 576-byte member loaded with the G-Power power table."
+  },
+  {
+   "id": 39,
+   "path": "a/0/3/9",
+   "label": "G-Power (Monolith) screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 18,
+   "formats": {
+    "NSCR": 10,
+    "NCGR": 3,
+    "NCLR": 3,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "monolith_tool.c:713",
+   "confidence": "verified",
+   "note": "Graphics of the Monolith tool, which lists G-Powers."
+  },
+  {
+   "id": 40,
+   "path": "a/0/4/0",
+   "label": "Trainer card",
+   "group": "Menus",
+   "kind": "images",
+   "members": 53,
+   "formats": {
+    "NCLR": 25,
+    "NSCR": 12,
+    "NCGR": 8,
+    "NCER": 2,
+    "NANR": 2,
+    "NSBMD": 2,
+    "NSBCA": 2
+   },
+   "source": "viewer_main.c",
+   "confidence": "inferred",
+   "note": "Trainer card palettes, tiles, screens and 3D flip parts; opened by the card process."
+  },
+  {
+   "id": 41,
+   "path": "a/0/4/1",
+   "label": "Trainer card colour sets",
+   "group": "Menus",
+   "kind": "images",
+   "members": 33,
+   "formats": {
+    "NCLR": 16,
+    "NCGR": 16,
+    "NSCR": 1
+   },
+   "source": "viewer_main.c",
+   "confidence": "inferred",
+   "note": "16 palette and tile pairs, one per card colour or star level."
+  },
+  {
+   "id": 42,
+   "path": "a/0/4/2",
+   "label": "Id list table",
+   "group": "Other",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One member of 360 u32 ids; no code consumer found."
+  },
+  {
+   "id": 43,
+   "path": "a/0/4/3",
+   "label": "Easy Chat (word input) screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 47,
+   "formats": {
+    "NCGR": 14,
+    "NSCR": 11,
+    "NCLR": 10,
+    "NCER": 6,
+    "NANR": 6
+   },
+   "source": "pms_draw.c:640",
+   "confidence": "verified",
+   "note": "Category, menu and draw graphics of the phrase input system."
+  },
+  {
+   "id": 44,
+   "path": "a/0/4/4",
+   "label": "Menu background sets",
+   "group": "Menus",
+   "kind": "images",
+   "members": 12,
+   "formats": {
+    "NCLR": 4,
+    "NCGR": 3,
+    "NSCR": 3,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Twelve members (palettes, tiles, screens) of landscape-like backgrounds; no code consumer found."
+  },
+  {
+   "id": 45,
+   "path": "a/0/4/5",
+   "label": "Musical prop textures",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 102,
+   "formats": {
+    "NSBTX": 101,
+    "RAW": 1
+   },
+   "source": "mus_item_data.c:84",
+   "confidence": "verified",
+   "note": "101 small BTX0 texture sets, one per musical prop item."
+  },
+  {
+   "id": 46,
+   "path": "a/0/4/6",
+   "label": "Musical dress-up screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 27,
+   "formats": {
+    "NCGR": 7,
+    "NSCR": 6,
+    "NCLR": 5,
+    "NCER": 4,
+    "NANR": 4,
+    "NSBTX": 1
+   },
+   "source": "dup_fitting.c:1154",
+   "confidence": "verified",
+   "note": "Fitting room and stage button graphics of the Musical."
+  },
+  {
+   "id": 47,
+   "path": "a/0/4/7",
+   "label": "Musical stage models and effects",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 80,
+   "formats": {
+    "RAW": 25,
+    "NCGR": 8,
+    "NCLR": 6,
+    "NSBTX": 6,
+    "NSBMD": 6,
+    "NSBTA": 5,
+    "NSBTP": 5,
+    "NSBCA": 5
+   },
+   "source": "sta_act_bg.c",
+   "confidence": "verified",
+   "note": "Five stage models with animations, textures and particle wrappers, plus screens."
+  },
+  {
+   "id": 48,
+   "path": "a/0/4/8",
+   "label": "Overworld object parameters",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "fldmmdl.c:2028",
+   "confidence": "verified",
+   "note": "799 records of 28 bytes describing each overworld object code."
+  },
+  {
+   "id": 49,
+   "path": "a/0/4/9",
+   "label": "Overworld NPC and object textures",
+   "group": "World",
+   "kind": "models",
+   "members": 764,
+   "formats": {
+    "NSBTX": 758,
+    "NSBMD": 6
+   },
+   "source": "fldmmdl.c:374",
+   "confidence": "verified",
+   "note": "Billboard texture sets for NPCs, Pokemon, the bike and other objects; selected through archive 48."
+  },
+  {
+   "id": 50,
+   "path": "a/0/5/0",
+   "label": "Top-screen info bar",
+   "group": "Menus",
+   "kind": "images",
+   "members": 2,
+   "formats": {
+    "NCLR": 1,
+    "NCGR": 1
+   },
+   "source": "infowin.c:489",
+   "confidence": "verified",
+   "note": "Clock, link and signal marks of the field info bar."
+  },
+  {
+   "id": 51,
+   "path": "a/0/5/1",
+   "label": "Text sprite window cells",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 9,
+   "formats": {
+    "NCER": 3,
+    "NANR": 3,
+    "NCGR": 3
+   },
+   "source": "bmp_oam.c:219",
+   "confidence": "inferred",
+   "note": "Three cell, animation and tile sets of the text-sprite (BMPOAM) system."
+  },
+  {
+   "id": 52,
+   "path": "a/0/5/2",
+   "label": "Pokemon battle sprites (second set)",
+   "group": "Pokemon",
+   "kind": "sprites",
+   "members": 14285,
+   "formats": {
+    "NCGR": 3234,
+    "EMPTY": 2464,
+    "NCLR": 1457,
+    "NCER": 1426,
+    "NANR": 1426,
+    "NMCR": 1426,
+    "NMAR": 1426,
+    "RAW": 1426
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Same shape as archive 4 (14285 members); the loader constant for it was not found."
+  },
+  {
+   "id": 53,
+   "path": "a/0/5/3",
+   "label": "Entralink beacon palettes",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 19,
+   "formats": {
+    "RAW": 19
+   },
+   "source": "beacon_detail.c",
+   "confidence": "inferred",
+   "note": "19 small colour tables read by the beacon detail screen."
+  },
+  {
+   "id": 54,
+   "path": "a/0/5/4",
+   "label": "Shop screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 11,
+   "formats": {
+    "NCGR": 3,
+    "NCLR": 2,
+    "NSCR": 2,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "scrcmd_proc_fld.c:1259",
+   "confidence": "verified",
+   "note": "Tiles, palettes and screens of the Poke Mart shop script command."
+  },
+  {
+   "id": 55,
+   "path": "a/0/5/5",
+   "label": "Icon sheet (26 tile sets)",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 29,
+   "formats": {
+    "NCGR": 26,
+    "NCER": 1,
+    "NANR": 1,
+    "NCLR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "26 small tile sets with one shared cell and animation; no code consumer found."
+  },
+  {
+   "id": 56,
+   "path": "a/0/5/6",
+   "label": "Weather effects",
+   "group": "World",
+   "kind": "images",
+   "members": 44,
+   "formats": {
+    "NCGR": 11,
+    "NANR": 9,
+    "NCER": 9,
+    "NCLR": 8,
+    "NSBTX": 5,
+    "NSCR": 2
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Cell animations and textures of rain, snow and storm effects."
+  },
+  {
+   "id": 57,
+   "path": "a/0/5/7",
+   "label": "Field scripts",
+   "group": "World",
+   "kind": "scripts",
+   "members": 899,
+   "formats": {
+    "RAW": 899
+   },
+   "source": "script_sys.c",
+   "confidence": "verified",
+   "note": "899 members of script bytecode."
+  },
+  {
+   "id": 58,
+   "path": "a/0/5/8",
+   "label": "Overworld object parameter cache",
+   "group": "World",
+   "kind": "data",
+   "members": 17,
+   "formats": {
+    "RAW": 17
+   },
+   "source": "fldmmdl.c:2038",
+   "confidence": "verified",
+   "note": "Per-area subsets of the object parameter table, copied into a cache."
+  },
+  {
+   "id": 59,
+   "path": "a/0/5/9",
+   "label": "Wi-Fi Club map and code entry UI",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 18,
+   "formats": {
+    "NCLR": 5,
+    "NCGR": 5,
+    "NCER": 3,
+    "NANR": 3,
+    "NSCR": 2
+   },
+   "source": "br_codein.c:3919",
+   "confidence": "inferred",
+   "note": "Palettes, tiles and cells used by the Wi-Fi club map scene and the video code entry screen."
+  },
+  {
+   "id": 60,
+   "path": "a/0/6/0",
+   "label": "Field camera presets",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "field_camera.c",
+   "confidence": "verified",
+   "note": "One member of camera parameter records."
+  },
+  {
+   "id": 61,
+   "path": "a/0/6/1",
+   "label": "Field light colour sets",
+   "group": "World",
+   "kind": "data",
+   "members": 56,
+   "formats": {
+    "RAW": 56
+   },
+   "source": "field_light.c:47",
+   "confidence": "verified",
+   "note": "56 members of 780 bytes: light and colour sets used by the field lighting."
+  },
+  {
+   "id": 62,
+   "path": "a/0/6/2",
+   "label": "Weather fog light sets",
+   "group": "World",
+   "kind": "data",
+   "members": 10,
+   "formats": {
+    "RAW": 10
+   },
+   "source": "weather_fog_types.h:8",
+   "confidence": "verified",
+   "note": "Ten members of 780 bytes: fog and light colours for weather."
+  },
+  {
+   "id": 63,
+   "path": "a/0/6/3",
+   "label": "Wi-Fi Club friend list screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 17,
+   "formats": {
+    "NSCR": 10,
+    "NCLR": 3,
+    "NCGR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "wf2dmap_friend.c:648",
+   "confidence": "inferred",
+   "note": "Screens and palettes of the Wi-Fi club friend list."
+  },
+  {
+   "id": 64,
+   "path": "a/0/6/4",
+   "label": "Player character sprites (second set)",
+   "group": "Trainers",
+   "kind": "sprites",
+   "members": 48,
+   "formats": {
+    "NCGR": 12,
+    "NCER": 6,
+    "NANR": 6,
+    "NMCR": 6,
+    "NMAR": 6,
+    "RAW": 6,
+    "NCLR": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Same layout as archive 73: eight members per graphic, six graphics."
+  },
+  {
+   "id": 65,
+   "path": "a/0/6/5",
+   "label": "Single image (unidentified)",
+   "group": "Other",
+   "kind": "images",
+   "members": 2,
+   "formats": {
+    "NCGR": 1,
+    "NCLR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One tile sheet and one palette; no code consumer found."
+  },
+  {
+   "id": 66,
+   "path": "a/0/6/6",
+   "label": "Battle move effect scripts",
+   "group": "Battle",
+   "kind": "scripts",
+   "members": 601,
+   "formats": {
+    "RAW": 601
+   },
+   "source": "btlv_effvm.c:890",
+   "confidence": "verified",
+   "note": "601 effect scripts run by the battle effect VM for effect ids below 0x231."
+  },
+  {
+   "id": 67,
+   "path": "a/0/6/7",
+   "label": "Battle generic effect scripts",
+   "group": "Battle",
+   "kind": "scripts",
+   "members": 98,
+   "formats": {
+    "RAW": 98
+   },
+   "source": "btlv_effvm.c:899",
+   "confidence": "verified",
+   "note": "98 effect scripts for the effect ids from 0x231."
+  },
+  {
+   "id": 68,
+   "path": "a/0/6/8",
+   "label": "Screen set (unidentified)",
+   "group": "Other",
+   "kind": "images",
+   "members": 3,
+   "formats": {
+    "NCGR": 1,
+    "NCLR": 1,
+    "NSCR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One tile sheet, palette and screen; no code consumer found."
+  },
+  {
+   "id": 69,
+   "path": "a/0/6/9",
+   "label": "Map texture animations",
+   "group": "World",
+   "kind": "models",
+   "members": 29,
+   "formats": {
+    "NSBTA": 29
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "29 texture SRT animation files for map models (water, lights, screens)."
+  },
+  {
+   "id": 70,
+   "path": "a/0/7/0",
+   "label": "Map animation tables",
+   "group": "World",
+   "kind": "data",
+   "members": 6,
+   "formats": {
+    "RAW": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six small tables with palette names; no code consumer found."
+  },
+  {
+   "id": 71,
+   "path": "a/0/7/1",
+   "label": "Field menu (start menu on the bottom screen)",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 39,
+   "formats": {
+    "NCGR": 12,
+    "NCER": 10,
+    "NANR": 10,
+    "NSCR": 5,
+    "NCLR": 2
+   },
+   "source": "field_menu.c:719",
+   "confidence": "verified",
+   "note": "Backgrounds, cursor, button icons of the field menu."
+  },
+  {
+   "id": 72,
+   "path": "a/0/7/2",
+   "label": "Trainer battle sprites (front)",
+   "group": "Trainers",
+   "kind": "sprites",
+   "members": 760,
+   "formats": {
+    "NCGR": 190,
+    "NCER": 95,
+    "NANR": 95,
+    "NMCR": 95,
+    "NMAR": 95,
+    "RAW": 95,
+    "NCLR": 95
+   },
+   "source": "pokegra.c:529",
+   "confidence": "verified",
+   "note": "Eight-member rig block per trainer graphic."
+  },
+  {
+   "id": 73,
+   "path": "a/0/7/3",
+   "label": "Trainer battle sprites (back)",
+   "group": "Trainers",
+   "kind": "sprites",
+   "members": 48,
+   "formats": {
+    "NCGR": 12,
+    "NCER": 6,
+    "NANR": 6,
+    "NMCR": 6,
+    "NMAR": 6,
+    "RAW": 6,
+    "NCLR": 6
+   },
+   "source": "pokegra.c:529",
+   "confidence": "verified",
+   "note": "Eight-member blocks for the six player graphics."
+  },
+  {
+   "id": 74,
+   "path": "a/0/7/4",
+   "label": "Screen wipe model",
+   "group": "World",
+   "kind": "models",
+   "members": 1,
+   "formats": {
+    "NSBMD": 1
+   },
+   "source": "fld_wipe_3dobj.c:291",
+   "confidence": "inferred",
+   "note": "One small BMD0 used by the 3D wipe object."
+  },
+  {
+   "id": 75,
+   "path": "a/0/7/5",
+   "label": "Field effect models",
+   "group": "World",
+   "kind": "models",
+   "members": 151,
+   "formats": {
+    "NSBMD": 49,
+    "NSBTX": 47,
+    "NSBCA": 21,
+    "NSBTA": 18,
+    "NSBTP": 11,
+    "NSBMA": 5
+   },
+   "source": "field_effect.c:135",
+   "confidence": "verified",
+   "note": "Models, textures and animations of grass, water, splash, shadows and other field effects."
+  },
+  {
+   "id": 76,
+   "path": "a/0/7/6",
+   "label": "Party list screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 29,
+   "formats": {
+    "NCGR": 9,
+    "NCLR": 7,
+    "NSCR": 5,
+    "NCER": 3,
+    "NANR": 3,
+    "APS": 2
+   },
+   "source": "pokelist.c:1439",
+   "confidence": "verified",
+   "note": "Plates, backgrounds, cells and particle wrappers of the party list."
+  },
+  {
+   "id": 77,
+   "path": "a/0/7/7",
+   "label": "IR ranking screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 8,
+   "formats": {
+    "NSCR": 4,
+    "NCGR": 3,
+    "NCLR": 1
+   },
+   "source": "irc_ranking.c:714",
+   "confidence": "inferred",
+   "note": "Screens and tiles of the infrared game rankings."
+  },
+  {
+   "id": 78,
+   "path": "a/0/7/8",
+   "label": "Pokemon summary screen",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 179,
+   "formats": {
+    "NCGR": 55,
+    "NCER": 51,
+    "NANR": 51,
+    "NSCR": 15,
+    "NCLR": 7
+   },
+   "source": "p_status.c:700",
+   "confidence": "verified",
+   "note": "Backgrounds, sprites and cells of the summary screens."
+  },
+  {
+   "id": 79,
+   "path": "a/0/7/9",
+   "label": "Field rail data",
+   "group": "World",
+   "kind": "data",
+   "members": 34,
+   "formats": {
+    "RAW": 34
+   },
+   "source": "field_rail_loader.c:48",
+   "confidence": "verified",
+   "note": "Rail (fixed camera path) and rail attribute data."
+  },
+  {
+   "id": 80,
+   "path": "a/0/8/0",
+   "label": "Small field record (unidentified)",
+   "group": "Other",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One 72-byte record; no code consumer found."
+  },
+  {
+   "id": 81,
+   "path": "a/0/8/1",
+   "label": "Zone fog table",
+   "group": "World",
+   "kind": "data",
+   "members": 14,
+   "formats": {
+    "RAW": 14
+   },
+   "source": "zonedata.c:433",
+   "confidence": "verified",
+   "note": "Fog parameters; member 13 is the zone table."
+  },
+  {
+   "id": 82,
+   "path": "a/0/8/2",
+   "label": "Zone light table",
+   "group": "World",
+   "kind": "data",
+   "members": 2,
+   "formats": {
+    "RAW": 1,
+    "EMPTY": 1
+   },
+   "source": "zonedata.c:436",
+   "confidence": "verified",
+   "note": "Light table loaded with the zone data."
+  },
+  {
+   "id": 83,
+   "path": "a/0/8/3",
+   "label": "Common UI sprite sheet (icons, balls, types)",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 172,
+   "formats": {
+    "NCGR": 66,
+    "NCLR": 37,
+    "NCER": 33,
+    "NANR": 33,
+    "NSCR": 3
+   },
+   "source": "app_icon.c:159",
+   "confidence": "verified",
+   "note": "Shared sheet: type and move-kind icons, ball icons, status icons, touch bar, task menu, yes/no art."
+  },
+  {
+   "id": 84,
+   "path": "a/0/8/4",
+   "label": "Place-name banner",
+   "group": "World",
+   "kind": "images",
+   "members": 4,
+   "formats": {
+    "NCLR": 2,
+    "NCGR": 1,
+    "NSCR": 1
+   },
+   "source": "field_place_name.c:459",
+   "confidence": "verified",
+   "note": "Palette, tiles and screen of the location banner."
+  },
+  {
+   "id": 85,
+   "path": "a/0/8/5",
+   "label": "Town map graphics",
+   "group": "World",
+   "kind": "images",
+   "members": 21,
+   "formats": {
+    "NCGR": 7,
+    "NCLR": 5,
+    "NSCR": 5,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "townmap_grh.c",
+   "confidence": "verified",
+   "note": "Town map and Pokedex area map backgrounds and sprites."
+  },
+  {
+   "id": 86,
+   "path": "a/0/8/6",
+   "label": "Town map data",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "townmap_grh.c",
+   "confidence": "verified",
+   "note": "One 3294-byte table read by the town map."
+  },
+  {
+   "id": 87,
+   "path": "a/0/8/7",
+   "label": "Small byte table (unidentified)",
+   "group": "Other",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One 106-byte table; no code consumer found."
+  },
+  {
+   "id": 88,
+   "path": "a/0/8/8",
+   "label": "Bag screen",
+   "group": "Items",
+   "kind": "images",
+   "members": 40,
+   "formats": {
+    "NCGR": 11,
+    "NCLR": 11,
+    "NSCR": 6,
+    "NANR": 6,
+    "NCER": 6
+   },
+   "source": "itemmenu.c:2781",
+   "confidence": "verified",
+   "note": "Bag backgrounds, pocket tabs and cursor; female and male variants."
+  },
+  {
+   "id": 89,
+   "path": "a/0/8/9",
+   "label": "Union Room graphics",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 24,
+   "formats": {
+    "NCGR": 5,
+    "NSCR": 5,
+    "NCLR": 4,
+    "NCER": 3,
+    "NANR": 3,
+    "NSBMD": 3,
+    "NSBTA": 1
+   },
+   "source": "union_eff.c:220",
+   "confidence": "verified",
+   "note": "Union Room screens plus small models and animations."
+  },
+  {
+   "id": 90,
+   "path": "a/0/9/0",
+   "label": "Overworld Pokemon (tpoke) records",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "tpoke_data.c:277",
+   "confidence": "inferred",
+   "note": "One 7048-byte table used with the object parameters."
+  },
+  {
+   "id": 91,
+   "path": "a/0/9/1",
+   "label": "Overworld Pokemon (tpoke) index",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "tpoke_data.c:278",
+   "confidence": "inferred",
+   "note": "One 1232-byte offset index paired with archive 90."
+  },
+  {
+   "id": 92,
+   "path": "a/0/9/2",
+   "label": "Trainer data",
+   "group": "Trainers",
+   "kind": "data",
+   "members": 616,
+   "formats": {
+    "RAW": 616
+   },
+   "source": "tpoke_data_types.h",
+   "confidence": "verified",
+   "note": "One 20-byte record per trainer id."
+  },
+  {
+   "id": 93,
+   "path": "a/0/9/3",
+   "label": "Trainer parties",
+   "group": "Trainers",
+   "kind": "data",
+   "members": 616,
+   "formats": {
+    "RAW": 616
+   },
+   "source": "tr_tool.c:84",
+   "confidence": "verified",
+   "note": "One party block per trainer id."
+  },
+  {
+   "id": 94,
+   "path": "a/0/9/4",
+   "label": "IR game graphics (compatibility checker)",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 53,
+   "formats": {
+    "NCGR": 19,
+    "NSCR": 19,
+    "NCLR": 6,
+    "NANR": 3,
+    "NCER": 3,
+    "NSBCA": 1,
+    "NSBMA": 1,
+    "NSBMD": 1
+   },
+   "source": "irc_rhythm_types.h:19",
+   "confidence": "verified",
+   "note": "Backgrounds, sprites and windows of the infrared games."
+  },
+  {
+   "id": 95,
+   "path": "a/0/9/5",
+   "label": "Battle effect backgrounds and sprites",
+   "group": "Battle",
+   "kind": "images",
+   "members": 165,
+   "formats": {
+    "NCGR": 60,
+    "NCLR": 60,
+    "NSCR": 43,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "btlv_effvm.c:2275",
+   "confidence": "verified",
+   "note": "Tiles, palettes and screens loaded by the battle effect VM."
+  },
+  {
+   "id": 96,
+   "path": "a/0/9/6",
+   "label": "GTS screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 42,
+   "formats": {
+    "NSCR": 16,
+    "NCGR": 11,
+    "NCLR": 9,
+    "NCER": 3,
+    "NANR": 3
+   },
+   "source": "worldtrade.c:613",
+   "confidence": "verified",
+   "note": "Global Trade Station screens."
+  },
+  {
+   "id": 97,
+   "path": "a/0/9/7",
+   "label": "Calendar data",
+   "group": "World",
+   "kind": "data",
+   "members": 2,
+   "formats": {
+    "RAW": 2
+   },
+   "source": "calender.c:33",
+   "confidence": "inferred",
+   "note": "One 24888-byte table and one 274-byte table read by the calendar code."
+  },
+  {
+   "id": 98,
+   "path": "a/0/9/8",
+   "label": "Pokedex search and sort tables",
+   "group": "Pokedex",
+   "kind": "data",
+   "members": 10,
+   "formats": {
+    "RAW": 10
+   },
+   "source": "zukan_search_engine.c",
+   "confidence": "inferred",
+   "note": "Ten tables used by the search engine and the form lists."
+  },
+  {
+   "id": 99,
+   "path": "a/0/9/9",
+   "label": "Battle bag screens",
+   "group": "Battle",
+   "kind": "images",
+   "members": 17,
+   "formats": {
+    "NSCR": 11,
+    "NCGR": 2,
+    "NCLR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "b_bag_main.c:1141",
+   "confidence": "verified",
+   "note": "Graphics of the in-battle bag."
+  },
+  {
+   "id": 100,
+   "path": "a/1/0/0",
+   "label": "Battle party list screens",
+   "group": "Battle",
+   "kind": "images",
+   "members": 20,
+   "formats": {
+    "NSCR": 18,
+    "NCGR": 1,
+    "NCLR": 1
+   },
+   "source": "b_plist_main.c:1377",
+   "confidence": "verified",
+   "note": "LZ10 screens and palette of the in-battle party list."
+  },
+  {
+   "id": 101,
+   "path": "a/1/0/1",
+   "label": "Map change event table",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "event_mapchange.c",
+   "confidence": "inferred",
+   "note": "One 672-byte table of value and index pairs read by map change events."
+  },
+  {
+   "id": 102,
+   "path": "a/1/0/2",
+   "label": "Pokemon trade screens (2D)",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 31,
+   "formats": {
+    "NSCR": 15,
+    "NCGR": 5,
+    "NCLR": 4,
+    "NANR": 3,
+    "NCER": 3,
+    "NSBMD": 1
+   },
+   "source": "pokemontrade_2d.c:1475",
+   "confidence": "verified",
+   "note": "Screens and cells of the trade."
+  },
+  {
+   "id": 103,
+   "path": "a/1/0/3",
+   "label": "Pokemon trade demo models",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 64,
+   "formats": {
+    "NSBCA": 20,
+    "NSBMD": 20,
+    "RAW": 10,
+    "NSBTA": 6,
+    "NCGR": 2,
+    "NCLR": 2,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "pokemontrade_demo_common.c",
+   "confidence": "verified",
+   "note": "Ball, camera and scene models with animations for the trade demo."
+  },
+  {
+   "id": 104,
+   "path": "a/1/0/4",
+   "label": "Pokemon trade 3D scene",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 13,
+   "formats": {
+    "NSBCA": 3,
+    "NSBMD": 3,
+    "RAW": 2,
+    "NCGR": 1,
+    "NCLR": 1,
+    "NSCR": 1,
+    "NSBTA": 1,
+    "APS": 1
+   },
+   "source": "pokemontrade_3d.c",
+   "confidence": "verified",
+   "note": "Scene models and particle data for the trade view."
+  },
+  {
+   "id": 105,
+   "path": "a/1/0/5",
+   "label": "Battle regulation presets",
+   "group": "Battle",
+   "kind": "data",
+   "members": 29,
+   "formats": {
+    "RAW": 29
+   },
+   "source": "poke_regulation.c:589",
+   "confidence": "verified",
+   "note": "29 rule sets of 188 bytes (level and party limits)."
+  },
+  {
+   "id": 106,
+   "path": "a/1/0/6",
+   "label": "Microphone test screen",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 20,
+   "formats": {
+    "NCLR": 5,
+    "NCGR": 5,
+    "NCER": 4,
+    "NANR": 4,
+    "NSCR": 2
+   },
+   "source": "mictest.c:630",
+   "confidence": "verified",
+   "note": "Graphics of the microphone test."
+  },
+  {
+   "id": 107,
+   "path": "a/1/0/7",
+   "label": "Cart gym models",
+   "group": "World",
+   "kind": "models",
+   "members": 39,
+   "formats": {
+    "NSBTA": 17,
+    "NSBCA": 8,
+    "RAW": 8,
+    "NSBMD": 6
+   },
+   "source": "field_gimmick_cart_lanes_types.h:47",
+   "confidence": "verified",
+   "note": "Cart, rail and switch models of the fourth gym."
+  },
+  {
+   "id": 108,
+   "path": "a/1/0/8",
+   "label": "Field camera parameters per area",
+   "group": "World",
+   "kind": "data",
+   "members": 282,
+   "formats": {
+    "RAW": 282
+   },
+   "source": "field_camera.c",
+   "confidence": "verified",
+   "note": "282 records of 28 or 52 bytes."
+  },
+  {
+   "id": 109,
+   "path": "a/1/0/9",
+   "label": "Free-movement map resource table",
+   "group": "World",
+   "kind": "data",
+   "members": 17,
+   "formats": {
+    "RAW": 17
+   },
+   "source": "field_nogrid_mapper.c:60",
+   "confidence": "verified",
+   "note": "17 members of 4 bytes read by the no-grid mapper."
+  },
+  {
+   "id": 110,
+   "path": "a/1/1/0",
+   "label": "Library book animation",
+   "group": "World",
+   "kind": "models",
+   "members": 2,
+   "formats": {
+    "NSBMD": 1,
+    "NSBCA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One BMD0 and one animation of a book."
+  },
+  {
+   "id": 111,
+   "path": "a/1/1/1",
+   "label": "Spin Trade board layout A",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 6,
+   "formats": {
+    "RAW": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six members: board layout and tables (variant A)."
+  },
+  {
+   "id": 112,
+   "path": "a/1/1/2",
+   "label": "Spin Trade board layout B",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 6,
+   "formats": {
+    "RAW": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six members: board layout and tables (variant B)."
+  },
+  {
+   "id": 113,
+   "path": "a/1/1/3",
+   "label": "Spin Trade board layout C",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 6,
+   "formats": {
+    "RAW": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six members: board layout and tables (variant C)."
+  },
+  {
+   "id": 114,
+   "path": "a/1/1/4",
+   "label": "Spin Trade board layout D",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 6,
+   "formats": {
+    "RAW": 6
+   },
+   "source": "guru2_main.c",
+   "confidence": "verified",
+   "note": "Six members: board layout and tables (variant D)."
+  },
+  {
+   "id": 115,
+   "path": "a/1/1/5",
+   "label": "Field cut-in scenes (3D)",
+   "group": "World",
+   "kind": "models",
+   "members": 183,
+   "formats": {
+    "NSBMD": 60,
+    "NSBCA": 42,
+    "NSBVA": 24,
+    "NSBTP": 22,
+    "NSBMA": 15,
+    "NSBTA": 12,
+    "APS": 8
+   },
+   "source": "fld3d_ci.c:1072",
+   "confidence": "verified",
+   "note": "Models, animations and particle wrappers of item get, badge, Fly and story cut-ins."
+  },
+  {
+   "id": 116,
+   "path": "a/1/1/6",
+   "label": "Pokemon box graphics",
+   "group": "Menus",
+   "kind": "images",
+   "members": 79,
+   "formats": {
+    "NCGR": 34,
+    "NCLR": 29,
+    "NSCR": 8,
+    "NCER": 4,
+    "NANR": 4
+   },
+   "source": "box2_main.c:1196",
+   "confidence": "verified",
+   "note": "Box grid, wallpapers and cursor art (mostly LZ10)."
+  },
+  {
+   "id": 117,
+   "path": "a/1/1/7",
+   "label": "Cut-in sequence tables",
+   "group": "World",
+   "kind": "data",
+   "members": 53,
+   "formats": {
+    "RAW": 53
+   },
+   "source": "fld3d_ci.c:1019",
+   "confidence": "verified",
+   "note": "53 records of 36 bytes selecting cut-in resources."
+  },
+  {
+   "id": 118,
+   "path": "a/1/1/8",
+   "label": "Name entry screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 11,
+   "formats": {
+    "NSCR": 5,
+    "NCGR": 2,
+    "NCLR": 2,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "namein_graphic_main.c:350",
+   "confidence": "verified",
+   "note": "Backgrounds, cursor and cells of the name entry screen."
+  },
+  {
+   "id": 119,
+   "path": "a/1/1/9",
+   "label": "Name entry keyboard tables",
+   "group": "Menus",
+   "kind": "data",
+   "members": 9,
+   "formats": {
+    "RAW": 6,
+    "EMPTY": 3
+   },
+   "source": "namein_data.c:87",
+   "confidence": "verified",
+   "note": "Nine tables of key layout and character pairs."
+  },
+  {
+   "id": 120,
+   "path": "a/1/2/0",
+   "label": "Background set (unidentified)",
+   "group": "Other",
+   "kind": "images",
+   "members": 5,
+   "formats": {
+    "NCGR": 2,
+    "NSCR": 2,
+    "NCLR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Two tile sheets, two screens and one palette; no code consumer found."
+  },
+  {
+   "id": 121,
+   "path": "a/1/2/1",
+   "label": "Cannon gimmick models",
+   "group": "World",
+   "kind": "models",
+   "members": 23,
+   "formats": {
+    "RAW": 14,
+    "NSBCA": 4,
+    "NSBMA": 4,
+    "NSBMD": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "A cannon model with animations plus small parameter members."
+  },
+  {
+   "id": 122,
+   "path": "a/1/2/2",
+   "label": "Gym 1 gimmick models",
+   "group": "World",
+   "kind": "models",
+   "members": 15,
+   "formats": {
+    "NSBMD": 6,
+    "NSBCA": 6,
+    "NSBTA": 3
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six models with animations for the first gym."
+  },
+  {
+   "id": 123,
+   "path": "a/1/2/3",
+   "label": "Egg moves",
+   "group": "Pokemon",
+   "kind": "data",
+   "members": 650,
+   "formats": {
+    "EMPTY": 390,
+    "RAW": 260
+   },
+   "source": "sodateya.c:1304",
+   "confidence": "verified",
+   "note": "One list per species."
+  },
+  {
+   "id": 124,
+   "path": "a/1/2/4",
+   "label": "Move relearner screens",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 29,
+   "formats": {
+    "NCGR": 8,
+    "NCER": 6,
+    "NANR": 6,
+    "NCLR": 5,
+    "NSCR": 4
+   },
+   "source": "poke_summary_main.c",
+   "confidence": "verified",
+   "note": "Graphics of the move relearner (summary sub-screen)."
+  },
+  {
+   "id": 125,
+   "path": "a/1/2/5",
+   "label": "Event data (per zone)",
+   "group": "World",
+   "kind": "data",
+   "members": 428,
+   "formats": {
+    "RAW": 428
+   },
+   "source": "eventdata_system.c",
+   "confidence": "verified",
+   "note": "428 members: connections, object placements, position and background events."
+  },
+  {
+   "id": 126,
+   "path": "a/1/2/6",
+   "label": "Wild encounter tables",
+   "group": "World",
+   "kind": "data",
+   "members": 112,
+   "formats": {
+    "RAW": 112
+   },
+   "source": "eventdata_system.c",
+   "confidence": "verified",
+   "note": "One table per encounter id."
+  },
+  {
+   "id": 127,
+   "path": "a/1/2/7",
+   "label": "Sound-object gimmick B (train)",
+   "group": "World",
+   "kind": "models",
+   "members": 7,
+   "formats": {
+    "RAW": 6,
+    "NSBMD": 1
+   },
+   "source": "field_gimmick_sound_objs_b_types.h:30",
+   "confidence": "verified",
+   "note": "A train model plus small data members."
+  },
+  {
+   "id": 128,
+   "path": "a/1/2/8",
+   "label": "Y-button shortcut menu",
+   "group": "Menus",
+   "kind": "sprites",
+   "members": 8,
+   "formats": {
+    "NCLR": 3,
+    "NCGR": 2,
+    "NANR": 1,
+    "NCER": 1,
+    "NSCR": 1
+   },
+   "source": "shortcut_menu.c:288",
+   "confidence": "verified",
+   "note": "Cells, tiles and screen of the shortcut menu."
+  },
+  {
+   "id": 129,
+   "path": "a/1/2/9",
+   "label": "Wild encounter effect models",
+   "group": "Battle",
+   "kind": "models",
+   "members": 12,
+   "formats": {
+    "NSBCA": 6,
+    "NSBMD": 6
+   },
+   "source": "enceff_model_scene.c:187",
+   "confidence": "verified",
+   "note": "Models and animations of the encounter intro effects (symbol, trainer, wild)."
+  },
+  {
+   "id": 130,
+   "path": "a/1/3/0",
+   "label": "Electronic signboard models",
+   "group": "World",
+   "kind": "models",
+   "members": 36,
+   "formats": {
+    "NSBTP": 20,
+    "NSBTA": 14,
+    "NSBMD": 1,
+    "NSBTX": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Signboard models, textures and pattern animations."
+  },
+  {
+   "id": 131,
+   "path": "a/1/3/1",
+   "label": "Xtransceiver screens",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 69,
+   "formats": {
+    "NCGR": 31,
+    "NCLR": 18,
+    "NCER": 6,
+    "NANR": 6,
+    "RAW": 6,
+    "NSCR": 2
+   },
+   "source": "local_tvt_sys.c:429",
+   "confidence": "verified",
+   "note": "Video chat screens and sprites."
+  },
+  {
+   "id": 132,
+   "path": "a/1/3/2",
+   "label": "Ambient sound table (cities)",
+   "group": "Sound",
+   "kind": "data",
+   "members": 5,
+   "formats": {
+    "RAW": 5
+   },
+   "source": "iss_city_sys.c",
+   "confidence": "verified",
+   "note": "Per-city ambient sound mixing data."
+  },
+  {
+   "id": 133,
+   "path": "a/1/3/3",
+   "label": "Wi-Fi battle match screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 12,
+   "formats": {
+    "NSCR": 6,
+    "NCLR": 2,
+    "NCGR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "wifibattlematch_view.c:1580",
+   "confidence": "verified",
+   "note": "Screens of the Wi-Fi battle match."
+  },
+  {
+   "id": 134,
+   "path": "a/1/3/4",
+   "label": "Opening movie frames",
+   "group": "Other",
+   "kind": "images",
+   "members": 670,
+   "formats": {
+    "RAW": 670
+   },
+   "source": "ASSETS.md",
+   "confidence": "verified",
+   "note": "670 LZ11 frames of 256x256 16bpp direct colour."
+  },
+  {
+   "id": 135,
+   "path": "a/1/3/5",
+   "label": "Gym puzzle models (city 03)",
+   "group": "World",
+   "kind": "models",
+   "members": 28,
+   "formats": {
+    "NSBCA": 12,
+    "NSBMD": 8,
+    "NSBTA": 4,
+    "NSBTP": 3,
+    "NSBMA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Poles, walls, switches and effects of one gym."
+  },
+  {
+   "id": 136,
+   "path": "a/1/3/6",
+   "label": "Ambient sound table (zones)",
+   "group": "Sound",
+   "kind": "data",
+   "members": 31,
+   "formats": {
+    "RAW": 31
+   },
+   "source": "iss_zone_sys.c",
+   "confidence": "verified",
+   "note": "Per-zone ambient sound mixing data."
+  },
+  {
+   "id": 137,
+   "path": "a/1/3/7",
+   "label": "Battle video (VS Recorder) screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 108,
+   "formats": {
+    "NCLR": 41,
+    "NSCR": 36,
+    "NCGR": 13,
+    "NCER": 9,
+    "NANR": 9
+   },
+   "source": "br_res.c",
+   "confidence": "verified",
+   "note": "Screens of the VS Recorder."
+  },
+  {
+   "id": 138,
+   "path": "a/1/3/8",
+   "label": "Gimmick models (interior 27)",
+   "group": "World",
+   "kind": "models",
+   "members": 8,
+   "formats": {
+    "NSBTA": 4,
+    "NSBMD": 3,
+    "NSBCA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Lift and wall animation models of one interior."
+  },
+  {
+   "id": 139,
+   "path": "a/1/3/9",
+   "label": "Download Play screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 12,
+   "formats": {
+    "NCLR": 4,
+    "NCGR": 4,
+    "NSCR": 4
+   },
+   "source": "mb_parent_sys.c:1017",
+   "confidence": "verified",
+   "note": "Screens of the multiboot parent."
+  },
+  {
+   "id": 140,
+   "path": "a/1/4/0",
+   "label": "Screen set (unidentified)",
+   "group": "Other",
+   "kind": "images",
+   "members": 7,
+   "formats": {
+    "NCLR": 2,
+    "NCGR": 2,
+    "NSCR": 2,
+    "SDAT": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Two palettes, two tile sheets and two screens; no code consumer found."
+  },
+  {
+   "id": 141,
+   "path": "a/1/4/1",
+   "label": "Hall of Fame screens (second set)",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 14,
+   "formats": {
+    "NCLR": 4,
+    "NCGR": 4,
+    "NSCR": 2,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "hall_of_fame_scene.c",
+   "confidence": "inferred",
+   "note": "Palettes, tiles and screens; probably used by the Hall of Fame scene."
+  },
+  {
+   "id": 142,
+   "path": "a/1/4/2",
+   "label": "Download Play bundle",
+   "group": "Minigames and features",
+   "kind": "other",
+   "members": 39,
+   "formats": {
+    "NSBTX": 24,
+    "NCLR": 4,
+    "NCGR": 4,
+    "NSCR": 4,
+    "SDAT": 1,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "mb_parent_sys.c",
+   "confidence": "inferred",
+   "note": "One SDAT, textures and graphics bundled for the multiboot child."
+  },
+  {
+   "id": 143,
+   "path": "a/1/4/3",
+   "label": "Game Sync screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 28,
+   "formats": {
+    "NSCR": 10,
+    "NCLR": 6,
+    "NCGR": 6,
+    "NCER": 3,
+    "NANR": 3
+   },
+   "source": "gsync_disp.c:493",
+   "confidence": "verified",
+   "note": "Game Sync graphics."
+  },
+  {
+   "id": 144,
+   "path": "a/1/4/4",
+   "label": "GTS negotiation screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 24,
+   "formats": {
+    "NSCR": 10,
+    "NCLR": 5,
+    "NCGR": 5,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "gtsnego_disp.c:1929",
+   "confidence": "verified",
+   "note": "Screens of the GTS trade negotiation."
+  },
+  {
+   "id": 145,
+   "path": "a/1/4/5",
+   "label": "Wi-Fi connection screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 8,
+   "formats": {
+    "NCLR": 4,
+    "NSCR": 3,
+    "NCGR": 1
+   },
+   "source": "pdwacc_disp.c:322",
+   "confidence": "verified",
+   "note": "Login, Dream World access and subway Wi-Fi screens."
+  },
+  {
+   "id": 146,
+   "path": "a/1/4/6",
+   "label": "Ambient sound table (dungeons)",
+   "group": "Sound",
+   "kind": "data",
+   "members": 10,
+   "formats": {
+    "RAW": 10
+   },
+   "source": "iss_dungeon_sys.c",
+   "confidence": "verified",
+   "note": "Dungeon ambient sound data."
+  },
+  {
+   "id": 147,
+   "path": "a/1/4/7",
+   "label": "Ambient sound table (switch)",
+   "group": "Sound",
+   "kind": "data",
+   "members": 3,
+   "formats": {
+    "RAW": 3
+   },
+   "source": "iss_switch_sys.c",
+   "confidence": "verified",
+   "note": "Switch-type ambient sound data."
+  },
+  {
+   "id": 148,
+   "path": "a/1/4/8",
+   "label": "Sound-object gimmick models",
+   "group": "World",
+   "kind": "models",
+   "members": 18,
+   "formats": {
+    "RAW": 14,
+    "NSBMD": 3,
+    "NSBTA": 1
+   },
+   "source": "field_gimmick_sound_objs_types.h:35",
+   "confidence": "verified",
+   "note": "Small data members and models of the sound object gimmick."
+  },
+  {
+   "id": 149,
+   "path": "a/1/4/9",
+   "label": "Zone map effect table",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "zonedata.c:439",
+   "confidence": "verified",
+   "note": "One small table loaded with the zone data."
+  },
+  {
+   "id": 150,
+   "path": "a/1/5/0",
+   "label": "Field cutscene models (city 09)",
+   "group": "World",
+   "kind": "models",
+   "members": 32,
+   "formats": {
+    "NSBMD": 12,
+    "NSBTP": 8,
+    "RAW": 8,
+    "NSBCA": 4
+   },
+   "source": "field_fk_demo_types.h:57",
+   "confidence": "verified",
+   "note": "Camera, female and male variant scene models."
+  },
+  {
+   "id": 151,
+   "path": "a/1/5/1",
+   "label": "Scoreboard screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 12,
+   "formats": {
+    "NCLR": 4,
+    "NCGR": 4,
+    "NSCR": 4
+   },
+   "source": "el_scoreboard.c:448",
+   "confidence": "inferred",
+   "note": "Screens of the electric scoreboard."
+  },
+  {
+   "id": 152,
+   "path": "a/1/5/2",
+   "label": "Battle field tables",
+   "group": "Battle",
+   "kind": "data",
+   "members": 3,
+   "formats": {
+    "RAW": 3
+   },
+   "source": "btlv_stage.c",
+   "confidence": "verified",
+   "note": "Three small tables used by battle stage setup and the form selection by terrain."
+  },
+  {
+   "id": 153,
+   "path": "a/1/5/3",
+   "label": "Ice gym models",
+   "group": "World",
+   "kind": "models",
+   "members": 9,
+   "formats": {
+    "NSBCA": 4,
+    "NSBMD": 3,
+    "NSBTA": 2
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Mechanism models with animations of an ice gym."
+  },
+  {
+   "id": 154,
+   "path": "a/1/5/4",
+   "label": "White Forest and Black City data",
+   "group": "World",
+   "kind": "data",
+   "members": 37,
+   "formats": {
+    "RAW": 36,
+    "EMPTY": 1
+   },
+   "source": "field_wfbc.c:350",
+   "confidence": "verified",
+   "note": "Data tables of the WFBC."
+  },
+  {
+   "id": 155,
+   "path": "a/1/5/5",
+   "label": "Mail screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 48,
+   "formats": {
+    "NSCR": 16,
+    "NCLR": 15,
+    "NCGR": 15,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "mailview.c:430",
+   "confidence": "verified",
+   "note": "Mail view graphics (mostly LZ10)."
+  },
+  {
+   "id": 156,
+   "path": "a/1/5/6",
+   "label": "Map land data patches",
+   "group": "World",
+   "kind": "data",
+   "members": 46,
+   "formats": {
+    "RAW": 46
+   },
+   "source": "land_data_patch.c:54",
+   "confidence": "verified",
+   "note": "46 patches applied over map land data."
+  },
+  {
+   "id": 157,
+   "path": "a/1/5/7",
+   "label": "Gimmick models (electric tower)",
+   "group": "World",
+   "kind": "models",
+   "members": 26,
+   "formats": {
+    "NSBTA": 15,
+    "NSBMD": 8,
+    "RAW": 2,
+    "NSBMA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Pole, light and effect models with texture animations."
+  },
+  {
+   "id": 158,
+   "path": "a/1/5/8",
+   "label": "Small data tables (unidentified)",
+   "group": "Other",
+   "kind": "data",
+   "members": 5,
+   "formats": {
+    "RAW": 5
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Five small tables; no code consumer found."
+  },
+  {
+   "id": 159,
+   "path": "a/1/5/9",
+   "label": "Pokedex screens",
+   "group": "Pokedex",
+   "kind": "images",
+   "members": 113,
+   "formats": {
+    "NSCR": 38,
+    "NCGR": 33,
+    "NCLR": 22,
+    "NCER": 10,
+    "NANR": 10
+   },
+   "source": "zukan_detail_area.c",
+   "confidence": "verified",
+   "note": "Pokedex list, search and detail graphics."
+  },
+  {
+   "id": 160,
+   "path": "a/1/6/0",
+   "label": "Cutscene scenes and character models",
+   "group": "Other",
+   "kind": "models",
+   "members": 252,
+   "formats": {
+    "NSBMD": 81,
+    "NSBCA": 52,
+    "NSBTA": 40,
+    "NSBTP": 31,
+    "NSBMA": 22,
+    "RAW": 19,
+    "NSBVA": 7
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Ending, ferris wheel, ship, intro town scene models plus human character models."
+  },
+  {
+   "id": 161,
+   "path": "a/1/6/1",
+   "label": "Demo scene overlay graphics",
+   "group": "Other",
+   "kind": "images",
+   "members": 5,
+   "formats": {
+    "NSCR": 3,
+    "NCLR": 1,
+    "NCGR": 1
+   },
+   "source": "demo3d_cmdsys.c:151",
+   "confidence": "verified",
+   "note": "Window and background graphics used by the 3D demo command system."
+  },
+  {
+   "id": 162,
+   "path": "a/1/6/2",
+   "label": "Dragon gym models",
+   "group": "World",
+   "kind": "models",
+   "members": 19,
+   "formats": {
+    "NSBCA": 12,
+    "NSBMD": 5,
+    "NSBTP": 1,
+    "NSBTA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Dragon statue parts and animations of the last gym."
+  },
+  {
+   "id": 163,
+   "path": "a/1/6/3",
+   "label": "Scripted encounter records",
+   "group": "World",
+   "kind": "data",
+   "members": 7,
+   "formats": {
+    "RAW": 7
+   },
+   "source": "scrcmd_encount.c:384",
+   "confidence": "verified",
+   "note": "Seven records of 44 bytes read by the scripted encounter command."
+  },
+  {
+   "id": 164,
+   "path": "a/1/6/4",
+   "label": "Start menu backdrop",
+   "group": "Menus",
+   "kind": "images",
+   "members": 5,
+   "formats": {
+    "NCGR": 2,
+    "NSCR": 2,
+    "NCLR": 1
+   },
+   "source": "startmenu.c",
+   "confidence": "inferred",
+   "note": "Tiles, palette and screens loaded by the start menu."
+  },
+  {
+   "id": 165,
+   "path": "a/1/6/5",
+   "label": "Record table (unidentified)",
+   "group": "Other",
+   "kind": "data",
+   "members": 13,
+   "formats": {
+    "RAW": 13
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "13 records of 108 bytes; no code consumer found."
+  },
+  {
+   "id": 166,
+   "path": "a/1/6/6",
+   "label": "Gate news data",
+   "group": "World",
+   "kind": "data",
+   "members": 9,
+   "formats": {
+    "RAW": 9
+   },
+   "source": "field_gimmick_gate_types.h:43",
+   "confidence": "verified",
+   "note": "Nine records of 36 bytes for the gate news boards."
+  },
+  {
+   "id": 167,
+   "path": "a/1/6/7",
+   "label": "Species mini icons",
+   "group": "Pokemon",
+   "kind": "sprites",
+   "members": 655,
+   "formats": {
+    "NCGR": 650,
+    "NANR": 2,
+    "NCER": 2,
+    "NCLR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "650 small LZ10 icons with a shared cell and animation; consumer not identified."
+  },
+  {
+   "id": 168,
+   "path": "a/1/6/8",
+   "label": "Group lists (unidentified)",
+   "group": "Battle",
+   "kind": "data",
+   "members": 315,
+   "formats": {
+    "RAW": 315
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "315 small id lists, same count as the battle facility group lists."
+  },
+  {
+   "id": 169,
+   "path": "a/1/6/9",
+   "label": "Record table (unidentified)",
+   "group": "Other",
+   "kind": "data",
+   "members": 951,
+   "formats": {
+    "RAW": 951
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "951 records of 16 bytes."
+  },
+  {
+   "id": 170,
+   "path": "a/1/7/0",
+   "label": "Game intro graphics and models",
+   "group": "Other",
+   "kind": "sprites",
+   "members": 37,
+   "formats": {
+    "NCGR": 7,
+    "NCLR": 7,
+    "NANR": 5,
+    "NCER": 5,
+    "NSCR": 3,
+    "NSBCA": 2,
+    "NSBMA": 2,
+    "NSBMD": 2
+   },
+   "source": "intro_cmd.c:742",
+   "confidence": "verified",
+   "note": "Cells, palettes and models of the intro scenes."
+  },
+  {
+   "id": 171,
+   "path": "a/1/7/1",
+   "label": "Trainer AI scripts",
+   "group": "Battle",
+   "kind": "scripts",
+   "members": 14,
+   "formats": {
+    "RAW": 14
+   },
+   "source": "tr_ai.c",
+   "confidence": "verified",
+   "note": "14 AI script members."
+  },
+  {
+   "id": 172,
+   "path": "a/1/7/2",
+   "label": "Xtransceiver call screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 27,
+   "formats": {
+    "NCLR": 8,
+    "NCGR": 7,
+    "NSCR": 6,
+    "NCER": 2,
+    "NANR": 2,
+    "RAW": 2
+   },
+   "source": "ctvt_call.c:2076",
+   "confidence": "verified",
+   "note": "Call and chat screens."
+  },
+  {
+   "id": 173,
+   "path": "a/1/7/3",
+   "label": "Entralink beacon screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 35,
+   "formats": {
+    "NCGR": 17,
+    "NCLR": 6,
+    "NSCR": 6,
+    "NCER": 3,
+    "NANR": 3
+   },
+   "source": "beacon_detail_gra.c:784",
+   "confidence": "verified",
+   "note": "Beacon list and detail graphics."
+  },
+  {
+   "id": 174,
+   "path": "a/1/7/4",
+   "label": "Gate board data",
+   "group": "World",
+   "kind": "data",
+   "members": 24,
+   "formats": {
+    "RAW": 24
+   },
+   "source": "field_gimmick_gate_types.h:42",
+   "confidence": "verified",
+   "note": "24 records of 124 bytes for the gate boards."
+  },
+  {
+   "id": 175,
+   "path": "a/1/7/5",
+   "label": "Billboard colour tables",
+   "group": "World",
+   "kind": "data",
+   "members": 2,
+   "formats": {
+    "RAW": 2
+   },
+   "source": "field_bbd_color.c",
+   "confidence": "verified",
+   "note": "Two small tables of overworld billboard tints."
+  },
+  {
+   "id": 176,
+   "path": "a/1/7/6",
+   "label": "Outdoor building textures",
+   "group": "World",
+   "kind": "models",
+   "members": 52,
+   "formats": {
+    "NSBTX": 52
+   },
+   "source": "field_buildmodel.c:450",
+   "confidence": "verified",
+   "note": "52 BTX0 sets used by the outdoor building models (resource 0xB0)."
+  },
+  {
+   "id": 177,
+   "path": "a/1/7/7",
+   "label": "Indoor building textures",
+   "group": "World",
+   "kind": "models",
+   "members": 64,
+   "formats": {
+    "NSBTX": 64
+   },
+   "source": "field_buildmodel.c:454",
+   "confidence": "verified",
+   "note": "64 BTX0 sets used by the indoor building models (resource 0xB1)."
+  },
+  {
+   "id": 178,
+   "path": "a/1/7/8",
+   "label": "Pokedex habitat data",
+   "group": "Pokedex",
+   "kind": "data",
+   "members": 649,
+   "formats": {
+    "RAW": 649
+   },
+   "source": "zukan_detail_area.c:778",
+   "confidence": "verified",
+   "note": "649 records, one per species, for the area view."
+  },
+  {
+   "id": 179,
+   "path": "a/1/7/9",
+   "label": "Entrance camera records",
+   "group": "World",
+   "kind": "data",
+   "members": 50,
+   "formats": {
+    "RAW": 50
+   },
+   "source": "entrance_camera_types.h:31",
+   "confidence": "verified",
+   "note": "50 records of 64 bytes."
+  },
+  {
+   "id": 180,
+   "path": "a/1/8/0",
+   "label": "Cut-in backgrounds",
+   "group": "World",
+   "kind": "images",
+   "members": 44,
+   "formats": {
+    "NCGR": 22,
+    "NCLR": 22
+   },
+   "source": "fld3d_ci.c:1398",
+   "confidence": "verified",
+   "note": "22 LZ77 tile sheets with 22 palettes."
+  },
+  {
+   "id": 181,
+   "path": "a/1/8/1",
+   "label": "Communication battle intro",
+   "group": "Battle",
+   "kind": "models",
+   "members": 35,
+   "formats": {
+    "NSBCA": 6,
+    "NSBMA": 6,
+    "NSBMD": 6,
+    "NCGR": 4,
+    "NCLR": 4,
+    "APS": 4,
+    "NSCR": 3,
+    "NANR": 1
+   },
+   "source": "comm_btl_demo_main.c:500",
+   "confidence": "verified",
+   "note": "Versus intro models, animations and particle wrappers."
+  },
+  {
+   "id": 182,
+   "path": "a/1/8/2",
+   "label": "Evolution demo",
+   "group": "Battle",
+   "kind": "sprites",
+   "members": 11,
+   "formats": {
+    "NCGR": 2,
+    "NANR": 1,
+    "NCER": 1,
+    "NCLR": 1,
+    "NSCR": 1,
+    "NSBCA": 1,
+    "NSBMA": 1,
+    "NSBMD": 1
+   },
+   "source": "shinka_demo.c:926",
+   "confidence": "verified",
+   "note": "Cells, tiles and models of the evolution demo."
+  },
+  {
+   "id": 183,
+   "path": "a/1/8/3",
+   "label": "Spin Trade 3D parts",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 28,
+   "formats": {
+    "NSBMD": 12,
+    "NSCR": 6,
+    "NSBCA": 5,
+    "NCGR": 3,
+    "NCLR": 2
+   },
+   "source": "guru2_main.c",
+   "confidence": "inferred",
+   "note": "Egg and panel models with animations."
+  },
+  {
+   "id": 184,
+   "path": "a/1/8/4",
+   "label": "Spin Trade graphics",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 17,
+   "formats": {
+    "NCLR": 6,
+    "NCGR": 4,
+    "NCER": 3,
+    "NANR": 3,
+    "NSCR": 1
+   },
+   "source": "guru2_main.c:1875",
+   "confidence": "verified",
+   "note": "Cells and tiles of the Spin Trade."
+  },
+  {
+   "id": 185,
+   "path": "a/1/8/5",
+   "label": "Ambient sound table (3DS)",
+   "group": "Sound",
+   "kind": "data",
+   "members": 2,
+   "formats": {
+    "RAW": 2
+   },
+   "source": "iss_3ds_sys.c:204",
+   "confidence": "verified",
+   "note": "Two tables of the ambient sound system."
+  },
+  {
+   "id": 186,
+   "path": "a/1/8/6",
+   "label": "Crowd gimmick data",
+   "group": "World",
+   "kind": "data",
+   "members": 7,
+   "formats": {
+    "RAW": 7
+   },
+   "source": "field_gimmick_crowd.c:540",
+   "confidence": "verified",
+   "note": "Seven small tables of the crowd gimmick."
+  },
+  {
+   "id": 187,
+   "path": "a/1/8/7",
+   "label": "Face-up portrait graphics",
+   "group": "World",
+   "kind": "images",
+   "members": 12,
+   "formats": {
+    "NCLR": 4,
+    "NCGR": 4,
+    "NSCR": 4
+   },
+   "source": "fld_faceup.c:69",
+   "confidence": "verified",
+   "note": "Close-up graphics for the face-up scene."
+  },
+  {
+   "id": 188,
+   "path": "a/1/8/8",
+   "label": "Battle video selection screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 5,
+   "formats": {
+    "NSCR": 3,
+    "NCLR": 1,
+    "NCGR": 1
+   },
+   "source": "btl_rec_sel.c:1239",
+   "confidence": "verified",
+   "note": "Screens of the battle video list."
+  },
+  {
+   "id": 189,
+   "path": "a/1/8/9",
+   "label": "Egg hatching demo",
+   "group": "Battle",
+   "kind": "models",
+   "members": 11,
+   "formats": {
+    "NCGR": 2,
+    "NANR": 1,
+    "NCER": 1,
+    "NCLR": 1,
+    "NSCR": 1,
+    "NSBCA": 1,
+    "NSBMA": 1,
+    "NSBMD": 1
+   },
+   "source": "egg_demo_main.c:372",
+   "confidence": "verified",
+   "note": "Models, cells and particle wrapper of the hatching demo."
+  },
+  {
+   "id": 190,
+   "path": "a/1/9/0",
+   "label": "Sea gimmick models",
+   "group": "World",
+   "kind": "models",
+   "members": 7,
+   "formats": {
+    "NSBMD": 3,
+    "NSBTA": 3,
+    "NSBMA": 1
+   },
+   "source": "field_gimmick_model_scene.c:72",
+   "confidence": "inferred",
+   "note": "Models and animations of water mechanisms."
+  },
+  {
+   "id": 191,
+   "path": "a/1/9/1",
+   "label": "Drawing board graphics",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 9,
+   "formats": {
+    "NCGR": 3,
+    "NCLR": 2,
+    "NSCR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "oekaki.c:697",
+   "confidence": "verified",
+   "note": "Graphics of the drawing tool."
+  },
+  {
+   "id": 192,
+   "path": "a/1/9/2",
+   "label": "Survey radar screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 23,
+   "formats": {
+    "NSCR": 10,
+    "NCGR": 8,
+    "NCLR": 3,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "research_graph.c:2393",
+   "confidence": "verified",
+   "note": "Screens of the Research (survey) feature."
+  },
+  {
+   "id": 193,
+   "path": "a/1/9/3",
+   "label": "Unity Tower select screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 14,
+   "formats": {
+    "NSCR": 6,
+    "NCGR": 4,
+    "NCLR": 2,
+    "NANR": 1,
+    "NCER": 1
+   },
+   "source": "un_select.c:1042",
+   "confidence": "inferred",
+   "note": "Selection screens; the file name suggests the Unity Tower."
+  },
+  {
+   "id": 194,
+   "path": "a/1/9/4",
+   "label": "Cry playback parameters",
+   "group": "Sound",
+   "kind": "data",
+   "members": 652,
+   "formats": {
+    "RAW": 652
+   },
+   "source": "pm_voice.c:442",
+   "confidence": "verified",
+   "note": "652 records of 4 bytes (rate, volume)."
+  },
+  {
+   "id": 195,
+   "path": "a/1/9/5",
+   "label": "Dowsing machine sprites",
+   "group": "World",
+   "kind": "sprites",
+   "members": 14,
+   "formats": {
+    "NCGR": 4,
+    "NCER": 3,
+    "NANR": 3,
+    "NCLR": 2,
+    "NSCR": 1,
+    "RAW": 1
+   },
+   "source": "dowsing.c:120",
+   "confidence": "verified",
+   "note": "Item finder cells and animations."
+  },
+  {
+   "id": 196,
+   "path": "a/1/9/6",
+   "label": "Save report screens",
+   "group": "Menus",
+   "kind": "images",
+   "members": 7,
+   "formats": {
+    "NCGR": 2,
+    "NCLR": 2,
+    "NSCR": 1,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "report.c:419",
+   "confidence": "verified",
+   "note": "Graphics of the save (report) screen."
+  },
+  {
+   "id": 197,
+   "path": "a/1/9/7",
+   "label": "Wi-Fi globe models",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 8,
+   "formats": {
+    "NSBMD": 5,
+    "NCGR": 1,
+    "NCLR": 1,
+    "NSCR": 1
+   },
+   "source": "beacon_detail.c:1813",
+   "confidence": "verified",
+   "note": "Globe and marker models of the Wi-Fi view."
+  },
+  {
+   "id": 198,
+   "path": "a/1/9/8",
+   "label": "Hourglass icon sheet",
+   "group": "Menus",
+   "kind": "images",
+   "members": 1,
+   "formats": {
+    "NCGR": 1
+   },
+   "source": "time_icon.c:204",
+   "confidence": "verified",
+   "note": "One LZ10 tile sheet of the wait icon."
+  },
+  {
+   "id": 199,
+   "path": "a/1/9/9",
+   "label": "Battle Subway record list",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 11,
+   "formats": {
+    "NSCR": 3,
+    "NCGR": 3,
+    "NCLR": 3,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "bsubway_record_list.c:451",
+   "confidence": "verified",
+   "note": "Graphics of the subway record list."
+  },
+  {
+   "id": 200,
+   "path": "a/2/0/0",
+   "label": "Save animation",
+   "group": "World",
+   "kind": "images",
+   "members": 3,
+   "formats": {
+    "NCGR": 1,
+    "NCLR": 1,
+    "NSCR": 1
+   },
+   "source": "field_saveanime.c:184",
+   "confidence": "verified",
+   "note": "Field save animation graphics."
+  },
+  {
+   "id": 201,
+   "path": "a/2/0/1",
+   "label": "Award screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 8,
+   "formats": {
+    "NCLR": 2,
+    "NCGR": 2,
+    "NSCR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "th_award.c:396",
+   "confidence": "inferred",
+   "note": "Palettes, tiles and screens of an award diploma."
+  },
+  {
+   "id": 202,
+   "path": "a/2/0/2",
+   "label": "Pokedex diploma screens",
+   "group": "Pokedex",
+   "kind": "images",
+   "members": 10,
+   "formats": {
+    "NCLR": 3,
+    "NCGR": 3,
+    "NSCR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "chihou_zukan_award.c:357",
+   "confidence": "verified",
+   "note": "Regional and national Pokedex diplomas."
+  },
+  {
+   "id": 203,
+   "path": "a/2/0/3",
+   "label": "Float parameter tables",
+   "group": "Other",
+   "kind": "data",
+   "members": 4,
+   "formats": {
+    "RAW": 4
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Four tables starting with 1.0 floats (camera or model scale)."
+  },
+  {
+   "id": 204,
+   "path": "a/2/0/4",
+   "label": "Download Play ball models",
+   "group": "Minigames and features",
+   "kind": "models",
+   "members": 8,
+   "formats": {
+    "NSBMD": 2,
+    "NSBCA": 2,
+    "NSBMA": 2,
+    "NSBTP": 2
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Ball models with animations."
+  },
+  {
+   "id": 205,
+   "path": "a/2/0/5",
+   "label": "Pokemon selection screens",
+   "group": "Minigames and features",
+   "kind": "sprites",
+   "members": 40,
+   "formats": {
+    "NCLR": 12,
+    "NCGR": 6,
+    "NCER": 4,
+    "NANR": 4,
+    "NSCR": 3,
+    "NSBMD": 3,
+    "NSBCA": 3,
+    "NSBMA": 2
+   },
+   "source": "psel.c:1023",
+   "confidence": "verified",
+   "note": "Graphics and models of the selection screen."
+  },
+  {
+   "id": 206,
+   "path": "a/2/0/6",
+   "label": "Subway map",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 4,
+   "formats": {
+    "NSCR": 2,
+    "NCLR": 1,
+    "NCGR": 1
+   },
+   "source": "subway_map_graphic.c:314",
+   "confidence": "verified",
+   "note": "Graphics of the Battle Subway map."
+  },
+  {
+   "id": 207,
+   "path": "a/2/0/7",
+   "label": "Tree models",
+   "group": "World",
+   "kind": "models",
+   "members": 1,
+   "formats": {
+    "NSBMD": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One BMD0 holding the field tree models."
+  },
+  {
+   "id": 208,
+   "path": "a/2/0/8",
+   "label": "Field script command tables",
+   "group": "World",
+   "kind": "data",
+   "members": 4,
+   "formats": {
+    "RAW": 4
+   },
+   "source": "scrcmd_pokemon_fld.c:240",
+   "confidence": "verified",
+   "note": "Four tables read by the Pokemon field script commands."
+  },
+  {
+   "id": 209,
+   "path": "a/2/0/9",
+   "label": "Network script data",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "scrcmd_network.c",
+   "confidence": "inferred",
+   "note": "One 916-byte table read by the network script command."
+  },
+  {
+   "id": 210,
+   "path": "a/2/1/0",
+   "label": "Field object models (blocks, barriers, warps)",
+   "group": "World",
+   "kind": "models",
+   "members": 9,
+   "formats": {
+    "NSBMD": 3,
+    "NSBTA": 3,
+    "NSBMA": 2,
+    "NSBCA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Pushable block, barrier and warp models with animations."
+  },
+  {
+   "id": 211,
+   "path": "a/2/1/1",
+   "label": "Overworld Pokemon (tpoke) table",
+   "group": "World",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "tpoke_data.c:135",
+   "confidence": "inferred",
+   "note": "One 4588-byte table of 8-byte records."
+  },
+  {
+   "id": 212,
+   "path": "a/2/1/2",
+   "label": "Camera shutter sounds",
+   "group": "Sound",
+   "kind": "other",
+   "members": 2,
+   "formats": {
+    "RIFF": 2
+   },
+   "source": "camera_system.c",
+   "confidence": "inferred",
+   "note": "Two RIFF wave files used by the camera system."
+  },
+  {
+   "id": 213,
+   "path": "a/2/1/3",
+   "label": "Hall of Fame view screens",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 8,
+   "formats": {
+    "NSCR": 4,
+    "NCGR": 2,
+    "NCLR": 2
+   },
+   "source": "dendou_view.c:478",
+   "confidence": "verified",
+   "note": "LZ11 backgrounds of the Hall of Fame view."
+  },
+  {
+   "id": 214,
+   "path": "a/2/1/4",
+   "label": "Battle facility Pokemon",
+   "group": "Battle",
+   "kind": "data",
+   "members": 1000,
+   "formats": {
+    "RAW": 1000
+   },
+   "source": "fld_btl_inst_tool.c",
+   "confidence": "verified",
+   "note": "1000 records of 16 bytes."
+  },
+  {
+   "id": 215,
+   "path": "a/2/1/5",
+   "label": "Battle facility group lists",
+   "group": "Battle",
+   "kind": "data",
+   "members": 315,
+   "formats": {
+    "RAW": 315
+   },
+   "source": "fld_btl_inst_tool.c",
+   "confidence": "verified",
+   "note": "315 lists of Pokemon groups."
+  },
+  {
+   "id": 216,
+   "path": "a/2/1/6",
+   "label": "Hall of Fame scene",
+   "group": "Minigames and features",
+   "kind": "images",
+   "members": 52,
+   "formats": {
+    "NCLR": 21,
+    "APS": 18,
+    "NCGR": 5,
+    "NSCR": 4,
+    "NCER": 2,
+    "NANR": 2
+   },
+   "source": "hall_of_fame_scene.c:332",
+   "confidence": "verified",
+   "note": "Hall of Fame screens, sprites and particle wrappers."
+  },
+  {
+   "id": 217,
+   "path": "a/2/1/7",
+   "label": "Ship scene model (city 03)",
+   "group": "World",
+   "kind": "models",
+   "members": 2,
+   "formats": {
+    "NSBMD": 1,
+    "NSBTA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "One ship model and its animation."
+  },
+  {
+   "id": 218,
+   "path": "a/2/1/8",
+   "label": "Smoke effect models",
+   "group": "World",
+   "kind": "models",
+   "members": 4,
+   "formats": {
+    "NSBMD": 1,
+    "NSBCA": 1,
+    "NSBMA": 1,
+    "NSBTP": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Model, animation and pattern data of a smoke effect."
+  },
+  {
+   "id": 219,
+   "path": "a/2/1/9",
+   "label": "Power effect models",
+   "group": "Battle",
+   "kind": "models",
+   "members": 10,
+   "formats": {
+    "NSBTP": 3,
+    "NSBMD": 2,
+    "NSBCA": 2,
+    "NSBMA": 2,
+    "NSBTA": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Models and animations of a power effect scene."
+  },
+  {
+   "id": 220,
+   "path": "a/2/2/0",
+   "label": "Staff roll and credits",
+   "group": "Other",
+   "kind": "models",
+   "members": 13,
+   "formats": {
+    "RAW": 2,
+    "NCLR": 2,
+    "NSCR": 2,
+    "NSBMD": 2,
+    "NSBCA": 2,
+    "NSBTP": 2,
+    "NCGR": 1
+   },
+   "source": "staff_roll.c:552",
+   "confidence": "verified",
+   "note": "Credits graphics and a 3D character model."
+  },
+  {
+   "id": 221,
+   "path": "a/2/2/1",
+   "label": "Profile word tables",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 7,
+   "formats": {
+    "RAW": 7
+   },
+   "source": "prof_word.c",
+   "confidence": "inferred",
+   "note": "Seven tables read by the profile word system."
+  },
+  {
+   "id": 222,
+   "path": "a/2/2/2",
+   "label": "Trailer house models",
+   "group": "World",
+   "kind": "models",
+   "members": 6,
+   "formats": {
+    "NSBMD": 6
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Six trailer house models."
+  },
+  {
+   "id": 223,
+   "path": "a/2/2/3",
+   "label": "Game manual screens",
+   "group": "Other",
+   "kind": "images",
+   "members": 13,
+   "formats": {
+    "RAW": 4,
+    "NSCR": 3,
+    "NCLR": 2,
+    "NCGR": 2,
+    "NCER": 1,
+    "NANR": 1
+   },
+   "source": "manual_common.c:124",
+   "confidence": "verified",
+   "note": "Screens of the in-game manual."
+  },
+  {
+   "id": 224,
+   "path": "a/2/2/4",
+   "label": "Palace palette tables",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 4,
+   "formats": {
+    "RAW": 4
+   },
+   "source": "field_palace_sys.c:58",
+   "confidence": "verified",
+   "note": "Four 36-byte palette index tables of the Palace."
+  },
+  {
+   "id": 225,
+   "path": "a/2/2/5",
+   "label": "Game Freak logo frames",
+   "group": "Other",
+   "kind": "images",
+   "members": 151,
+   "formats": {
+    "RAW": 151
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "151 LZ11 frames of 256x256 16bpp."
+  },
+  {
+   "id": 226,
+   "path": "a/2/2/6",
+   "label": "Title movie frames",
+   "group": "Other",
+   "kind": "images",
+   "members": 174,
+   "formats": {
+    "RAW": 174
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "174 LZ11 frames of 256x256 16bpp."
+  },
+  {
+   "id": 227,
+   "path": "a/2/2/7",
+   "label": "Palace field layout",
+   "group": "Minigames and features",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "intrude_field.c",
+   "confidence": "verified",
+   "note": "One 494-byte layout table."
+  },
+  {
+   "id": 228,
+   "path": "a/2/2/8",
+   "label": "Bird scene models",
+   "group": "World",
+   "kind": "models",
+   "members": 6,
+   "formats": {
+    "NSBMD": 2,
+    "NSBCA": 2,
+    "NSBTP": 2
+   },
+   "source": "scrcmd_proc_fld.c",
+   "confidence": "inferred",
+   "note": "Two bird models with animations."
+  },
+  {
+   "id": 229,
+   "path": "a/2/2/9",
+   "label": "Outdoor building models",
+   "group": "World",
+   "kind": "models",
+   "members": 52,
+   "formats": {
+    "RAW": 52
+   },
+   "source": "field_buildmodel.c:449",
+   "confidence": "verified",
+   "note": "Per-area model sets: houses, signs, doors, fountains, with animations."
+  },
+  {
+   "id": 230,
+   "path": "a/2/3/0",
+   "label": "Indoor building models",
+   "group": "World",
+   "kind": "models",
+   "members": 64,
+   "formats": {
+    "RAW": 64
+   },
+   "source": "field_buildmodel.c:453",
+   "confidence": "verified",
+   "note": "Per-area interior sets: Pokemon Center machines, props, doors."
+  },
+  {
+   "id": 231,
+   "path": "a/2/3/1",
+   "label": "Game manual pages",
+   "group": "Other",
+   "kind": "images",
+   "members": 73,
+   "formats": {
+    "RAW": 73
+   },
+   "source": "manual_common.c",
+   "confidence": "verified",
+   "note": "73 full-screen 16bpp pages of the in-game manual."
+  },
+  {
+   "id": 232,
+   "path": "a/2/3/2",
+   "label": "Battle bag pocket lists",
+   "group": "Items",
+   "kind": "data",
+   "members": 1,
+   "formats": {
+    "RAW": 1
+   },
+   "source": "b_bag_main.c:844",
+   "confidence": "verified",
+   "note": "One member (named in the name table) with the pocket lists."
+  },
+  {
+   "id": 233,
+   "path": "a/2/3/3",
+   "label": "Small bitmaps (unidentified)",
+   "group": "Other",
+   "kind": "images",
+   "members": 2,
+   "formats": {
+    "NCGR": 2
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Two small LZ10 bitmaps."
+  },
+  {
+   "id": 234,
+   "path": "a/2/3/4",
+   "label": "Pokemon nickname screen",
+   "group": "Menus",
+   "kind": "images",
+   "members": 3,
+   "formats": {
+    "NCLR": 1,
+    "NCGR": 1,
+    "NSCR": 1
+   },
+   "source": "data shape",
+   "confidence": "inferred",
+   "note": "Palette, tiles and screen."
+  }
+ ]
+}

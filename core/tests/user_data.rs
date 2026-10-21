@@ -733,3 +733,34 @@ fn trainer_locations() {
     }
     assert!(all.len() > 300);
 }
+
+/// 3D textures: the map, building and overworld texture archives decode.
+#[test]
+fn textures_3d() {
+    use kenon_core::bridge::{Bridge, Member};
+    use kenon_core::g3d::{find_tex0, Tex0};
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap());
+    // Map chunks (8) carry no textures: they use their area set (14).
+    for arc in [14u16, 176, 177, 49] {
+        let (mut ok, mut bad, mut members) = (0, 0, 0);
+        for index in 0..bridge.base_archive(arc).unwrap().len() {
+            let bytes = bridge.member(Member { arc, index }).unwrap();
+            for block in find_tex0(&bytes) {
+                members += 1;
+                let tex = Tex0::parse(block).expect("TEX0 parses");
+                for i in 0..tex.textures.len() {
+                    match tex.decode(i) {
+                        Some(_) => ok += 1,
+                        None => bad += 1,
+                    }
+                }
+            }
+        }
+        eprintln!("a{arc}: {members} texture blocks, {ok} textures decode, {bad} do not");
+        assert!(ok > 0 && bad * 20 < ok + 1, "archive {arc}");
+    }
+}

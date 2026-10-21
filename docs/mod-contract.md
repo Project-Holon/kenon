@@ -75,7 +75,7 @@ same file.
 |---|---|---|
 | display name | `name` | text; default the directory name |
 | load order | `order` | signed integer, -1000000 to 1000000; default 0 |
-| interface version | `api` | integer; default 1 |
+| interface version | `api` | integer; the port refuses a value other than its own version (3 today), so kenon writes it only for a mod with code |
 | native library | `code` | relative path; the loader is not built (`docs/mod-interface.md`, item 4) |
 | state namespace | `state` | identifier; default derived from `name` |
 | one (region, address) override | `override` | a grammar line, repeatable |

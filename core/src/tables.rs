@@ -476,6 +476,11 @@ pub fn record(bridge: &Bridge, id: &str, index: usize, season: usize) -> Result<
 /// Applies an edit and writes the member into the project.
 pub fn save(bridge: &Bridge, id: &str, index: usize, edit: &Edit) -> Result<(), Error> {
     let t = table(id)?;
+    // A flat file or a many-records member needs a whole-file or in-place
+    // write, which this per-member path does not do.
+    if !editable(t) {
+        return Err(Error::BadPath(format!("{} cannot be saved yet", t.label)));
+    }
     let old = bridge.member(member(t, index))?;
     let bytes = match t.layout.as_deref() {
         Some("list") => {

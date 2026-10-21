@@ -289,7 +289,7 @@ Decided:
   key ignored on purpose (`sdk/vfs.c`, `read_manifest`);
 - the `order` key, ascending load order, later wins, equal order keeps the
   add order (`sdk/vfs.h`, "The mod list");
-- the `api` key is the interface version the mod is built against, default 1
+- the `api` key is the interface version the mod is built against; the port refuses a mismatch, so a data-only mod leaves it out
   (`docs/mod-interface.md`, section 3);
 - the `code` key names the mod's native library for this host; the loader is
   not built (`docs/mod-interface.md`, item 4);

@@ -10,6 +10,7 @@
   import TextBrowser from "../views/TextBrowser.svelte";
   import FilesBrowser from "../views/FilesBrowser.svelte";
   import CryBrowser from "../views/CryBrowser.svelte";
+  import TextureBrowser from "../views/TextureBrowser.svelte";
   import TableEditor from "../views/TableEditor.svelte";
 
   let {
@@ -89,6 +90,8 @@
         <SoundBrowser group={current.group} />
       {:else if current.kind === "text"}
         <TextBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
+      {:else if current.kind === "textures"}
+        <TextureBrowser archive={current.archive} noun={current.noun} />
       {:else if current.kind === "cries"}
         <CryBrowser />
       {:else if current.kind === "files"}

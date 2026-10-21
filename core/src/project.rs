@@ -22,6 +22,8 @@ use crate::narc;
 
 pub const MANIFEST: &str = "eidos_mod.txt";
 pub const KENON_FILE: &str = "kenon.json";
+/// The range the port accepts for `order` (eidos docs/mods.md).
+pub const ORDER_LIMIT: i32 = 1_000_000;
 
 /// The keys of `eidos_mod.txt` kenon edits; every other line is kept.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -29,7 +31,10 @@ pub const KENON_FILE: &str = "kenon.json";
 pub struct Manifest {
     pub name: String,
     pub order: i32,
-    pub api: u32,
+    /// The port refuses a mod whose `api` is not its own interface version
+    /// (eidos sdk/mod_manifest.c), so kenon writes it only when the mod
+    /// already declares one (a mod with code); a data-only mod has none.
+    pub api: Option<u32>,
     /// The lines kenon does not edit, kept in order.
     #[serde(skip)]
     pub other: Vec<String>,
@@ -40,7 +45,7 @@ impl Manifest {
         let mut m = Manifest {
             name: default_name.to_string(),
             order: 0,
-            api: 1,
+            api: None,
             other: Vec::new(),
         };
         for line in text.lines() {
@@ -52,9 +57,15 @@ impl Manifest {
             let value = value.trim();
             match key.trim() {
                 "name" => m.name = value.to_string(),
-                // The port ignores a bad order and keeps the default.
-                "order" => m.order = value.parse().unwrap_or(0),
-                "api" => m.api = value.parse().unwrap_or(1),
+                // The port ignores a bad or out-of-range order and keeps 0.
+                "order" => {
+                    m.order = value
+                        .parse()
+                        .ok()
+                        .filter(|o: &i32| o.abs() <= ORDER_LIMIT)
+                        .unwrap_or(0)
+                }
+                "api" => m.api = value.parse().ok(),
                 _ => m.other.push(line.to_string()),
             }
         }
@@ -63,9 +74,13 @@ impl Manifest {
 
     pub fn write(&self) -> String {
         let mut out = format!(
-            "# Written by kenon.\nname = {}\norder = {}\napi = {}\n",
-            self.name, self.order, self.api
+            "# Written by kenon.\nname = {}\norder = {}\n",
+            self.name,
+            self.order.clamp(-ORDER_LIMIT, ORDER_LIMIT)
         );
+        if let Some(api) = self.api {
+            out.push_str(&format!("api = {api}\n"));
+        }
         for line in &self.other {
             if !line.starts_with("# Written by kenon.") {
                 out.push_str(line);
@@ -179,6 +194,9 @@ impl Project {
             .member_dir(arc)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "bad archive id"))?;
         fs::create_dir_all(&dir)?;
+        // Two files naming one index stop the port opening the archive
+        // (eidos sdk/vfs_narc.c): drop any other spelling first.
+        remove_siblings(&dir, index, true)?;
         write_atomic(&dir.join(index.to_string()), bytes)
     }
 
@@ -187,10 +205,7 @@ impl Project {
         let Some(dir) = self.member_dir(arc) else {
             return Ok(());
         };
-        match fs::remove_file(dir.join(index.to_string())) {
-            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        }
+        remove_siblings(&dir, index, false)
     }
 
     /// A whole-file override, if the mod has one. An archive path that is a
@@ -219,7 +234,10 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Change>) {
         if path.is_dir() {
             walk(root, &path, out);
         } else if let Ok(rel) = path.strip_prefix(root) {
-            if rel.extension().is_some_and(|e| e == "tmp") {
+            if rel
+                .file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with('~'))
+            {
                 continue;
             }
             out.push(Change {
@@ -230,8 +248,31 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Change>) {
     }
 }
 
+/// Removes every file of `dir` that names member `index` (`N` or `N.ext`),
+/// except the bare `N` when `keep_bare`.
+fn remove_siblings(dir: &Path, index: usize, keep_bare: bool) -> io::Result<()> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Ok(());
+    };
+    let bare = index.to_string();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let stem = name.split('.').next().unwrap_or("");
+        if stem == bare && !(keep_bare && name == bare) {
+            fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(())
+}
+
 fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let tmp = path.with_extension("tmp");
+    // A name the port cannot read as a member index ("~25.kenon"), so a
+    // crash before the rename leaves nothing it would load.
+    let tmp = path.with_file_name(format!(
+        "~{}.kenon",
+        path.file_name()
+            .map_or(String::new(), |n| n.to_string_lossy().into_owned())
+    ));
     fs::write(&tmp, bytes)?;
     fs::rename(&tmp, path)
 }
@@ -248,6 +289,12 @@ mod tests {
         );
         assert_eq!(m.name, "Hard mode");
         assert_eq!(m.order, 0);
+        assert_eq!(m.api, None);
+        assert!(!m.write().contains("api"));
+        assert_eq!(Manifest::parse("order = 2000000\napi = 3", "d").order, 0);
+        assert!(Manifest::parse("api = 3", "d")
+            .write()
+            .contains("api = 3\n"));
         let text = m.write();
         assert!(text.contains("name = Hard mode\n"));
         assert!(text.contains("rule = foo bar\n"));
@@ -286,5 +333,12 @@ mod tests {
         fs::create_dir_all(dir.path().join("a/0/0/7")).unwrap();
         fs::write(dir.path().join("a/0/0/7/9.ncgr"), b"x").unwrap();
         assert_eq!(p.member(7, 9).as_deref(), Some(&b"x"[..]));
+        // Writing member 9 replaces the other spelling instead of adding a
+        // second file for the same index.
+        p.write_member(7, 9, b"y").unwrap();
+        assert!(!dir.path().join("a/0/0/7/9.ncgr").exists());
+        assert_eq!(p.member(7, 9).as_deref(), Some(&b"y"[..]));
+        p.revert_member(7, 9).unwrap();
+        assert_eq!(p.member(7, 9), None);
     }
 }

@@ -7,7 +7,8 @@ export type Category =
   | { id: string; label: string; kind: "text"; archive: number }
   | { id: string; label: string; kind: "table"; tables: string[] }
   | { id: string; label: string; kind: "files" }
-  | { id: string; label: string; kind: "cries" };
+  | { id: string; label: string; kind: "cries" }
+  | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
 export interface Group {
   label: string;
@@ -20,6 +21,7 @@ export const GROUPS: Group[] = [
     items: [
       { id: "species", label: "Stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions"] },
       { id: "battle-sprites", label: "Battle sprites", kind: "graphics", archive: 4 },
+      { id: "battle-scenes", label: "Battle backgrounds", kind: "textures", archive: 11, noun: "Model" },
       { id: "pokemon-icons", label: "Icons", kind: "graphics", archive: 7 },
     ],
   },
@@ -40,11 +42,29 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    // The overworld is 3D: these are the textures of its models
+    // (docs/game-data-map.md, core/src/archives.json).
+    label: "Overworld",
+    items: [
+      { id: "map-textures", label: "Map ground textures", kind: "textures", archive: 14, noun: "Area" },
+      { id: "building-out", label: "Building textures (outside)", kind: "textures", archive: 176, noun: "Set" },
+      { id: "building-in", label: "Building textures (inside)", kind: "textures", archive: 177, noun: "Set" },
+      { id: "overworld-objects", label: "Characters and objects", kind: "textures", archive: 49, noun: "Object" },
+      { id: "field-effects", label: "Field effects", kind: "textures", archive: 75, noun: "Effect" },
+    ],
+  },
+  {
     label: "Interface",
     items: [
       { id: "ui-common", label: "Menu sprites", kind: "graphics", archive: 83 },
       { id: "ui-frames", label: "Windows and frames", kind: "graphics", archive: 5 },
       { id: "ui-options", label: "Options screen", kind: "graphics", archive: 27 },
+      { id: "ui-bag", label: "Bag", kind: "graphics", archive: 88 },
+      { id: "ui-summary", label: "Summary screen", kind: "graphics", archive: 78 },
+      { id: "ui-dex", label: "Pokedex", kind: "graphics", archive: 159 },
+      { id: "ui-cgear", label: "C-Gear skins", kind: "graphics", archive: 30 },
+      { id: "ui-fieldmenu", label: "Field menu", kind: "graphics", archive: 71 },
+      { id: "ui-box", label: "Pokemon box", kind: "graphics", archive: 116 },
       { id: "all-graphics", label: "All graphics", kind: "graphics", archive: null },
     ],
   },

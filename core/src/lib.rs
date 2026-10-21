@@ -9,6 +9,7 @@ pub mod bridge;
 pub mod catalog;
 pub mod code;
 pub mod data_root;
+pub mod g3d;
 pub mod image;
 pub mod lz;
 pub mod msg;
