@@ -33,40 +33,24 @@ time; it ships no game data. Edits are saved as a mod folder that
   - [x] What events say and do, editable
   - [x] Buildings and props: move, turn, add, remove
   - [x] Music and wild Pokémon per map
-- [ ] **Milestone 5**: Mod packages and code
-  - [ ] `.bw` package (zip, lossless)
-  - [ ] Hook and rule editors (Monaco), checked against eidos
-  - [ ] Mod settings, load order, conflict hints
+- [x] **Milestone 5**: Mod packages and code
+  - [x] `.bw` package (zip, lossless)
+  - [x] Hook and rule editors (Monaco), checked against eidos
+  - [x] Mod settings, load order, conflict hints
 - [ ] **Milestone 6**: Full map building
   - [ ] Copy map pieces between places
   - [ ] Paint the ground itself (new 3D map pieces)
-  - [ ] Water and other animated textures in the map view
+  - [x] Water and other animated textures in the map view
+  - [x] Items on maps (item balls, hidden items)
+  - [ ] Add new item balls
 - [ ] **Milestone 7**: Remaining editors
   - [ ] Sound editing
   - [ ] 3D texture editing
-  - [ ] Undo for deleted map events
-
-## Layout
-
-| Path | What it is |
-| --- | --- |
-| `core/` | `kenon-core`: every file format and the data folder rules. Pure Rust, no Tauri, so tests and tools use it directly |
-| `app/` | The Tauri 2 shell: settings and commands. It parses no game formats |
-| `ui/` | The Svelte 5 + TypeScript front end. It asks the shell for everything |
-| `docs/` | The mod contract, the `.bw` format, events and rules, the UI asset inventory, briefs |
-
-## Building
-
-Needs Rust (stable), Node 22 or later, and the
-[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your
-platform.
-
-```sh
-npm ci
-npm run tauri dev       # run the app
-npm run check           # front-end type check
-cargo test --workspace  # Rust tests
-```
+  - [x] Undo for deleted map events
+- [ ] **Milestone 8**: Releases
+  - [x] Release builds for Windows, Linux and macOS (CI)
+  - [ ] App icons
+  - [ ] First release
 
 ## Releases
 
