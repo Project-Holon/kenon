@@ -89,12 +89,18 @@ impl Ncgr {
 
     /// Tile `index` as 64 colour indices, row-major, with the flips applied.
     /// A tile past the end of the data is blank (index 0), as on hardware.
-    /// Tiles are counted in storage order, which is what screens and cells
-    /// address.
+    /// Tiles are counted in storage order, which is what screens address.
     pub fn tile(&self, index: usize, hflip: bool, vflip: bool) -> [u8; 64] {
+        self.tile_at(index * self.depth.bytes_per_tile(), hflip, vflip)
+    }
+
+    /// The tile whose data starts `offset` bytes into the sheet. OBJ cells
+    /// address characters in mapping units, so their offsets need not be a
+    /// whole number of tiles.
+    pub fn tile_at(&self, offset: usize, hflip: bool, vflip: bool) -> [u8; 64] {
         let mut raw = [0u8; 64];
         let size = self.depth.bytes_per_tile();
-        if let Some(src) = self.data.get(index * size..index * size + size) {
+        if let Some(src) = self.data.get(offset..offset + size) {
             match self.depth {
                 Depth::Bpp8 => raw.copy_from_slice(src),
                 Depth::Bpp4 => {

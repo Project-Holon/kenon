@@ -68,7 +68,7 @@ fn every_2d_resource_parses() {
     let Some(root) = data_root() else {
         return;
     };
-    let (mut palettes, mut sheets, mut screens) = (0, 0, 0);
+    let (mut palettes, mut sheets, mut screens, mut cells, mut anims) = (0, 0, 0, 0, 0);
     let mut odd_screens = Vec::new();
     for id in 0..1000u16 {
         let rel = narc::archive_path(id).unwrap();
@@ -85,6 +85,16 @@ fn every_2d_resource_parses() {
                 Some(b"RGCN") => {
                     Ncgr::parse(&member).unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
                     sheets += 1;
+                }
+                Some(b"RECN") => {
+                    kenon_core::ncer::Ncer::parse(&member)
+                        .unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+                    cells += 1;
+                }
+                Some(b"RNAN") => {
+                    kenon_core::nanr::Nanr::parse(&member)
+                        .unwrap_or_else(|e| panic!("{rel} #{index}: {e}"));
+                    anims += 1;
                 }
                 Some(b"RCSN") => {
                     let screen =
@@ -103,7 +113,7 @@ fn every_2d_resource_parses() {
             }
         }
     }
-    eprintln!("{palettes} NCLR, {sheets} NCGR, {screens} NSCR");
+    eprintln!("{palettes} NCLR, {sheets} NCGR, {screens} NSCR, {cells} NCER, {anims} NANR");
     eprintln!(
         "{} NSCR with an entry count other than width x height:",
         odd_screens.len()
@@ -111,7 +121,7 @@ fn every_2d_resource_parses() {
     for line in &odd_screens {
         eprintln!("  {line}");
     }
-    assert!(palettes > 0 && sheets > 0 && screens > 0);
+    assert!(palettes > 0 && sheets > 0 && screens > 0 && cells > 0 && anims > 0);
 }
 
 /// Renders the options screen background (a/0/2/7: #0 NCGR, #1 NCLR, #2
@@ -230,4 +240,29 @@ fn message_banks() {
         "Bulbasaur"
     );
     assert_eq!(identical, banks);
+}
+
+/// Renders every cell of the options screen sprites (a/0/2/7: palette #6;
+/// main sprite NCGR #5 NCER #4, cursor NCGR #12 NCER #11; inventory 7.6) as
+/// raw RGBA to KENON_RENDER_OUT.
+#[test]
+fn render_options_cells() {
+    use kenon_core::image::render_cell;
+    use kenon_core::{ncer::Ncer, ncgr::Ncgr, nclr::Palette};
+    let (Some(root), Some(out)) = (data_root(), std::env::var_os("KENON_RENDER_OUT")) else {
+        return;
+    };
+    let archive = narc::Narc::open(&root.file("a/0/2/7")).unwrap();
+    let get = |i| lz::decompress_if_compressed(archive.raw(i).unwrap()).into_owned();
+    let palette = Palette::parse(&get(6)).unwrap();
+    for (name, char_index, cell_index) in [("main", 5, 4), ("cursor", 12, 11)] {
+        let tiles = Ncgr::parse(&get(char_index)).unwrap();
+        let bank = Ncer::parse(&get(cell_index)).unwrap();
+        for (i, cell) in bank.cells.iter().enumerate() {
+            let img = render_cell(&bank, cell, &tiles, &palette).image;
+            let path = PathBuf::from(&out)
+                .join(format!("cell_{name}_{i}_{}x{}.rgba", img.width, img.height));
+            std::fs::write(path, &img.pixels).unwrap();
+        }
+    }
 }

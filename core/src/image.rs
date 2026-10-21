@@ -1,5 +1,6 @@
 //! RGBA images built from the 2D resources: what the asset bridge serves.
 
+use crate::ncer::{Cell, Ncer};
 use crate::ncgr::{Depth, Ncgr};
 use crate::nclr::Palette;
 use crate::nscr::Nscr;
@@ -89,10 +90,84 @@ pub fn render_sheet(tiles: &Ncgr, palette: &Palette, bank: usize, zero: Zero) ->
     Some(out)
 }
 
+/// A cell drawn on its own canvas, and where the cell origin falls on it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellImage {
+    pub image: Rgba,
+    pub origin: (i32, i32),
+}
+
+/// Draws a cell of `bank` with its characters and palette. Character names
+/// are in the bank's mapping units; a 1D bank lays each OBJ's tiles out in
+/// a row, a 2D bank in rows of the sheet's width (32 tiles when the sheet
+/// gives none). A lower OBJ priority value, then a lower OBJ index, draws
+/// in front, as on hardware. Colour 0 is transparent. 4bpp OBJs use their
+/// palette bank. Affine OBJs are drawn unrotated.
+pub fn render_cell(bank: &Ncer, cell: &Cell, tiles: &Ncgr, palette: &Palette) -> CellImage {
+    if cell.objs.is_empty() {
+        return CellImage {
+            image: Rgba::new(0, 0),
+            origin: (0, 0),
+        };
+    }
+    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+    for obj in &cell.objs {
+        let (x, y) = obj.origin();
+        x0 = x0.min(x);
+        y0 = y0.min(y);
+        x1 = x1.max(x + obj.width as i32);
+        y1 = y1.max(y + obj.height as i32);
+    }
+    let mut image = Rgba::new((x1 - x0) as usize, (y1 - y0) as usize);
+
+    let tile_size = tiles.depth.bytes_per_tile();
+    let row_2d = match tiles.size_px() {
+        Some((w, _)) => w / 8 * tile_size,
+        None => 32 * tile_size,
+    };
+    let mut order: Vec<usize> = (0..cell.objs.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse((cell.objs[i].priority, i)));
+    for i in order {
+        let obj = &cell.objs[i];
+        let (ox, oy) = obj.origin();
+        let start = obj.tile as usize * bank.name_unit();
+        let (tw, th) = (obj.width as usize / 8, obj.height as usize / 8);
+        let base = match tiles.depth {
+            Depth::Bpp4 => obj.palette as usize * 16,
+            Depth::Bpp8 => 0,
+        };
+        for ty in 0..th {
+            for tx in 0..tw {
+                let at = if bank.is_1d() {
+                    start + (ty * tw + tx) * tile_size
+                } else {
+                    start + ty * row_2d + tx * tile_size
+                };
+                let tile = tiles.tile_at(at, obj.hflip, obj.vflip);
+                // A flipped OBJ also mirrors the tile order.
+                let dx = if obj.hflip { tw - 1 - tx } else { tx };
+                let dy = if obj.vflip { th - 1 - ty } else { ty };
+                for (p, &ci) in tile.iter().enumerate() {
+                    if ci == 0 {
+                        continue;
+                    }
+                    let px = ox - x0 + (dx * 8 + p % 8) as i32;
+                    let py = oy - y0 + (dy * 8 + p / 8) as i32;
+                    image.put(px as usize, py as usize, palette.rgba(base + ci as usize));
+                }
+            }
+        }
+    }
+    CellImage {
+        image,
+        origin: (-x0, -y0),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ncgr, nclr, nscr};
+    use crate::{ncer, ncgr, nclr, nscr};
 
     #[test]
     fn screen_uses_entry_bank_and_flip() {
@@ -125,5 +200,29 @@ mod tests {
         let palette = Palette::parse(&nclr::build(3, &[0, 0x7FFF])).unwrap();
         let img = render_sheet(&tiles, &palette, 0, Zero::Transparent).unwrap();
         assert_eq!(img.get(7, 7), [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn cell_with_two_objs_and_flip() {
+        // Four 4bpp tiles; tile t is filled with colour t + 1.
+        let data: Vec<u8> = (0..4u8).flat_map(|t| [(t + 1) * 0x11; 32]).collect();
+        let tiles = Ncgr::parse(&ncgr::build(4, 1, Depth::Bpp4, &data)).unwrap();
+        let colors: Vec<u16> = (0..16).map(|i| i * 0x0421).collect();
+        let palette = Palette::parse(&nclr::build(3, &colors)).unwrap();
+        // 1D 32K: OBJ 0 is 16x8 at (-8, -4) from tile 0 with hflip;
+        // OBJ 1 is 8x8 at (0, 4) from tile 3, behind OBJ 0.
+        let bank = Ncer::parse(&ncer::build(
+            1,
+            &[&[[0x4000 | 0xFC, 0x1000 | 0x1F8, 0], [4, 0, 3]]],
+        ))
+        .unwrap();
+        let cell = render_cell(&bank, &bank.cells[0], &tiles, &palette);
+        assert_eq!((cell.image.width, cell.image.height), (16, 16));
+        assert_eq!(cell.origin, (8, 4));
+        // hflip: tile 1 (colour 2) now on the left, tile 0 (colour 1) right.
+        assert_eq!(cell.image.get(0, 0), palette.rgba(2));
+        assert_eq!(cell.image.get(15, 0), palette.rgba(1));
+        assert_eq!(cell.image.get(8, 8), palette.rgba(4));
+        assert_eq!(cell.image.get(0, 15), [0, 0, 0, 0]);
     }
 }
