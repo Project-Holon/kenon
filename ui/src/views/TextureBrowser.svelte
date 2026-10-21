@@ -143,7 +143,7 @@
     max-width: 100%;
     height: auto;
     image-rendering: pixelated;
-    background: repeating-conic-gradient(#20242c 0 25%, #191c22 0 50%) 0 0 / 16px 16px;
+    background: repeating-conic-gradient(var(--stage-check) 0 25%, var(--stage) 0 50%) 0 0 / 16px 16px;
   }
   .grid {
     flex: 1;
@@ -168,7 +168,7 @@
     height: 96px;
     display: grid;
     place-items: center;
-    background: repeating-conic-gradient(#20242c 0 25%, #191c22 0 50%) 0 0 / 12px 12px;
+    background: repeating-conic-gradient(var(--stage-check) 0 25%, var(--stage) 0 50%) 0 0 / 12px 12px;
     border-radius: 4px;
   }
   .pic :global(img) {

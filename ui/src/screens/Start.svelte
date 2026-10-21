@@ -3,6 +3,7 @@
   import { join } from "@tauri-apps/api/path";
   import { gameText, isReady, newProject, openProject, setRom, type GameCheck, type Status } from "../lib/backend";
   import { enableSfx, play, setSfx, sfxOn } from "../lib/sfx";
+  import ThemePicker from "../lib/ThemePicker.svelte";
 
   let {
     status,
@@ -93,9 +94,12 @@
       {/if}
       <p class="muted">Modding for Pokemon Black and White</p>
     </div>
+    <div class="tools">
+      <ThemePicker />
     <button class="quiet" onclick={toggleSound} aria-pressed={sound} title="Menu sounds">
       {sound ? "Sound on" : "Sound off"}
     </button>
+    </div>
   </header>
 
   <main>
@@ -183,6 +187,11 @@
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1.5rem;
+  }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   .title {
     height: 45px;

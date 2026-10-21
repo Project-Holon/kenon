@@ -443,11 +443,11 @@
     overflow-y: auto;
     padding: 1rem;
     min-width: 0;
-    background-color: #0c0d10;
-    background-image: linear-gradient(45deg, #15171c 25%, transparent 25%),
-      linear-gradient(-45deg, #15171c 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #15171c 75%),
-      linear-gradient(-45deg, transparent 75%, #15171c 75%);
+    background-color: var(--stage);
+    background-image: linear-gradient(45deg, var(--stage-check) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--stage-check) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--stage-check) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--stage-check) 75%);
     background-size: 16px 16px;
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   }

@@ -4,6 +4,7 @@
   import { play, setSfx, sfxOn } from "../lib/sfx";
   import { forget } from "../lib/cache.svelte";
   import { forgetThumbs } from "../lib/thumbs";
+  import ThemePicker from "../lib/ThemePicker.svelte";
   import { clearEnums } from "../lib/tables";
   import GraphicsBrowser from "../views/GraphicsBrowser.svelte";
   import SoundBrowser from "../views/SoundBrowser.svelte";
@@ -62,6 +63,7 @@
       {/if}
     </div>
     <div class="right">
+      <ThemePicker />
       <button class="quiet" aria-pressed={sound} onclick={() => ((sound = !sound), setSfx(sound), play("select"))}>
         {sound ? "Sound on" : "Sound off"}
       </button>

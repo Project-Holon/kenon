@@ -1,9 +1,14 @@
-/* kenon's theme, after Black and White's menus: dark striped backdrops,
-   rounded windows with a dark outline and a light inner rim, a blue
-   selection bar, and the game's own frames, font and sounds where a ROM is
-   open. Every pane scrolls on its own; nothing scrolls sideways. */
+/* kenon's themes, after Black and White's menus: striped backdrops,
+   rounded windows with an outline and an inner rim, a selection bar, and
+   the game's own font and sounds where a ROM is open. Every pane scrolls on
+   its own; nothing scrolls sideways.
 
-:root {
+   Night is Zekrom: black and electric blue. Day is Reshiram: the white and
+   lavender greys of its sprite with the red and orange of its flame. The
+   choice lives on <html data-theme>; "system" follows the OS setting. */
+
+:root,
+:root[data-theme="dark"] {
   --bg: #121419;
   --stripe: rgba(255, 255, 255, 0.025);
   --panel: #1c2028;
@@ -22,7 +27,31 @@
   --bad: #ef5a50;
   --radius: 10px;
   --radius-s: 6px;
+  --stage: #0c0d10;
+  --stage-check: #15171c;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #eeeef5;
+  --stripe: rgba(74, 74, 106, 0.045);
+  --panel: #ffffff;
+  --panel-2: #f2f2f8;
+  --panel-3: #e2e2ee;
+  --outline: #4a4a6a;
+  --rim: #d6d6e6;
+  --ink: #23233a;
+  --muted: #5d6282;
+  --faint: #8a8fab;
+  --accent: #e0442c;
+  --accent-dark: #b8321e;
+  --accent-ink: #ffffff;
+  --gold: #f08a24;
+  --ok: #2b8f4e;
+  --bad: #c42f2f;
+  --stage: #dcdce8;
+  --stage-check: #cecedd;
+  color-scheme: light;
 }
 
 * {
