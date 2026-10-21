@@ -4,6 +4,7 @@
 //! use it directly. The front end never parses game formats; it asks the
 //! app, and the app asks this crate.
 
+pub mod bridge;
 pub mod code;
 pub mod data_root;
 pub mod image;

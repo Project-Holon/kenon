@@ -292,3 +292,44 @@ fn code_images() {
     // Overlay 67 holds the touch bar button looks (inventory section 14).
     assert!(code.read(Image::Overlay(67), 0x021B_942C, 7 * 20).is_some());
 }
+
+/// The asset bridge on real data: a menu frame (a/0/0/5 #9 tiles, #3
+/// palette; inventory section 1) and a line of text in the main font with
+/// the text window palette (a/0/2/3 #0, #5). Written to KENON_RENDER_OUT.
+#[test]
+fn bridge_assets() {
+    use kenon_core::bridge::Bridge;
+    let Some(root) = data_root() else {
+        return;
+    };
+    let bridge = Bridge::new(root);
+    let paths = [
+        ("frame", "tiles/5:9/5:3/0/3/0,1,2,3,4,5,6,7,8"),
+        (
+            "text",
+            "text/23:0/23:5/0/1,2,0/Hello, kenon! \u{3042}\u{30A2}",
+        ),
+        ("options", "screen/27:0/27:1/27:2"),
+        ("cell", "cell/27:5/27:6/27:4/3"),
+    ];
+    for (name, path) in paths {
+        let asset = bridge.serve(path).unwrap_or_else(|e| panic!("{path}: {e}"));
+        assert_eq!(asset.mime, "image/png");
+        assert!(asset.bytes.starts_with(b"\x89PNG"));
+        if let Some(out) = std::env::var_os("KENON_RENDER_OUT") {
+            std::fs::write(
+                PathBuf::from(out).join(format!("bridge_{name}.png")),
+                &asset.bytes,
+            )
+            .unwrap();
+        }
+    }
+    // Served twice, the second from the cache.
+    let a = bridge.serve(paths[0].1).unwrap();
+    let b = bridge.serve(paths[0].1).unwrap();
+    assert!(std::sync::Arc::ptr_eq(&a, &b));
+    assert_eq!(
+        bridge.serve("cell/27:5/27:6/27:4/3").unwrap().origin,
+        Some((8, 0))
+    );
+}

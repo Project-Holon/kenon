@@ -1,11 +1,13 @@
 //! The Tauri shell. It holds the settings and exposes the core to the front
 //! end as commands. It parses no game formats itself.
 
+mod protocol;
 mod settings;
 
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, RwLock};
 
+use kenon_core::bridge::Bridge;
 use kenon_core::data_root::{self, DataRootCheck};
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -15,6 +17,21 @@ use settings::Settings;
 struct AppState {
     settings: Mutex<Settings>,
     settings_path: PathBuf,
+    /// The asset bridge over the data folder, when the folder holds game data.
+    bridge: RwLock<Option<Arc<Bridge>>>,
+}
+
+impl AppState {
+    fn bridge(&self) -> Option<Arc<Bridge>> {
+        self.bridge.read().unwrap().clone()
+    }
+}
+
+fn bridge_for(folder: Option<&Path>) -> Option<Arc<Bridge>> {
+    match data_root::check(folder?) {
+        DataRootCheck::Ready(root) => Some(Arc::new(Bridge::new(root))),
+        _ => None,
+    }
 }
 
 /// What the settings screen shows about the data folder.
@@ -55,6 +72,7 @@ fn set_data_folder(
     settings
         .save(&state.settings_path)
         .map_err(|err| format!("could not save the settings: {err}"))?;
+    *state.bridge.write().unwrap() = bridge_for(folder.as_deref());
     Ok(status(folder))
 }
 
@@ -65,11 +83,21 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("settings.json");
             let settings = Settings::load(&settings_path);
+            let bridge = bridge_for(settings.data_folder.as_deref());
             app.manage(AppState {
                 settings: Mutex::new(settings),
                 settings_path,
+                bridge: RwLock::new(bridge),
             });
             Ok(())
+        })
+        .register_asynchronous_uri_scheme_protocol("kenon", |ctx, request, responder| {
+            let bridge = ctx.app_handle().state::<AppState>().bridge();
+            let uri = request.uri().clone();
+            // Decoding can take a while; keep it off the event loop.
+            std::thread::spawn(move || {
+                responder.respond(protocol::respond(bridge, uri.path(), uri.query()));
+            });
         })
         .invoke_handler(tauri::generate_handler![
             data_folder_status,

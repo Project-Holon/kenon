@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; img-src 'self' data: blob: kenon: http://kenon.localhost; media-src 'self' kenon: http://kenon.localhost; connect-src 'self' ipc: http://ipc.localhost kenon: http://kenon.localhost; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
