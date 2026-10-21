@@ -1657,3 +1657,170 @@ pub fn render_camera(bridge: &Bridge, zone: usize, opts: &CameraOptions) -> Resu
     }
     Ok(image)
 }
+
+/// A building or prop model of a zone's area, posed for a thumbnail.
+struct PropScene {
+    polys: Vec<Poly>,
+    lights: Lights,
+    /// World bounds: min and max per axis.
+    lo: [f32; 3],
+    hi: [f32; 3],
+}
+
+/// The model `model` (an id from `props::prop_models`) of the zone's area,
+/// as untransformed world polygons lit like day.
+fn prop_scene(bridge: &Bridge, zone: usize, model: u16) -> Result<PropScene, Error> {
+    let headers = bridge.member(Member {
+        arc: ZONE_HEADERS,
+        index: 0,
+    })?;
+    let area =
+        rd16(&headers, zone * 48 + 2).ok_or_else(|| Error::Missing(format!("zone {zone}")))?;
+    let area_file = bridge
+        .source()
+        .read("a/0/1/3")
+        .map_err(|e| Error::Missing(format!("a/0/1/3: {e}")))?;
+    let rec = area_file
+        .get(area as usize * 10..area as usize * 10 + 10)
+        .ok_or_else(|| Error::Missing(format!("area {area}")))?;
+    let mut buildings = load_buildings(bridge, area, rec[6] != 0)
+        .ok_or_else(|| Error::Missing(format!("models of zone {zone}")))?;
+    let m = buildings
+        .models
+        .get(&model)
+        .cloned()
+        .ok_or_else(|| Error::Missing(format!("model {model} in zone {zone}")))?;
+    let lights = load_lights(bridge, rec[7], 0, DAY_HOUR);
+    let mut polys = Vec::new();
+    add_model(
+        &mut polys,
+        &m,
+        &mut buildings.textures,
+        &Affine::IDENTITY,
+        Some(&lights),
+        false,
+    );
+    let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+    // Solid polygons give the bounds; a model of billboards only uses those.
+    for solid in [true, false] {
+        for p in polys.iter().filter(|p| p.billboard.is_none() == solid) {
+            for v in &p.v {
+                for k in 0..3 {
+                    lo[k] = lo[k].min(v.p[k]);
+                    hi[k] = hi[k].max(v.p[k]);
+                }
+            }
+        }
+        if lo[0] <= hi[0] {
+            break;
+        }
+    }
+    if lo[0] > hi[0] {
+        // Nothing to draw: an empty model.
+        (lo, hi) = ([0.0; 3], [0.0; 3]);
+    }
+    Ok(PropScene {
+        polys,
+        lights,
+        lo,
+        hi,
+    })
+}
+
+/// How big a prop model stands on the map.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropInfo {
+    pub zone: usize,
+    pub model: u16,
+    /// East-west size, north-south size and height, in tiles.
+    pub width: f32,
+    pub depth: f32,
+    pub height: f32,
+    /// The same bounds in world units (16 per tile), per axis.
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+/// The footprint and height of a zone's prop model.
+pub fn prop_info(bridge: &Bridge, zone: usize, model: u16) -> Result<PropInfo, Error> {
+    let s = prop_scene(bridge, zone, model)?;
+    Ok(PropInfo {
+        zone,
+        model,
+        width: (s.hi[0] - s.lo[0]) / TILE,
+        depth: (s.hi[2] - s.lo[2]) / TILE,
+        height: (s.hi[1] - s.lo[1]) / TILE,
+        min: s.lo,
+        max: s.hi,
+    })
+}
+
+/// A square thumbnail of a zone's prop model from the front and a bit
+/// above, lit like day, fitted with a margin, background transparent.
+pub fn render_prop(bridge: &Bridge, zone: usize, model: u16, px: usize) -> Result<Rgba, Error> {
+    let s = prop_scene(bridge, zone, model)?;
+    let px = px.clamp(8, 1024);
+    if s.polys.is_empty() {
+        return Ok(Rgba::new(px, px));
+    }
+    let ss = if px <= 256 { 2 } else { 1 };
+    let size = px * ss;
+    let center = [
+        (s.lo[0] + s.hi[0]) / 2.0,
+        (s.lo[1] + s.hi[1]) / 2.0,
+        (s.lo[2] + s.hi[2]) / 2.0,
+    ];
+    let radius = (0..3)
+        .map(|k| (s.hi[k] - s.lo[k]).powi(2))
+        .sum::<f32>()
+        .sqrt()
+        .max(1.0)
+        / 2.0;
+    // The game looks from the south and above.
+    let pitch = 32f32.to_radians();
+    let dir = [0.0, pitch.sin(), pitch.cos()];
+    let dist = radius * 6.0;
+    let eye = [
+        center[0] + dir[0] * dist,
+        center[1] + dir[1] * dist,
+        center[2] + dir[2] * dist,
+    ];
+    let forward = norm([center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]]);
+    let right = norm(cross(forward, [0.0, 1.0, 0.0]));
+    let up = cross(right, forward);
+    let mut cam = Camera {
+        eye,
+        right,
+        up,
+        forward,
+        focal: 1.0,
+        cx: 0.0,
+        cy: 0.0,
+        near: 1.0,
+    };
+    // Fit: the bounds of the points on the image plane at focal 1.
+    let (mut lo, mut hi) = ([f32::MAX; 2], [f32::MIN; 2]);
+    for p in &s.polys {
+        for v in &p.v {
+            let q = cam.view(v).q;
+            let (x, y) = (q[0] / q[2], -q[1] / q[2]);
+            lo = [lo[0].min(x), lo[1].min(y)];
+            hi = [hi[0].max(x), hi[1].max(y)];
+        }
+    }
+    let span = (hi[0] - lo[0]).max(hi[1] - lo[1]).max(1e-6);
+    let margin = 0.92;
+    cam.focal = size as f32 * margin / span;
+    cam.cx = size as f32 / 2.0 - cam.focal * (lo[0] + hi[0]) / 2.0;
+    cam.cy = size as f32 / 2.0 - cam.focal * (lo[1] + hi[1]) / 2.0;
+    let scene = Scene {
+        polys: s.polys,
+        ground: GroundIndex::new(&[], 1, 1),
+        tall_roofs: false,
+        lights: Some(s.lights),
+    };
+    let mut screen = Screen::new(size, size);
+    draw(&mut screen, &scene, &[], &Projection::Camera(cam));
+    Ok(finish(&screen, ss))
+}

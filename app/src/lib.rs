@@ -672,6 +672,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Save size, position and maximized state as they change: a dev
+        // restart or a crash ends the app without the plugin's exit save.
+        .on_window_event(|window, event| {
+            use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+            if matches!(
+                event,
+                tauri::WindowEvent::Resized(_)
+                    | tauri::WindowEvent::Moved(_)
+                    | tauri::WindowEvent::CloseRequested { .. }
+            ) {
+                let _ = window.app_handle().save_window_state(StateFlags::all());
+            }
+        })
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("settings.json");
             let settings = Settings::load(&settings_path);

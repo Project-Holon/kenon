@@ -294,3 +294,31 @@ fn bridge_parameters() {
         assert_eq!(png.mime, "image/png", "{q}");
     }
 }
+
+/// Every prop model of two zones renders a thumbnail and reports a size.
+#[test]
+fn prop_models_render() {
+    let Some(bridge) = bridge() else { return };
+    for zone in [389usize, 317] {
+        let models = kenon_core::props::prop_models(&bridge, zone).unwrap();
+        assert!(!models.is_empty(), "zone {zone}");
+        for model in models {
+            let img = maprender::render_prop(&bridge, zone, model, 64)
+                .unwrap_or_else(|e| panic!("zone {zone} model {model}: {e}"));
+            assert_eq!((img.width, img.height), (64, 64));
+            let drawn = img.pixels.chunks(4).filter(|p| p[3] > 0).count();
+            let info = maprender::prop_info(&bridge, zone, model).unwrap();
+            // A few ids hold no geometry; they give an empty picture.
+            if info.width + info.depth + info.height > 0.0 {
+                assert!(drawn > 10, "zone {zone} model {model}: {drawn} pixels");
+            }
+            assert!(info.width < 64.0 && info.depth < 64.0 && info.height < 64.0);
+        }
+    }
+    let png = bridge.serve("propmodel/389/1?px=32").unwrap();
+    assert_eq!(png.mime, "image/png");
+    let json = bridge.serve("propmodel/389/1/info").unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&json.bytes).unwrap();
+    assert!(v["width"].as_f64().unwrap() > 0.0);
+    assert!(bridge.serve("propmodel/389/65000").is_err());
+}

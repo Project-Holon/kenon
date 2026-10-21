@@ -45,6 +45,13 @@
 //!                                          (matches `zonemap::zone_map`)
 //! maprender/{zone}?view=camera&x=&z=       the field camera's view around tile
 //!                                          (x, z): `w`, `h` (512x384), `cam`
+//! propmodel/{zone}/{model}                 one building or prop model of the zone's
+//!                                          area (ids from `props::prop_models`)
+//!                                          from the front and above, lit like
+//!                                          day, transparent background; `?px=N`
+//!                                          square (default 64)
+//! propmodel/{zone}/{model}/info            JSON: width, depth, height in tiles
+//!                                          and the bounds in world units
 //! cry/{n}                                  Pokemon cry n (its wave archive) as WAV
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
@@ -563,6 +570,27 @@ impl Bridge {
                     .get(number(6)?)
                     .ok_or_else(|| Error::Missing(path.to_string()))?;
                 Ok(png(frame.clone()))
+            }
+            Some("propmodel") if parts.len() == 3 || parts.len() == 4 => {
+                // One building or prop model of a zone's area (see
+                // `maprender::render_prop`).
+                let (zone, model) = (number(1)?, number(2)? as u16);
+                if parts.get(3) == Some(&"info") {
+                    let info = crate::maprender::prop_info(self, zone, model)?;
+                    return Ok(json(
+                        serde_json::to_string(&info).map_err(|e| Error::Format(e.to_string()))?,
+                    ));
+                }
+                if parts.len() == 4 {
+                    return Err(Error::BadPath(path.to_string()));
+                }
+                let px = query_number("px").unwrap_or(64).clamp(8, 1024);
+                let image = crate::maprender::render_prop(self, zone, model, px)?;
+                Ok(Asset {
+                    mime: "image/png",
+                    bytes: crate::maprender::encode_png_fast(&image),
+                    origin: None,
+                })
             }
             Some("maprender") if parts.len() == 2 || parts.len() == 3 => {
                 // A zone's map as the game draws it (see `maprender`).

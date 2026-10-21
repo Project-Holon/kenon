@@ -23,6 +23,17 @@ fn main() {
     // `query` is what follows `?` in a `maprender/{zone}` path, for example
     // `px=16&season=1` or `view=camera&x=20&z=20&time=night`.
     let query = std::env::var("QUERY").unwrap_or_else(|_| format!("px={px}"));
+    if let Some(asset) = std::env::var_os("ASSET") {
+        // Any bridge path, written to `<out>/asset_<n>.png`: `ASSET=propmodel/389/1?px=96`.
+        let path = asset.to_string_lossy().to_string();
+        let t = std::time::Instant::now();
+        let a = bridge.serve(&path).expect("asset");
+        let name = path.replace(['/', '?', '&', '='], "_");
+        let file = std::path::Path::new(out).join(format!("{name}.png"));
+        std::fs::write(&file, &a.bytes).unwrap();
+        println!("{path}: {:?} -> {}", t.elapsed(), file.display());
+        return;
+    }
     for z in zones {
         let zone: usize = z.parse().expect("zone");
         if let Some(n) = std::env::var_os("BENCH") {
