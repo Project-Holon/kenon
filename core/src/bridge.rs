@@ -39,7 +39,8 @@
 //! maprender/{zone}                         the zone's map as the game draws it,
 //!                                          from above, tile (x, z) at pixels
 //!                                          [x*px, (x+1)*px) by [z*px, (z+1)*px);
-//!                                          `?px=N` (default 16), `?buildings=0`
+//!                                          `?px=N` (default 16), `?buildings=0`;
+//!                                          see the maprender options below
 //! maprender/{zone}/info                    JSON: image size and the tile mapping
 //!                                          (matches `zonemap::zone_map`)
 //! maprender/{zone}?view=camera&x=&z=       the field camera's view around tile
@@ -48,6 +49,21 @@
 //! sound/{seq or name}                      a sequence rendered to WAV
 //!                                          (`?seconds=N`, default 30)
 //! ```
+//!
+//! `maprender` options (both views unless noted):
+//!
+//! | parameter   | values                                  | default            |
+//! |-------------|-----------------------------------------|--------------------|
+//! | `px`        | pixels per tile, top-down only          | 16                 |
+//! | `buildings` | `0` leaves out buildings and props      | `1`                |
+//! | `ss`        | samples per pixel edge, 1 to 4          | 2 (small tiles)    |
+//! | `people`    | `1` / `0`: the zone's NPCs, 32x32 units | top-down `0`, camera `1` |
+//! | `season`    | `0` to `3`: spring, summer, autumn, winter (texture set and light table) | `0` |
+//! | `time`      | `day`, `morning`, `evening`, `night`, an hour (`15`, `15.5`) or `hh:mm` | `day` (12:00) |
+//! | `light`     | `0` draws textures unlit                | `1`                |
+//! | `roofs`     | top-down only: `1` whole buildings, `0` cut buildings above `roofh` tiles (default 3), unset: cut when the zone has buildings over 5 tiles tall | auto |
+//! | `roofh`     | tiles, with `roofs=0`                   | 3                  |
+//! | `w`, `h`, `x`, `z`, `cam` | camera view only          | 512x384, 0, 0, zone's |
 //!
 //! Every image is a PNG with colour 0 transparent. `screen` takes
 //! `?zero=opaque` to draw colour 0 as a backdrop; `cell` and `anim` take
@@ -568,6 +584,20 @@ impl Bridge {
                 if parts.len() == 3 {
                     return Err(Error::BadPath(path.to_string()));
                 }
+                let season = query_number("season").unwrap_or(0).min(3) as u8;
+                let hour = match flag("time") {
+                    Some("day") | None => crate::maprender::DAY_HOUR,
+                    Some("morning") => 7.0,
+                    Some("evening") => 17.5,
+                    Some("night") => 22.0,
+                    Some(t) => {
+                        // An hour (13 or 13.5) or hh:mm.
+                        let (h, m) = t.split_once(':').unwrap_or((t, "0"));
+                        let h = h.parse::<f32>().ok().unwrap_or(12.0);
+                        h + m.parse::<f32>().unwrap_or(0.0) / 60.0
+                    }
+                };
+                let light = flag("light") != Some("0");
                 if flag("view") == Some("camera") {
                     let opts = crate::maprender::CameraOptions {
                         x: float("x").unwrap_or(0.0),
@@ -577,15 +607,42 @@ impl Bridge {
                         setting: query_number("cam"),
                         buildings,
                         supersample: query_number("ss").unwrap_or(0),
+                        people: flag("people") != Some("0"),
+                        season,
+                        hour,
+                        light,
                     };
-                    return Ok(png(crate::maprender::render_camera(self, zone, &opts)?));
+                    let image = crate::maprender::render_camera(self, zone, &opts)?;
+                    return Ok(Asset {
+                        mime: "image/png",
+                        bytes: crate::maprender::encode_png_fast(&image),
+                        origin: None,
+                    });
                 }
+                // `roofs=1` draws every building whole, `roofs=0` cuts the
+                // tall ones (limit `roofh` tiles, default 3), else the zone
+                // decides.
+                let roofs = match (flag("roofs"), float("roofh")) {
+                    (Some("1"), _) => crate::maprender::Roofs::All,
+                    (Some("0"), h) => crate::maprender::Roofs::Cut(h.unwrap_or(3.0) * 16.0),
+                    _ => crate::maprender::Roofs::Auto,
+                };
                 let opts = crate::maprender::Options {
                     px,
                     buildings,
                     supersample: query_number("ss").unwrap_or(0),
+                    people: flag("people") == Some("1"),
+                    season,
+                    hour,
+                    light,
+                    roofs,
                 };
-                Ok(png(crate::maprender::render(self, zone, &opts)?.image))
+                let image = crate::maprender::render(self, zone, &opts)?.image;
+                Ok(Asset {
+                    mime: "image/png",
+                    bytes: crate::maprender::encode_png_fast(&image),
+                    origin: None,
+                })
             }
             Some("townmap") => {
                 // The Town Map screen's two layers (townmap_grh.c): terrain

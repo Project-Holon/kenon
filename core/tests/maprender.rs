@@ -2,7 +2,8 @@
 //! it they pass without doing anything. No game data is in this repository.
 
 use kenon_core::bridge::{Bridge, Member};
-use kenon_core::maprender::{self, CameraOptions, Options};
+use kenon_core::image::Rgba;
+use kenon_core::maprender::{self, CameraOptions, Options, Roofs};
 use kenon_core::rom::Rom;
 use kenon_core::{nsbmd, zonemap};
 
@@ -107,8 +108,8 @@ fn every_zone_renders() {
             z.id,
             &Options {
                 px: 2,
-                buildings: true,
                 supersample: 1,
+                ..Options::default()
             },
         )
         .unwrap_or_else(|e| panic!("zone {}: {e}", z.id));
@@ -139,4 +140,157 @@ fn camera_view() {
     assert!(opaque_share(&img) > 0.9);
     let png = bridge.serve("maprender/389?view=camera&x=16&z=20&w=256&h=192");
     assert!(png.is_ok());
+}
+
+fn differing(a: &Rgba, b: &Rgba) -> usize {
+    a.pixels
+        .chunks(4)
+        .zip(b.pixels.chunks(4))
+        .filter(|(p, q)| p != q)
+        .count()
+}
+
+fn brightness(img: &Rgba) -> f64 {
+    let sum: u64 = img
+        .pixels
+        .chunks(4)
+        .map(|p| p[0] as u64 + p[1] as u64 + p[2] as u64)
+        .sum();
+    sum as f64 / (img.width * img.height * 3) as f64
+}
+
+fn camera(bridge: &Bridge, zone: usize, f: impl FnOnce(&mut CameraOptions)) -> Rgba {
+    let mut opts = CameraOptions {
+        x: 16.0,
+        z: 20.0,
+        width: 192,
+        height: 144,
+        ..CameraOptions::default()
+    };
+    f(&mut opts);
+    maprender::render_camera(bridge, zone, &opts).unwrap()
+}
+
+/// People show in both views and can be turned off.
+#[test]
+fn people_are_drawn() {
+    let Some(bridge) = bridge() else { return };
+    // Route 1 has people on it.
+    let map = zonemap::zone_map(&bridge, 317).unwrap();
+    assert!(map.events.iter().any(|e| e.kind == "npc" && e.x >= 0));
+    let render = |people| {
+        maprender::render(
+            &bridge,
+            317,
+            &Options {
+                px: 8,
+                people,
+                ..Options::default()
+            },
+        )
+        .unwrap()
+        .image
+    };
+    let diff = differing(&render(true), &render(false));
+    assert!(diff > 200, "{diff} pixels differ from above");
+    // The camera follows the first person on the route.
+    let npc = map
+        .events
+        .iter()
+        .find(|e| e.kind == "npc" && e.x >= 0)
+        .unwrap();
+    let at = |people| {
+        camera(&bridge, 317, |o| {
+            o.x = npc.x as f32;
+            o.z = npc.z as f32;
+            o.people = people;
+        })
+    };
+    let diff = differing(&at(true), &at(false));
+    assert!(diff > 100, "{diff} pixels differ in the camera");
+}
+
+/// The field light shades surfaces and follows the time of day.
+#[test]
+fn lighting_and_time() {
+    let Some(bridge) = bridge() else { return };
+    let lit = camera(&bridge, 389, |_| {});
+    let flat = camera(&bridge, 389, |o| o.light = false);
+    assert!(differing(&lit, &flat) > 1000);
+    let night = camera(&bridge, 389, |o| o.hour = 22.0);
+    assert!(
+        brightness(&night) < brightness(&lit) * 0.9,
+        "night {} day {}",
+        brightness(&night),
+        brightness(&lit)
+    );
+}
+
+/// A season swaps the map's texture set and light table.
+#[test]
+fn seasons_differ() {
+    let Some(bridge) = bridge() else { return };
+    let spring = camera(&bridge, 389, |_| {});
+    let winter = camera(&bridge, 389, |o| o.season = 3);
+    assert!(differing(&spring, &winter) > 5000);
+    // The same season twice is the same picture (a kept scene).
+    let again = camera(&bridge, 389, |_| {});
+    assert_eq!(spring.pixels, again.pixels);
+    bridge.invalidate();
+    let rebuilt = camera(&bridge, 389, |_| {});
+    assert_eq!(spring.pixels, rebuilt.pixels);
+}
+
+/// Tall roofs can be cut from the top-down view of a tall city.
+#[test]
+fn roofs_can_be_cut() {
+    let Some(bridge) = bridge() else { return };
+    let draw = |roofs| {
+        maprender::render(
+            &bridge,
+            31,
+            &Options {
+                px: 4,
+                roofs,
+                ..Options::default()
+            },
+        )
+        .unwrap()
+        .image
+    };
+    let all = draw(Roofs::All);
+    let cut = draw(Roofs::Cut(48.0));
+    assert!(differing(&all, &cut) > 0);
+    // Castelia is tall, so Auto cuts; a small town is drawn whole.
+    assert_eq!(draw(Roofs::Auto).pixels, draw(Roofs::Cut(96.0)).pixels);
+    let town = |roofs| {
+        maprender::render(
+            &bridge,
+            389,
+            &Options {
+                px: 4,
+                roofs,
+                ..Options::default()
+            },
+        )
+        .unwrap()
+        .image
+    };
+    assert_eq!(town(Roofs::Auto).pixels, town(Roofs::All).pixels);
+}
+
+/// The new query parameters reach the renderer.
+#[test]
+fn bridge_parameters() {
+    let Some(bridge) = bridge() else { return };
+    for q in [
+        "view=camera&x=16&z=20&w=96&h=72&season=2&time=night&people=0&light=1",
+        "view=camera&x=16&z=20&w=96&h=72&time=17:30&light=0",
+        "px=4&people=1&season=1&time=evening",
+        "px=4&roofs=0&roofh=2",
+        "px=4&roofs=1",
+    ] {
+        let png = bridge.serve(&format!("maprender/389?{q}")).unwrap();
+        assert_eq!(png.mime, "image/png", "{q}");
+    }
 }

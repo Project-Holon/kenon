@@ -13,8 +13,10 @@
 //!             fx32 position scale at 0x1C; node dictionary at 0x40
 //! materials   u16 texture pairing offset, u16 palette pairing offset (both
 //!             from here), then a dictionary of u32 offsets (from here) to
-//!             44-byte records: u32 diffuse/ambient at 4, u32 polygon
-//!             attributes at 0x0C, u32 texture parameters at 0x14. A pairing
+//!             44-byte records: u32 diffuse/ambient at 4, u32
+//!             specular/emission at 8, u32 polygon attributes at 0x0C (light
+//!             enable bits 0-3), u32 texture parameters at 0x14, u16 flags at
+//!             0x1E. A pairing
 //!             dictionary names textures (or palettes); each record is a u16
 //!             offset to a list of the material ids that use it, and a u8
 //!             count
@@ -56,6 +58,9 @@ pub struct Vertex {
     pub pos: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 3],
+    /// The surface normal (unit length in model space), zero when the
+    /// display list sets none.
+    pub normal: [f32; 3],
 }
 
 pub type Triangle = [Vertex; 3];
@@ -82,6 +87,15 @@ pub struct Material {
     /// Texture wrap per axis: repeat, and mirror on odd repeats.
     pub repeat: [bool; 2],
     pub flip: [bool; 2],
+    /// Diffuse, ambient, specular and emission colours (0 to 1 per channel).
+    pub diffuse: [f32; 3],
+    pub ambient: [f32; 3],
+    pub specular: [f32; 3],
+    pub emission: [f32; 3],
+    /// Polygon attribute bits 0 to 3: which of the four lights shine on it.
+    pub light_mask: u8,
+    /// The material's own flag word (which colours it sets itself).
+    pub flag: u16,
 }
 
 /// A shape that turns to face the camera.
@@ -302,6 +316,15 @@ fn parse_nodes(m: &[u8]) -> Option<Vec<Affine>> {
     Some(out)
 }
 
+/// A 5-bit-per-channel colour (red in the low bits) as 0 to 1.
+fn rgb555(c: u32) -> [f32; 3] {
+    [
+        (c & 31) as f32 / 31.0,
+        ((c >> 5) & 31) as f32 / 31.0,
+        ((c >> 10) & 31) as f32 / 31.0,
+    ]
+}
+
 fn parse_materials(m: &[u8]) -> Option<Vec<Material>> {
     let base = rd32(m, 0x08)? as usize;
     let b = m.get(base..)?;
@@ -326,6 +349,7 @@ fn parse_materials(m: &[u8]) -> Option<Vec<Material>> {
     for (i, texture) in texture.into_iter().enumerate() {
         let a = d.offset(i)?;
         let diff_amb = rd32(b, a + 4)?;
+        let spec_emi = rd32(b, a + 8)?;
         let poly = rd32(b, a + 0x0C)?;
         let tex = rd32(b, a + 0x14)?;
         let cull = match (poly >> 6) & 3 {
@@ -342,6 +366,12 @@ fn parse_materials(m: &[u8]) -> Option<Vec<Material>> {
             vertex_color: diff_amb & 0x8000 != 0,
             repeat: [tex & 0x10000 != 0, tex & 0x20000 != 0],
             flip: [tex & 0x40000 != 0, tex & 0x80000 != 0],
+            diffuse: rgb555(diff_amb),
+            ambient: rgb555(diff_amb >> 16),
+            specular: rgb555(spec_emi),
+            emission: rgb555(spec_emi >> 16),
+            light_mask: (poly & 15) as u8,
+            flag: rd16(b, a + 0x1E)?,
         });
     }
     Some(out)
@@ -511,6 +541,13 @@ pub fn decode_list_ops(dl: &[u8]) -> (Vec<Triangle>, u32) {
                         (c & 31) as f32 / 31.0,
                         ((c >> 5) & 31) as f32 / 31.0,
                         ((c >> 10) & 31) as f32 / 31.0,
+                    ];
+                }
+                0x21 => {
+                    cur.normal = [
+                        sext10(args[0]) / 512.0,
+                        sext10(args[0] >> 10) / 512.0,
+                        sext10(args[0] >> 20) / 512.0,
                     ];
                 }
                 0x22 => cur.uv = [s16(args[0], false) / 16.0, s16(args[0], true) / 16.0],

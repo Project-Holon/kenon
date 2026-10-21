@@ -1,4 +1,6 @@
-//! Writes zone map renders: `maprender <rom> <out dir> <px> <zone>...`.
+//! Writes zone map renders: `maprender <rom> <out dir> <px> <zone>...`. Set
+//! `QUERY` to a maprender query string, `BENCH=n` to time a camera sweep, or
+//! `OVERLAY=1` to tint the walkable tiles and mark events.
 
 use kenon_core::bridge::Bridge;
 use kenon_core::maprender::{self, Options};
@@ -18,25 +20,43 @@ fn main() {
         }
         return;
     }
+    // `query` is what follows `?` in a `maprender/{zone}` path, for example
+    // `px=16&season=1` or `view=camera&x=20&z=20&time=night`.
+    let query = std::env::var("QUERY").unwrap_or_else(|_| format!("px={px}"));
     for z in zones {
         let zone: usize = z.parse().expect("zone");
+        if let Some(n) = std::env::var_os("BENCH") {
+            // A camera sweep along the zone: the first call builds the scene.
+            let n: usize = n.to_string_lossy().parse().unwrap_or(5);
+            let map = kenon_core::zonemap::zone_map(&bridge, zone).expect("zone map");
+            for i in 0..n {
+                let (x, zz) = (
+                    (map.width / 4 + i * 3).min(map.width - 1),
+                    map.height / 2 + i % 3,
+                );
+                let path = format!("maprender/{zone}?view=camera&x={x}&z={zz}&w=384&h=288&{query}");
+                let t = std::time::Instant::now();
+                let asset = bridge.serve(&path).expect("camera");
+                println!(
+                    "zone {zone} camera #{i} ({x},{zz}): {:?} ({} bytes png)",
+                    t.elapsed(),
+                    asset.bytes.len()
+                );
+            }
+            continue;
+        }
         let t = std::time::Instant::now();
-        if let Some(at) = std::env::var_os("CAMERA") {
-            let at = at.to_string_lossy().to_string();
-            let (x, zz) = at.split_once(',').expect("CAMERA=x,z");
-            let opts = maprender::CameraOptions {
-                x: x.parse().expect("x"),
-                z: zz.parse().expect("z"),
-                ..maprender::CameraOptions::default()
-            };
-            let img = maprender::render_camera(&bridge, zone, &opts).expect("camera");
-            let file = std::path::Path::new(out).join(format!("zone{zone}_camera.png"));
-            std::fs::write(&file, kenon_core::bridge::encode_png(&img)).unwrap();
-            println!(
-                "zone {zone}: camera {:?} -> {}",
-                t.elapsed(),
-                file.display()
-            );
+        if std::env::var_os("OVERLAY").is_none() {
+            let path = format!("maprender/{zone}?{query}");
+            match bridge.serve(&path) {
+                Ok(asset) => {
+                    let tag = query.replace(['&', '=', '/'], "_");
+                    let file = std::path::Path::new(out).join(format!("zone{zone}_{tag}.png"));
+                    std::fs::write(&file, &asset.bytes).unwrap();
+                    println!("zone {zone}: {:?} -> {}", t.elapsed(), file.display());
+                }
+                Err(e) => println!("zone {zone}: {e}"),
+            }
             continue;
         }
         match maprender::render(
@@ -48,20 +68,10 @@ fn main() {
             },
         ) {
             Ok(mut r) => {
-                if std::env::var_os("OVERLAY").is_some() {
-                    overlay(&bridge, zone, &mut r);
-                }
-                let file = std::path::Path::new(out).join(format!("zone{zone}.png"));
+                overlay(&bridge, zone, &mut r);
+                let file = std::path::Path::new(out).join(format!("zone{zone}_overlay.png"));
                 std::fs::write(&file, kenon_core::bridge::encode_png(&r.image)).unwrap();
-                println!(
-                    "zone {zone}: {}x{} tiles, {}x{} px, {:?} -> {}",
-                    r.layout.width,
-                    r.layout.height,
-                    r.layout.image_width,
-                    r.layout.image_height,
-                    t.elapsed(),
-                    file.display()
-                );
+                println!("zone {zone}: {:?} -> {}", t.elapsed(), file.display());
             }
             Err(e) => println!("zone {zone}: {e}"),
         }
