@@ -107,6 +107,21 @@ export const saveSheet = (chr: Ref, tiles: number[][]) => invoke<void>("save_she
 export const savePalette = (pal: Ref, colors: number[]) => invoke<void>("save_palette", { pal, colors });
 export const revert = (m: Ref) => invoke<void>("revert", { m });
 
+export type ImportMode = "keep" | "replace";
+export interface ImportSummary {
+  pixels: number;
+  colorsUsed: number;
+  colorsMerged: number;
+  scaled: boolean;
+  paletteChanged: boolean;
+  width: number;
+  height: number;
+}
+/// Lays a PNG file over a picture; `bank` is added to each pixel's palette bank.
+export const importPicture = (chr: Ref, pal: Ref, layout: Layout, path: string, mode: ImportMode, bank: number) =>
+  invoke<ImportSummary>("import_picture", { chr, pal, layout, path, mode, bank });
+export const readPng = (path: string) => invoke<ArrayBuffer>("read_png", { path });
+
 export interface NamedSheet {
   label: string;
   chr: number;

@@ -13,6 +13,7 @@ pub mod data_root;
 pub mod fielditems;
 pub mod g3d;
 pub mod image;
+pub mod import;
 pub mod lz;
 pub mod maprender;
 pub mod modcode;

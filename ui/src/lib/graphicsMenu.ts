@@ -1,7 +1,9 @@
 // The right-click menu of a picture, for the graphics list and the editor.
 import { archiveLabel } from "./archiveLabels";
-import { animBank, asset, cellBank, revert, sheetData } from "./backend";
+import { animBank, asset, cellBank, revert, sheetData, type Layout, type Ref } from "./backend";
 import { copyText, fileName, guarded, openInFiles, saveAssets, saveMember, savePng, saveText } from "./exporter";
+import type { ImportTarget } from "./ImportPicture.svelte";
+import { importPng } from "./importPng";
 import { toast, type MenuItem } from "./menu.svelte";
 
 /// What names a picture of an archive.
@@ -85,10 +87,36 @@ async function paletteText(p: Picture): Promise<string> {
   return ["JASC-PAL", "0100", String(rows.length), ...rows, ""].join("\r\n");
 }
 
-/// The items for a picture. `onChanged` runs after a revert.
+// What an import lays the PNG over for a picture of the list: the picture as
+// its thumbnail shows it (a battle sprite takes its first frame).
+async function importTarget(p: Picture): Promise<ImportTarget> {
+  const pal: Ref = [p.arc, p.pal!];
+  const title = pictureName(p);
+  const ref = (m: number): Ref => [p.arc, m];
+  if (p.scr !== undefined) {
+    return { chr: ref(p.chr), pal, layout: { kind: "screen", scr: ref(p.scr) }, bank: p.offset, title };
+  }
+  if (p.rig && p.cells === null) {
+    const [chr, cer, anr, mcr, mna] = p.rig;
+    const layout: Layout = { kind: "rig", cer: ref(cer), anr: ref(anr), mcr: ref(mcr), mna: mna === undefined ? null : ref(mna), frame: 0 };
+    return { chr: ref(chr), pal, layout, bank: p.offset, title };
+  }
+  const cer = p.cells !== undefined ? p.cells : await cellBank(ref(p.chr)).catch(() => null);
+  const layout: Layout = cer !== null ? { kind: "cells", cer: ref(cer) } : { kind: "grid", cols: 16 };
+  return { chr: ref(p.chr), pal, layout, bank: p.offset, title };
+}
+
+/// The items for a picture. `onChanged` runs after a revert or an import.
+/// `importAs` is the picture as the open editor lays it out (a battle
+/// animation frame when `frame`); the list resolves its own.
 export function pictureMenu(
   p: Picture,
-  opts: { changed: boolean; readOnly: boolean; onChanged: () => void },
+  opts: {
+    changed: boolean;
+    readOnly: boolean;
+    onChanged: () => void;
+    importAs?: { target: ImportTarget; frame: boolean };
+  },
 ): MenuItem[] {
   const name = pictureName(p);
   const animated = !!p.rig || (p.anims !== undefined && p.anims !== null) || p.anims === undefined;
@@ -119,6 +147,16 @@ export function pictureMenu(
       label: "Save game file",
       run: guarded(() => saveMember(p.arc, p.chr, name, "ncgr")),
     },
+    ...(opts.readOnly || p.pal === null
+      ? []
+      : [
+          {
+            label: opts.importAs?.frame ? "Import frame..." : "Import PNG...",
+            run: guarded(async () =>
+              importPng(opts.importAs?.target ?? (await importTarget(p)), opts.onChanged),
+            ),
+          },
+        ]),
     "-",
     { label: "Copy name", run: () => copyText(p.label) },
     {

@@ -324,6 +324,39 @@ async fn save_palette(
     catalog::save_palette(&bridge, member(pal), &colors).map_err(|e| e.to_string())
 }
 
+/// Lays a PNG file over a picture and writes it into the project.
+#[tauri::command]
+async fn import_picture(
+    state: State<'_, AppState>,
+    chr: [usize; 2],
+    pal: [usize; 2],
+    layout: Layout,
+    path: PathBuf,
+    mode: kenon_core::import::PaletteMode,
+    bank: Option<u8>,
+) -> Result<kenon_core::import::ImportSummary, String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    kenon_core::import::import_picture(
+        &bridge,
+        member(chr),
+        member(pal),
+        &layout,
+        &bytes,
+        mode,
+        bank.unwrap_or(0),
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// A PNG file's bytes, for the import dialog to show it.
+#[tauri::command]
+async fn read_png(path: PathBuf) -> Result<tauri::ipc::Response, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    kenon_core::import::png_size(&bytes).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[tauri::command]
 async fn revert(state: State<'_, AppState>, m: [usize; 2]) -> Result<(), String> {
     let bridge = state.need_bridge()?;
@@ -1144,6 +1177,8 @@ pub fn run() {
             anim_bank,
             save_sheet,
             save_palette,
+            import_picture,
+            read_png,
             revert,
             named_sheets,
             table_entries,

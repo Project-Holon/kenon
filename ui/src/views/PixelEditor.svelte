@@ -16,6 +16,8 @@
   import AnimationPlayer from "./AnimationPlayer.svelte";
   import { isTextField, openMenu } from "../lib/menu.svelte";
   import { pictureMenu, type Picture } from "../lib/graphicsMenu";
+  import { importPng } from "../lib/importPng";
+  import type { ImportTarget } from "../lib/ImportPicture.svelte";
 
   let {
     chr,
@@ -120,16 +122,19 @@
   const base = $derived(data?.bpp === 4 ? bank * 16 : 0);
   const swatches = $derived(data?.bpp === 4 ? colors.slice(base, base + 16) : colors);
 
-  async function load(keepEdits: boolean) {
-    error = null;
-    try {
-      const layout: Layout = rigFrame
-        ? { kind: "rig", ...rigFrame }
-        : screen && view === "cells"
+  const layoutNow = (): Layout =>
+    rigFrame
+      ? { kind: "rig", ...rigFrame }
+      : screen && view === "cells"
         ? { kind: "screen", scr: screen }
         : view === "cells" && bankFor !== null
           ? { kind: "cells", cer: [chr[0], bankFor] }
           : { kind: "grid", cols };
+
+  async function load(keepEdits: boolean) {
+    error = null;
+    try {
+      const layout = layoutNow();
       const next = await sheetData(chr, pal, layout);
       if (!keepEdits || !data) {
         tiles = next.tiles.map((t) => t.slice());
@@ -444,8 +449,21 @@
   // on the picture picks a colour.
   function menu(e: MouseEvent) {
     if (!picture || isTextField(e.target) || e.target instanceof HTMLCanvasElement) return;
-    openMenu(e, pictureMenu(picture, { changed, readOnly, onChanged: onSaved }));
+    openMenu(e, pictureMenu(picture, { changed, readOnly, onChanged: onSaved, importAs: { target: importAs(), frame: !!rigFrame } }));
   }
+
+  // A PNG goes over the picture as it is laid out now, with the palette
+  // bank the editor draws it with.
+  const importAs = (): ImportTarget => ({
+    chr,
+    pal,
+    layout: layoutNow(),
+    bank: view === "cells" || rigFrame || screen ? paletteOffset : bank,
+    title: picture?.label ?? "",
+    unsaved: tilesDirty || paletteDirty,
+  });
+
+  const importHere = () => importPng(importAs(), onSaved).catch((e) => (error = String(e)));
 
   async function undoAll() {
     if (!confirmRevert) {
@@ -517,6 +535,7 @@
           {confirmRevert ? "Click again to revert" : "Revert to game"}
         </button>
       {/if}
+      <button disabled={busy || !data} title="Lay a PNG over this picture" onclick={importHere}>{rigFrame ? "Import frame..." : "Import PNG..."}</button>
       <button class="primary" disabled={busy || !(tilesDirty || paletteDirty)} onclick={save}>Save</button>
     {/if}
   </div>
