@@ -77,6 +77,45 @@ impl Ncgr {
         })
     }
 
+    /// The file with its pixel data replaced by `data` (same length), every
+    /// other byte kept.
+    pub fn with_data(file: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
+        let at = nitro::block_offset(file, MAGIC, CHAR)?;
+        let offset = read_u32(&file[at..], 20)? as usize;
+        let size = read_u32(&file[at..], 16)? as usize;
+        let start = at + offset;
+        let len = size.min(file.len().saturating_sub(start));
+        if data.len() != len {
+            return Err(Error::Bad("new pixel data has another size"));
+        }
+        let mut out = file.to_vec();
+        out[start..start + len].copy_from_slice(data);
+        Ok(out)
+    }
+
+    /// Sets the colour index of pixel (x, y) of tile `index` (row-major in
+    /// the tile).
+    pub fn set_pixel(&mut self, index: usize, x: usize, y: usize, value: u8) {
+        let size = self.depth.bytes_per_tile();
+        let p = y * 8 + x;
+        match self.depth {
+            Depth::Bpp8 => {
+                if let Some(b) = self.data.get_mut(index * size + p) {
+                    *b = value;
+                }
+            }
+            Depth::Bpp4 => {
+                if let Some(b) = self.data.get_mut(index * size + p / 2) {
+                    *b = if p.is_multiple_of(2) {
+                        (*b & 0xF0) | (value & 0x0F)
+                    } else {
+                        (*b & 0x0F) | (value << 4)
+                    };
+                }
+            }
+        }
+    }
+
     pub fn tile_count(&self) -> usize {
         self.data.len() / self.depth.bytes_per_tile()
     }
@@ -202,5 +241,19 @@ mod tests {
         assert_eq!(ncgr.tile(0, false, false)[63], 63);
         assert_eq!(ncgr.size_px(), None);
         assert!(ncgr.indices().is_none());
+    }
+
+    #[test]
+    fn edit_and_write_back() {
+        let file = build(1, 1, Depth::Bpp4, &[0u8; 32]);
+        let mut ncgr = Ncgr::parse(&file).unwrap();
+        ncgr.set_pixel(0, 1, 0, 7);
+        ncgr.set_pixel(0, 0, 1, 3);
+        let out = Ncgr::with_data(&file, &ncgr.data).unwrap();
+        let again = Ncgr::parse(&out).unwrap();
+        assert_eq!(again.tile(0, false, false)[1], 7);
+        assert_eq!(again.tile(0, false, false)[8], 3);
+        assert_eq!(out.len(), file.len());
+        assert!(Ncgr::with_data(&file, &[0; 4]).is_err());
     }
 }

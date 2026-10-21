@@ -13,6 +13,8 @@ pub struct Settings {
     /// constant in code. Older settings called it `dataFolder`.
     #[serde(alias = "dataFolder")]
     pub game: Option<PathBuf>,
+    /// Recently opened projects, newest first.
+    pub recent: Vec<PathBuf>,
 }
 
 impl Settings {
@@ -46,6 +48,7 @@ mod tests {
         let path = dir.path().join("config/settings.json");
         let settings = Settings {
             game: Some(dir.path().join("black.nds")),
+            recent: vec![dir.path().join("mod")],
         };
         settings.save(&path).unwrap();
         assert_eq!(Settings::load(&path), settings);

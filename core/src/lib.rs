@@ -6,6 +6,7 @@
 
 pub mod blz;
 pub mod bridge;
+pub mod catalog;
 pub mod code;
 pub mod data_root;
 pub mod image;
@@ -19,6 +20,7 @@ pub mod nclr;
 pub mod nftr;
 pub mod nitro;
 pub mod nscr;
+pub mod project;
 pub mod rom;
 pub mod sdat;
 pub mod source;

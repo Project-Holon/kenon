@@ -1,5 +1,6 @@
-//! The Tauri shell. It holds the settings and exposes the core to the front
-//! end as commands. It parses no game formats itself.
+//! The Tauri shell. It holds the settings, the open game and the open
+//! project, and exposes the core to the front end as commands. It parses no
+//! game formats itself.
 
 mod protocol;
 mod settings;
@@ -7,75 +8,260 @@ mod settings;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
-use kenon_core::bridge::Bridge;
+use kenon_core::bridge::{Bridge, Member};
+use kenon_core::catalog::{self, ArchiveInfo, MemberInfo, SheetData, SoundInfo};
 use kenon_core::data_root;
-use kenon_core::source::{self, GameCheck};
+use kenon_core::project::{Change, Project};
+use kenon_core::source::{self, GameCheck, Source};
 use serde::Serialize;
 use tauri::{Manager, State};
 
 use settings::Settings;
 
+/// How many recent projects the start screen lists.
+const RECENT: usize = 8;
+
+#[derive(Default)]
+struct Open {
+    /// The game, when the chosen ROM can be used.
+    source: Option<Source>,
+    check: Option<GameCheck>,
+    project: Option<Arc<Project>>,
+    /// The bridge over the game and the project.
+    bridge: Option<Arc<Bridge>>,
+    /// The archive listing, made once per game.
+    archives: Option<Arc<Vec<ArchiveInfo>>>,
+}
+
+impl Open {
+    fn rebuild_bridge(&mut self) {
+        self.bridge = self
+            .source
+            .clone()
+            .map(|s| Arc::new(Bridge::new(s).with_project(self.project.clone())));
+    }
+}
+
 struct AppState {
     settings: Mutex<Settings>,
     settings_path: PathBuf,
-    /// The asset bridge over the chosen game, when it can be used.
-    bridge: RwLock<Option<Arc<Bridge>>>,
+    open: RwLock<Open>,
 }
 
 impl AppState {
     fn bridge(&self) -> Option<Arc<Bridge>> {
-        self.bridge.read().unwrap().clone()
+        self.open.read().unwrap().bridge.clone()
+    }
+
+    fn need_bridge(&self) -> Result<Arc<Bridge>, String> {
+        self.bridge()
+            .ok_or_else(|| "choose your ROM first".to_string())
+    }
+
+    fn save_settings(&self, settings: &Settings) -> Result<(), String> {
+        settings
+            .save(&self.settings_path)
+            .map_err(|err| format!("could not save the settings: {err}"))
     }
 }
 
-/// What the settings screen shows about the chosen game.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct GameStatus {
-    /// The ROM or folder saved in the settings, if any.
-    path: Option<PathBuf>,
-    /// The check of it, if one is set.
+struct ProjectInfo {
+    name: String,
+    root: PathBuf,
+    changes: Vec<Change>,
+}
+
+/// Everything the start screen and the title bar show.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Status {
+    /// The ROM (or unpacked folder) saved in the settings.
+    rom: Option<PathBuf>,
     check: Option<GameCheck>,
     /// The eidos extraction folder, offered when it exists.
     suggestion: Option<PathBuf>,
+    project: Option<ProjectInfo>,
+    recent: Vec<PathBuf>,
 }
 
-/// Opens the chosen game: its check, and a bridge when it can be used.
-fn open(path: Option<&Path>) -> (Option<GameCheck>, Option<Arc<Bridge>>) {
-    let Some(path) = path else {
-        return (None, None);
-    };
-    let (check, source) = source::open(path);
-    (Some(check), source.map(|s| Arc::new(Bridge::new(s))))
-}
-
-fn status(path: Option<PathBuf>, check: Option<GameCheck>) -> GameStatus {
-    GameStatus {
-        path,
-        check,
+fn status(state: &AppState) -> Status {
+    let settings = state.settings.lock().unwrap();
+    let open = state.open.read().unwrap();
+    Status {
+        rom: settings.game.clone(),
+        check: open.check.clone(),
         suggestion: data_root::eidos_default().filter(|dir| dir.is_dir()),
+        project: open.project.as_ref().map(|p| ProjectInfo {
+            name: p.manifest.name.clone(),
+            root: p.root.clone(),
+            changes: p.changes(),
+        }),
+        recent: settings.recent.clone(),
     }
 }
 
-#[tauri::command]
-fn game_status(state: State<AppState>) -> GameStatus {
-    let path = state.settings.lock().unwrap().game.clone();
-    let (check, _) = open(path.as_deref());
-    status(path, check)
+fn open_game(open: &mut Open, path: Option<&Path>) {
+    let (check, source) = match path {
+        Some(p) => {
+            let (check, source) = source::open(p);
+            (Some(check), source)
+        }
+        None => (None, None),
+    };
+    open.check = check;
+    open.source = source;
+    open.archives = None;
+    open.rebuild_bridge();
 }
 
-/// Saves the chosen ROM or folder (or clears it with `None`) and returns its
-/// check. A choice that fails the check is still saved, so the user sees why.
 #[tauri::command]
-fn set_game(state: State<AppState>, path: Option<PathBuf>) -> Result<GameStatus, String> {
+fn app_status(state: State<AppState>) -> Status {
+    status(&state)
+}
+
+/// Saves the chosen ROM or folder (or clears it with `None`). A choice that
+/// fails the check is still saved, so the user sees why.
+#[tauri::command]
+fn set_rom(state: State<AppState>, path: Option<PathBuf>) -> Result<Status, String> {
+    {
+        let mut settings = state.settings.lock().unwrap();
+        settings.game = path.clone();
+        state.save_settings(&settings)?;
+    }
+    open_game(&mut state.open.write().unwrap(), path.as_deref());
+    Ok(status(&state))
+}
+
+fn remember(state: &AppState, root: &Path) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
-    settings.game = path.clone();
-    settings
-        .save(&state.settings_path)
-        .map_err(|err| format!("could not save the settings: {err}"))?;
-    let (check, bridge) = open(path.as_deref());
-    *state.bridge.write().unwrap() = bridge;
-    Ok(status(path, check))
+    settings.recent.retain(|p| p != root);
+    settings.recent.insert(0, root.to_path_buf());
+    settings.recent.truncate(RECENT);
+    state.save_settings(&settings)
+}
+
+fn set_project(state: &AppState, project: Option<Project>) {
+    let mut open = state.open.write().unwrap();
+    open.project = project.map(Arc::new);
+    open.rebuild_bridge();
+}
+
+/// Creates a project (a mod folder) and opens it.
+#[tauri::command]
+fn new_project(state: State<AppState>, root: PathBuf, name: String) -> Result<Status, String> {
+    let rom = state.settings.lock().unwrap().game.clone();
+    let project = Project::create(&root, &name, rom.as_deref()).map_err(|e| e.to_string())?;
+    remember(&state, &root)?;
+    set_project(&state, Some(project));
+    Ok(status(&state))
+}
+
+/// Opens an existing mod folder.
+#[tauri::command]
+fn open_project(state: State<AppState>, root: PathBuf) -> Result<Status, String> {
+    let project = Project::open(&root).map_err(|e| e.to_string())?;
+    remember(&state, &root)?;
+    set_project(&state, Some(project));
+    Ok(status(&state))
+}
+
+/// Closes the project: back to the game as it is.
+#[tauri::command]
+fn close_project(state: State<AppState>) -> Status {
+    set_project(&state, None);
+    status(&state)
+}
+
+#[tauri::command]
+async fn archives(state: State<'_, AppState>) -> Result<Arc<Vec<ArchiveInfo>>, String> {
+    if let Some(list) = state.open.read().unwrap().archives.clone() {
+        return Ok(list);
+    }
+    let bridge = state.need_bridge()?;
+    let list = Arc::new(catalog::archives(&bridge));
+    state.open.write().unwrap().archives = Some(list.clone());
+    Ok(list)
+}
+
+#[tauri::command]
+async fn members(state: State<'_, AppState>, arc: u16) -> Result<Vec<MemberInfo>, String> {
+    let bridge = state.need_bridge()?;
+    catalog::members(&bridge, arc).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn sounds(state: State<'_, AppState>) -> Result<Vec<SoundInfo>, String> {
+    let sdat = state
+        .need_bridge()?
+        .sdat()
+        .ok_or("the ROM has no sound archive")?;
+    Ok(catalog::sounds(&sdat))
+}
+
+#[tauri::command]
+async fn text_bank(
+    state: State<'_, AppState>,
+    arc: u16,
+    bank: usize,
+) -> Result<Vec<String>, String> {
+    let bridge = state.need_bridge()?;
+    catalog::text_bank(&bridge, arc, bank).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_text_bank(
+    state: State<'_, AppState>,
+    arc: u16,
+    bank: usize,
+    strings: Vec<String>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    catalog::save_text_bank(&bridge, arc, bank, &strings).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn sheet_data(
+    state: State<'_, AppState>,
+    chr: [usize; 2],
+    pal: [usize; 2],
+) -> Result<SheetData, String> {
+    let bridge = state.need_bridge()?;
+    catalog::sheet_data(&bridge, member(chr), member(pal)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_sheet(
+    state: State<'_, AppState>,
+    chr: [usize; 2],
+    tiles: Vec<Vec<u8>>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    catalog::save_sheet(&bridge, member(chr), &tiles).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_palette(
+    state: State<'_, AppState>,
+    pal: [usize; 2],
+    colors: Vec<u32>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    catalog::save_palette(&bridge, member(pal), &colors).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn revert(state: State<'_, AppState>, m: [usize; 2]) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    catalog::revert(&bridge, member(m)).map_err(|e| e.to_string())
+}
+
+fn member([arc, index]: [usize; 2]) -> Member {
+    Member {
+        arc: arc as u16,
+        index,
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -85,11 +271,12 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("settings.json");
             let settings = Settings::load(&settings_path);
-            let (_, bridge) = open(settings.game.as_deref());
+            let mut open = Open::default();
+            open_game(&mut open, settings.game.as_deref());
             app.manage(AppState {
                 settings: Mutex::new(settings),
                 settings_path,
-                bridge: RwLock::new(bridge),
+                open: RwLock::new(open),
             });
             Ok(())
         })
@@ -101,7 +288,22 @@ pub fn run() {
                 responder.respond(protocol::respond(bridge, uri.path(), uri.query()));
             });
         })
-        .invoke_handler(tauri::generate_handler![game_status, set_game])
+        .invoke_handler(tauri::generate_handler![
+            app_status,
+            set_rom,
+            new_project,
+            open_project,
+            close_project,
+            archives,
+            members,
+            sounds,
+            text_bank,
+            save_text_bank,
+            sheet_data,
+            save_sheet,
+            save_palette,
+            revert,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running kenon");
 }

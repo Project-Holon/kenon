@@ -9,8 +9,8 @@ repository.workspace = true
 [dependencies]
 png = "0.18"
 serde.workspace = true
+serde_json.workspace = true
 sha1_smol = "1"
 
 [dev-dependencies]
-serde_json.workspace = true
 tempfile.workspace = true

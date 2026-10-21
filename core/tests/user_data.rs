@@ -521,3 +521,59 @@ fn bridge_from_rom() {
         String::from_utf8(bridge.serve("table/type_palette").unwrap().bytes.clone()).unwrap();
     assert_eq!(types.matches(',').count(), 17, "{types}");
 }
+
+/// The catalog and the edit path on the ROM: sound groups, and a text and
+/// palette edit written to a project and read back through the bridge.
+#[test]
+fn catalog_and_edits() {
+    use kenon_core::bridge::{Bridge, Member};
+    use kenon_core::catalog;
+    use kenon_core::project::Project;
+    use kenon_core::rom::Rom;
+    let Some(path) = std::env::var_os("KENON_ROM") else {
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let project =
+        std::sync::Arc::new(Project::create(&dir.path().join("m"), "Test", None).unwrap());
+    let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project.clone()));
+
+    let sounds = catalog::sounds(&bridge.sdat().unwrap());
+    let mut groups = std::collections::BTreeMap::new();
+    for s in &sounds {
+        *groups.entry(s.group).or_insert(0) += 1;
+    }
+    eprintln!("sounds by group: {groups:?}");
+    assert!(groups.get("music").copied().unwrap_or(0) > 0);
+    assert!(bridge
+        .serve("sound/SEQ_SE_DECIDE1")
+        .unwrap()
+        .bytes
+        .starts_with(b"RIFF"));
+
+    // Text: change the yes/no bank's first string.
+    let mut yes_no = catalog::text_bank(&bridge, 2, 233).unwrap();
+    yes_no[0] = "SURE".to_string();
+    catalog::save_text_bank(&bridge, 2, 233, &yes_no).unwrap();
+    assert_eq!(catalog::text_bank(&bridge, 2, 233).unwrap()[0], "SURE");
+    let members = catalog::members(&bridge, 2).unwrap();
+    assert!(members[233].changed && !members[232].changed);
+
+    // Palette: the menu frame palette, first colour set to red.
+    let pal = Member { arc: 5, index: 3 };
+    let sheet = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal).unwrap();
+    let mut colors = sheet.colors.clone();
+    colors[1] = 0xFF0000;
+    catalog::save_palette(&bridge, pal, &colors).unwrap();
+    let again = catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal).unwrap();
+    assert_eq!(again.colors[1], 0xFF0000);
+    assert_eq!(project.changes().len(), 2);
+
+    catalog::revert(&bridge, pal).unwrap();
+    assert_eq!(
+        catalog::sheet_data(&bridge, Member { arc: 5, index: 9 }, pal)
+            .unwrap()
+            .colors,
+        sheet.colors
+    );
+}

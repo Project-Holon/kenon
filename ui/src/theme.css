@@ -1,0 +1,225 @@
+/* kenon's theme, after Black and White's menus: dark striped backdrops,
+   rounded windows with a dark outline and a light inner rim, a blue
+   selection bar, and the game's own frames, font and sounds where a ROM is
+   open. Every pane scrolls on its own; nothing scrolls sideways. */
+
+:root {
+  --bg: #121419;
+  --stripe: rgba(255, 255, 255, 0.025);
+  --panel: #1c2028;
+  --panel-2: #242a34;
+  --panel-3: #2d3440;
+  --outline: #07080a;
+  --rim: #3a4352;
+  --ink: #f3f5f8;
+  --muted: #9aa4b4;
+  --faint: #6b7586;
+  --accent: #2f8fe8;
+  --accent-dark: #1b64b0;
+  --accent-ink: #ffffff;
+  --gold: #f4c542;
+  --ok: #45c873;
+  --bad: #ef5a50;
+  --radius: 10px;
+  --radius-s: 6px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--stripe) 0 2px,
+    transparent 2px 8px
+  );
+  color: var(--ink);
+  font: 14px/1.45 system-ui, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 1.35rem;
+}
+h2 {
+  font-size: 1.05rem;
+}
+h3 {
+  font-size: 0.95rem;
+}
+
+p {
+  margin: 0;
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* A game window: dark outline, light inner rim. */
+.window {
+  background: var(--panel);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px var(--rim);
+}
+
+/* Buttons, shaped like the game's touch buttons. */
+button,
+.btn {
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: linear-gradient(var(--panel-3), var(--panel-2));
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: linear-gradient(var(--accent), var(--accent-dark));
+  color: var(--accent-ink);
+}
+
+button.quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-s);
+  padding: 0.35rem 0.55rem;
+  min-width: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+/* Pixel art keeps its pixels. */
+img.px,
+canvas.px {
+  image-rendering: pixelated;
+}
+
+/* A list row; the selected one gets the game's blue bar. */
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border: 2px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.row-item:hover {
+  background: var(--panel-2);
+  border-color: transparent;
+}
+
+.row-item[aria-selected="true"],
+.row-item[aria-current="true"] {
+  background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+  border-color: var(--outline);
+  color: var(--accent-ink);
+}
+
+.row-item .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0 0.4rem;
+  border-radius: 4px;
+  background: var(--panel-3);
+  color: var(--muted);
+}
+
+.tag.changed {
+  background: var(--gold);
+  color: #201a00;
+}
+
+/* Scrollbars that match. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--panel-3);
+  border: 2px solid var(--bg);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

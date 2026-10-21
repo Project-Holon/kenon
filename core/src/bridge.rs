@@ -6,7 +6,8 @@
 //! `a/0/0/5`). Paths:
 //!
 //! ```text
-//! sheet/{chr}/{pal}/{bank}                 an NCGR with its own size
+//! sheet/{chr}/{pal}/{bank}                 an NCGR (16 tiles wide, or
+//!                                          `?cols=N`, when it gives no size)
 //! tiles/{chr}/{pal}/{bank}/{cols}/{list}   tiles by index, `cols` per row;
 //!                                          the list is comma separated and
 //!                                          `-` leaves a tile blank
@@ -25,6 +26,8 @@
 //!                                          data; index 15 is transparent)
 //! table/{name}                             JSON: a UI table read from code
 //!                                          (see `UI_TABLES`)
+//! sound/{seq or name}                      a sequence rendered to WAV
+//!                                          (`?seconds=N`, default 30)
 //! ```
 //!
 //! Every image is a PNG with colour 0 transparent. `screen` takes
@@ -45,6 +48,7 @@ use crate::ncgr::Ncgr;
 use crate::nclr::Palette;
 use crate::nftr::Font;
 use crate::nscr::Nscr;
+use crate::project::Project;
 use crate::source::Source;
 use crate::{lz, narc};
 
@@ -118,8 +122,11 @@ const CACHE_LIMIT: usize = 1024;
 /// Serves assets from one data folder, caching archives, fonts and results.
 pub struct Bridge {
     source: Source,
+    /// The open project, whose files and members win over the game's.
+    project: Option<Arc<Project>>,
     code: Option<CodeImages>,
     archives: Mutex<HashMap<u16, Arc<narc::Narc>>>,
+    sdat: std::sync::OnceLock<Option<Arc<crate::sdat::Sdat>>>,
     fonts: Mutex<HashMap<Member, Arc<Font>>>,
     served: Mutex<HashMap<String, Arc<Asset>>>,
 }
@@ -130,6 +137,8 @@ impl Bridge {
         Bridge {
             code: source.code(),
             source,
+            project: None,
+            sdat: std::sync::OnceLock::new(),
             archives: Mutex::new(HashMap::new()),
             fonts: Mutex::new(HashMap::new()),
             served: Mutex::new(HashMap::new()),
@@ -138,6 +147,37 @@ impl Bridge {
 
     pub fn source(&self) -> &Source {
         &self.source
+    }
+
+    /// Reads through a project: its overrides win over the game's files.
+    pub fn with_project(mut self, project: Option<Arc<Project>>) -> Self {
+        self.project = project;
+        self
+    }
+
+    pub fn project(&self) -> Option<&Arc<Project>> {
+        self.project.as_ref()
+    }
+
+    /// The sound archive, read once.
+    pub fn sdat(&self) -> Option<Arc<crate::sdat::Sdat>> {
+        self.sdat
+            .get_or_init(|| {
+                let bytes = self.source.read(crate::catalog::SOUND_ARCHIVE).ok()?;
+                crate::sdat::Sdat::parse(bytes).ok().map(Arc::new)
+            })
+            .clone()
+    }
+
+    /// Forgets cached results, after the project changed something.
+    pub fn invalidate(&self) {
+        lock(&self.served).clear();
+        lock(&self.fonts).clear();
+    }
+
+    /// The game's archive, without the project's overrides.
+    pub fn base_archive(&self, arc: u16) -> Result<Arc<narc::Narc>, Error> {
+        self.archive(arc)
     }
 
     /// Serves a path (with an optional `?query`), from the cache when it can.
@@ -190,8 +230,17 @@ impl Bridge {
             Some("sheet") if parts.len() == 4 => {
                 let tiles = self.ncgr(member(1)?)?;
                 let palette = self.nclr(member(2)?)?;
-                let img = image::render_sheet(&tiles, &palette, number(3)?, Zero::Transparent)
-                    .ok_or_else(|| Error::Format(format!("{path}: the sheet gives no size")))?;
+                let bank = number(3)?;
+                // A sheet with no size of its own is laid out 16 tiles wide
+                // (or `?cols=N`).
+                let img = match image::render_sheet(&tiles, &palette, bank, Zero::Transparent) {
+                    Some(img) => img,
+                    None => {
+                        let list: Vec<Option<usize>> = (0..tiles.tile_count()).map(Some).collect();
+                        let cols = query_number("cols").unwrap_or(16).clamp(1, 64);
+                        render_tiles(&tiles, &palette, bank, cols.min(list.len().max(1)), &list)
+                    }
+                };
                 Ok(png(img))
             }
             Some("tiles") if parts.len() == 6 => {
@@ -331,6 +380,33 @@ impl Bridge {
                 let values: Vec<String> = bytes.iter().map(u8::to_string).collect();
                 Ok(json(format!("[{}]", values.join(","))))
             }
+            Some("sound") if parts.len() == 2 => {
+                let sdat = self
+                    .sdat()
+                    .ok_or_else(|| Error::Missing("the sound archive".to_string()))?;
+                let seq = parts[1].trim_end_matches(".wav");
+                let index = match seq.parse::<u32>() {
+                    Ok(n) => n,
+                    Err(_) => sdat
+                        .find(crate::sdat::Kind::Seq, seq)
+                        .ok_or_else(|| Error::Missing(path.to_string()))?,
+                };
+                let seconds = query_number("seconds").unwrap_or(30) as f64;
+                let clip = crate::sdat::render(
+                    &sdat,
+                    index,
+                    &crate::sdat::Options {
+                        max_seconds: seconds,
+                        ..Default::default()
+                    },
+                )
+                .map_err(|e| Error::Format(format!("{path}: {e}")))?;
+                Ok(Asset {
+                    mime: "audio/wav",
+                    bytes: crate::sdat::to_wav(&clip.samples, clip.rate),
+                    origin: None,
+                })
+            }
             Some("text") if parts.len() >= 6 => {
                 let font = self.font(member(1)?)?;
                 let palette = self.nclr(member(2)?)?;
@@ -368,6 +444,9 @@ impl Bridge {
 
     /// A member's bytes, decompressed when compressed.
     pub fn member(&self, m: Member) -> Result<Vec<u8>, Error> {
+        if let Some(bytes) = self.project.as_ref().and_then(|p| p.member(m.arc, m.index)) {
+            return Ok(lz::decompress_if_compressed(&bytes).into_owned());
+        }
         let archive = self.archive(m.arc)?;
         let raw = archive
             .raw(m.index)

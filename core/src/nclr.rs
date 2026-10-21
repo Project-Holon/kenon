@@ -53,6 +53,23 @@ impl Palette {
         })
     }
 
+    /// The file with its colours replaced (same count), every other byte kept.
+    pub fn with_colors(file: &[u8], colors: &[u16]) -> Result<Vec<u8>, Error> {
+        let at = nitro::block_offset(file, MAGIC, PLTT)?;
+        let size = read_u32(&file[at..], 8)? as usize;
+        let offset = read_u32(&file[at..], 12)? as usize;
+        let start = at + offset;
+        let len = size.min(file.len().saturating_sub(start)) / 2 * 2;
+        if colors.len() * 2 != len {
+            return Err(Error::Bad("new palette has another size"));
+        }
+        let mut out = file.to_vec();
+        for (i, c) in colors.iter().enumerate() {
+            out[start + i * 2..start + i * 2 + 2].copy_from_slice(&c.to_le_bytes());
+        }
+        Ok(out)
+    }
+
     /// Colour `index` as RGBA; out of range gives magenta, so a wrong
     /// pairing shows instead of hiding.
     pub fn rgba(&self, index: usize) -> [u8; 4] {
@@ -65,6 +82,12 @@ impl Palette {
     pub fn banks(&self) -> usize {
         self.colors.len() / 16
     }
+}
+
+/// The nearest BGR555 colour to 8-bit RGB.
+pub fn rgb_to_bgr555(r: u8, g: u8, b: u8) -> u16 {
+    let q = |v: u8| ((v as u16 * 31 + 127) / 255) & 0x1F;
+    q(r) | q(g) << 5 | q(b) << 10
 }
 
 pub fn bgr555_to_rgba(c: u16) -> [u8; 4] {
@@ -108,5 +131,20 @@ mod tests {
         assert_eq!(pal.colors, colors);
         assert_eq!(pal.banks(), 2);
         assert_eq!(pal.rgba(99), [255, 0, 255, 255]);
+    }
+
+    #[test]
+    fn write_back_and_quantise() {
+        let file = build(3, &[0, 1, 2]);
+        let out = Palette::with_colors(&file, &[0x7FFF, 0, 0x001F]).unwrap();
+        assert_eq!(
+            Palette::parse(&out).unwrap().colors,
+            vec![0x7FFF, 0, 0x001F]
+        );
+        assert!(Palette::with_colors(&file, &[0]).is_err());
+        for c in [0u16, 0x7FFF, 0x1234 & 0x7FFF, 0x03E0] {
+            let [r, g, b, _] = bgr555_to_rgba(c);
+            assert_eq!(rgb_to_bgr555(r, g, b), c);
+        }
     }
 }

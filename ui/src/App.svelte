@@ -1,64 +1,47 @@
 <script lang="ts">
-  import Settings from "./screens/Settings.svelte";
-  import Home from "./screens/Home.svelte";
-  import Gallery from "./screens/Gallery.svelte";
+  import { onMount } from "svelte";
+  import Start from "./screens/Start.svelte";
+  import Workspace from "./screens/Workspace.svelte";
+  import { appStatus, isReady, type Status } from "./lib/backend";
+  import { enableSfx } from "./lib/sfx";
 
-  type Screen = "home" | "gallery" | "settings";
-  let screen = $state<Screen>("home");
-  // Bumped when the game changes, so screens reload what they show.
-  let generation = $state(0);
+  let status = $state<Status | null>(null);
+  // "view" is the game as it is, read only; "project" edits a mod.
+  let screen = $state<"start" | "view" | "project">("start");
+
+  function update(next: Status) {
+    status = next;
+    enableSfx(isReady(next));
+  }
+
+  onMount(async () => update(await appStatus()));
 </script>
 
-<div class="shell">
-  <nav aria-label="Screens">
-    <span class="brand">kenon</span>
-    <button aria-current={screen === "home"} onclick={() => (screen = "home")}>Home</button>
-    <button aria-current={screen === "gallery"} onclick={() => (screen = "gallery")}>Gallery</button>
-    <button aria-current={screen === "settings"} onclick={() => (screen = "settings")}>Settings</button>
-  </nav>
-  <main>
-    {#key generation}
-      {#if screen === "home"}
-        <Home onOpenSettings={() => (screen = "settings")} onOpenGallery={() => (screen = "gallery")} />
-      {:else if screen === "gallery"}
-        <Gallery />
-      {:else}
-        <Settings onChange={() => generation++} />
-      {/if}
-    {/key}
-  </main>
-</div>
+{#if status === null}
+  <div class="loading muted">Loading...</div>
+{:else if screen === "start"}
+  <Start
+    {status}
+    onStatus={update}
+    onView={() => (screen = "view")}
+    onProject={(s) => {
+      update(s);
+      screen = "project";
+    }}
+  />
+{:else}
+  <Workspace
+    {status}
+    readOnly={screen === "view"}
+    onStatus={update}
+    onHome={() => (screen = "start")}
+  />
+{/if}
 
 <style>
-  .shell {
+  .loading {
     display: grid;
-    grid-template-columns: 11rem 1fr;
-    min-height: 100vh;
-  }
-  nav {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 1rem 0.75rem;
-    background: var(--surface-2);
-    border-right: 1px solid var(--border);
-  }
-  .brand {
-    font-weight: 700;
-    padding: 0 0.5rem 0.75rem;
-  }
-  nav button {
-    text-align: left;
-    background: transparent;
-    border-color: transparent;
-  }
-  nav button[aria-current="true"] {
-    background: var(--surface);
-    border-color: var(--border);
-  }
-  main {
-    padding: 1.5rem 2rem;
-    max-width: 60rem;
-    overflow-x: auto;
+    place-items: center;
+    height: 100%;
   }
 </style>
