@@ -17,6 +17,18 @@ static unsigned char heap[MOD_HEAP_BYTES] __attribute__((aligned(8)));
 static size_t heap_top;
 static size_t last_block = (size_t)-1;
 
+/*
+ * eidos adds a page to the module's memory after it starts. The runtime
+ * fixes a module's memory at its data size unless the module reads its
+ * memory size somewhere, so the module has to do that. This export is that
+ * read; keep it.
+ */
+EIDOS_EXPORT("mod_memory_pages")
+uint32_t mod_memory_pages(void)
+{
+    return (uint32_t)__builtin_wasm_memory_size(0);
+}
+
 void *mod_alloc(size_t size)
 {
     size_t at = (heap_top + 7u) & ~(size_t)7u;
