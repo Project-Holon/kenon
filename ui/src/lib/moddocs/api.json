@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "54c3c42",
+  "eidosRevision": "8735c83",
   "apiVersion": 4,
   "apiStatus": "frozen",
   "sources": [
@@ -10542,6 +10542,37 @@
    "id": "page:code-mods"
   },
   {
+   "section": "functions",
+   "slug": "multiplayer",
+   "title": "Multiplayer",
+   "blocks": [
+    {
+     "t": "p",
+     "text": "Players join one session through the game's Session page. The host's game decides what is shared. Each player's own events stay on that player's game."
+    },
+    {
+     "t": "p",
+     "text": "A mod that takes part in multiplayer states a compatibility number in the manifest. Mod settings writes it as Multiplayer version."
+    },
+    {
+     "t": "code",
+     "lang": "manifest",
+     "text": "multiplayer = 3\n"
+    },
+    {
+     "t": "list",
+     "items": [
+      "The number is a whole number from 1. A value that is not one is ignored.",
+      "The lobby lets the players start only when everyone's multiplayer mods have the same numbers. Only the number has to match, so a mod can update freely while its messages stay the same. Raise the number when they change.",
+      "A mod with no `multiplayer` line is not checked by the lobby.",
+      "A code mod reaches a session with `session_host`, `session_join`, `session_leave` and `session_send`, and receives joins, leaves and messages in the handler it sets with `on_session`.",
+      "Rules cannot use multiplayer yet. Use a code mod."
+     ]
+    }
+   ],
+   "id": "page:multiplayer"
+  },
+  {
    "section": "rules",
    "slug": "overview",
    "title": "Rules at a glance",
@@ -10823,7 +10854,7 @@
       "Add new overworld characters.",
       "Add species past the original ones, up to 2047.",
       "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
-      "Receive link messages, console commands or saved data in a code mod.",
+      "Receive a save sent by a peer in a code mod. `on_save_received` does nothing yet.",
       "Cap a code mod's memory or running time. A runaway mod can slow the game."
      ]
     }

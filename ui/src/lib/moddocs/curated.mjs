@@ -49,7 +49,7 @@ export default {
     "Field object codes": "Add new overworld characters.",
     "Species to 2047": "Add species past the original ones, up to 2047.",
     "Wasm overrides": "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
-    "Wasm session, command and save handlers": "Receive link messages, console commands or saved data in a code mod.",
+    "Wasm save handler": "Receive a save sent by a peer in a code mod. `on_save_received` does nothing yet.",
     "Wasm limits": "Cap a code mod's memory or running time. A runaway mod can slow the game.",
   },
   // The titles of the constant groups of sdk/api/v4/enums.json, by the prefix
@@ -298,6 +298,17 @@ export default {
         { t: "p", text: "A handler gets a copy of the event payload and returns EIDOS_EVENT_CONTINUE or EIDOS_EVENT_REFUSE. It may write the payload fields marked writable; the port reads them back before the game goes on. A write to any other field has no effect. A refusal at an event that cannot be refused is ignored and logged once." },
         { t: "list", items: ["The snippets in these docs build as they are with the Code view's template: `#include \"eidos_wasm.h\"`, the constants are spelled EIDOS_, and the payload structs are Eidos<Name>.", "A handler is registered by its function table index. In C that is its address: `eidos_on(EIDOS_EVENT_MON_EXP, (uint32_t)(uintptr_t)on_exp)`.", "A Pokemon reference (EidosMonRef) goes to a state call as its five fields: handle, place, side, box and slot.", "No libc and no WASI: a mod reaches nothing outside the game except through the port's imports. The template brings a small allocator and the memory functions."] },
         { t: "p", text: "Several handlers on one event all run, in load order. Writes chain and any refusal refuses. The battle works on a copy of each Pokemon: during a battle read and write the battle record (battle_get, battle_set), not the party record." },
+      ],
+    },
+    {
+      slug: "multiplayer",
+      section: "functions",
+      title: "Multiplayer",
+      blocks: [
+        { t: "p", text: "Players join one session through the game's Session page. The host's game decides what is shared. Each player's own events stay on that player's game." },
+        { t: "p", text: "A mod that takes part in multiplayer states a compatibility number in the manifest. Mod settings writes it as Multiplayer version." },
+        { t: "code", lang: "manifest", text: "multiplayer = 3\n" },
+        { t: "list", items: ["The number is a whole number from 1. A value that is not one is ignored.", "The lobby lets the players start only when everyone's multiplayer mods have the same numbers. Only the number has to match, so a mod can update freely while its messages stay the same. Raise the number when they change.", "A mod with no `multiplayer` line is not checked by the lobby.", "A code mod reaches a session with `session_host`, `session_join`, `session_leave` and `session_send`, and receives joins, leaves and messages in the handler it sets with `on_session`.", "Rules cannot use multiplayer yet. Use a code mod."] },
       ],
     },
     {

@@ -936,6 +936,7 @@ fn mod_check_settings(
     let hooks = modcode::read_overrides(&root).map_err(|e| e.to_string())?;
     let mut found = modcode::check_settings(&settings, hooks.lines().count());
     found.extend(modcode::check_table_files(&root).map_err(|e| e.to_string())?);
+    found.extend(modcode::check_session_use(&root, &settings));
     Ok(found)
 }
 

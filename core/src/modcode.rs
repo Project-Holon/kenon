@@ -1710,6 +1710,9 @@ pub struct ModSettings {
     pub code: Option<String>,
     pub state: Option<String>,
     pub settings: Option<String>,
+    /// The `multiplayer` number as the file has it; `check_settings` says
+    /// when the port would refuse it.
+    pub multiplayer: Option<String>,
     /// The `table` lines. `write_settings` leaves them alone: the table
     /// calls own them.
     pub tables: Vec<TableDecl>,
@@ -1754,8 +1757,36 @@ pub fn read_settings(root: &Path) -> io::Result<ModSettings> {
         code: last("code"),
         state: last("state"),
         settings: last("settings"),
+        multiplayer: last("multiplayer"),
         tables: table_decls(&m),
     })
+}
+
+/// The largest multiplayer number the port accepts.
+const MULTIPLAYER_MAX: i64 = 1_000_000;
+
+/// A multiplayer number as the port reads it: an optional sign and digits
+/// (nothing over two billion), then a value from 1 to a million.
+pub fn parse_multiplayer(text: &str) -> Result<u32, String> {
+    let bad = || {
+        format!(
+            "'{text}' is not a multiplayer number: a whole number from 1 to {MULTIPLAYER_MAX}; the port ignores the line"
+        )
+    };
+    let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(bad());
+    }
+    let magnitude = digits.parse::<i64>().map_err(|_| bad())?;
+    let v = if text.starts_with('-') {
+        -magnitude
+    } else {
+        magnitude
+    };
+    if !(1..=MULTIPLAYER_MAX).contains(&v) {
+        return Err(bad());
+    }
+    Ok(v as u32)
 }
 
 fn namespace_valid(ns: &str) -> bool {
@@ -1795,6 +1826,11 @@ pub fn check_settings(s: &ModSettings, overrides: usize) -> Vec<Diagnostic> {
             Error,
             "the load order is between -1000000 and 1000000",
         ));
+    }
+    if let Some(text) = s.multiplayer.as_deref().filter(|v| !v.is_empty()) {
+        if let Err(msg) = parse_multiplayer(text) {
+            out.push(Diagnostic::field("multiplayer", Error, &msg));
+        }
     }
     let code = s.code.as_deref().is_some_and(|c| !c.is_empty());
     if code && s.api.is_none() {
@@ -1895,6 +1931,41 @@ pub fn check_settings(s: &ModSettings, overrides: usize) -> Vec<Diagnostic> {
     out
 }
 
+/// Warns when the built code calls the session services and the manifest
+/// states no multiplayer number. Reads the mod's `.wasm`; a missing or
+/// unreadable file gives no warning.
+pub fn check_session_use(root: &Path, s: &ModSettings) -> Vec<Diagnostic> {
+    let stated = s.multiplayer.as_deref().is_some_and(|v| !v.is_empty());
+    let Some(code) = s
+        .code
+        .as_deref()
+        .filter(|c| c.ends_with(".wasm") && is_relative(c))
+    else {
+        return Vec::new();
+    };
+    if stated {
+        return Vec::new();
+    }
+    let Ok(bytes) = fs::read(root.join(code)) else {
+        return Vec::new();
+    };
+    let Ok(info) = crate::codemod::read_module(&bytes) else {
+        return Vec::new();
+    };
+    let uses = info
+        .imports
+        .iter()
+        .any(|i| i.name.starts_with("session_") || i.name == "on_session");
+    if !uses {
+        return Vec::new();
+    }
+    vec![Diagnostic::field(
+        "multiplayer",
+        Severity::Warning,
+        "the code uses session services but the mod states no multiplayer number; the lobby does not check this mod",
+    )]
+}
+
 /// A path inside the mod: relative, without `..`.
 fn is_relative(p: &str) -> bool {
     let path = Path::new(p);
@@ -1919,13 +1990,22 @@ pub fn write_settings(root: &Path, s: &ModSettings) -> io::Result<()> {
     if s.order.abs() > ORDER_LIMIT {
         return Err(bad_input("the load order is out of range"));
     }
+    let multiplayer = match s
+        .multiplayer
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        Some(v) => Some(parse_multiplayer(v).map_err(|m| bad_input(&m))?),
+        None => None,
+    };
     let mut project = project_of(root)?;
     let m = &mut project.manifest;
     m.name = s.name.trim().to_string();
     m.order = s.order;
     let code = s.code.as_deref().map(str::trim).filter(|c| !c.is_empty());
     m.api = if code.is_some() { s.api } else { None };
-    drop_keys(m, &["port", "code", "state", "settings"]);
+    drop_keys(m, &["port", "code", "state", "settings", "multiplayer"]);
     let opt = |key: &str, v: Option<&str>, other: &mut Vec<String>| {
         if let Some(v) = v.map(str::trim).filter(|v| !v.is_empty()) {
             other.push(format!("{key} = {v}"));
@@ -1935,6 +2015,9 @@ pub fn write_settings(root: &Path, s: &ModSettings) -> io::Result<()> {
     opt("code", code, &mut m.other);
     opt("state", s.state.as_deref(), &mut m.other);
     opt("settings", s.settings.as_deref(), &mut m.other);
+    if let Some(n) = multiplayer {
+        m.other.push(format!("multiplayer = {n}"));
+    }
     project.save_meta()
 }
 

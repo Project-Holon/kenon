@@ -20,6 +20,7 @@ export interface ModSettings {
   code: string | null;
   state: string | null;
   settings: string | null;
+  multiplayer: string | null;
   tables: TableDecl[];
 }
 

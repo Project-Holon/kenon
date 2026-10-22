@@ -1021,3 +1021,105 @@ fn level_cap_mod_end_to_end() {
     assert!(check_table_files(&root).unwrap().is_empty());
     assert!(check_settings(&read_settings(&root).unwrap(), 0).is_empty());
 }
+
+#[test]
+fn multiplayer_number_follows_the_port() {
+    for (text, want) in [
+        ("1", Some(1)),
+        ("3", Some(3)),
+        ("+7", Some(7)),
+        ("1000000", Some(1_000_000)),
+        ("0", None),
+        ("-2", None),
+        ("1000001", None),
+        ("99999999999", None),
+        ("2.5", None),
+        ("abc", None),
+        ("+", None),
+        ("", None),
+    ] {
+        assert_eq!(parse_multiplayer(text).ok(), want, "{text:?}");
+    }
+    let mut s = ModSettings {
+        name: "m".into(),
+        ..Default::default()
+    };
+    let fields = |d: Vec<Diagnostic>| d.into_iter().filter_map(|d| d.field).collect::<Vec<_>>();
+    assert!(check_settings(&s, 0).is_empty());
+    s.multiplayer = Some("3".into());
+    assert!(check_settings(&s, 0).is_empty());
+    for bad in ["0", "x", "1.5", "2000000"] {
+        s.multiplayer = Some(bad.into());
+        assert_eq!(fields(check_settings(&s, 0)), ["multiplayer"], "{bad}");
+    }
+}
+
+#[test]
+fn multiplayer_key_round_trip() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("soul");
+    Project::create(&root, "Soul", None).unwrap();
+    fs::write(
+        root.join(MANIFEST),
+        "name = Soul\nmultiplayer = 2\nmultiplayer = 4 # later wins\nfuture = 1\n",
+    )
+    .unwrap();
+    let mut s = read_settings(&root).unwrap();
+    assert_eq!(s.multiplayer.as_deref(), Some("4"));
+    s.multiplayer = Some(" +5 ".into());
+    write_settings(&root, &s).unwrap();
+    let text = fs::read_to_string(root.join(MANIFEST)).unwrap();
+    assert_eq!(text.matches("multiplayer").count(), 1, "{text}");
+    assert!(text.contains("multiplayer = 5"), "{text}");
+    assert!(text.contains("future = 1"), "{text}");
+    assert_eq!(
+        read_settings(&root).unwrap().multiplayer.as_deref(),
+        Some("5")
+    );
+    // A value the port refuses is not written.
+    s.multiplayer = Some("0".into());
+    assert!(write_settings(&root, &s).is_err());
+    // Empty removes the key.
+    s.multiplayer = None;
+    write_settings(&root, &s).unwrap();
+    let text = fs::read_to_string(root.join(MANIFEST)).unwrap();
+    assert!(!text.contains("multiplayer"), "{text}");
+}
+
+#[test]
+fn session_use_without_a_number_warns() {
+    // A module that imports eidos.<name> as a function of type () -> ().
+    let module = |import: &str| {
+        let name = |s: &str| [vec![s.len() as u8], s.as_bytes().to_vec()].concat();
+        let mut m = b"\0asm\x01\0\0\0".to_vec();
+        m.extend([1, 4, 1, 0x60, 0, 0]);
+        let mut imports = vec![1];
+        imports.extend(name("eidos"));
+        imports.extend(name(import));
+        imports.extend([0, 0]);
+        m.push(2);
+        m.push(imports.len() as u8);
+        m.extend(imports);
+        m
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let mut s = ModSettings {
+        name: "m".into(),
+        code: Some("mod.wasm".into()),
+        ..Default::default()
+    };
+    // No file yet: nothing to say.
+    assert!(check_session_use(&root, &s).is_empty());
+    fs::write(root.join("mod.wasm"), module("session_leave")).unwrap();
+    let found = check_session_use(&root, &s);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].field.as_deref(), Some("multiplayer"));
+    s.multiplayer = Some("1".into());
+    assert!(check_session_use(&root, &s).is_empty());
+    s.multiplayer = None;
+    fs::write(root.join("mod.wasm"), module("on_session")).unwrap();
+    assert_eq!(check_session_use(&root, &s).len(), 1);
+    fs::write(root.join("mod.wasm"), module("log")).unwrap();
+    assert!(check_session_use(&root, &s).is_empty());
+}

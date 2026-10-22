@@ -15,6 +15,7 @@
     code: null,
     state: null,
     settings: null,
+    multiplayer: null,
     tables: [],
   };
   let form = $state<ModSettings>({ ...blank });
@@ -38,6 +39,7 @@
       code,
       state: text(s.state),
       settings: text(s.settings),
+      multiplayer: text(s.multiplayer),
       tables: s.tables,
     };
   };
@@ -172,6 +174,21 @@
           <input id="mod-state" placeholder="made from the name" bind:value={form.state} />
           <p class="hint muted">The folder name for the mod's saved data.</p>
           {#each about("state") as p}<p class="bad">{p.message}</p>{/each}
+        </div>
+
+        <label for="mod-multiplayer">Multiplayer version</label>
+        <div class="field">
+          <input
+            id="mod-multiplayer"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="none"
+            value={form.multiplayer ?? ""}
+            oninput={(e) => (form.multiplayer = e.currentTarget.value)}
+          />
+          <p class="hint muted">Players can start together only when their copies of this mod have the same number. Leave empty if the mod has no multiplayer part.</p>
+          {#each about("multiplayer") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
         </div>
 
         <label for="mod-settings">Options file</label>
