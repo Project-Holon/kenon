@@ -32,12 +32,12 @@ use crate::modopts::SettingsCtx;
 use crate::project::{Manifest, Project, KENON_FILE, MANIFEST, ORDER_LIMIT};
 
 /// The newest interface version the port is built against (eidos
-/// `sdk/mod_api.h`, `BW_MOD_API_VERSION`): 4 adds WebAssembly code. Version 4
-/// is frozen; a later change is version 5.
-pub const API_VERSION: u32 = 4;
-/// Every interface version the port accepts: the frozen 4 and the older 3. It
-/// refuses a manifest that states another.
-pub const API_VERSIONS: &[u32] = &[3, 4];
+/// `sdk/mod_api.h`, `BW_MOD_API_VERSION`): 4 adds WebAssembly code, 5 adds the
+/// other players' events and the shared table. Version 4 is frozen; 5 is open.
+pub const API_VERSION: u32 = 5;
+/// Every interface version the port accepts: the open 5, the frozen 4 and the
+/// older 3. It refuses a manifest that states another.
+pub const API_VERSIONS: &[u32] = &[3, 4, 5];
 /// The rule-language version the port reads.
 pub const RULE_LANGUAGE: i64 = 1;
 /// The longest namespace the saved-data layer accepts.
@@ -1277,7 +1277,7 @@ pub fn check_rule_ctx(text: &str, expected: Option<&str>, ctx: RuleContext) -> V
 pub struct DeclaredRow {
     pub function: String,
     pub events: Vec<String>,
-    /// Other names of the function (eidos `sdk/api/v4/hooks.json`). The port
+    /// Other names of the function (eidos `sdk/api/vN/hooks.json`). The port
     /// resolves an override by region and address, never by name.
     pub aliases: Vec<String>,
 }
@@ -1310,6 +1310,20 @@ fn parse_addr(s: &str) -> Option<u32> {
         return None;
     }
     u32::from_str_radix(digits, 16).ok()
+}
+
+/// The `hooks.json` of the newest `vN` folder under eidos `sdk/api`.
+fn newest_hooks_json(api: &Path) -> Option<PathBuf> {
+    fs::read_dir(api)
+        .ok()?
+        .flatten()
+        .filter_map(|d| {
+            let n: u32 = d.file_name().to_str()?.strip_prefix('v')?.parse().ok()?;
+            Some((n, d.path().join("hooks.json")))
+        })
+        .filter(|(_, p)| p.is_file())
+        .max_by_key(|(n, _)| *n)
+        .map(|(_, p)| p)
 }
 
 impl DeclaredSet {
@@ -1348,14 +1362,14 @@ impl DeclaredSet {
         DeclaredSet { rows }
     }
 
-    /// Reads the set, and the aliases from `sdk/api/v4/hooks.json` when the
+    /// Reads the set, and the aliases from `sdk/api/vN/hooks.json` when the
     /// file sits in the eidos folder above `mod/`.
     pub fn load(path: &Path) -> io::Result<Self> {
         let mut set = Self::parse(&fs::read_to_string(path)?);
         let hooks = path
             .parent()
             .and_then(Path::parent)
-            .map(|eidos| eidos.join("sdk").join("api").join("v4").join("hooks.json"));
+            .and_then(|eidos| newest_hooks_json(&eidos.join("sdk").join("api")));
         if let Some(text) = hooks.and_then(|p| fs::read_to_string(p).ok()) {
             set.add_aliases(&text);
         }

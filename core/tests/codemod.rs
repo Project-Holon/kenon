@@ -21,7 +21,7 @@ fn template_is_written_once() {
     );
     let settings = modcode::read_settings(&project.root).unwrap();
     assert_eq!(settings.code.as_deref(), Some("mod.wasm"));
-    assert_eq!(settings.api, Some(4));
+    assert_eq!(settings.api, Some(5));
 
     // Edits stay; a second call writes nothing.
     fs::write(project.root.join("src/mod.c"), "// mine\n").unwrap();
@@ -543,7 +543,7 @@ fn build_without_sources_or_with_native_code() {
 
     new_source(&project.root, "src/a.c").unwrap();
     s.code = Some("mod.wasm".into());
-    s.api = Some(4);
+    s.api = Some(5);
     modcode::write_settings(&project.root, &s).unwrap();
     let project = Project::open(&project.root).unwrap();
     let r = build_code_mod(&project, zig, None);

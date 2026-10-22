@@ -2,8 +2,8 @@
 //!
 //! The design is eidos's `docs/mod-code-wasm.md`. Everything that encodes
 //! the contract (the header, the template, the compiler flags, the exports
-//! the module must have) is in `modsdk/v4/`. The header is eidos's
-//! published `sdk/api/v4/eidos_wasm.h`, copied unchanged; when eidos changes
+//! the module must have) is in `modsdk/v5/`. The header is eidos's
+//! published `sdk/api/v5/eidos_wasm.h`, copied unchanged; when eidos changes
 //! the API, replace it and nothing else here changes.
 //!
 //! - [`new_code_mod`] writes the template into a project.
@@ -29,10 +29,10 @@ use crate::project::Project;
 pub const ZIG_VERSION: &str = "0.15.2";
 
 const HEADER_NAME: &str = "eidos_wasm.h";
-const HEADER: &str = include_str!("modsdk/v4/eidos_wasm.h");
-const TEMPLATE_MOD: &str = include_str!("modsdk/v4/mod.c");
-const TEMPLATE_ALLOC: &str = include_str!("modsdk/v4/alloc.c");
-const CONTRACT: &str = include_str!("modsdk/v4/contract.txt");
+const HEADER: &str = include_str!("modsdk/v5/eidos_wasm.h");
+const TEMPLATE_MOD: &str = include_str!("modsdk/v5/mod.c");
+const TEMPLATE_ALLOC: &str = include_str!("modsdk/v5/alloc.c");
+const CONTRACT: &str = include_str!("modsdk/v5/contract.txt");
 
 /// Where the sources live in a mod folder.
 pub const SRC_DIR: &str = "src";
@@ -46,7 +46,7 @@ fn bad(msg: impl Into<String>) -> io::Error {
 // The contract
 // ---------------------------------------------------------------------
 
-/// `modsdk/v4/contract.txt`, read.
+/// `modsdk/v5/contract.txt`, read.
 #[derive(Debug, Clone, Default)]
 pub struct Contract {
     pub api: u32,

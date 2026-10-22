@@ -1,20 +1,20 @@
 // Builds ui/src/lib/moddocs/api.json from eidos's published API description
-// (sdk/api/v4) plus kenon's own text (ui/src/lib/moddocs/curated.mjs).
+// (the newest sdk/api/vN) plus kenon's own text (ui/src/lib/moddocs/curated.mjs).
 //
 //   node tools/mod-docs.mjs [--eidos <folder>]
 //
 // The eidos folder is --eidos, then $EIDOS, then ../eidos. Point it at a
 // checkout of the commit you want (git worktree add <dir> <commit>).
 //
-// Everything comes from sdk/api/v4: events with their game function, refusal
+// Everything comes from the newest sdk/api/vN: events with their game function, refusal
 // outcome, writable fields and field meanings; rule names and state fields;
 // the core imports; services and state calls; constants; hooks with their
 // prototypes. eidos_wasm.h supplies the C signature of each call. curated.mjs
-// holds only what v4 does not carry: extra facts and linked calls of an event,
+// holds only what the API files do not carry: extra facts and linked calls of an event,
 // what each call does, rules-language pages, recipes and group names.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -32,21 +32,35 @@ const read = (rel) => {
   if (!existsSync(p)) throw new Error(`missing ${p}`);
   return readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 };
-const v4 = (name) => JSON.parse(read(`sdk/api/v4/${name}`));
+// The newest sdk/api/vN folder, and the one before it (for "New in N").
+const versions = readdirSync(join(eidos, "sdk", "api"))
+  .map((d) => /^v(\d+)$/.exec(d))
+  .filter(Boolean)
+  .map((m) => Number(m[1]))
+  .sort((a, b) => a - b);
+const newest = versions[versions.length - 1];
+const apiDir = `sdk/api/v${newest}`;
+const api = (name) => JSON.parse(read(`${apiDir}/${name}`));
 
-// ---------------------------------------------------------------- v4 files
+// ---------------------------------------------------------------- api files
 
-const coreJson = v4("core.json");
-const eventsJson = v4("events.json");
-const rulesJson = v4("rules.json");
-const stateJson = v4("state.json");
-const servicesJson = v4("services.json");
-const enumsJson = v4("enums.json");
-const hooksJson = v4("hooks.json");
-const header = read("sdk/api/v4/eidos_wasm.h");
+const coreJson = api("core.json");
+const eventsJson = api("events.json");
+const rulesJson = api("rules.json");
+const stateJson = api("state.json");
+const servicesJson = api("services.json");
+const enumsJson = api("enums.json");
+const hooksJson = api("hooks.json");
+const header = read(`${apiDir}/eidos_wasm.h`);
+// Imports the previous version already declared; the others are new.
+const olderImports = new Set();
+if (versions.length > 1) {
+  const older = read(`sdk/api/v${versions[versions.length - 2]}/eidos_wasm.h`);
+  for (const m of older.matchAll(/EIDOS_IMPORT\("(\w+)"\)/g)) olderImports.add(m[1]);
+}
 const apiVersion = eventsJson.api;
 const apiStatus = eventsJson.status ?? null;
-if (apiStatus !== "frozen") warn(`events.json status is ${apiStatus}, not frozen`);
+if (apiVersion !== newest) warn(`events.json is api ${apiVersion}, the folder is v${newest}`);
 for (const [n, j] of [["core", coreJson], ["rules", rulesJson], ["state", stateJson], ["services", servicesJson], ["enums", enumsJson], ["hooks", hooksJson]]) {
   if (j.api !== apiVersion) warn(`${n}.json is api ${j.api}, events.json is api ${apiVersion}`);
 }
@@ -61,7 +75,7 @@ const prose = (t) => t.replace(/`/g, "").trim();
 const sentenceCase = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : t);
 
 const ruleEventNames = new Set(rulesJson.events);
-// The groups, v4's own, in the order the events list them.
+// The groups, the API's own, in the order the events list them.
 const titleCase = (c) => c.charAt(0).toUpperCase() + c.slice(1);
 const categories = [];
 for (const e of eventsJson.events) if (!categories.includes(titleCase(e.category))) categories.push(titleCase(e.category));
@@ -183,7 +197,7 @@ const sentence = (t) => t.charAt(0).toUpperCase() + t.slice(1) + (t.endsWith("."
 const addFn = (name, kind) => {
   const d = decls.get(name);
   if (!d) {
-    warn(`${name} is in sdk/api/v4 but not declared in eidos_wasm.h`);
+    warn(`${name} is in ${apiDir} but not declared in eidos_wasm.h`);
     return;
   }
   const c = curated.functions[name] ?? {};
@@ -202,6 +216,7 @@ const addFn = (name, kind) => {
     rule: c.rule ?? null,
     events: [],
     fromC: true,
+    since: olderImports.size && !olderImports.has(name) ? newest : 0,
   });
 };
 // The core imports come from core.json, ahead of the state calls.
@@ -211,7 +226,7 @@ for (const [name, { kind }] of jsonCalls) addFn(name, kind);
 
 // ---------------------------------------------------------------- hooks
 
-// v4's signature is the type-only form a hook line states, "int (void *)".
+// The signature is the type-only form a hook line states, "int (void *)".
 const hooks = hooksJson.hooks.map((d) => ({
   id: `hook:${d.region}:${d.address}`,
   name: d.name,
@@ -249,7 +264,7 @@ const eventList = [...events.values()]
   .sort((a, b) => a.numId - b.numId)
   .map((e) => {
     const c = curated.events[e.name] ?? {};
-    // v4's sentence says when the event fires; its details follow it.
+    // The API's sentence says when the event fires; its details follow it.
     const when = e.doc;
     need(when, `no 'when' text for ${e.name}`);
     return {
@@ -268,13 +283,13 @@ for (const f of functions) {
   need(curated.functions[f.name]?.what, `no description for ${f.name}`);
 }
 for (const name of Object.keys(curated.functions)) {
-  if (!functions.some((f) => f.name === name)) warn(`curated function ${name} is not in sdk/api/v4`);
+  if (!functions.some((f) => f.name === name)) warn(`curated function ${name} is not in ${apiDir}`);
 }
 for (const g of curated.functionGroups) {
   for (const n of g.fns) if (!functions.some((f) => f.name === n)) warn(`function group '${g.title}' names the unknown ${n}`);
 }
 for (const f of functions) if (!f.group) warn(`${f.name} is in no function group`);
-for (const name of Object.keys(curated.events)) if (!events.has(name)) warn(`curated event ${name} is not in sdk/api/v4`);
+for (const name of Object.keys(curated.events)) if (!events.has(name)) warn(`curated event ${name} is not in ${apiDir}`);
 
 const recipes = curated.recipes.map((r) => ({ ...r, id: `recipe:${r.slug}` }));
 for (const r of recipes) {
@@ -311,6 +326,8 @@ for (const line of (after ?? "").split("\n")) {
   const cells = line.split("|").slice(1, -1).map((c) => c.trim());
   if (cells.length < 2) continue;
   const item = cells[0].replace(/`/g, "");
+  // A row that says Fixed is done work, not a limit.
+  if (/^Fixed/.test(cells[1])) continue;
   const plain = curated.limits?.[item];
   if (!plain) warn(`no plain line for backlog item '${item}' (curated.limits)`);
   gaps.push(plain ?? `${item}: ${cells[1].match(/^.*?[.!?](?=\s|$)/)?.[0] ?? cells[1]}`);
@@ -325,7 +342,7 @@ pages.push({
   id: "page:not-possible-yet",
   title: "Not possible yet",
   blocks: [
-    { t: "p", text: "What a mod cannot do yet with API 4." },
+    { t: "p", text: "What a mod cannot do yet with API ${apiVersion}." },
     { t: "list", items: gaps },
   ],
 });
@@ -347,18 +364,18 @@ const out = {
     apiVersion,
     apiStatus,
     sources: [
-      "sdk/api/v4/core.json",
-      "sdk/api/v4/events.json",
-      "sdk/api/v4/rules.json",
-      "sdk/api/v4/state.json",
-      "sdk/api/v4/services.json",
-      "sdk/api/v4/enums.json",
-      "sdk/api/v4/hooks.json",
-      "sdk/api/v4/eidos_wasm.h",
+      `${apiDir}/core.json`,
+      `${apiDir}/events.json`,
+      `${apiDir}/rules.json`,
+      `${apiDir}/state.json`,
+      `${apiDir}/services.json`,
+      `${apiDir}/enums.json`,
+      `${apiDir}/hooks.json`,
+      `${apiDir}/eidos_wasm.h`,
       "docs/mod-backlog.md",
       "ui/src/lib/moddocs/curated.mjs",
     ],
-    note: "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry.",
+    note: `The structure and the words are eidos's ${apiDir}. kenon's curated text fills what it does not carry.`,
   },
   categories,
   events: eventList,

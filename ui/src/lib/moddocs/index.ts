@@ -59,6 +59,8 @@ export interface ApiFunction {
   kind: "host" | "state" | "service";
   name: string;
   cName?: string;
+  /** The API version that added the call; 0 for older ones. */
+  since?: number;
   group: string;
   signature: string;
   params: string[];
@@ -146,8 +148,8 @@ export interface Entry {
   section: Section;
   group: string;
   title: string;
-  /** Added in API 4. */
-  isNew?: boolean;
+  /** The API version that added it, from 4 on. */
+  newIn?: number;
 }
 
 export function hookFamily(api: Api, name: string): string {
@@ -163,14 +165,14 @@ export function buildEntries(api: Api): Entry[] {
       section: "events",
       group: e.category,
       title: e.name,
-      isNew: e.since >= 4,
+      newIn: e.since >= 4 ? e.since : undefined,
     });
   }
   for (const p of api.pages.filter((x) => x.section === "functions")) {
     out.push({ id: p.id, section: "functions", group: "Code mods", title: p.title });
   }
   for (const f of api.functions) {
-    out.push({ id: f.id, section: "functions", group: f.group, title: f.name });
+    out.push({ id: f.id, section: "functions", group: f.group, title: f.name, newIn: f.since ? f.since : undefined });
   }
   out.push({ id: api.hookPage.id, section: "hooks", group: "Raw hooks", title: api.hookPage.title });
   for (const h of api.hooks) {

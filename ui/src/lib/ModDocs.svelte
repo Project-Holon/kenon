@@ -415,7 +415,7 @@
                       <button class="row-item leaf" aria-current={it.id === selected} onclick={() => go(it.id)} title={it.title}>
                         <span class="line">
                           <span class="label">{it.title}</span>
-                          {#if it.isNew}<span class="tag">New in 4</span>{/if}
+                          {#if it.newIn}<span class="tag">New in {it.newIn}</span>{/if}
                         </span>
                       </button>
                     {/each}
@@ -529,6 +529,7 @@
           <h1><code>{f.name}</code></h1>
           <div class="tags">
             <span class="tag">{f.group}</span>
+            {#if f.since}<span class="tag">New in {f.since}</span>{/if}
             {#each f.tiers as t}<span class="tag">{tierLabel(t)}</span>{/each}
           </div>
           <p class="lead">{f.what}</p>

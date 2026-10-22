@@ -1,22 +1,22 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "8735c83",
-  "apiVersion": 4,
-  "apiStatus": "frozen",
+  "eidosRevision": "62445a2",
+  "apiVersion": 5,
+  "apiStatus": "open",
   "sources": [
-   "sdk/api/v4/core.json",
-   "sdk/api/v4/events.json",
-   "sdk/api/v4/rules.json",
-   "sdk/api/v4/state.json",
-   "sdk/api/v4/services.json",
-   "sdk/api/v4/enums.json",
-   "sdk/api/v4/hooks.json",
-   "sdk/api/v4/eidos_wasm.h",
+   "sdk/api/v5/core.json",
+   "sdk/api/v5/events.json",
+   "sdk/api/v5/rules.json",
+   "sdk/api/v5/state.json",
+   "sdk/api/v5/services.json",
+   "sdk/api/v5/enums.json",
+   "sdk/api/v5/hooks.json",
+   "sdk/api/v5/eidos_wasm.h",
    "docs/mod-backlog.md",
    "ui/src/lib/moddocs/curated.mjs"
   ],
-  "note": "The structure and the words are eidos's sdk/api/v4. kenon's curated text fills what v4 does not carry."
+  "note": "The structure and the words are eidos's sdk/api/v5. kenon's curated text fills what it does not carry."
  },
  "categories": [
   "Session",
@@ -2479,7 +2479,8 @@
     "faint-penalty",
     "release-on-faint",
     "faint-counter",
-    "graveyard-box"
+    "graveyard-box",
+    "shared-faints"
    ]
   },
   {
@@ -2647,7 +2648,8 @@
     "message"
    ],
    "recipes": [
-    "one-catch-per-route"
+    "one-catch-per-route",
+    "other-player-catch"
    ]
   },
   {
@@ -4823,7 +4825,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:on",
@@ -4844,7 +4847,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:script",
@@ -4866,7 +4870,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:override",
@@ -4888,7 +4893,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:original",
@@ -4909,7 +4915,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:rd8",
@@ -4929,7 +4936,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:rd16",
@@ -4949,7 +4957,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:rd32",
@@ -4969,7 +4978,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:wr8",
@@ -4990,7 +5000,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:wr16",
@@ -5011,7 +5022,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:wr32",
@@ -5032,7 +5044,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:read",
@@ -5054,7 +5067,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:write",
@@ -5076,7 +5090,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:party_count",
@@ -5094,7 +5109,8 @@
    ],
    "rule": "party_count",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:party_ref",
@@ -5115,7 +5131,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:party_get",
@@ -5162,7 +5179,8 @@
     "heal.hp",
     "mon.revive"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:party_set",
@@ -5203,7 +5221,8 @@
     "trade.ingame",
     "item.use"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:box_count",
@@ -5221,7 +5240,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:box_ref",
@@ -5243,7 +5263,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:box_get",
@@ -5272,7 +5293,8 @@
     "box.deposit",
     "box.withdraw"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:box_set",
@@ -5298,7 +5320,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_ref",
@@ -5334,7 +5357,8 @@
     "whiteout",
     "battle.trainer_mon"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_get",
@@ -5380,7 +5404,8 @@
     "heal.hp",
     "mon.revive"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_set",
@@ -5406,7 +5431,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:species_value",
@@ -5432,7 +5458,8 @@
     "encounter.static",
     "encounter.trainer"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:species_shiny",
@@ -5453,7 +5480,8 @@
    ],
    "rule": "shiny[m]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:dex_caught",
@@ -5484,7 +5512,8 @@
     "battle.trainer_mon",
     "dex.register"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:badge_count",
@@ -5506,7 +5535,8 @@
     "encounter.static",
     "encounter.trainer"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:badge_has",
@@ -5526,7 +5556,8 @@
    ],
    "rule": "badge[n]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:money",
@@ -5552,7 +5583,8 @@
     "money.change",
     "heal"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:money_set",
@@ -5580,7 +5612,8 @@
     "money.change",
     "heal"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:flag",
@@ -5614,7 +5647,8 @@
     "flag.set",
     "dex.register"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:flag_set",
@@ -5648,7 +5682,8 @@
     "flag.set",
     "dex.register"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:zone",
@@ -5682,7 +5717,8 @@
     "flag.set",
     "dex.register"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:player_pos",
@@ -5704,7 +5740,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_style",
@@ -5722,7 +5759,8 @@
    ],
    "rule": "battle_style",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_to_box",
@@ -5749,7 +5787,8 @@
     "box.deposit",
     "box.withdraw"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_take_item",
@@ -5773,7 +5812,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_release",
@@ -5798,7 +5838,8 @@
    ],
    "rule": "do release event.mon",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:item_count",
@@ -5821,7 +5862,8 @@
    "events": [
     "heal.hp"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:item_add",
@@ -5843,7 +5885,8 @@
    ],
    "rule": "do give item count",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:area_of",
@@ -5864,7 +5907,8 @@
    ],
    "rule": "area_of[z]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_wild",
@@ -5885,7 +5929,8 @@
    "events": [
     "battle.exp"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:play_seconds",
@@ -5904,7 +5949,8 @@
    ],
    "rule": "play_seconds",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:item_value",
@@ -5927,7 +5973,8 @@
    ],
    "rule": "item_pocket[i]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:move_value",
@@ -5950,7 +5997,8 @@
    ],
    "rule": "move_type[v], move_power[v], move_class[v]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_to_box_n",
@@ -5976,7 +6024,8 @@
    ],
    "rule": "do box event.mon n",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_from_box",
@@ -5998,7 +6047,8 @@
    ],
    "rule": "do withdraw box slot",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_recalc",
@@ -6022,7 +6072,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:species_base",
@@ -6046,7 +6097,8 @@
     "mon.form",
     "mon.revive"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:battle_trainer",
@@ -6067,7 +6119,8 @@
    ],
    "rule": "battle_trainer, battle_trainer2",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:message",
@@ -6146,7 +6199,8 @@
     "flag.set",
     "dex.register"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:confirm",
@@ -6166,7 +6220,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:session_host",
@@ -6187,7 +6242,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:session_join",
@@ -6207,7 +6263,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:session_leave",
@@ -6225,7 +6282,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:session_send",
@@ -6247,7 +6305,8 @@
    ],
    "rule": "send value",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:on_session",
@@ -6267,7 +6326,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:avatar_create",
@@ -6290,7 +6350,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:avatar_move",
@@ -6315,7 +6376,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:avatar_delete",
@@ -6335,7 +6397,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_export",
@@ -6361,7 +6424,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:mon_import",
@@ -6383,7 +6447,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:panel_set",
@@ -6404,7 +6469,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:panel_clear",
@@ -6422,7 +6488,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:timer_start",
@@ -6440,7 +6507,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:timer_stop",
@@ -6458,7 +6526,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:timer_ms",
@@ -6476,7 +6545,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:split",
@@ -6496,7 +6566,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:run_restart",
@@ -6516,7 +6587,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:rand_seed",
@@ -6536,7 +6608,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:rand_next",
@@ -6554,7 +6627,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:on_command",
@@ -6574,7 +6648,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:publish",
@@ -6595,7 +6670,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:input_press",
@@ -6616,7 +6692,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:on_frame",
@@ -6636,7 +6713,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:save_send",
@@ -6656,7 +6734,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:on_save_received",
@@ -6676,7 +6755,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:setting_get",
@@ -6697,7 +6777,8 @@
    ],
    "rule": "setting.key",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_load",
@@ -6724,7 +6805,8 @@
     "save.load",
     "game.cleared"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_store",
@@ -6751,7 +6833,8 @@
     "save.load",
     "game.cleared"
    ],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_clear",
@@ -6769,7 +6852,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_info",
@@ -6789,7 +6873,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_dir",
@@ -6810,7 +6895,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:state_in_step",
@@ -6828,7 +6914,8 @@
    ],
    "rule": null,
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
   },
   {
    "id": "fn:table_get",
@@ -6851,7 +6938,71 @@
    ],
    "rule": "table.name[key]",
    "events": [],
-   "fromC": true
+   "fromC": true,
+   "since": 0
+  },
+  {
+   "id": "fn:event_player",
+   "kind": "service",
+   "name": "event_player",
+   "cName": "eidos_event_player",
+   "group": "Peer sessions",
+   "signature": "uint32_t eidos_event_player(void)",
+   "params": [],
+   "what": "Says whose event the running handler has: 0 for this game's own, else the number of the player in the session. It is 0 outside a handler.",
+   "result": "The player's number, or 0.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:shared_get",
+   "kind": "service",
+   "name": "shared_get",
+   "cName": "eidos_shared_get",
+   "group": "Peer sessions",
+   "signature": "int32_t eidos_shared_get(const char *key, int32_t *out)",
+   "params": [
+    "const char *key",
+    "int32_t *out"
+   ],
+   "what": "Reads a number from the shared table, which every player's copy of the mod sees. The key belongs to the mod.",
+   "result": "0 when the key is set (the value is written to out), 1 when it is not, -1 outside a multiplayer game.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:shared_set",
+   "kind": "service",
+   "name": "shared_set",
+   "cName": "eidos_shared_set",
+   "group": "Peer sessions",
+   "signature": "int32_t eidos_shared_set(const char *key, int32_t value)",
+   "params": [
+    "const char *key",
+    "int32_t value"
+   ],
+   "what": "Writes a number to the shared table. The host's copy is the real one: a joiner's change goes to the host, which sends it to every player.",
+   "result": "0 on success, else -1.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
   }
  ],
  "functionGroups": [
@@ -6992,7 +7143,10 @@
     "session_join",
     "session_leave",
     "session_send",
-    "on_session"
+    "on_session",
+    "event_player",
+    "shared_get",
+    "shared_set"
    ]
   },
   {
@@ -10568,6 +10722,34 @@
       "A code mod reaches a session with `session_host`, `session_join`, `session_leave` and `session_send`, and receives joins, leaves and messages in the handler it sets with `on_session`.",
       "Rules cannot use multiplayer yet. Use a code mod."
      ]
+    },
+    {
+     "t": "p",
+     "text": "Other players' events. The host's mod gets every event that another player's game fires, in the usual handler for that event. `event_player` says whose event it is: 0 for this game's own, else the player's number in the session."
+    },
+    {
+     "t": "list",
+     "items": [
+      "A remote event cannot be refused or changed, because the other game has already acted on it. A refusal or a write is ignored.",
+      "A Pokemon reference in another player's payload names a Pokemon of that game, not of this one.",
+      "Each game sends its events and its position in batches, at most 10 times a second."
+     ]
+    },
+    {
+     "t": "p",
+     "text": "The shared table. It holds numbers that every player's mods see, such as a count or a pair of Pokemon. `shared_set(key, value)` writes one and `shared_get(key, &value)` reads one. The keys belong to the mod, so two mods can use the same key."
+    },
+    {
+     "t": "list",
+     "items": [
+      "The host's copy is the real one and is kept with its game. A joiner's change goes to the host, which applies the changes in the order they come and sends each one to every player. A joiner reads its own change once the host has sent it back.",
+      "`shared_get` returns 0 when the key is set, 1 when it is not, and -1 outside a multiplayer game.",
+      "Two players who change the same key at the same moment do not add their changes: the later one wins."
+     ]
+    },
+    {
+     "t": "p",
+     "text": "Recipes: Count faints of all players, Log another player's catch."
     }
    ],
    "id": "page:multiplayer"
@@ -10826,7 +11008,7 @@
    "blocks": [
     {
      "t": "p",
-     "text": "What a mod cannot do yet with API 4."
+     "text": "What a mod cannot do yet with API ${apiVersion}."
     },
     {
      "t": "list",
@@ -10855,7 +11037,8 @@
       "Add species past the original ones, up to 2047.",
       "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
       "Receive a save sent by a peer in a code mod. `on_save_received` does nothing yet.",
-      "Cap a code mod's memory or running time. A runaway mod can slow the game."
+      "Cap a code mod's memory or running time. A runaway mod can slow the game.",
+      "A `player.step` mod does not fire in a build made from the decompiled source."
      ]
     }
    ]
@@ -11587,6 +11770,55 @@
    ],
    "rule": "language 1\nrule graveyard on battle.faint\n    when event.side == 0\n    do box event.mon 23\n",
    "id": "recipe:graveyard-box"
+  },
+  {
+   "slug": "shared-faints",
+   "title": "Count faints of all players",
+   "goal": "Show the faints of every player together in the status panel.",
+   "tier": [
+    "c"
+   ],
+   "events": [
+    "battle.faint"
+   ],
+   "functions": [
+    "shared_get",
+    "shared_set",
+    "event_player",
+    "panel_set",
+    "on"
+   ],
+   "steps": [
+    "The manifest needs a `multiplayer = 1` line so the mod takes part in multiplayer.",
+    "The handler also runs for other players' events. `event_player` is 0 for this game's own, so each faint is added once, by the game it happens in.",
+    "The total is a number in the shared table. `shared_get` returns 0 when the key is set; the host's copy is the real one.",
+    "Two faints at the same moment in different games can count as one: the later write wins."
+   ],
+   "c": "#include \"eidos_wasm.h\"\n\nstatic int32_t on_faint(EidosEvent *event)\n{\n    EidosBattleFaint *e = (EidosBattleFaint *)event;\n    char line[24] = \"All faints: \";\n    char digits[11];\n    int32_t total = 0;\n    uint32_t n = 0, v, i;\n    if (e->side != 0 || eidos_event_player() != 0) {\n        return EIDOS_EVENT_CONTINUE;\n    }\n    if (eidos_shared_get(\"faints\", &total) != 0) {\n        total = 0;\n    }\n    total++;\n    eidos_shared_set(\"faints\", total);\n    v = (uint32_t)total;\n    do {\n        digits[n++] = (char)('0' + v % 10);\n        v /= 10;\n    } while (v);\n    for (i = 0; i < n; i++) {\n        line[12 + i] = digits[n - 1 - i];\n    }\n    line[12 + n] = 0;\n    eidos_panel_set(0, line);\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
+   "id": "recipe:shared-faints"
+  },
+  {
+   "slug": "other-player-catch",
+   "title": "Log another player's catch",
+   "goal": "Show a line when another player catches a Pokemon.",
+   "tier": [
+    "c"
+   ],
+   "events": [
+    "catch.result"
+   ],
+   "functions": [
+    "event_player",
+    "message",
+    "on"
+   ],
+   "steps": [
+    "The manifest needs a `multiplayer = 1` line so the mod takes part in multiplayer.",
+    "`event_player` is 0 for this game's own catches, else the player's number.",
+    "`event.caught` is 1 when the catch succeeded."
+   ],
+   "c": "#include \"eidos_wasm.h\"\n\nstatic int32_t on_catch(EidosEvent *event)\n{\n    EidosCatchResult *e = (EidosCatchResult *)event;\n    uint32_t who = eidos_event_player();\n    char line[40] = \"Player 0 caught a Pokemon.\";\n    if (who != 0 && e->caught) {\n        line[7] = (char)('0' + who % 10);\n        eidos_message(line);\n    }\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_CATCH_RESULT, (uint32_t)(uintptr_t)on_catch);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
+   "id": "recipe:other-player-catch"
   }
  ]
 }

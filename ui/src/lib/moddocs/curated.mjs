@@ -5,7 +5,7 @@
 
 const rule = (s) => s.replace(/^\n/, "").replace(/\n\s*$/, "\n");
 
-// Entry points shared by the C recipes (eidos_wasm.h, api 4). A handler is
+// Entry points shared by the C recipes (eidos_wasm.h, api 5). A handler is
 // registered by its function table index, which is its address.
 const start = (reg) => `EIDOS_EXPORT("eidos_mod_start")
 int32_t eidos_mod_start(void)
@@ -26,6 +26,7 @@ export default {
   // Plain lines for the "Not possible yet" page, keyed by the item name in
   // eidos docs/mod-backlog.md. An item with no line here shows eidos's note.
   limits: {
+    "player.step in the src/game build": "A `player.step` mod does not fire in a build made from the decompiled source.",
     "A finer route.change how": "Tell how the player entered a zone (door, Fly, Dig, Escape Rope, whiteout...). `route.change` only says walk or map change.",
     "pc.open screen mode": "Tell which box screen opened (organise, deposit, withdraw, Battle Box).",
     "item.use from the bag": "Block or see items used straight from the bag: Escape Rope, Repel, bicycle, Dowsing Machine.",
@@ -212,6 +213,9 @@ export default {
     session_leave: { what: "Leaves the session.", tiers: ["c"] },
     session_send: { what: "Sends up to 4 KB to one peer, or to everyone with peer 0. Only the same mod on the other side receives it.", result: "0 on success, else a reason code.", tiers: ["c"], rule: "send value" },
     on_session: { what: "Sets the handler for peer messages, joins and leaves. It runs on the game frame.", tiers: ["c"] },
+    event_player: { what: "Says whose event the running handler has: 0 for this game's own, else the number of the player in the session. It is 0 outside a handler.", result: "The player's number, or 0.", tiers: ["c"] },
+    shared_get: { what: "Reads a number from the shared table, which every player's copy of the mod sees. The key belongs to the mod.", result: "0 when the key is set (the value is written to out), 1 when it is not, -1 outside a multiplayer game.", tiers: ["c"] },
+    shared_set: { what: "Writes a number to the shared table. The host's copy is the real one: a joiner's change goes to the host, which sends it to every player.", result: "0 on success, else -1.", tiers: ["c"] },
     avatar_create: { what: "Creates another player's avatar in the field.", result: "A handle, or 0 when there is no room.", tiers: ["c"] },
     avatar_move: { what: "Walks an avatar to a cell.", tiers: ["c"] },
     avatar_delete: { what: "Removes an avatar. Avatars are also deleted at each map change.", tiers: ["c"] },
@@ -266,7 +270,7 @@ export default {
     { title: "Mod data tables", fns: ["table_get"] },
     { title: "Messages", fns: ["message","confirm"] },
     { title: "Miscellaneous", fns: ["item_count","item_add","setting_get","player_pos","battle_style"] },
-    { title: "Peer sessions", fns: ["session_host","session_join","session_leave","session_send","on_session"] },
+    { title: "Peer sessions", fns: ["session_host","session_join","session_leave","session_send","on_session","event_player","shared_get","shared_set"] },
     { title: "Field avatars", fns: ["avatar_create","avatar_move","avatar_delete"] },
     { title: "Pokemon export and import", fns: ["mon_export","mon_import"] },
     { title: "Status panel, timer and splits", fns: ["panel_set","panel_clear","timer_start","timer_stop","timer_ms","split"] },
@@ -309,6 +313,11 @@ export default {
         { t: "p", text: "A mod that takes part in multiplayer states a compatibility number in the manifest. Mod settings writes it as Multiplayer version." },
         { t: "code", lang: "manifest", text: "multiplayer = 3\n" },
         { t: "list", items: ["The number is a whole number from 1. A value that is not one is ignored.", "The lobby lets the players start only when everyone's multiplayer mods have the same numbers. Only the number has to match, so a mod can update freely while its messages stay the same. Raise the number when they change.", "A mod with no `multiplayer` line is not checked by the lobby.", "A code mod reaches a session with `session_host`, `session_join`, `session_leave` and `session_send`, and receives joins, leaves and messages in the handler it sets with `on_session`.", "Rules cannot use multiplayer yet. Use a code mod."] },
+        { t: "p", text: "Other players' events. The host's mod gets every event that another player's game fires, in the usual handler for that event. `event_player` says whose event it is: 0 for this game's own, else the player's number in the session." },
+        { t: "list", items: ["A remote event cannot be refused or changed, because the other game has already acted on it. A refusal or a write is ignored.", "A Pokemon reference in another player's payload names a Pokemon of that game, not of this one.", "Each game sends its events and its position in batches, at most 10 times a second."] },
+        { t: "p", text: "The shared table. It holds numbers that every player's mods see, such as a count or a pair of Pokemon. `shared_set(key, value)` writes one and `shared_get(key, &value)` reads one. The keys belong to the mod, so two mods can use the same key." },
+        { t: "list", items: ["The host's copy is the real one and is kept with its game. A joiner's change goes to the host, which applies the changes in the order they come and sends each one to every player. A joiner reads its own change once the host has sent it back.", "`shared_get` returns 0 when the key is set, 1 when it is not, and -1 outside a multiplayer game.", "Two players who change the same key at the same moment do not add their changes: the later one wins."] },
+        { t: "p", text: "Recipes: Count faints of all players, Log another player's catch." },
       ],
     },
     {
@@ -1167,6 +1176,79 @@ rule graveyard on battle.faint
     when event.side == 0
     do box event.mon 23
 `),
+    },
+    {
+      slug: "shared-faints",
+      title: "Count faints of all players",
+      goal: "Show the faints of every player together in the status panel.",
+      tier: ["c"],
+      events: ["battle.faint"],
+      functions: ["shared_get", "shared_set", "event_player", "panel_set", "on"],
+      steps: [
+        "The manifest needs a `multiplayer = 1` line so the mod takes part in multiplayer.",
+        "The handler also runs for other players' events. `event_player` is 0 for this game's own, so each faint is added once, by the game it happens in.",
+        "The total is a number in the shared table. `shared_get` returns 0 when the key is set; the host's copy is the real one.",
+        "Two faints at the same moment in different games can count as one: the later write wins.",
+      ],
+      c: `#include "eidos_wasm.h"
+
+static int32_t on_faint(EidosEvent *event)
+{
+    EidosBattleFaint *e = (EidosBattleFaint *)event;
+    char line[24] = "All faints: ";
+    char digits[11];
+    int32_t total = 0;
+    uint32_t n = 0, v, i;
+    if (e->side != 0 || eidos_event_player() != 0) {
+        return EIDOS_EVENT_CONTINUE;
+    }
+    if (eidos_shared_get("faints", &total) != 0) {
+        total = 0;
+    }
+    total++;
+    eidos_shared_set("faints", total);
+    v = (uint32_t)total;
+    do {
+        digits[n++] = (char)('0' + v % 10);
+        v /= 10;
+    } while (v);
+    for (i = 0; i < n; i++) {
+        line[12 + i] = digits[n - 1 - i];
+    }
+    line[12 + n] = 0;
+    eidos_panel_set(0, line);
+    return EIDOS_EVENT_CONTINUE;
+}
+
+${start("    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);")}`,
+    },
+    {
+      slug: "other-player-catch",
+      title: "Log another player's catch",
+      goal: "Show a line when another player catches a Pokemon.",
+      tier: ["c"],
+      events: ["catch.result"],
+      functions: ["event_player", "message", "on"],
+      steps: [
+        "The manifest needs a `multiplayer = 1` line so the mod takes part in multiplayer.",
+        "`event_player` is 0 for this game's own catches, else the player's number.",
+        "`event.caught` is 1 when the catch succeeded.",
+      ],
+      c: `#include "eidos_wasm.h"
+
+static int32_t on_catch(EidosEvent *event)
+{
+    EidosCatchResult *e = (EidosCatchResult *)event;
+    uint32_t who = eidos_event_player();
+    char line[40] = "Player 0 caught a Pokemon.";
+    if (who != 0 && e->caught) {
+        line[7] = (char)('0' + who % 10);
+        eidos_message(line);
+    }
+    return EIDOS_EVENT_CONTINUE;
+}
+
+${start("    return eidos_on(EIDOS_EVENT_CATCH_RESULT, (uint32_t)(uintptr_t)on_catch);")}`,
     },
   ],
 };
