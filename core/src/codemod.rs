@@ -322,6 +322,7 @@ pub fn zig_path(user: Option<&Path>, app_data: &Path) -> Option<(PathBuf, &'stat
 
 /// A process that opens no console window on Windows.
 fn command(program: &Path) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut cmd = Command::new(program);
     #[cfg(windows)]
     {
