@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "4b32931",
+  "eidosRevision": "54c3c42",
   "apiVersion": 4,
   "apiStatus": "frozen",
   "sources": [
@@ -10816,13 +10816,15 @@
       "Block a Pokemon joining the party.",
       "Give the player a new Pokemon or egg made by the mod.",
       "Export a Pokemon to a file and import it again, for example to carry a team to the next game.",
-      "Receive messages from another game in a rule. Code mods can already.",
+      "Receive messages from another game in a rule.",
       "Read a zone's wild encounter slots.",
       "Hook the link and minigame screens. Items from them report source `OTHER`.",
       "Add moves past 560 with their own battle animations.",
       "Add new overworld characters.",
       "Add species past the original ones, up to 2047.",
-      "Run code mods in the game. kenon builds them, but eidos cannot load them yet; rules and native mods run today."
+      "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
+      "Receive link messages, console commands or saved data in a code mod.",
+      "Cap a code mod's memory or running time. A runaway mod can slow the game."
      ]
     }
    ]
@@ -11259,7 +11261,7 @@
     "`event.reroll` rolls the encounter again; the last roll stands."
    ],
    "rule": "language 1\nrule dupes_by_line on encounter.wild\n    when party_count > 0 && species_base[species[0]] == species_base[event.species] || party_count > 1 && species_base[species[1]] == species_base[event.species] || party_count > 2 && species_base[species[2]] == species_base[event.species] || party_count > 3 && species_base[species[3]] == species_base[event.species] || party_count > 4 && species_base[species[4]] == species_base[event.species] || party_count > 5 && species_base[species[5]] == species_base[event.species]\n    do set event.reroll 1\n",
-   "c": "#include \"eidos_wasm.h\"\n\n/* 1 when the Pokemon is in the line with this base and is not an egg. */\nstatic int in_line(const EidosMonRef *ref, int boxed, int32_t base)\n{\n    uint32_t species = 0;\n    uint32_t egg = 0;\n    int32_t (*get)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t *) =\n        boxed ? eidos_box_get : eidos_party_get;\n    if (get(ref->handle, ref->place, ref->side, ref->box, ref->slot, EIDOS_MON_FIELD_SPECIES, &species) != 0) {\n        return 0;\n    }\n    get(ref->handle, ref->place, ref->side, ref->box, ref->slot, EIDOS_MON_FIELD_IS_EGG, &egg);\n    return !egg && eidos_species_base(species) == base;\n}\n\nstatic int32_t on_wild(EidosEvent *event)\n{\n    EidosEncounterWild *e = (EidosEncounterWild *)event;\n    int32_t base = eidos_species_base(e->species);\n    EidosMonRef ref;\n    uint32_t i, b, s;\n    for (i = 0; i < eidos_party_count(); i++) {\n        if (eidos_party_ref(i, &ref) == 0 && in_line(&ref, 0, base)) {\n            e->reroll = 1;\n            return EIDOS_EVENT_CONTINUE;\n        }\n    }\n    for (b = 0; b < eidos_box_count(); b++) {\n        for (s = 0; s < 30; s++) {\n            if (eidos_box_ref(b, s, &ref) == 0 && in_line(&ref, 1, base)) {\n                e->reroll = 1;\n                return EIDOS_EVENT_CONTINUE;\n            }\n        }\n    }\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_ENCOUNTER_WILD, (uint32_t)(uintptr_t)on_wild);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
+   "c": "#include \"eidos_wasm.h\"\n\n/* 1 when the Pokemon is in the line with this base and is not an egg. */\nstatic int in_line(const EidosMonRef *ref, int boxed, int32_t base)\n{\n    uint32_t species = 0;\n    uint32_t egg = 0;\n    int32_t (*get)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t *) =\n        boxed ? eidos_box_get : eidos_party_get;\n    if (get(ref->handle, ref->place, ref->side, ref->box, ref->slot, EIDOS_MON_FIELD_SPECIES, &species) != 0) {\n        return 0;\n    }\n    get(ref->handle, ref->place, ref->side, ref->box, ref->slot, EIDOS_MON_FIELD_IS_EGG, &egg);\n    return !egg && eidos_species_base(species) == base;\n}\n\nstatic int32_t on_wild(EidosEvent *event)\n{\n    EidosEncounterWild *e = (EidosEncounterWild *)event;\n    int32_t base = eidos_species_base(e->species);\n    EidosMonRef ref;\n    uint32_t i, b, s;\n    if (base < 0) {\n        return EIDOS_EVENT_CONTINUE;\n    }\n    for (i = 0; i < eidos_party_count(); i++) {\n        if (eidos_party_ref(i, &ref) == 0 && in_line(&ref, 0, base)) {\n            e->reroll = 1;\n            return EIDOS_EVENT_CONTINUE;\n        }\n    }\n    for (b = 0; b < eidos_box_count(); b++) {\n        for (s = 0; s < 30; s++) {\n            if (eidos_box_ref(b, s, &ref) == 0 && in_line(&ref, 1, base)) {\n                e->reroll = 1;\n                return EIDOS_EVENT_CONTINUE;\n            }\n        }\n    }\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_ENCOUNTER_WILD, (uint32_t)(uintptr_t)on_wild);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
    "notes": [
     "An empty box slot makes box_ref fail, so the loop skips it. A box holds 30 slots."
    ],

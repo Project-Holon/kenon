@@ -1186,6 +1186,14 @@ pub fn read_module(bytes: &[u8]) -> Result<ModuleInfo, String> {
     Ok(info)
 }
 
+/// The import names eidos_wasm.h declares, from its `EIDOS_IMPORT("name")` lines.
+fn header_imports() -> impl Iterator<Item = &'static str> {
+    HEADER.lines().filter_map(|line| {
+        let rest = line.strip_prefix("EIDOS_IMPORT(\"")?;
+        rest.split_once("\")").map(|(name, _)| name)
+    })
+}
+
 /// Checks a built module against the contract. The messages are for the
 /// person who wrote the mod.
 pub fn check_module(bytes: &[u8], contract: &Contract) -> Result<ModuleInfo, String> {
@@ -1198,6 +1206,12 @@ pub fn check_module(bytes: &[u8], contract: &Contract) -> Result<ModuleInfo, Str
             return Err(format!(
                 "the module imports {}.{}; a code mod may import only from \"{}\"",
                 i.module, i.name, contract.import_module
+            ));
+        }
+        if !header_imports().any(|n| n == i.name) {
+            return Err(format!(
+                "the module imports {}.{}, which eidos_wasm.h does not declare",
+                i.module, i.name
             ));
         }
     }

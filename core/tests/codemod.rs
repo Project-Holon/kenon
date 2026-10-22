@@ -194,6 +194,7 @@ struct Module {
     export_table: bool,
     export_stop: bool,
     import_memory: bool,
+    import_name: &'static str,
 }
 
 impl Module {
@@ -205,6 +206,7 @@ impl Module {
             export_table: true,
             export_stop: true,
             import_memory: false,
+            import_name: "log",
         }
     }
 
@@ -223,7 +225,7 @@ impl Module {
         ));
         let mut imports = vec![if self.import_memory { 2 } else { 1 }];
         imports.extend(name(self.import_module));
-        imports.extend(name("log"));
+        imports.extend(name(self.import_name));
         imports.extend([0, 0]);
         if self.import_memory {
             imports.extend(name("env"));
@@ -271,6 +273,11 @@ fn module_check() {
         ..Module::good()
     })
     .contains("\"eidos\""));
+    assert!(fail(Module {
+        import_name: "not_a_call",
+        ..Module::good()
+    })
+    .contains("not_a_call"));
     assert!(fail(Module {
         start_result: false,
         ..Module::good()

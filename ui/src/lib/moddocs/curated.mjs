@@ -42,13 +42,15 @@ export default {
     "party.add": "Block a Pokemon joining the party.",
     "mon_give": "Give the player a new Pokemon or egg made by the mod.",
     "Full party record export and import": "Export a Pokemon to a file and import it again, for example to carry a team to the next game.",
-    "session.message": "Receive messages from another game in a rule. Code mods can already.",
+    "session.message": "Receive messages from another game in a rule.",
     "Encounter tables": "Read a zone's wild encounter slots.",
     "The link and minigame overlays (105, 107, 136, 137)": "Hook the link and minigame screens. Items from them report source `OTHER`.",
     "Moves past 560": "Add moves past 560 with their own battle animations.",
     "Field object codes": "Add new overworld characters.",
     "Species to 2047": "Add species past the original ones, up to 2047.",
-    "The wasm runtime": "Run code mods in the game. kenon builds them, but eidos cannot load them yet; rules and native mods run today.",
+    "Wasm overrides": "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
+    "Wasm session, command and save handlers": "Receive link messages, console commands or saved data in a code mod.",
+    "Wasm limits": "Cap a code mod's memory or running time. A runaway mod can slow the game.",
   },
   // The titles of the constant groups of sdk/api/v4/enums.json, by the prefix
   // of the EIDOS_ name. They are the comments of eidos's mod_api.h.
@@ -853,6 +855,9 @@ static int32_t on_wild(EidosEvent *event)
     int32_t base = eidos_species_base(e->species);
     EidosMonRef ref;
     uint32_t i, b, s;
+    if (base < 0) {
+        return EIDOS_EVENT_CONTINUE;
+    }
     for (i = 0; i < eidos_party_count(); i++) {
         if (eidos_party_ref(i, &ref) == 0 && in_line(&ref, 0, base)) {
             e->reroll = 1;
