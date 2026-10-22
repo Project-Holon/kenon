@@ -6,6 +6,9 @@ export default defineConfig({
   root: "ui",
   plugins: [svelte()],
   clearScreen: false,
+  // morphe ships Svelte and TypeScript sources: the dev server's dependency
+  // pre-bundling cannot read them, so they go through the Svelte plugin.
+  optimizeDeps: { exclude: ["morphe"] },
   server: {
     port: 1420,
     strictPort: true,
