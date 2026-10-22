@@ -91,6 +91,7 @@ jobs:
         run: |
           mkdir -p plain
           echo "$PATHS" | jq -r '.[]' | while read -r f; do
+            f="${f%$'\r'}"
             f="${f//\\//}"
             case "$f" in
               *-setup.exe) cp "$f" plain/kenon-windows-setup.exe ;;
