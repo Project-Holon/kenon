@@ -69,6 +69,7 @@ jobs:
       - run: npm ci
 
       - uses: tauri-apps/tauri-action@v0
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -76,5 +77,29 @@ jobs:
           releaseName: kenon ${{ needs.version.outputs.version }}
           releaseBody: Builds for Windows (installer), Linux (AppImage, deb, rpm) and macOS (universal dmg). The builds are not signed.
           releaseDraft: false
-          prerelease: ${{ startsWith(needs.version.outputs.version, '0.') }}
+          prerelease: false
           args: ${{ matrix.args }}
+
+      # Copies without the version in their names, so a link like
+      # releases/latest/download/kenon-windows-setup.exe always works.
+      - name: Version-less copies
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PATHS: ${{ steps.tauri.outputs.artifactPaths }}
+          TAG: v${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p plain
+          echo "$PATHS" | jq -r '.[]' | while read -r f; do
+            f="${f//\\//}"
+            case "$f" in
+              *-setup.exe) cp "$f" plain/kenon-windows-setup.exe ;;
+              *.msi) cp "$f" plain/kenon-windows.msi ;;
+              *.AppImage) cp "$f" plain/kenon-linux.AppImage ;;
+              *.deb) cp "$f" plain/kenon-linux.deb ;;
+              *.rpm) cp "$f" plain/kenon-linux.rpm ;;
+              *.dmg) cp "$f" plain/kenon-macos.dmg ;;
+            esac
+          done
+          ls plain
+          gh release upload "$TAG" plain/* --clobber
