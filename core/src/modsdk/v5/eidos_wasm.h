@@ -772,6 +772,8 @@ EIDOS_IMPORT("table_get") int32_t eidos_table_get(const char *name, int32_t key,
 EIDOS_IMPORT("event_player") uint32_t eidos_event_player(void);
 EIDOS_IMPORT("shared_get") int32_t eidos_shared_get(const char *key, int32_t *out);
 EIDOS_IMPORT("shared_set") int32_t eidos_shared_set(const char *key, int32_t value);
+EIDOS_IMPORT("shared_add") int32_t eidos_shared_add(const char *key, int32_t delta);
+EIDOS_IMPORT("shared_cas") int32_t eidos_shared_cas(const char *key, int32_t expected, int32_t value);
 
 /* What the module must export. */
 EIDOS_EXPORT("eidos_mod_start") int32_t eidos_mod_start(void);

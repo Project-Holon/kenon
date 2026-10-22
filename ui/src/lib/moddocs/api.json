@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "62445a2",
+  "eidosRevision": "b1d2b68",
   "apiVersion": 5,
   "apiStatus": "open",
   "sources": [
@@ -6994,7 +6994,52 @@
     "int32_t value"
    ],
    "what": "Writes a number to the shared table. The host's copy is the real one: a joiner's change goes to the host, which sends it to every player.",
-   "result": "0 on success, else -1.",
+   "result": "0 when the change was made (host) or sent (joiner), -1 outside a multiplayer game or for a key that cannot be sent (empty, over the limit, or with a space).",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:shared_add",
+   "kind": "service",
+   "name": "shared_add",
+   "cName": "eidos_shared_add",
+   "group": "Peer sessions",
+   "signature": "int32_t eidos_shared_add(const char *key, int32_t delta)",
+   "params": [
+    "const char *key",
+    "int32_t delta"
+   ],
+   "what": "Adds a number to a shared value. The host adds it in the order the changes arrive and sends the result to every player, so changes from several players all count. A key that is not set counts as 0.",
+   "result": "0 when the change was made (host) or sent (joiner), -1 outside a multiplayer game or for a key that cannot be sent.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:shared_cas",
+   "kind": "service",
+   "name": "shared_cas",
+   "cName": "eidos_shared_cas",
+   "group": "Peer sessions",
+   "signature": "int32_t eidos_shared_cas(const char *key, int32_t expected, int32_t value)",
+   "params": [
+    "const char *key",
+    "int32_t expected",
+    "int32_t value"
+   ],
+   "what": "Sets a shared value to the new number only if it still holds the expected one. The host decides and sends the result to every player. The call does not report whether it took: read the key afterwards.",
+   "result": "0 when the change was made (host) or sent (joiner), -1 outside a multiplayer game or for a key that cannot be sent.",
    "notes": [],
    "tiers": [
     "c"
@@ -7146,7 +7191,9 @@
     "on_session",
     "event_player",
     "shared_get",
-    "shared_set"
+    "shared_set",
+    "shared_add",
+    "shared_cas"
    ]
   },
   {
@@ -10737,14 +10784,16 @@
     },
     {
      "t": "p",
-     "text": "The shared table. It holds numbers that every player's mods see, such as a count or a pair of Pokemon. `shared_set(key, value)` writes one and `shared_get(key, &value)` reads one. The keys belong to the mod, so two mods can use the same key."
+     "text": "The shared table. It holds numbers that every player's mods see, such as a count or a pair of Pokemon. `shared_set(key, value)` writes one, `shared_get(key, &value)` reads one, `shared_add(key, delta)` adds to one and `shared_cas(key, expected, value)` sets one only if it still holds the expected number. The keys belong to the mod, so two mods can use the same key."
     },
     {
      "t": "list",
      "items": [
       "The host's copy is the real one and is kept with its game. A joiner's change goes to the host, which applies the changes in the order they come and sends each one to every player. A joiner reads its own change once the host has sent it back.",
       "`shared_get` returns 0 when the key is set, 1 when it is not, and -1 outside a multiplayer game.",
-      "Two players who change the same key at the same moment do not add their changes: the later one wins."
+      "`shared_set` replaces the value, so when two players set the same key at the same moment the later one wins. Use `shared_add` for counters: every change counts.",
+      "Use `shared_cas` to set a value only if nobody changed it. It is not answered: read the key afterwards to see whether it took.",
+      "The writers return 0 when the change was made (host) or sent (joiner), and -1 outside a multiplayer game or for a key that cannot be sent (empty, over the limit, or with a space)."
      ]
     },
     {
@@ -11782,8 +11831,8 @@
     "battle.faint"
    ],
    "functions": [
+    "shared_add",
     "shared_get",
-    "shared_set",
     "event_player",
     "panel_set",
     "on"
@@ -11791,10 +11840,10 @@
    "steps": [
     "The manifest needs a `multiplayer = 1` line so the mod takes part in multiplayer.",
     "The handler also runs for other players' events. `event_player` is 0 for this game's own, so each faint is added once, by the game it happens in.",
-    "The total is a number in the shared table. `shared_get` returns 0 when the key is set; the host's copy is the real one.",
-    "Two faints at the same moment in different games can count as one: the later write wins."
+    "The total is a number in the shared table. `shared_add` adds 1 on the host, in the order the faints arrive, so every faint counts.",
+    "`shared_get` returns 0 when the key is set. It reads the total the host has sent."
    ],
-   "c": "#include \"eidos_wasm.h\"\n\nstatic int32_t on_faint(EidosEvent *event)\n{\n    EidosBattleFaint *e = (EidosBattleFaint *)event;\n    char line[24] = \"All faints: \";\n    char digits[11];\n    int32_t total = 0;\n    uint32_t n = 0, v, i;\n    if (e->side != 0 || eidos_event_player() != 0) {\n        return EIDOS_EVENT_CONTINUE;\n    }\n    if (eidos_shared_get(\"faints\", &total) != 0) {\n        total = 0;\n    }\n    total++;\n    eidos_shared_set(\"faints\", total);\n    v = (uint32_t)total;\n    do {\n        digits[n++] = (char)('0' + v % 10);\n        v /= 10;\n    } while (v);\n    for (i = 0; i < n; i++) {\n        line[12 + i] = digits[n - 1 - i];\n    }\n    line[12 + n] = 0;\n    eidos_panel_set(0, line);\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
+   "c": "#include \"eidos_wasm.h\"\n\nstatic int32_t on_faint(EidosEvent *event)\n{\n    EidosBattleFaint *e = (EidosBattleFaint *)event;\n    char line[24] = \"All faints: \";\n    char digits[11];\n    int32_t total = 0;\n    uint32_t n = 0, v, i;\n    if (e->side != 0 || eidos_event_player() != 0) {\n        return EIDOS_EVENT_CONTINUE;\n    }\n    eidos_shared_add(\"faints\", 1);\n    if (eidos_shared_get(\"faints\", &total) != 0) {\n        total = 0;\n    }\n    v = (uint32_t)total;\n    do {\n        digits[n++] = (char)('0' + v % 10);\n        v /= 10;\n    } while (v);\n    for (i = 0; i < n; i++) {\n        line[12 + i] = digits[n - 1 - i];\n    }\n    line[12 + n] = 0;\n    eidos_panel_set(0, line);\n    return EIDOS_EVENT_CONTINUE;\n}\n\nEIDOS_EXPORT(\"eidos_mod_start\")\nint32_t eidos_mod_start(void)\n{\n    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);\n}\n\nEIDOS_EXPORT(\"eidos_mod_stop\")\nvoid eidos_mod_stop(void)\n{\n}\n",
    "id": "recipe:shared-faints"
   },
   {
