@@ -102,7 +102,7 @@ forms differ only by packaging:
 
 ### What kenon writes
 
-A `.bw` is a zip file. kenon writes it as follows (`core/src/package.rs`):
+A `.bw` is a zip file. kenon writes it as follows (morphe, `crates/eidos-mod/src/package.rs`):
 
 - **Compression.** Every member uses deflate. Deflate is lossless: unpacking
   returns the exact bytes that were packed, so a member holds the game's own

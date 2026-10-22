@@ -19,8 +19,6 @@ pub mod image;
 pub mod import;
 pub mod lz;
 pub mod maprender;
-pub mod modcode;
-pub mod modopts;
 pub mod msg;
 pub mod nanr;
 pub mod narc;
@@ -31,7 +29,6 @@ pub mod nftr;
 pub mod nitro;
 pub mod nsbmd;
 pub mod nscr;
-pub mod package;
 pub mod project;
 pub mod props;
 pub mod rig;
@@ -44,3 +41,6 @@ pub mod tables;
 pub mod trainer_text;
 pub mod world;
 pub mod zonemap;
+
+// Mod folders without game data live in morphe (eidos-mod).
+pub use eidos_mod::{modcode, modopts, package};

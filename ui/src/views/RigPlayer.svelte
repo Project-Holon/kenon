@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { asset } from "../lib/backend";
-  import { once } from "../lib/cache.svelte";
+  import { once } from "morphe/cache.svelte";
   import { thumb } from "../lib/thumbs";
   import { play as sfx } from "../lib/sfx";
 

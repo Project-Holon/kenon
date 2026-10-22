@@ -5,7 +5,7 @@
   import { asset } from "./backend";
   import { play } from "./sfx";
   import { copyText } from "./exporter";
-  import { openMenu } from "./menu.svelte";
+  import { openMenu } from "morphe/menu.svelte";
   import { tileLabel, tileRgb } from "./terrain";
 
   // Everything the mod changes, the game's version next to yours, and a

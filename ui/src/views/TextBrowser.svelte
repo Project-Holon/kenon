@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { gameText, members, saveTextBank, textBank, type MemberInfo } from "../lib/backend";
   import { play } from "../lib/sfx";
   import { archiveLabel } from "../lib/archiveLabels";
   import { copyText, guarded, openInFiles, saveMember, saveText } from "../lib/exporter";
-  import { keepNative, openMenu } from "../lib/menu.svelte";
+  import { keepNative, openMenu } from "morphe/menu.svelte";
   import { fromTokens, toTokens } from "../lib/msgtokens";
 
   let {

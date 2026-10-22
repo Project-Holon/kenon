@@ -3,8 +3,8 @@
   import { SvelteMap } from "svelte/reactivity";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import ModDocs from "../lib/ModDocs.svelte";
-  import SearchSelect from "../lib/SearchSelect.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import SearchSelect from "morphe/SearchSelect.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { RULE_LANGUAGE, setRuleNames, setTables, type Marker } from "../lib/monaco";
   import {
     modCheckRule,

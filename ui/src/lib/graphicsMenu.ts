@@ -4,7 +4,7 @@ import { animBank, asset, cellBank, revert, sheetData, type Layout, type Ref } f
 import { copyText, fileName, guarded, openInFiles, saveAssets, saveMember, savePng, saveText } from "./exporter";
 import type { ImportTarget } from "./ImportPicture.svelte";
 import { importPng } from "./importPng";
-import { toast, type MenuItem } from "./menu.svelte";
+import { toast, type MenuItem } from "morphe/menu.svelte";
 
 /// What names a picture of an archive.
 export interface Picture {

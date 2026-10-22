@@ -3,12 +3,12 @@
   import { SvelteMap } from "svelte/reactivity";
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
-  import SearchSelect from "../lib/SearchSelect.svelte";
+  import SearchSelect from "morphe/SearchSelect.svelte";
   import { enumIcon, itemIcon, loadIcons, moveIcon, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { asset, changedMembers, revert } from "../lib/backend";
   import { copyText, guarded, openInFiles, saveMember } from "../lib/exporter";
-  import { keepNative, openMenu, toast } from "../lib/menu.svelte";
+  import { keepNative, openMenu, toast } from "morphe/menu.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import {
     enumValues,

@@ -4,7 +4,7 @@
   import Workspace from "./screens/Workspace.svelte";
   import { appStatus, isReady, type Status } from "./lib/backend";
   import { enableSfx } from "./lib/sfx";
-  import { forgetAll } from "./lib/cache.svelte";
+  import { forgetAll } from "morphe/cache.svelte";
   import { clearEnums } from "./lib/tables";
 
   let status = $state<Status | null>(null);

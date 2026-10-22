@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { asset, type Ref } from "../lib/backend";
-  import { once } from "../lib/cache.svelte";
+  import { once } from "morphe/cache.svelte";
   import { play as sfx } from "../lib/sfx";
 
   // Plays a sprite's animations as the game does: each sequence is a list

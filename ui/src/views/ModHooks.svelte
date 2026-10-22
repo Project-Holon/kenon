@@ -3,7 +3,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import ModDocs from "../lib/ModDocs.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { HOOK_LANGUAGE, setDeclared, type Marker } from "../lib/monaco";
   import {
     modCheckHooks,

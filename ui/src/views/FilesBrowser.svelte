@@ -4,10 +4,10 @@
   import { archiveGroup, archiveLabel, archiveNote, kindName } from "../lib/archiveLabels";
   import { ALL } from "../lib/categories";
   import { play } from "../lib/sfx";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import { copyText, filesTarget, guarded, memberExt, saveMember } from "../lib/exporter";
-  import { openMenu } from "../lib/menu.svelte";
+  import { openMenu } from "morphe/menu.svelte";
   import { tick } from "svelte";
 
   // Every archive of the game, with what each holds. The lists in the

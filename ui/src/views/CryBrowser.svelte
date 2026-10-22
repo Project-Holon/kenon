@@ -6,9 +6,9 @@
   import { loadIcons, speciesIcon } from "../lib/icons.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { copyText, guarded, saveWav } from "../lib/exporter";
-  import { openMenu, toast } from "../lib/menu.svelte";
+  import { openMenu, toast } from "morphe/menu.svelte";
 
   // Cries are one wave each, wave archive n for species n (names from the
   // ROM's species table).

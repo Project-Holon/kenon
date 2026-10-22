@@ -715,6 +715,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
+name = "eidos-mod"
+version = "0.1.0"
+source = "git+https://github.com/Project-Holon/morphe?tag=v0.1.0#09d6fb50f20fb753d2ef59ba89c92278dbcc04e4"
+dependencies = [
+ "serde",
+ "serde_json",
+ "zip",
+]
+
+[[package]]
 name = "embed-resource"
 version = "3.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1683,6 +1693,7 @@ dependencies = [
 name = "kenon-core"
 version = "0.1.0"
 dependencies = [
+ "eidos-mod",
  "png 0.18.1",
  "serde",
  "serde_json",

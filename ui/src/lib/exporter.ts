@@ -2,7 +2,7 @@
 // that write the files (app/src/lib.rs).
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { toast } from "./menu.svelte";
+import { toast } from "morphe/menu.svelte";
 
 /// A file name from a label: no characters Windows refuses.
 export function fileName(label: string): string {

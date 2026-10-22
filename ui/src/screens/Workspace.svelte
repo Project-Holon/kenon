@@ -3,7 +3,7 @@
   import { appStatus, closeProject, exportBw, isReady, type Status } from "../lib/backend";
   import { ALL, GROUPS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
-  import { forget } from "../lib/cache.svelte";
+  import { forget } from "morphe/cache.svelte";
   import { forgetThumbs } from "../lib/thumbs";
   import ThemePicker from "../lib/ThemePicker.svelte";
   import ChangesDialog from "../lib/ChangesDialog.svelte";

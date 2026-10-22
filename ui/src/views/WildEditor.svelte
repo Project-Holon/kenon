@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { enumValues, saveRecord, tableRecord, type Section, type TableRecord, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
-  import SearchSelect from "../lib/SearchSelect.svelte";
+  import SearchSelect from "morphe/SearchSelect.svelte";
   import { loadIcons, speciesIcon } from "../lib/icons.svelte";
   import { achieved, assignSlots, slotOdds } from "../lib/slots";
 

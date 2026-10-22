@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { asset } from "../lib/backend";
-  import { once, debounced } from "../lib/cache.svelte";
+  import { once, debounced } from "morphe/cache.svelte";
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { copyText, guarded, openInFiles, saveAssets, savePng } from "../lib/exporter";
-  import { openMenu, toast } from "../lib/menu.svelte";
+  import { openMenu, toast } from "morphe/menu.svelte";
 
   // The 3D textures of an archive: the overworld's ground, buildings,
   // trees and characters are 3D, and these textures are their look.

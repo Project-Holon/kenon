@@ -18,8 +18,8 @@
   import RigPlayer from "./RigPlayer.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
-  import { debounced } from "../lib/cache.svelte";
-  import { openMenu } from "../lib/menu.svelte";
+  import { debounced } from "morphe/cache.svelte";
+  import { openMenu } from "morphe/menu.svelte";
   import { pictureMenu, picturePath, type Picture } from "../lib/graphicsMenu";
 
   let {

@@ -1,6 +1,6 @@
 // The data table commands (core/src/tables.rs) and an enum name cache.
 import { invoke } from "@tauri-apps/api/core";
-import { once } from "./cache.svelte";
+import { once } from "morphe/cache.svelte";
 
 export interface Value {
   key: string;

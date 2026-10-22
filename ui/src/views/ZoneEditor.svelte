@@ -4,12 +4,12 @@
   import { asset, saveTextBank, sounds, textBank, type SoundInfo } from "../lib/backend";
   import { tableEntries, type Entry, type Value } from "../lib/tables";
   import { play } from "../lib/sfx";
-  import { once } from "../lib/cache.svelte";
+  import { once } from "morphe/cache.svelte";
   import { FLAG_BLOCKED, kindName, tileCss, tileLabel, tileRgb } from "../lib/terrain";
   import TableEditor from "./TableEditor.svelte";
   import WildEditor from "./WildEditor.svelte";
-  import SearchSelect from "../lib/SearchSelect.svelte";
-  import { openMenu, type MenuItem } from "../lib/menu.svelte";
+  import SearchSelect from "morphe/SearchSelect.svelte";
+  import { openMenu, type MenuItem } from "morphe/menu.svelte";
   import { copyText, guarded, savePng } from "../lib/exporter";
   import { itemIcon, loadIcons, trainerIcon } from "../lib/icons.svelte";
   import { fromEditText, toEditText } from "../lib/msgtokens";

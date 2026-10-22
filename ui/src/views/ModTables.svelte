@@ -3,7 +3,7 @@
   import { SvelteMap } from "svelte/reactivity";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import ModDocs from "../lib/ModDocs.svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { TABLE_LANGUAGE, setTables, type Marker } from "../lib/monaco";
   import {
     modCheckTable,

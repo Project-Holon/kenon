@@ -899,7 +899,7 @@ async fn set_music(state: State<'_, AppState>, zone: usize, music: [u16; 4]) -> 
     kenon_core::zonemap::set_music(&bridge, zone, music).map_err(|e| e.to_string())
 }
 
-// The mod code editors (core/src/modcode.rs). Each command that changes the
+// The mod code editors (morphe, crates/eidos-mod/src/modcode.rs). Each command that changes the
 // manifest reopens the project, so the copy the app holds matches the disk.
 
 fn mod_root(state: &AppState) -> Result<PathBuf, String> {

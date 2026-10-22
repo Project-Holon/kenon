@@ -3,9 +3,9 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { addSound, asset, audioChanges, importSound, revertSound, sounds, type AudioSummary, type NewSound, type SoundInfo } from "../lib/backend";
   import VirtualList from "../lib/VirtualList.svelte";
-  import { debounced, forget } from "../lib/cache.svelte";
+  import { debounced, forget } from "morphe/cache.svelte";
   import { copyText, guarded, saveWav } from "../lib/exporter";
-  import { openMenu, toast } from "../lib/menu.svelte";
+  import { openMenu, toast } from "morphe/menu.svelte";
 
   let { group }: { group: SoundInfo["group"] } = $props();
 

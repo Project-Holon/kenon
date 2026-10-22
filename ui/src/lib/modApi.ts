@@ -1,5 +1,5 @@
 // Typed wrappers for the mod code commands in app/src/lib.rs
-// (core/src/modcode.rs).
+// (morphe, crates/eidos-mod/src/modcode.rs).
 import { invoke } from "@tauri-apps/api/core";
 
 export interface Diagnostic {

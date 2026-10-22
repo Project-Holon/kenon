@@ -1,6 +1,6 @@
 // Typed wrappers for the commands in app/src/lib.rs.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { once } from "./cache.svelte";
+import { once } from "morphe/cache.svelte";
 
 export interface Identity {
   title: string;

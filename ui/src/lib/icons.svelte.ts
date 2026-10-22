@@ -2,7 +2,7 @@
 // species' menu icon, an item's bag icon, a trainer class's sprite.
 import { invoke } from "@tauri-apps/api/core";
 import { asset } from "./backend";
-import { once } from "./cache.svelte";
+import { once } from "morphe/cache.svelte";
 
 const state = $state({
   // Pokemon icon sheet -> palette bank offset (named sheets of archive 7).

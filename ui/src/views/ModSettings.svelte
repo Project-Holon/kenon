@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { debounced } from "../lib/cache.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { modCheckSettings, modGetSettings, modSaveSettings, type Diagnostic, type ModSettings } from "../lib/modApi";
   import { play } from "../lib/sfx";
   import ModOptions from "./ModOptions.svelte";

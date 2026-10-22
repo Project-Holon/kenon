@@ -14,7 +14,7 @@
   } from "../lib/backend";
   import { play } from "../lib/sfx";
   import AnimationPlayer from "./AnimationPlayer.svelte";
-  import { isTextField, openMenu } from "../lib/menu.svelte";
+  import { isTextField, openMenu } from "morphe/menu.svelte";
   import { pictureMenu, type Picture } from "../lib/graphicsMenu";
   import { importPng } from "../lib/importPng";
   import type { ImportTarget } from "../lib/ImportPicture.svelte";

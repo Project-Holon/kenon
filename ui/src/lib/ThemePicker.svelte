@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { THEMES, savedTheme, setTheme, type Theme } from "./theme";
+  import { THEMES, savedTheme, setTheme, type Theme } from "morphe/theme";
   import { play } from "./sfx";
   import { asset } from "./backend";
-  import { once } from "./cache.svelte";
+  import { once } from "morphe/cache.svelte";
+  import PlainPicker from "morphe/ThemePicker.svelte";
 
   // With a ROM open the themes are picked by their legendary's party icon,
   // read from the ROM: Zekrom for night, Reshiram for day, Kyurem for the
@@ -60,20 +61,15 @@
     {/each}
   </div>
 {:else}
-  <label class="picker">
-    <span class="muted">Theme</span>
-    <select value={theme} onchange={(e) => choose((e.currentTarget as HTMLSelectElement).value as Theme)}>
-      {#each THEMES as [value, label]}<option {value}>{label}</option>{/each}
-    </select>
-  </label>
+  <PlainPicker
+    onpick={(t) => {
+      theme = t;
+      play("select");
+    }}
+  />
 {/if}
 
 <style>
-  .picker {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
   .icons {
     display: flex;
     gap: 0.2rem;

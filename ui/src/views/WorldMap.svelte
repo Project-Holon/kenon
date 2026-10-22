@@ -2,11 +2,11 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { asset } from "../lib/backend";
-  import { once } from "../lib/cache.svelte";
+  import { once } from "morphe/cache.svelte";
   import { tableEntries, type Entry } from "../lib/tables";
   import { play } from "../lib/sfx";
   import { loadIcons, trainerIcon } from "../lib/icons.svelte";
-  import SearchSelect from "../lib/SearchSelect.svelte";
+  import SearchSelect from "morphe/SearchSelect.svelte";
   import ZoneEditor from "./ZoneEditor.svelte";
 
   // Unova as the game's Town Map draws it, with its cities, routes and
