@@ -39,6 +39,38 @@
   let spots = $state<Spot[]>([]);
   let selected = $state<Spot | null>(null);
   let hover = $state<Spot | null>(null);
+  // The hovered spot's button, and where its name floats: fixed to the
+  // window, so it is never cut off by the map's edge, and kept on screen.
+  let hoverEl = $state<HTMLElement | null>(null);
+  let tipEl = $state<HTMLElement | null>(null);
+  let tip = $state<{ x: number; y: number; below: boolean } | null>(null);
+  function hoverOn(s: Spot, el: HTMLElement) {
+    hover = s;
+    hoverEl = el;
+  }
+  function hoverOff() {
+    hover = null;
+    hoverEl = null;
+  }
+  // Follows the spot while the map pans or zooms under the pointer.
+  $effect(() => {
+    const el = hoverEl;
+    if (!el) {
+      tip = null;
+      return;
+    }
+    let frameId = 0;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      const half = (tipEl?.offsetWidth ?? 0) / 2;
+      const x = Math.min(Math.max(r.left + r.width / 2, half + 8), window.innerWidth - half - 8);
+      const below = r.top < 48;
+      tip = { x, y: below ? r.bottom + 6 : r.top - 6, below };
+      frameId = requestAnimationFrame(place);
+    };
+    place();
+    return () => cancelAnimationFrame(frameId);
+  });
   let zones = $state<Zone[]>([]);
   let trainerNames = $state<Entry[]>([]);
   // The largest whole scale that fits the pane, unless the user zoomed.
@@ -183,6 +215,9 @@
         <span class="muted">Click a place to edit its maps. Ctrl+wheel zooms, middle-drag moves.</span>
       </div>
     {/if}
+    {#if hover && tip}
+      <span class="label window" class:below={tip.below} bind:this={tipEl} style="left: {tip.x}px; top: {tip.y}px">{hover.place}</span>
+    {/if}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="viewport" bind:this={frame} onpointerdown={pan}>
     {#if !error}
@@ -194,16 +229,13 @@
             class:on={selected?.zone === s.zone}
             style="left: {s.x * scale}px; top: {s.y * scale}px; --r: {size(s) * scale * 0.5}px"
             aria-label={s.place}
-            onmouseenter={() => (hover = s)}
-            onmouseleave={() => (hover = null)}
-            onfocus={() => (hover = s)}
-            onblur={() => (hover = null)}
+            onmouseenter={(e) => hoverOn(s, e.currentTarget)}
+            onmouseleave={hoverOff}
+            onfocus={(e) => hoverOn(s, e.currentTarget)}
+            onblur={hoverOff}
             onclick={() => choose(s)}
           ></button>
         {/each}
-        {#if hover}
-          <span class="label window" class:below={hover.y * scale < 36} style="left: {hover.x * scale}px; top: {hover.y * scale}px">{hover.place}</span>
-        {/if}
       </div>
     {/if}
     </div>
@@ -312,8 +344,9 @@
     background: color-mix(in srgb, var(--gold) 30%, transparent);
   }
   .label {
-    position: absolute;
-    transform: translate(-50%, -150%);
+    position: fixed;
+    z-index: 20;
+    transform: translate(-50%, -100%);
     padding: 0.15rem 0.5rem;
     font-size: 0.85rem;
     font-weight: 600;
@@ -321,7 +354,7 @@
     pointer-events: none;
   }
   .label.below {
-    transform: translate(-50%, 60%);
+    transform: translate(-50%, 0);
   }
   .icon {
     width: 32px;
