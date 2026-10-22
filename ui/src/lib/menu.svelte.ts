@@ -36,8 +36,9 @@ function tidy(items: MenuItem[]): MenuItem[] {
   return out;
 }
 
-/// Opens the menu at the pointer. Text fields keep the system menu (cut,
-/// copy, paste), so a handler that wants that checks `isTextField` first.
+/// Opens the menu at the pointer. Text fields get the cut, copy and paste
+/// menu (installMenuFallback), so a handler that wants that checks
+/// `isTextField` first and leaves the event alone.
 export function openMenu(e: MouseEvent, items: MenuItem[]) {
   const list = tidy(items);
   if (!list.length) return;
@@ -74,6 +75,75 @@ export function keepNative(e: MouseEvent): boolean {
   if (!isTextField(el)) return false;
   if (el!.tagName !== "TEXTAREA") return true;
   return el!.selectionStart !== el!.selectionEnd;
+}
+
+/// The menu for a text field: cut, copy, paste, select all. Typing
+/// commands keep the field's undo history and its input events.
+function textMenu(e: MouseEvent, el: HTMLInputElement | HTMLTextAreaElement | HTMLElement) {
+  const field = "value" in el ? (el as HTMLInputElement) : null;
+  const selected = field
+    ? field.value.slice(field.selectionStart ?? 0, field.selectionEnd ?? 0)
+    : (window.getSelection()?.toString() ?? "");
+  const editable = field ? !field.readOnly && !field.disabled : el.isContentEditable;
+  openMenu(e, [
+    {
+      label: "Cut",
+      hint: "Ctrl+X",
+      disabled: !selected || !editable,
+      run: async () => {
+        await navigator.clipboard.writeText(selected).catch(() => {});
+        el.focus();
+        document.execCommand("delete");
+      },
+    },
+    {
+      label: "Copy",
+      hint: "Ctrl+C",
+      disabled: !selected,
+      run: () => navigator.clipboard.writeText(selected).catch(() => toast("Could not copy.", true)),
+    },
+    {
+      label: "Paste",
+      hint: "Ctrl+V",
+      disabled: !editable,
+      run: async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          el.focus();
+          document.execCommand("insertText", false, text);
+        } catch {
+          toast("Press Ctrl+V to paste.", true);
+        }
+      },
+    },
+    "-",
+    {
+      label: "Select all",
+      hint: "Ctrl+A",
+      run: () => {
+        el.focus();
+        if (field) field.select();
+        else document.execCommand("selectAll");
+      },
+    },
+  ]);
+}
+
+/// Replaces the browser's own right-click menu everywhere: a text field gets
+/// a cut, copy and paste menu, anything else no menu. Views with menus of
+/// their own open them first (openMenu stops the event), and the code editor
+/// keeps its own.
+export function installMenuFallback() {
+  window.addEventListener("contextmenu", (e) => {
+    if (e.defaultPrevented) return;
+    const el = e.target as HTMLElement | null;
+    if (el?.closest?.(".monaco-editor")) return;
+    if (isTextField(el)) {
+      textMenu(e, el!);
+      return;
+    }
+    e.preventDefault();
+  });
 }
 
 let nextToast = 0;
