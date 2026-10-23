@@ -48,7 +48,7 @@ export function play(name: Sfx) {
   let audio = cache.get(name);
   if (!audio) {
     audio = new Audio(asset(`sound/${NAMES[name]}?seconds=3`));
-    audio.volume = 0.5;
+    audio.volume = 0.325;
     cache.set(name, audio);
   }
   audio.currentTime = 0;
