@@ -2,6 +2,18 @@
 
 The modding suite for the native port of Pokémon Black and White.
 
+## Download
+
+[![Windows](https://img.shields.io/badge/Windows-Download-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-windows-setup.exe)
+[![macOS](https://img.shields.io/badge/macOS-Download-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-macos.dmg)
+[![Linux AppImage](https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-linux.AppImage)
+[![Linux deb](https://img.shields.io/badge/Linux-.deb-A81D33?style=for-the-badge&logo=debian&logoColor=white)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-linux.deb)
+[![Linux rpm](https://img.shields.io/badge/Linux-.rpm-51A2DA?style=for-the-badge&logo=fedora&logoColor=white)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-linux.rpm)
+
+Click your system to download. The builds are not signed: on Windows, choose
+"More info" then "Run anyway"; on macOS, right-click the app and choose Open
+the first time.
+
 ## Status
 
 kenon opens the user's own ROM (`.nds`) and reads everything from it at run
