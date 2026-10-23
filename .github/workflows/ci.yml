@@ -17,9 +17,11 @@ jobs:
 
       - name: Linux packages for Tauri
         if: runner.os == 'Linux'
+        # A stuck mirror download must not hold the job for hours.
+        timeout-minutes: 10
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=30 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - uses: actions/setup-node@v4
         with:
