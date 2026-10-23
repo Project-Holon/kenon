@@ -49,13 +49,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cached after the first good run, so a slow package mirror does not
+      # hold the job; the cache keys on the package list and version.
       - name: Linux packages for Tauri
         if: runner.os == 'Linux'
-        # A stuck mirror download must not hold the job for hours.
-        timeout-minutes: 10
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=30 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        timeout-minutes: 15
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          version: "1"
 
       - uses: actions/setup-node@v4
         with:
