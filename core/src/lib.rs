@@ -6,7 +6,6 @@
 
 pub mod addresses;
 pub mod audio_import;
-pub mod blz;
 pub mod bridge;
 pub mod catalog;
 pub mod changes;
@@ -16,24 +15,15 @@ pub mod codemod;
 pub mod data_root;
 pub mod fielditems;
 pub mod g3d;
-pub mod image;
 pub mod import;
-pub mod lz;
 pub mod maprender;
 pub mod msg;
 pub mod nanr;
-pub mod narc;
-pub mod ncer;
-pub mod ncgr;
-pub mod nclr;
 pub mod nftr;
-pub mod nitro;
 pub mod nsbmd;
-pub mod nscr;
 pub mod project;
 pub mod props;
 pub mod rig;
-pub mod rom;
 pub mod scripts;
 pub mod sdat;
 pub mod sound_add;
@@ -45,3 +35,6 @@ pub mod zonemap;
 
 // Mod folders without game data live in morphe (eidos-mod).
 pub use eidos_mod::{modcode, modopts, package};
+
+// The cartridge reader and the 2D formats live in morphe's `nds` crate.
+pub use nds::{blz, image, lz, narc, ncer, ncgr, nclr, nitro, nscr, rom};

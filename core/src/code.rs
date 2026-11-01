@@ -32,33 +32,7 @@ pub enum Image {
     Overlay(u16),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OverlayEntry {
-    pub id: u32,
-    pub address: u32,
-    pub size: u32,
-    pub bss_size: u32,
-    pub compressed: bool,
-}
-
-/// Parses `y9.bin`.
-pub fn parse_overlay_table(bytes: &[u8]) -> Vec<OverlayEntry> {
-    bytes
-        .as_chunks::<32>()
-        .0
-        .iter()
-        .map(|e| {
-            let word = |i: usize| u32::from_le_bytes(e[i * 4..i * 4 + 4].try_into().unwrap());
-            OverlayEntry {
-                id: word(0),
-                address: word(1),
-                size: word(2),
-                bss_size: word(3),
-                compressed: word(7) & 0x0100_0000 != 0,
-            }
-        })
-        .collect()
-}
+pub use nds::rom::{parse_overlay_table, OverlayEntry};
 
 /// Where the images come from.
 enum Backing {

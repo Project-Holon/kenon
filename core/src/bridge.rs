@@ -990,27 +990,7 @@ pub fn render_text(
     out
 }
 
-/// Encodes RGBA as PNG.
-pub fn encode_png(img: &Rgba) -> Vec<u8> {
-    let mut out = Vec::new();
-    {
-        let mut encoder =
-            png::Encoder::new(&mut out, img.width.max(1) as u32, img.height.max(1) as u32);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().expect("PNG header to memory");
-        if img.width == 0 || img.height == 0 {
-            writer
-                .write_image_data(&[0; 4])
-                .expect("PNG data to memory");
-        } else {
-            writer
-                .write_image_data(&img.pixels)
-                .expect("PNG data to memory");
-        }
-    }
-    out
-}
+pub use nds::image::encode_png;
 
 #[cfg(test)]
 mod tests {

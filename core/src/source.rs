@@ -141,7 +141,7 @@ mod tests {
     fn opens_a_rom_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("game.nds");
-        std::fs::write(&path, crate::rom::tests::tiny_rom()).unwrap();
+        std::fs::write(&path, crate::rom::tiny_rom()).unwrap();
         let (check, source) = open(&path);
         assert!(
             matches!(
