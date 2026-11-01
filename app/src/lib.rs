@@ -87,6 +87,30 @@ struct Status {
     suggestion: Option<PathBuf>,
     project: Option<ProjectInfo>,
     recent: Vec<PathBuf>,
+    /// Whether the ROM matched a known good dump (None: not checked).
+    rom_verified: Option<bool>,
+}
+
+/// A recent project as the start screen shows it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentProject {
+    root: PathBuf,
+    name: String,
+    description: String,
+    /// The game code the mod is made for, empty when it does not say.
+    game: String,
+    changes: usize,
+    /// Seconds since 1970, 0 when not known.
+    opened: u64,
+    /// The folder is gone.
+    missing: bool,
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 fn status(state: &AppState) -> Status {
@@ -102,6 +126,7 @@ fn status(state: &AppState) -> Status {
             changes: p.changes(),
         }),
         recent: settings.recent.clone(),
+        rom_verified: settings.rom_verified,
     }
 }
 
@@ -134,7 +159,62 @@ fn set_rom(state: State<AppState>, path: Option<PathBuf>) -> Result<Status, Stri
         state.save_settings(&settings)?;
     }
     open_game(&mut state.open.write().unwrap(), path.as_deref());
+    // Hashing the whole ROM takes a moment, so it is done once, here.
+    let verified = match &state.open.read().unwrap().source {
+        Some(Source::Rom(rom)) => rom.is_known_dump().ok(),
+        _ => None,
+    };
+    {
+        let mut settings = state.settings.lock().unwrap();
+        settings.rom_verified = verified;
+        state.save_settings(&settings)?;
+    }
     Ok(status(&state))
+}
+
+/// The recent projects with what the start screen shows of each.
+#[tauri::command]
+fn recent_projects(state: State<AppState>) -> Vec<RecentProject> {
+    let settings = state.settings.lock().unwrap().clone();
+    settings
+        .recent
+        .iter()
+        .map(|root| {
+            let opened = settings.opened.get(root).copied().unwrap_or(0);
+            match Project::open(root) {
+                Ok(p) => RecentProject {
+                    root: root.clone(),
+                    name: p.manifest.name.clone(),
+                    description: p.manifest.description.clone(),
+                    game: p.manifest.game.clone(),
+                    changes: p.changes().len(),
+                    opened,
+                    missing: false,
+                },
+                Err(_) => RecentProject {
+                    root: root.clone(),
+                    name: root
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                    description: String::new(),
+                    game: String::new(),
+                    changes: 0,
+                    opened,
+                    missing: true,
+                },
+            }
+        })
+        .collect()
+}
+
+/// Drops a project from the recent list (its folder is left alone).
+#[tauri::command]
+fn forget_recent(state: State<AppState>, root: PathBuf) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    settings.recent.retain(|p| p != &root);
+    settings.opened.remove(&root);
+    state.save_settings(&settings)
 }
 
 fn remember(state: &AppState, root: &Path) -> Result<(), String> {
@@ -142,6 +222,9 @@ fn remember(state: &AppState, root: &Path) -> Result<(), String> {
     settings.recent.retain(|p| p != root);
     settings.recent.insert(0, root.to_path_buf());
     settings.recent.truncate(RECENT);
+    settings.opened.insert(root.to_path_buf(), now_secs());
+    let kept: Vec<PathBuf> = settings.recent.clone();
+    settings.opened.retain(|p, _| kept.contains(p));
     state.save_settings(&settings)
 }
 
@@ -153,9 +236,24 @@ fn set_project(state: &AppState, project: Option<Project>) {
 
 /// Creates a project (a mod folder) and opens it.
 #[tauri::command]
-fn new_project(state: State<AppState>, root: PathBuf, name: String) -> Result<Status, String> {
+fn new_project(
+    state: State<AppState>,
+    root: PathBuf,
+    name: String,
+    description: Option<String>,
+    author: Option<String>,
+    version: Option<String>,
+) -> Result<Status, String> {
     let rom = state.settings.lock().unwrap().game.clone();
-    let project = Project::create(&root, &name, rom.as_deref()).map_err(|e| e.to_string())?;
+    let mut project = Project::create(&root, &name, rom.as_deref()).map_err(|e| e.to_string())?;
+    project.manifest.description = description.unwrap_or_default();
+    project.manifest.author = author.unwrap_or_default();
+    project.manifest.version = version.unwrap_or_default();
+    // The mod is made for the cartridge that is open.
+    if let Some(GameCheck::Rom { identity, .. }) = &state.open.read().unwrap().check {
+        project.manifest.game = identity.game_code.clone();
+    }
+    project.save_meta().map_err(|e| e.to_string())?;
     remember(&state, &root)?;
     set_project(&state, Some(project));
     Ok(status(&state))
@@ -1511,6 +1609,8 @@ pub fn run() {
             set_rom,
             new_project,
             open_project,
+            recent_projects,
+            forget_recent,
             close_project,
             export_bw,
             import_bw,

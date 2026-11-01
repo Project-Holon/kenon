@@ -58,6 +58,20 @@ fn every_cartridge_reads_its_code_tables() {
             .unwrap()
             .bytes
             .starts_with(b"\x89PNG"));
+        // The cover legendary the start screen shows: Zekrom on Black,
+        // Reshiram on White.
+        let n = if id.game == Game::Black { 644 } else { 643 };
+        let sprite = bridge
+            .serve(&format!("preview/4:{}/4:{}?cells=4", 20 * n, 20 * n + 18))
+            .unwrap();
+        assert!(sprite.bytes.starts_with(b"\x89PNG"), "{name}");
+        if let Some(out) = std::env::var_os("KENON_RENDER_OUT") {
+            std::fs::write(
+                PathBuf::from(out).join(format!("{name}_cover.png")),
+                &sprite.bytes,
+            )
+            .unwrap();
+        }
         // Species names, bank 70.
         let bulbasaur =
             String::from_utf8(bridge.serve("msg/2/70/1").unwrap().bytes.clone()).unwrap();

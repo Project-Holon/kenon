@@ -15,6 +15,10 @@ pub struct Settings {
     pub game: Option<PathBuf>,
     /// Recently opened projects, newest first.
     pub recent: Vec<PathBuf>,
+    /// When each recent project was last opened (seconds since 1970).
+    pub opened: std::collections::BTreeMap<PathBuf, u64>,
+    /// Whether the chosen ROM matched a known good dump when it was chosen.
+    pub rom_verified: Option<bool>,
     /// The folder eidos loads mods from, for the conflict hints.
     pub mods_folder: Option<PathBuf>,
     /// eidos's `mod/declared_set.txt`, when it is not found beside the mods
@@ -82,6 +86,7 @@ mod tests {
                 y: 20.0,
                 maximized: true,
             }),
+            ..Default::default()
         };
         settings.save(&path).unwrap();
         assert_eq!(Settings::load(&path), settings);

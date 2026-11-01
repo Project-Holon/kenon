@@ -460,7 +460,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 3.0.9",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -717,7 +717,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "eidos-mod"
 version = "0.1.0"
-source = "git+https://github.com/Project-Holon/morphe?tag=v0.1.0#09d6fb50f20fb753d2ef59ba89c92278dbcc04e4"
+source = "git+https://github.com/Project-Holon/morphe?tag=v0.1.1#fc5236aa98af0b752bf51a48cf2d7b7723759819"
 dependencies = [
  "serde",
  "serde_json",

@@ -32,6 +32,26 @@ export interface Status {
   suggestion: string | null;
   project: ProjectInfo | null;
   recent: string[];
+  romVerified: boolean | null;
+}
+
+export interface RecentProject {
+  root: string;
+  name: string;
+  description: string;
+  /** The game code the mod is made for; empty when it does not say. */
+  game: string;
+  changes: number;
+  /** Seconds since 1970; 0 when not known. */
+  opened: number;
+  missing: boolean;
+}
+
+export interface NewProject {
+  name: string;
+  description: string;
+  author: string;
+  version: string;
 }
 
 export interface ArchiveInfo {
@@ -81,7 +101,10 @@ export type Ref = [number, number];
 
 export const appStatus = () => invoke<Status>("app_status");
 export const setRom = (path: string | null) => invoke<Status>("set_rom", { path });
-export const newProject = (root: string, name: string) => invoke<Status>("new_project", { root, name });
+export const newProject = (root: string, p: NewProject) =>
+  invoke<Status>("new_project", { root, name: p.name, description: p.description, author: p.author, version: p.version });
+export const recentProjects = () => invoke<RecentProject[]>("recent_projects");
+export const forgetRecent = (root: string) => invoke<void>("forget_recent", { root });
 export const openProject = (root: string) => invoke<Status>("open_project", { root });
 export const closeProject = () => invoke<Status>("close_project");
 export const exportBw = (path: string) => invoke<void>("export_bw", { path });
