@@ -133,18 +133,49 @@ pub enum Game {
 }
 
 /// The dumps kenon knows to be good (No-Intro): game code, size, SHA-1.
+/// The same twelve cartridges aletheia builds (its docs/ROMS.md).
+#[rustfmt::skip]
 pub const KNOWN_DUMPS: &[(&str, u64, &str)] = &[
-    (
-        "IRBO",
-        0x1000_0000,
-        "26ad0b9967aa279c4a266ee69f52b9b2332399a5",
-    ),
-    (
-        "IRAO",
-        0x1000_0000,
-        "bc696a0dfb448c7b3a8a206f0f8214411a039208",
-    ),
+    ("IRBO", 0x1000_0000, "26ad0b9967aa279c4a266ee69f52b9b2332399a5"),
+    ("IRAO", 0x1000_0000, "bc696a0dfb448c7b3a8a206f0f8214411a039208"),
+    ("IRBF", 0x1000_0000, "a559da54839663d8f8f3f03382e5665a61873d22"),
+    ("IRAF", 0x1000_0000, "28f075915dd445cbfd902f1e1a94d5048b03a095"),
+    ("IRBD", 0x1000_0000, "f5688bd617be7e67a150732f42cfae6ae104b2cb"),
+    ("IRAD", 0x1000_0000, "fb752b211351f8480e3e1949e11a1d7741f05f5a"),
+    ("IRBI", 0x1000_0000, "699f8c6a8390b5e30236b6c386bc3c4bd7bdc44e"),
+    ("IRAI", 0x1000_0000, "2e33164d26236dd499f75d1de3123d85e822d502"),
+    ("IRBS", 0x1000_0000, "68b55b82f5a033f9e9666c232f429e31ed658e54"),
+    ("IRAS", 0x1000_0000, "4cc963ca925409ff0f12f3c417d1cbe1094bf934"),
+    ("IRBJ", 0x1000_0000, "4ce46933ab795fc8bfc94acb7a853206b0c20b60"),
+    ("IRAJ", 0x1000_0000, "e392548c1a59e4cafd7ba7a502770369410b2358"),
 ];
+
+/// The cartridge's language, from the last letter of its game code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Language {
+    English,
+    French,
+    German,
+    Italian,
+    Spanish,
+    Japanese,
+    Other,
+}
+
+impl Language {
+    pub fn from_code(game_code: &str) -> Language {
+        match game_code.as_bytes().get(3) {
+            Some(b'O' | b'E' | b'P') => Language::English,
+            Some(b'F') => Language::French,
+            Some(b'D') => Language::German,
+            Some(b'I') => Language::Italian,
+            Some(b'S') => Language::Spanish,
+            Some(b'J') => Language::Japanese,
+            _ => Language::Other,
+        }
+    }
+}
 
 /// What the header says.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -153,6 +184,7 @@ pub struct Identity {
     pub title: String,
     pub game_code: String,
     pub game: Game,
+    pub language: Language,
     pub size: u64,
 }
 
@@ -199,6 +231,7 @@ impl Rom {
         };
         let identity = Identity {
             title: text(0x00..0x0C),
+            language: Language::from_code(&game_code),
             game_code,
             game,
             size: storage.len(),

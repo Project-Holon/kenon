@@ -30,7 +30,6 @@ use serde::Serialize;
 
 use crate::bridge::{Bridge, Error, Member};
 use crate::catalog;
-use crate::code::Image;
 use crate::tables;
 
 const SCRIPT_ARCHIVE: u16 = 57;
@@ -39,7 +38,6 @@ const ZONE_HEADERS: u16 = 12;
 const EVENT_FILES: u16 = 125;
 const ZONE_RECORD: usize = 48;
 const HEADER_END: u16 = 0xFD13;
-const RANGE_TABLE: u32 = 0x0217_01A8;
 const RANGE_ROWS: usize = 46;
 const RANGE_ROW: usize = 10;
 const ZONE_BANK_MARK: u16 = 0x400;
@@ -1110,7 +1108,7 @@ fn effect(op: u16, zone_bank: u16, ops: &Operands, acc: &mut Acc) {
 fn ranges(bridge: &Bridge) -> Vec<Range> {
     let Some(raw) = bridge
         .code()
-        .and_then(|c| c.read(Image::Overlay(10), RANGE_TABLE, RANGE_ROWS * RANGE_ROW))
+        .and_then(|c| c.table("script_ranges", RANGE_ROWS * RANGE_ROW))
     else {
         return Vec::new();
     };

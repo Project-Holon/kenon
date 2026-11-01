@@ -689,7 +689,10 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             let mut n = 0;
             while 7 + 2 * n < archive.len() {
                 let nibble = code
-                    .and_then(|c| c.read(crate::code::Image::Arm9, 0x0209_E474 + n as u32, 1))
+                    .and_then(|c| {
+                        let (image, at) = c.table_at("icon_palette")?;
+                        c.read(image, at + n as u32, 1)
+                    })
                     .map_or(0, |b| b[0]);
                 out.push(NamedSheet {
                     label: name(n),
@@ -770,8 +773,9 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             let items = bank(54);
             let mut by_tiles: Vec<(usize, usize, Vec<String>)> = Vec::new();
             for (item, label) in items.iter().enumerate().take(627) {
-                let Some(pair) =
-                    code.read(crate::code::Image::Arm9, 0x0209_EB6C + item as u32 * 4, 4)
+                let Some(pair) = code
+                    .table_at("item_icons")
+                    .and_then(|(image, at)| code.read(image, at + item as u32 * 4, 4))
                 else {
                     break;
                 };
@@ -812,8 +816,9 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             let mut names: Vec<Vec<String>> = vec![Vec::new(); archive.len() / 8];
             if let Some(code) = code {
                 for (class, label) in classes.iter().enumerate().take(106) {
-                    if let Some(g) =
-                        code.read(crate::code::Image::Arm9, 0x020A_023C + class as u32, 1)
+                    if let Some(g) = code
+                        .table_at("trainer_graphic")
+                        .and_then(|(image, at)| code.read(image, at + class as u32, 1))
                     {
                         if let Some(list) = names.get_mut(g[0] as usize) {
                             if !label.is_empty() && !list.contains(label) {

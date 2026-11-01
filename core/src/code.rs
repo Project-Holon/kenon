@@ -71,6 +71,8 @@ enum Backing {
 /// The code images of one game, loaded on first use.
 pub struct CodeImages {
     backing: Backing,
+    /// The cartridge's game code, which says where its tables sit.
+    game_code: String,
     table: Vec<OverlayEntry>,
     loaded: HashMap<Image, OnceLock<Vec<u8>>>,
 }
@@ -81,28 +83,55 @@ impl CodeImages {
     /// are read when first asked for.
     pub fn open(extraction_dir: &Path) -> io::Result<Self> {
         let table = parse_overlay_table(&fs::read(extraction_dir.join("y9.bin"))?);
+        // The extraction's copy of the header names the cartridge.
+        let game_code = fs::read(extraction_dir.join("header.bin"))
+            .ok()
+            .and_then(|h| {
+                h.get(0x0C..0x10)
+                    .map(|c| String::from_utf8_lossy(c).into_owned())
+            })
+            .unwrap_or_else(|| crate::addresses::DEFAULT_GAME_CODE.to_string());
         Ok(Self::with(
             Backing::Dir(extraction_dir.to_path_buf()),
             table,
+            game_code,
         ))
     }
 
     /// The images inside a ROM.
     pub fn from_rom(rom: Arc<Rom>) -> Self {
         let table = rom.overlays().to_vec();
-        Self::with(Backing::Rom(rom), table)
+        let game_code = rom.identity.game_code.clone();
+        Self::with(Backing::Rom(rom), table, game_code)
     }
 
-    fn with(backing: Backing, table: Vec<OverlayEntry>) -> Self {
+    fn with(backing: Backing, table: Vec<OverlayEntry>, game_code: String) -> Self {
         let loaded = std::iter::once(Image::Arm9)
             .chain((0..table.len()).map(|n| Image::Overlay(n as u16)))
             .map(|image| (image, OnceLock::new()))
             .collect();
         CodeImages {
             backing,
+            game_code,
             table,
             loaded,
         }
+    }
+
+    /// The cartridge's game code.
+    pub fn game_code(&self) -> &str {
+        &self.game_code
+    }
+
+    /// Where a named code table sits in this cartridge (see `addresses`).
+    pub fn table_at(&self, name: &str) -> Option<(Image, u32)> {
+        crate::addresses::lookup(&self.game_code, name)
+    }
+
+    /// The bytes of a named code table.
+    pub fn table(&self, name: &str, len: usize) -> Option<&[u8]> {
+        let (image, addr) = self.table_at(name)?;
+        self.read(image, addr, len)
     }
 
     pub fn overlays(&self) -> &[OverlayEntry] {

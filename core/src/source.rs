@@ -59,7 +59,7 @@ pub enum GameCheck {
     #[serde(rename_all = "camelCase")]
     Rom {
         identity: Identity,
-        /// Black is the version kenon is built and tested against.
+        /// kenon knows where this cartridge's code tables are.
         supported: bool,
     },
     /// An unpacked folder kenon can use.
@@ -85,10 +85,10 @@ pub fn open(path: &Path) -> (GameCheck, Option<Source>) {
                     },
                     None,
                 ),
-                game => (
+                _ => (
                     GameCheck::Rom {
                         identity: rom.identity.clone(),
-                        supported: game == Game::Black,
+                        supported: crate::addresses::known(&rom.identity.game_code),
                     },
                     Some(rom.into()),
                 ),
@@ -96,7 +96,7 @@ pub fn open(path: &Path) -> (GameCheck, Option<Source>) {
             Err(rom::Error::NotDs | rom::Error::TooSmall) => (
                 GameCheck::Problem {
                     message: "This file is not a Nintendo DS game. Choose the .nds file of your \
-                              Pokemon Black dump."
+                              Pokemon Black or White dump."
                         .to_string(),
                 },
                 None,
@@ -124,7 +124,7 @@ pub fn open(path: &Path) -> (GameCheck, Option<Source>) {
         ),
         _ => (
             GameCheck::Problem {
-                message: "No game here. Choose your Pokemon Black .nds file, or a folder \
+                message: "No game here. Choose your Pokemon Black or White .nds file, or a folder \
                           unpacked from it."
                     .to_string(),
             },

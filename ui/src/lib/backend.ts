@@ -6,6 +6,7 @@ export interface Identity {
   title: string;
   gameCode: string;
   game: "black" | "white" | "other";
+  language: "english" | "french" | "german" | "italian" | "spanish" | "japanese" | "other";
   size: number;
 }
 

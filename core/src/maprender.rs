@@ -50,7 +50,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde::Serialize;
 
 use crate::bridge::{Bridge, Error, Member};
-use crate::code::Image;
 use crate::g3d;
 use crate::image::Rgba;
 use crate::nsbmd::{self, Affine, Billboard, Cull, Material, Model, SrtAnim};
@@ -71,8 +70,6 @@ const TEXTURE_SWAPS: u16 = 70;
 const ZONE_FOG: u16 = 81;
 const ZONE_FOG_TABLE: usize = 13;
 const AREA_RECORDS: usize = 282;
-/// `_TimeZoneLightTable` in the ARM9 image: 5 hours per season.
-const TIMEZONE_LIGHT_TABLE: u32 = 0x0209_DF10;
 const CHUNK_TILES: usize = 32;
 /// World units per tile.
 const TILE: f32 = 16.0;
@@ -389,7 +386,7 @@ fn rgb5(c: u16) -> [f32; 3] {
 
 /// The hour of each time zone per season (`_TimeZoneLightTable`).
 fn light_hours(bridge: &Bridge) -> Option<[[u8; 5]; 4]> {
-    let raw = bridge.code()?.read(Image::Arm9, TIMEZONE_LIGHT_TABLE, 20)?;
+    let raw = bridge.code()?.table("timezone_light", 20)?;
     let mut out = [[0u8; 5]; 4];
     for (s, row) in out.iter_mut().enumerate() {
         row.copy_from_slice(&raw[s * 5..s * 5 + 5]);

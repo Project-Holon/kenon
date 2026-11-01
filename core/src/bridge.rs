@@ -89,7 +89,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::code::{CodeImages, Image};
+use crate::code::CodeImages;
 use crate::image::{self, Rgba, Zero};
 use crate::msg;
 use crate::nanr::Nanr;
@@ -152,26 +152,23 @@ impl std::str::FromStr for Member {
     }
 }
 
-/// UI tables that live in code (inventory section 14): name, image,
-/// address, length in bytes.
-pub const UI_TABLES: &[(&str, Image, u32, usize)] = &[
+/// UI tables that live in code (inventory section 14): name and length in
+/// bytes. Where each sits depends on the cartridge (`addresses`).
+pub const UI_TABLES: &[(&str, usize)] = &[
     // _PokeTypePltOffset: the palette offset of each type icon.
-    ("type_palette", Image::Arm9, 0x0209_FCF8, 18),
+    ("type_palette", 18),
     // _WazaKindPltOffset: the palette offset of each move-kind icon.
-    ("move_kind_palette", Image::Arm9, 0x0209_FCEC, 3),
+    ("move_kind_palette", 3),
     // The text speed table.
-    ("text_speed", Image::Arm9, 0x0209_DFB0, 5),
+    ("text_speed", 5),
     // TrainerGraIndexTable: the sprite graphic of each trainer class (the
     // first member in a/0/7/2 is 8 * graphic).
-    ("trainer_graphic", Image::Arm9, 0x020A_023C, 106),
+    ("trainer_graphic", 106),
     // item_gfx_member: per item, the u16 tile and palette members in a/0/2/5.
-    ("item_icons", Image::Arm9, 0x0209_EB6C, 627 * 4),
+    ("item_icons", 627 * 4),
     // _IconPaletteTable: per icon, the palette bank (low nibble; female high).
-    ("icon_palette", Image::Arm9, 0x0209_E474, 700),
+    ("icon_palette", 700),
 ];
-
-/// The list-menu cursor tile (BMP_CURSOR_SetTileBitmap), one 4bpp tile.
-const CURSOR_TILE: (Image, u32) = (Image::Arm9, 0x0209_E8CC);
 
 /// The entries a cache keeps before it starts over.
 const CACHE_LIMIT: usize = 4096;
@@ -499,7 +496,7 @@ impl Bridge {
             Some("cursor") if parts.len() == 3 => {
                 let palette = self.nclr(member(1)?)?;
                 let raw = self
-                    .code_bytes(CURSOR_TILE.0, CURSOR_TILE.1, 32)
+                    .code_table("cursor_tile", 32)
                     .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
                 let base = number(2)? * 16;
                 let mut img = Rgba::new(8, 8);
@@ -515,12 +512,12 @@ impl Bridge {
                 Ok(png(img))
             }
             Some("table") if parts.len() == 2 => {
-                let &(_, image, address, len) = UI_TABLES
+                let &(name, len) = UI_TABLES
                     .iter()
                     .find(|t| t.0 == parts[1])
                     .ok_or_else(|| Error::BadPath(path.to_string()))?;
                 let bytes = self
-                    .code_bytes(image, address, len)
+                    .code_table(name, len)
                     .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
                 let values: Vec<String> = bytes.iter().map(u8::to_string).collect();
                 Ok(json(format!("[{}]", values.join(","))))
@@ -824,7 +821,7 @@ impl Bridge {
     /// The game's packed-character table (codes 0x100..0x131 of packed
     /// strings), read from the ROM's ARM9 image.
     pub fn packed_table(&self) -> Option<Vec<u16>> {
-        let raw = self.code_bytes(Image::Arm9, 0x0209_E864, crate::msg::PACKED_TABLE_LEN * 2)?;
+        let raw = self.code_table("packed_chars", crate::msg::PACKED_TABLE_LEN * 2)?;
         Some(
             raw.as_chunks::<2>()
                 .0
@@ -834,8 +831,9 @@ impl Bridge {
         )
     }
 
-    fn code_bytes(&self, image: Image, address: u32, len: usize) -> Option<Vec<u8>> {
-        Some(self.code.as_ref()?.read(image, address, len)?.to_vec())
+    /// The bytes of a named code table in this cartridge.
+    fn code_table(&self, name: &str, len: usize) -> Option<Vec<u8>> {
+        Some(self.code.as_ref()?.table(name, len)?.to_vec())
     }
 
     fn archive(&self, arc: u16) -> Result<Arc<narc::Narc>, Error> {
