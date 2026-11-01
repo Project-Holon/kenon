@@ -17,7 +17,6 @@ pub mod fielditems;
 pub mod g3d;
 pub mod import;
 pub mod maprender;
-pub mod msg;
 pub mod nanr;
 pub mod nftr;
 pub mod nsbmd;
@@ -37,4 +36,4 @@ pub mod zonemap;
 pub use eidos_mod::{modcode, modopts, package};
 
 // The cartridge reader and the 2D formats live in morphe's `nds` crate.
-pub use nds::{blz, image, lz, narc, ncer, ncgr, nclr, nitro, nscr, rom};
+pub use nds::{blz, image, lz, msg, narc, ncer, ncgr, nclr, nitro, nscr, rom};
