@@ -2,6 +2,8 @@
 
 The modding suite for the native port of Pokémon Black and White.
 
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Fpyemx4qp)
+
 ## Download
 
 [![Windows](https://img.shields.io/badge/Windows-Download-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Project-Holon/kenon/releases/latest/download/kenon-windows-setup.exe)
@@ -70,6 +72,10 @@ Pushing a tag `vX.Y.Z` builds the app for Windows, Linux and macOS and
 publishes the builds as a GitHub release. Set the version first with
 `npm run set-version -- X.Y.Z` (it updates `Cargo.toml`, `package.json`
 and `app/tauri.conf.json`), commit, then tag. The builds are not signed.
+
+## Community
+
+Join the [Project Holon Discord](https://discord.gg/Fpyemx4qp) to share custom mods, report editor bugs, request features, or get help with modding.
 
 ## Relationship to the other repositories
 
