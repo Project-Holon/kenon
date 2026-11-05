@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "b1d2b68",
+  "eidosRevision": "0686639",
   "apiVersion": 5,
   "apiStatus": "open",
   "sources": [
@@ -2399,7 +2399,7 @@
    "name": "battle.faint",
    "category": "Battle",
    "since": 3,
-   "where": "BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64",
+   "where": "the return of BTL_SERVER_FLOW_ProcFaintedPoke 0x021C4F64, when it answers 1 (a Pokemon has just fainted; the server asks about every Pokemon a move touched)",
    "refuse": null,
    "modifyText": null,
    "details": null,
@@ -2888,8 +2888,8 @@
    "since": 4,
    "where": "the return of BTL_SERVER_FLOW_CalcPartyExpShares 0x021CB2D4 (ov093), before mon.exp",
    "refuse": "nobody gains",
-   "modifyText": "the scale of every share",
-   "details": "It fires before mon.exp fires for each member that gains.  A refusal gives nobody any experience (and mon.exp does not fire); scale changes every member's share.",
+   "modifyText": "the scale of every share, the bench's share",
+   "details": "It fires before mon.exp fires for each member that gains.  A refusal gives nobody any experience (and mon.exp does not fire); scale changes every member's share. Version 5 appends share: when a handler sets it, every party member that would gain nothing (it did not fight and holds no Exp. Share) and can battle gets that percentage of what it would have gained had it fought, with its own level, Lucky Egg, trade bonus and effort values, as the later games' Exp. Share does.  scale applies after it.",
    "notes": [
     "members has bit i set for each party position i that gains. scale is a percentage of every share: 100 leaves them. To change one member only, use mon.exp."
    ],
@@ -2929,6 +2929,24 @@
      "cName": "total",
      "cType": "u32",
      "ruleKind": "int"
+    },
+    {
+     "name": "share",
+     "type": "uint8_t",
+     "meaning": "the bench's percentage; 0 for none",
+     "writable": true,
+     "cName": "share",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "share_pad",
+     "type": "uint8_t[3]",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "share_pad",
+     "cType": "u8[3]",
+     "ruleKind": "list"
     }
    ],
    "cStruct": "EidosBattleExp",
@@ -2945,6 +2963,429 @@
    "recipes": [
     "no-battle-exp"
    ]
+  },
+  {
+   "name": "battle.ai",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "It fires at each stage the game goes through, after the game's own choice, and a handler may replace that choice: - item: item is the item the trainer uses (0 none).  Writing another item uses that one; writing 0 uses none (the trainer's item the game picked is spent either way). - switch: switch_to is the party position switched to, 6 for none (only with a trainer).  A position of a Pokemon that cannot battle or is already out is ignored. - move: move is the move slot (0 to 3; 4 to run, for a wild one), target_pos the battle position aimed at; scores are the game's own points for each slot after its AI scripts (moves with no PP score 0). The stages follow each other: a Pokemon that uses an item or switches does not reach the move stage.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "the Pokemon choosing",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "target",
+     "type": "EidosMonRef",
+     "meaning": "move stage: the Pokemon the game's scripts aimed at",
+     "writable": false,
+     "cName": "target",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "stage",
+     "type": "uint8_t",
+     "meaning": "0 item, 1 switch, 2 move",
+     "writable": false,
+     "cName": "stage",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "switch_to",
+     "type": "uint8_t",
+     "meaning": "switch stage: the party position switched to, 6 none; a position that cannot battle or is out is ignored",
+     "writable": true,
+     "cName": "switch_to",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "move",
+     "type": "uint8_t",
+     "meaning": "move stage: the move slot, 0 to 3 (4 runs, for a wild Pokemon)",
+     "writable": true,
+     "cName": "move",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "target_pos",
+     "type": "uint8_t",
+     "meaning": "move stage: the battle position aimed at",
+     "writable": true,
+     "cName": "target_pos",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "item",
+     "type": "uint16_t",
+     "meaning": "item stage: the trainer's item used, 0 none; another item is used instead, 0 uses none (the item the game picked is spent either way)",
+     "writable": true,
+     "cName": "item",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint16_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "scores",
+     "type": "int32_t[4]",
+     "meaning": "move stage: the game's own points per move slot after its AI scripts",
+     "writable": false,
+     "cName": "scores",
+     "cType": "s32[4]",
+     "ruleKind": "list"
+    }
+   ],
+   "cStruct": "EidosBattleAi",
+   "numId": 84,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.ai",
+   "when": "A Pokemon the game controls (a trainer's, or a wild one for the move stage) has made one of its choices for the turn.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.ai_replace",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "order lists the party positions that can battle, the game's own preference first (the one that hits the foe hardest); the first ones are sent.  A handler may reorder the list; positions not in it are ignored.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "foe",
+     "type": "EidosMonRef",
+     "meaning": "the Pokemon the game measured against",
+     "writable": false,
+     "cName": "foe",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "count",
+     "type": "uint8_t",
+     "meaning": "entries of order",
+     "writable": false,
+     "cName": "count",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "order",
+     "type": "uint8_t[6]",
+     "meaning": "the party positions, in the order they go in",
+     "writable": true,
+     "cName": "order",
+     "cType": "u8[6]",
+     "ruleKind": "list"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleAiReplace",
+   "numId": 85,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.ai_replace",
+   "when": "A trainer sends in Pokemon after a faint.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.ability",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": null,
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "ability",
+     "type": "uint16_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "ability",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "side",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "side",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleAbility",
+   "numId": 86,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.ability",
+   "when": "An ability shows itself (the game's ability banner): Intimidate on entry, Contrary turning a drop, and so on.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.stat",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "stat is the game's stat id (1 attack, 2 defense, 3 special attack, 4 special defense, 5 speed, 6 accuracy, 7 evasion), delta the stages it moves by.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "stat",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "stat",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "delta",
+     "type": "int8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "delta",
+     "cType": "s8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "side",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "side",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleStat",
+   "numId": 87,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.stat",
+   "when": "A stat stage changes, after the abilities that turn or block it.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.held_item",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "item is the item, also when it was used up by its effect.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "item",
+     "type": "uint16_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "item",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "side",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "side",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleHeldItem",
+   "numId": 88,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.held_item",
+   "when": "A held item takes effect (a berry eaten, Leftovers, a Focus Sash...).",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.status",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "status is the game's condition id (the major statuses 1 paralysis, 2 sleep, 3 freeze, 4 burn, 5 poison, then confusion and the others of the battle's own list), applied whether it took.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mon",
+     "type": "EidosMonRef",
+     "meaning": "",
+     "writable": false,
+     "cName": "mon",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "source",
+     "type": "EidosMonRef",
+     "meaning": "the Pokemon that caused it, or empty",
+     "writable": false,
+     "cName": "source",
+     "cType": "BwMonRef",
+     "ruleKind": "mon"
+    },
+    {
+     "name": "status",
+     "type": "uint16_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "status",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "applied",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "applied",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "side",
+     "type": "uint8_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "side",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleStatus",
+   "numId": 89,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.status",
+   "when": "A condition is put on a Pokemon, or fails to be.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
   },
   {
    "name": "item.add",
@@ -3498,6 +3939,57 @@
     "message"
    ],
    "recipes": []
+  },
+  {
+   "name": "battle.turn",
+   "category": "Battle",
+   "since": 3,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": null,
+   "notes": [],
+   "payload": [
+    {
+     "name": "turn",
+     "type": "uint16_t",
+     "meaning": "",
+     "writable": false,
+     "cName": "turn",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "weather",
+     "type": "uint8_t",
+     "meaning": "the game's weather id, 0 none",
+     "writable": false,
+     "cName": "weather",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleTurn",
+   "numId": 113,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.turn",
+   "when": "A turn starts.",
+   "functions": [
+    "battle_get",
+    "battle_ref",
+    "message"
+   ],
+   "recipes": []
   }
  ],
  "enums": [
@@ -3930,6 +4422,24 @@
    ]
   },
   {
+   "title": "Which choice the game made for a Pokemon it controls (battle.ai).",
+   "prefix": "EIDOS_AI_",
+   "members": [
+    {
+     "name": "EIDOS_AI_ITEM",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_AI_SWITCH",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_AI_MOVE",
+     "value": 2
+    }
+   ]
+  },
+  {
    "title": "The two script machines.",
    "prefix": "EIDOS_SCRIPT_VM_",
    "members": [
@@ -4084,6 +4594,42 @@
     {
      "name": "EIDOS_MON_FIELD_MET_LEVEL",
      "value": 153
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_ATK",
+     "value": 257
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_DEF",
+     "value": 258
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_SPATK",
+     "value": 259
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_SPDEF",
+     "value": 260
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_SPEED",
+     "value": 261
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_ACCURACY",
+     "value": 262
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STAGE_EVASION",
+     "value": 263
+    },
+    {
+     "name": "EIDOS_MON_FIELD_STATUS",
+     "value": 264
+    },
+    {
+     "name": "EIDOS_MON_FIELD_BATTLE_ABILITY",
+     "value": 265
     }
    ]
   },
@@ -5355,7 +5901,14 @@
     "catch.result",
     "battle.end",
     "whiteout",
-    "battle.trainer_mon"
+    "battle.trainer_mon",
+    "battle.ai",
+    "battle.ai_replace",
+    "battle.ability",
+    "battle.stat",
+    "battle.held_item",
+    "battle.status",
+    "battle.turn"
    ],
    "fromC": true,
    "since": 0
@@ -5401,8 +5954,15 @@
     "whiteout",
     "battle.trainer_mon",
     "battle.exp",
+    "battle.ai",
+    "battle.ai_replace",
+    "battle.ability",
+    "battle.stat",
+    "battle.held_item",
+    "battle.status",
     "heal.hp",
-    "mon.revive"
+    "mon.revive",
+    "battle.turn"
    ],
    "fromC": true,
    "since": 0
@@ -5957,7 +6517,7 @@
    "kind": "state",
    "name": "item_value",
    "cName": "eidos_item_value",
-   "group": "Item and move data",
+   "group": "Item, move and type data",
    "signature": "int32_t eidos_item_value(uint32_t item, uint32_t field, uint32_t *out)",
    "params": [
     "uint32_t item",
@@ -5981,7 +6541,7 @@
    "kind": "state",
    "name": "move_value",
    "cName": "eidos_move_value",
-   "group": "Item and move data",
+   "group": "Item, move and type data",
    "signature": "int32_t eidos_move_value(uint32_t move, uint32_t field, uint32_t *out)",
    "params": [
     "uint32_t move",
@@ -6123,6 +6683,72 @@
    "since": 0
   },
   {
+   "id": "fn:type_effect",
+   "kind": "state",
+   "name": "type_effect",
+   "cName": "eidos_type_effect",
+   "group": "Item, move and type data",
+   "signature": "int32_t eidos_type_effect(uint32_t atk_type, uint32_t def_type1, uint32_t def_type2)",
+   "params": [
+    "uint32_t atk_type",
+    "uint32_t def_type1",
+    "uint32_t def_type2"
+   ],
+   "what": "How well a move type hits a Pokemon of one or two types, from the game's own type chart. Pass the same type twice for a single type. The chart is the battle's data, so it answers only while a battle runs.",
+   "result": "In quarters: 0 no effect, 1 or 2 not very effective, 4 normal, 8 or 16 super effective; -1 outside a battle or for a type past the list.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:battle_weather",
+   "kind": "state",
+   "name": "battle_weather",
+   "cName": "eidos_battle_weather",
+   "group": "The world, the battle and play time",
+   "signature": "int32_t eidos_battle_weather(void)",
+   "params": [],
+   "what": "The weather of the battle in progress.",
+   "result": "The game's weather id, 0 for none; -1 when no battle runs.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
+   "id": "fn:species_learns",
+   "kind": "state",
+   "name": "species_learns",
+   "cName": "eidos_species_learns",
+   "group": "Species and dex",
+   "signature": "int32_t eidos_species_learns(uint32_t species, uint32_t form, uint32_t move, uint32_t level)",
+   "params": [
+    "uint32_t species",
+    "uint32_t form",
+    "uint32_t move",
+    "uint32_t level"
+   ],
+   "what": "Whether a species (and form) can learn a move, and how: by level up (at or below the level given, or at any level for 0), by a TM or HM, or as an egg move.",
+   "result": "A bit mask: 1 level up, 2 TM or HM, 4 egg move; 0 when it cannot; -1 for a species or move past the list.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 5
+  },
+  {
    "id": "fn:message",
    "kind": "service",
    "name": "message",
@@ -6188,6 +6814,12 @@
     "battle.end",
     "whiteout",
     "battle.trainer_mon",
+    "battle.ai",
+    "battle.ai_replace",
+    "battle.ability",
+    "battle.stat",
+    "battle.held_item",
+    "battle.status",
     "item.add",
     "item.use",
     "shop.buy",
@@ -6197,7 +6829,8 @@
     "mon.revive",
     "badge.get",
     "flag.set",
-    "dex.register"
+    "dex.register",
+    "battle.turn"
    ],
    "fromC": true,
    "since": 0
@@ -7106,6 +7739,7 @@
     "species_value",
     "species_base",
     "species_shiny",
+    "species_learns",
     "dex_caught"
    ]
   },
@@ -7148,14 +7782,16 @@
     "area_of",
     "battle_wild",
     "battle_trainer",
+    "battle_weather",
     "play_seconds"
    ]
   },
   {
-   "title": "Item and move data",
+   "title": "Item, move and type data",
    "fns": [
     "item_value",
-    "move_value"
+    "move_value",
+    "type_effect"
    ]
   },
   {
@@ -8778,7 +9414,7 @@
    "addr": "0x02189BD0",
    "key": "ov021:0x02189BD0",
    "events": [],
-   "proto": "int (void *, void *, void *, void *)",
+   "proto": "void * (void *, void *, void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8789,7 +9425,7 @@
    "addr": "0x0218A278",
    "key": "ov021:0x0218A278",
    "events": [],
-   "proto": "int (void *, void *)",
+   "proto": "void * (void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8800,7 +9436,7 @@
    "addr": "0x0218A4BC",
    "key": "ov021:0x0218A4BC",
    "events": [],
-   "proto": "int (void *, void *, unsigned int, unsigned int)",
+   "proto": "void * (void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8813,7 +9449,7 @@
    "events": [
     "player.step"
    ],
-   "proto": "int (void *, void *)",
+   "proto": "void * (void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8835,7 +9471,7 @@
    "addr": "0x0218B3DC",
    "key": "ov021:0x0218B3DC",
    "events": [],
-   "proto": "void * (int, void *, void *, int, int)",
+   "proto": "void * (void *, void *, void *, int, int)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8846,7 +9482,7 @@
    "addr": "0x0218B408",
    "key": "ov021:0x0218B408",
    "events": [],
-   "proto": "int (void *, void *, void *)",
+   "proto": "void * (void *, void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -9727,6 +10363,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov093:0x021BBC44",
+   "name": "BTL_SERVER_FLOW_StartTurn",
+   "region": "ov093",
+   "addr": "0x021BBC44",
+   "key": "ov093:0x021BBC44",
+   "events": [
+    "battle.turn"
+   ],
+   "proto": "int (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov093:0x021BD60C",
    "name": "BTL_SERVER_FLOW_TryEscape",
    "region": "ov093",
@@ -9812,6 +10461,32 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov093:0x021C2128",
+   "name": "BTL_SERVER_FLOW_ProcHeldItemActivate",
+   "region": "ov093",
+   "addr": "0x021C2128",
+   "key": "ov093:0x021C2128",
+   "events": [
+    "battle.held_item"
+   ],
+   "proto": "int (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C27A0",
+   "name": "BTL_SERVER_FLOW_TryApplySick",
+   "region": "ov093",
+   "addr": "0x021C27A0",
+   "key": "ov093:0x021C27A0",
+   "events": [
+    "battle.status"
+   ],
+   "proto": "int (void *, void *, void *, int, unsigned int, unsigned char, unsigned int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov093:0x021C33E8",
    "name": "BTL_SERVER_FLOW_ApplyHpRecover",
    "region": "ov093",
@@ -9880,6 +10555,32 @@
     "mon.cure"
    ],
    "proto": "void (void *, void *, int, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C5A1C",
+   "name": "BTL_SERVER_FLOW_PushAbilityPopupIn",
+   "region": "ov093",
+   "addr": "0x021C5A1C",
+   "key": "ov093:0x021C5A1C",
+   "events": [
+    "battle.ability"
+   ],
+   "proto": "void (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C5A8C",
+   "name": "BTL_SERVER_FLOW_ChangeStatStage",
+   "region": "ov093",
+   "addr": "0x021C5A8C",
+   "key": "ov093:0x021C5A8C",
+   "events": [
+    "battle.stat"
+   ],
+   "proto": "void (void *, void *, int, int, unsigned short, int)",
    "aliases": [],
    "protoFromC": true
   },
@@ -10132,6 +10833,54 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov093:0x021CFBF0",
+   "name": "BTL_CLIENT_ChooseAiSwitchTarget",
+   "region": "ov093",
+   "addr": "0x021CFBF0",
+   "key": "ov093:0x021CFBF0",
+   "events": [
+    "battle.ai"
+   ],
+   "proto": "int (void *, void *, unsigned int, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021D0770",
+   "name": "BTL_CLIENT_StepAutoChooseActions",
+   "region": "ov093",
+   "addr": "0x021D0770",
+   "key": "ov093:0x021D0770",
+   "events": [],
+   "proto": "int (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021D09E0",
+   "name": "BTL_CLIENT_SortMonsByMovePower",
+   "region": "ov093",
+   "addr": "0x021D09E0",
+   "key": "ov093:0x021D09E0",
+   "events": [
+    "battle.ai_replace"
+   ],
+   "proto": "void (void *, void *, unsigned char, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021D0D50",
+   "name": "BTL_CLIENT_ChooseReplacementsAuto",
+   "region": "ov093",
+   "addr": "0x021D0D50",
+   "key": "ov093:0x021D0D50",
+   "events": [],
+   "proto": "int (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov093:0x021D1290",
    "name": "BTL_CLIENT_StepShowResultMessage",
    "region": "ov093",
@@ -10174,6 +10923,19 @@
    "key": "ov093:0x021D2CA8",
    "events": [],
    "proto": "int (void *, void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021D3DC4",
+   "name": "BTL_CLIENT_TakeTrainerItemToUse",
+   "region": "ov093",
+   "addr": "0x021D3DC4",
+   "key": "ov093:0x021D3DC4",
+   "events": [
+    "battle.ai"
+   ],
+   "proto": "unsigned int (void *, void *, void *)",
    "aliases": [],
    "protoFromC": true
   },
@@ -10316,6 +11078,52 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov096:0x02187FB0",
+   "name": "TR_AI_Think",
+   "region": "ov096",
+   "addr": "0x02187FB0",
+   "key": "ov096:0x02187FB0",
+   "events": [],
+   "proto": "int (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov096:0x021880BC",
+   "name": "TR_AI_Start",
+   "region": "ov096",
+   "addr": "0x021880BC",
+   "key": "ov096:0x021880BC",
+   "events": [],
+   "proto": "void (void *, void *, int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov096:0x02188134",
+   "name": "TR_AI_GetChosenMove",
+   "region": "ov096",
+   "addr": "0x02188134",
+   "key": "ov096:0x02188134",
+   "events": [
+    "battle.ai"
+   ],
+   "proto": "unsigned char (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov096:0x02188140",
+   "name": "TR_AI_GetChosenTarget",
+   "region": "ov096",
+   "addr": "0x02188140",
+   "key": "ov096:0x02188140",
+   "events": [],
+   "proto": "unsigned char (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov120:0x021D42D8",
    "name": "GTSNEGO_DISP_StartTrade",
    "region": "ov120",
@@ -10434,7 +11242,7 @@
    "events": [
     "mon.nickname"
    ],
-   "proto": "void * (unsigned short, unsigned int, unsigned int, unsigned int, unsigned int, void *, void *, void *, void *)",
+   "proto": "void * (unsigned short, void *, void *, void *, unsigned int, void *, void *, void *, void *)",
    "aliases": [],
    "protoFromC": true
   }
@@ -11086,8 +11894,7 @@
       "Add species past the original ones, up to 2047.",
       "Replace a game function from a code mod. `eidos_override` and `eidos_original` answer -1 for now; native mods can.",
       "Receive a save sent by a peer in a code mod. `on_save_received` does nothing yet.",
-      "Cap a code mod's memory or running time. A runaway mod can slow the game.",
-      "A `player.step` mod does not fire in a build made from the decompiled source."
+      "Cap a code mod's memory or running time. A runaway mod can slow the game."
      ]
     }
    ]

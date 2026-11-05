@@ -87,7 +87,8 @@ for (const e of eventsJson.events) {
     const field = {
       name: f.rule_name,
       type: f.type + (f.count !== null ? `[${f.count}]` : ""),
-      meaning: prose(f.doc ?? ""),
+      // padding keeps the C layout; a rule cannot name it
+      meaning: prose(f.doc || (/(^|_)pad$/.test(f.name) ? "Padding; it holds nothing." : "")),
       writable: f.writable,
       cName: f.name,
       cType: f.c_type + (f.count !== null ? `[${f.count}]` : ""),
