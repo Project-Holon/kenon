@@ -22,6 +22,8 @@ export interface ModSettings {
   version: string;
   /// Words that sort the mod in the mod index, lowercased.
   tags: string[];
+  /// The mod's picture: `item <n>`, `species <n>` or a .png in the folder.
+  icon: string | null;
   api: number | null;
   port: string | null;
   code: string | null;

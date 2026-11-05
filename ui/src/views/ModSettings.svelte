@@ -14,6 +14,7 @@
     author: "",
     version: "",
     tags: [],
+    icon: null,
     api: null,
     port: null,
     code: null,
@@ -42,6 +43,7 @@
       author: s.author.trim(),
       version: s.version.trim(),
       tags: [...new Set(s.tags.map((t) => t.trim().toLowerCase()).filter((t) => t))],
+      icon: text(s.icon),
       api: code ? s.api : null,
       port: text(s.port),
       code,
@@ -169,6 +171,21 @@
             oninput={(e) => (form.tags = e.currentTarget.value.split(","))}
           />
           <p class="hint muted">Words that sort the mod in the mod index, split by commas.</p>
+        </div>
+
+        <label for="mod-icon">Icon</label>
+        <div class="field">
+          <input
+            id="mod-icon"
+            placeholder="item 280"
+            value={form.icon ?? ""}
+            oninput={(e) => (form.icon = e.currentTarget.value)}
+          />
+          <p class="hint muted">
+            The mod's picture: <code>item 280</code> (an item's bag icon), <code>species 25</code> (a Pokémon), or a
+            square PNG in the mod folder, at most 256x256 and 64 KB.
+          </p>
+          {#each about("icon") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
         </div>
 
         <label for="mod-order">Load order</label>

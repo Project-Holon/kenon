@@ -1035,6 +1035,7 @@ fn mod_check_settings(
     let mut found = modcode::check_settings(&settings, hooks.lines().count());
     found.extend(modcode::check_table_files(&root).map_err(|e| e.to_string())?);
     found.extend(modcode::check_session_use(&root, &settings));
+    found.extend(modcode::check_icon_file(&root, &settings));
     Ok(found)
 }
 
