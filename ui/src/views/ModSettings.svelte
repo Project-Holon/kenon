@@ -10,6 +10,10 @@
   const blank: ModSettings = {
     name: "",
     order: 0,
+    description: "",
+    author: "",
+    version: "",
+    tags: [],
     api: null,
     port: null,
     code: null,
@@ -34,6 +38,10 @@
     return {
       name: s.name.trim(),
       order: Number.isFinite(s.order) ? Math.trunc(s.order) : 0,
+      description: s.description.replace(/\s+/g, " ").trim(),
+      author: s.author.trim(),
+      version: s.version.trim(),
+      tags: [...new Set(s.tags.map((t) => t.trim().toLowerCase()).filter((t) => t))],
       api: code ? s.api : null,
       port: text(s.port),
       code,
@@ -132,6 +140,35 @@
           <input id="mod-name" bind:value={form.name} />
           <p class="hint muted">Shown in the game's mod menu.</p>
           {#each about("name") as p}<p class="bad">{p.message}</p>{/each}
+        </div>
+
+        <label for="mod-description">Description</label>
+        <div class="field">
+          <textarea id="mod-description" rows="2" bind:value={form.description}></textarea>
+          <p class="hint muted">A sentence or two for players. The mod index shows it.</p>
+        </div>
+
+        <label for="mod-author">Author</label>
+        <div class="field">
+          <input id="mod-author" bind:value={form.author} />
+        </div>
+
+        <label for="mod-version">Version</label>
+        <div class="field">
+          <input id="mod-version" placeholder="1.0.0" bind:value={form.version} />
+          <p class="hint muted">Three numbers, like 1.0.0.</p>
+          {#each about("version") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
+        </div>
+
+        <label for="mod-tags">Tags</label>
+        <div class="field">
+          <input
+            id="mod-tags"
+            placeholder="hard, rules"
+            value={form.tags.join(",")}
+            oninput={(e) => (form.tags = e.currentTarget.value.split(","))}
+          />
+          <p class="hint muted">Words that sort the mod in the mod index, split by commas.</p>
         </div>
 
         <label for="mod-order">Load order</label>
@@ -264,8 +301,13 @@
     display: grid;
     gap: 0.25rem;
   }
-  .field input {
+  .field input,
+  .field textarea {
     width: 100%;
+  }
+  .field textarea {
+    resize: vertical;
+    font: inherit;
   }
   .hint {
     font-size: 0.85rem;

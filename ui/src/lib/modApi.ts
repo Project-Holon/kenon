@@ -15,6 +15,13 @@ export interface Diagnostic {
 export interface ModSettings {
   name: string;
   order: number;
+  /// What players read about the mod; the mod index shows it.
+  description: string;
+  author: string;
+  /// x.y.z; the mod index tags releases with it.
+  version: string;
+  /// Words that sort the mod in the mod index, lowercased.
+  tags: string[];
   api: number | null;
   port: string | null;
   code: string | null;
