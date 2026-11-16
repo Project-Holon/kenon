@@ -2,8 +2,8 @@
 //!
 //! The design is eidos's `docs/mod-code-wasm.md`. Everything that encodes
 //! the contract (the header, the template, the compiler flags, the exports
-//! the module must have) is in morphe (`eidos-mod`, `modsdk/v5/`). The header is eidos's
-//! published `sdk/api/v5/eidos_wasm.h`, copied unchanged; when eidos changes
+//! the module must have) is in morphe (`eidos-mod`, `modsdk/v6/`). The header is eidos's
+//! published `sdk/api/v6/eidos_wasm.h`, copied unchanged; when eidos changes
 //! the API, replace it and nothing else here changes.
 //!
 //! - [`new_code_mod`] writes the template into a project.

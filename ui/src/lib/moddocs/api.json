@@ -1,22 +1,22 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "0686639",
-  "apiVersion": 5,
+  "eidosRevision": "d539e95",
+  "apiVersion": 6,
   "apiStatus": "open",
   "sources": [
-   "sdk/api/v5/core.json",
-   "sdk/api/v5/events.json",
-   "sdk/api/v5/rules.json",
-   "sdk/api/v5/state.json",
-   "sdk/api/v5/services.json",
-   "sdk/api/v5/enums.json",
-   "sdk/api/v5/hooks.json",
-   "sdk/api/v5/eidos_wasm.h",
+   "sdk/api/v6/core.json",
+   "sdk/api/v6/events.json",
+   "sdk/api/v6/rules.json",
+   "sdk/api/v6/state.json",
+   "sdk/api/v6/services.json",
+   "sdk/api/v6/enums.json",
+   "sdk/api/v6/hooks.json",
+   "sdk/api/v6/eidos_wasm.h",
    "docs/mod-backlog.md",
    "ui/src/lib/moddocs/curated.mjs"
   ],
-  "note": "The structure and the words are eidos's sdk/api/v5. kenon's curated text fills what it does not carry."
+  "note": "The structure and the words are eidos's sdk/api/v6. kenon's curated text fills what it does not carry."
  },
  "categories": [
   "Session",
@@ -32,7 +32,7 @@
    "name": "game.new",
    "category": "Session",
    "since": 3,
-   "where": "EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
+   "where": "EVENT_MAPCHANGE_CreateByMode 0x02183B6C when its mode is 0 (a first start); EVENT_MAPCHANGE_NewGameStartEvent 0x02183C9C",
    "refuse": null,
    "modifyText": null,
    "details": null,
@@ -148,7 +148,7 @@
    "name": "save.load",
    "category": "Session",
    "since": 3,
-   "where": "GAME_DATA_LoadFromSave 0x02012C18",
+   "where": "EVENT_MAPCHANGE_CreateByMode 0x02183B6C when its mode is 1 (a continued game); GAME_DATA_LoadFromSave 0x02012C18",
    "refuse": null,
    "modifyText": null,
    "details": null,
@@ -2718,7 +2718,7 @@
    "name": "whiteout",
    "category": "Battle",
    "since": 3,
-   "where": "BTL_CLIENT_StepShowBlackoutMessages 0x021D1960 (ov093); SCRIPT_SYS_RunRecoverScript 0x02158A20 (ov010)",
+   "where": "SCRCMD_NETWORK_CreateWhiteOutEvent 0x0215F6E8 (ov010): every whiteout after a lost wild or trainer battle (in_battle 1); the mod API's own whiteout() raises none",
    "refuse": null,
    "modifyText": null,
    "details": null,
@@ -2967,7 +2967,7 @@
   {
    "name": "battle.ai",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3072,7 +3072,7 @@
   {
    "name": "battle.ai_replace",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3132,7 +3132,7 @@
   {
    "name": "battle.ability",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3192,7 +3192,7 @@
   {
    "name": "battle.stat",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3261,7 +3261,7 @@
   {
    "name": "battle.held_item",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3321,7 +3321,7 @@
   {
    "name": "battle.status",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3943,7 +3943,7 @@
   {
    "name": "battle.turn",
    "category": "Battle",
-   "since": 3,
+   "since": 5,
    "where": "",
    "refuse": null,
    "modifyText": null,
@@ -3990,6 +3990,801 @@
     "message"
    ],
    "recipes": []
+  },
+  {
+   "name": "script.done",
+   "category": "Progress",
+   "since": 6,
+   "where": "the end of a field script a mod started with script_run",
+   "refuse": null,
+   "modifyText": null,
+   "details": "ticket is the number script_run gave.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the number script_run gave",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "script_id",
+     "type": "uint16_t",
+     "meaning": "the script that ended",
+     "writable": false,
+     "cName": "script_id",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint16_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u16",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosScriptDone",
+   "numId": 114,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:script.done",
+   "when": "A field script a mod started with script_run has ended.",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "move.forget",
+   "category": "Progress",
+   "since": 6,
+   "where": "the return of FILE_UTIL_IsHmMove 0x020212E4",
+   "refuse": null,
+   "modifyText": "allowed",
+   "details": "allowed is writable: the game's answer is \"not an HM\". species reads 0: the check is given the move only.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "species",
+     "type": "uint16_t",
+     "meaning": "0: the check is given the move only",
+     "writable": false,
+     "cName": "species",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "move",
+     "type": "uint16_t",
+     "meaning": "the move the game asks about",
+     "writable": false,
+     "cName": "move",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "allowed",
+     "type": "uint8_t",
+     "meaning": "*mod*: 1 the move may be forgotten; the game's answer is \"not an HM\"",
+     "writable": true,
+     "cName": "allowed",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t[3]",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8[3]",
+     "ruleKind": "list"
+    }
+   ],
+   "cStruct": "EidosMoveForget",
+   "numId": 115,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:move.forget",
+   "when": "The game asks whether a move may be forgotten (FILE_UTIL_IsHmMove; the forget-move screens, the release and deposit checks).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "dex_caught",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "mon.shiny",
+   "category": "Progress",
+   "since": 6,
+   "where": "the return of POKE_TOOL_IsShinyOtIdPersonality 0x02017ED8",
+   "refuse": null,
+   "modifyText": "threshold",
+   "details": "Shiny when value < threshold; the game's threshold is 8.  The same Pokemon gives the same answer each time, so a mod keeps it a function of the two numbers.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "ot_id",
+     "type": "uint32_t",
+     "meaning": "the trainer id (public and secret halves)",
+     "writable": false,
+     "cName": "ot_id",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "personality",
+     "type": "uint32_t",
+     "meaning": "the personality value",
+     "writable": false,
+     "cName": "personality",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "value",
+     "type": "uint32_t",
+     "meaning": "the xor of the four halves, 0 to 65535",
+     "writable": false,
+     "cName": "value",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "threshold",
+     "type": "uint32_t",
+     "meaning": "*mod*: shiny when value < threshold; the game's is 8",
+     "writable": true,
+     "cName": "threshold",
+     "cType": "u32",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosMonShiny",
+   "numId": 116,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:mon.shiny",
+   "when": "The game decides whether a Pokemon is shiny (POKE_TOOL_IsShinyOtIdPersonality).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "item.usable",
+   "category": "Progress",
+   "since": 6,
+   "where": "the return of PLIST_DEMO_CanUseGracidea 0x021BDCC0",
+   "refuse": null,
+   "modifyText": "usable",
+   "details": "usable is writable.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "item",
+     "type": "uint16_t",
+     "meaning": "the item (466, Gracidea)",
+     "writable": false,
+     "cName": "item",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "slot",
+     "type": "uint8_t",
+     "meaning": "the party slot of the Pokemon, 0xFF when not known",
+     "writable": false,
+     "cName": "slot",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "usable",
+     "type": "uint8_t",
+     "meaning": "*mod*: 1 the item can be used",
+     "writable": true,
+     "cName": "usable",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosItemUsable",
+   "numId": 117,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:item.usable",
+   "when": "The party screen asks whether a field item can be used here (PLIST_DEMO_CanUseGracidea first).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "season.change",
+   "category": "Progress",
+   "since": 6,
+   "where": "COMM_PLAYER_SUPPORT_SetSeason 0x0202E8CC",
+   "refuse": null,
+   "modifyText": "season",
+   "details": "season is writable: 0 spring, 1 summer, 2 autumn, 3 winter.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "clock_season",
+     "type": "uint8_t",
+     "meaning": "the season the clock gives: 0 spring, 1 summer, 2 autumn, 3 winter",
+     "writable": false,
+     "cName": "clock_season",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "season",
+     "type": "uint8_t",
+     "meaning": "*mod*: the season the game sets (0 to 3)",
+     "writable": true,
+     "cName": "season",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint16_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u16",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosSeasonChange",
+   "numId": 118,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:season.change",
+   "when": "The game sets the season from the clock (COMM_PLAYER_SUPPORT_SetSeason).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "encounter.slot",
+   "category": "Progress",
+   "since": 6,
+   "where": "the return of FIELD_ENCOUNT_PickGroundSlot 0x021A9DE0, FIELD_ENCOUNT_PickWaterSlot 0x021A9E64, FIELD_ENCOUNT_PickFishingSlot 0x021A9E98",
+   "refuse": null,
+   "modifyText": "slot",
+   "details": "slot is writable; a slot past the table is refused and the game's own pick stands.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "method",
+     "type": "uint8_t",
+     "meaning": "EIDOS_ENCOUNTER_SLOT_*: ground, water or fishing",
+     "writable": false,
+     "cName": "method",
+     "cType": "u8",
+     "ruleKind": "int",
+     "enum": "EIDOS_ENCOUNTER_"
+    },
+    {
+     "name": "roll",
+     "type": "uint8_t",
+     "meaning": "the roll the pick drew, 0 to 99",
+     "writable": false,
+     "cName": "roll",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "slot",
+     "type": "uint8_t",
+     "meaning": "*mod*: the slot picked; one past slot_count is not applied",
+     "writable": true,
+     "cName": "slot",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "slot_count",
+     "type": "uint8_t",
+     "meaning": "12 for ground, 5 for water and fishing",
+     "writable": false,
+     "cName": "slot_count",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosEncounterSlot",
+   "numId": 119,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:encounter.slot",
+   "when": "The wild slot the game picks (FIELD_ENCOUNT_Pick*Slot).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "battle.type_effect",
+   "category": "Progress",
+   "since": 6,
+   "where": "the return of BTL_CALC_GetTypeAffinity 0x021D794C",
+   "refuse": null,
+   "modifyText": "effect",
+   "details": "effect is the battle's affinity class (EIDOS_TYPE_EFFECT_*), writable.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "atk_type",
+     "type": "uint8_t",
+     "meaning": "the attacking type",
+     "writable": false,
+     "cName": "atk_type",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "def_type",
+     "type": "uint8_t",
+     "meaning": "the defending type",
+     "writable": false,
+     "cName": "def_type",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "effect",
+     "type": "uint8_t",
+     "meaning": "*mod*: the affinity class, EIDOS_TYPE_EFFECT_*",
+     "writable": true,
+     "cName": "effect",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosBattleTypeEffect",
+   "numId": 120,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:battle.type_effect",
+   "when": "One lookup of the type chart (BTL_CALC_GetTypeAffinity), after type_chart_set.",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "starter.choices",
+   "category": "Progress",
+   "since": 6,
+   "where": "the load of the starter screen's overlay, its species data (sPselIds) in place",
+   "refuse": null,
+   "modifyText": "species",
+   "details": "The three species shown are writable; the species given is the script's, which the mod changes too.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "species",
+     "type": "uint16_t[3]",
+     "meaning": "*mod*: the three species the starter screen shows (rules: species0 to species2)",
+     "writable": true,
+     "cName": "species",
+     "cType": "u16[3]",
+     "ruleKind": "list"
+    },
+    {
+     "name": "pad",
+     "type": "uint16_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u16",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosStarterChoices",
+   "numId": 121,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:starter.choices",
+   "when": "The starter screen is set up (PSEL_Init).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "dex_caught",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "egg.species",
+   "category": "Progress",
+   "since": 6,
+   "where": "not bound yet (see below)",
+   "refuse": null,
+   "modifyText": "species, rules",
+   "details": "species and rules are writable.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "mother",
+     "type": "uint16_t",
+     "meaning": "the mother's species",
+     "writable": false,
+     "cName": "mother",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "father",
+     "type": "uint16_t",
+     "meaning": "the father's species",
+     "writable": false,
+     "cName": "father",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "species",
+     "type": "uint16_t",
+     "meaning": "*mod*: what hatches",
+     "writable": true,
+     "cName": "species",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint16_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "rules",
+     "type": "uint32_t",
+     "meaning": "*mod*: EIDOS_EGG_RULE_* bits the game applies after the base species",
+     "writable": true,
+     "cName": "rules",
+     "cType": "u32",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosEggSpecies",
+   "numId": 122,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:egg.species",
+   "when": "The Day Care builds an egg (SODATEYA_BuildEgg).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "dex_caught",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "text_input.done",
+   "category": "Progress",
+   "since": 6,
+   "where": "the end of the name entry a mod opened with text_input",
+   "refuse": null,
+   "modifyText": null,
+   "details": "units are the game's code units, with no end code.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the number text_input gave",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "count",
+     "type": "uint16_t",
+     "meaning": "the code units in units",
+     "writable": false,
+     "cName": "count",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "cancelled",
+     "type": "uint8_t",
+     "meaning": "1 when the player left with B or entered nothing",
+     "writable": false,
+     "cName": "cancelled",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "units",
+     "type": "uint16_t[48]",
+     "meaning": "the answer in the game's code units, no end code",
+     "writable": false,
+     "cName": "units",
+     "cType": "u16[48]",
+     "ruleKind": "list"
+    }
+   ],
+   "cStruct": "EidosTextInputDone",
+   "numId": 123,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:text_input.done",
+   "when": "The player closed the text entry a mod opened with text_input.",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "world",
+   "category": "Progress",
+   "since": 6,
+   "where": "a message of the metaxy world session",
+   "refuse": null,
+   "modifyText": null,
+   "details": "The bytes are read with world_read inside the handler; kind is EIDOS_WORLD_*.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "kind",
+     "type": "uint32_t",
+     "meaning": "EIDOS_WORLD_*",
+     "writable": false,
+     "cName": "kind",
+     "cType": "u32",
+     "ruleKind": "int",
+     "enum": "EIDOS_WORLD_"
+    },
+    {
+     "name": "size",
+     "type": "uint32_t",
+     "meaning": "the bytes world_read gives while the handler runs",
+     "writable": false,
+     "cName": "size",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the call it answers (world_create, world_join), else 0",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "player",
+     "type": "uint32_t",
+     "meaning": "the player it is about (joined, position, came, left), else 0",
+     "writable": false,
+     "cName": "player",
+     "cType": "u32",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosWorld",
+   "numId": 124,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:world",
+   "when": "A message of the metaxy world session.",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "ap",
+   "category": "Progress",
+   "since": 6,
+   "where": "a message of the Archipelago link",
+   "refuse": null,
+   "modifyText": null,
+   "details": "The bytes (one Archipelago JSON message, or an error reason) are read with ap_read inside the handler; kind is EIDOS_AP_*.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "kind",
+     "type": "uint32_t",
+     "meaning": "EIDOS_AP_*",
+     "writable": false,
+     "cName": "kind",
+     "cType": "u32",
+     "ruleKind": "int",
+     "enum": "EIDOS_AP_"
+    },
+    {
+     "name": "size",
+     "type": "uint32_t",
+     "meaning": "the bytes ap_read gives while the handler runs",
+     "writable": false,
+     "cName": "size",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the ap_link it answers",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint32_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u32",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosAp",
+   "numId": 125,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:ap",
+   "when": "A message of the Archipelago link.",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "move.known",
+   "category": "Progress",
+   "since": 6,
+   "where": "the port's copies of SCRCMD_PROC_CheckMonKnowsMove (ov010, the scripts' check) and FIELD_EVENT_CHECK_FindPartyMemberWithMove (ov021, A on the field), asking per member",
+   "refuse": null,
+   "modifyText": "known",
+   "details": "known is the game's own answer and writable: 1 lets that Pokemon use the move from there (the prompt, the cut-in and \"X used Cut!\" name it), 0 does not.  It never fires for an egg, so \"the first Pokemon\" in a mod is the first that can act.  Nothing is kept between asks: one rule gives one answer everywhere.",
+   "notes": [
+    "It fires once for each party member each time the game asks, and never for an egg. Set known to 1 to answer that the Pokemon knows the move.",
+    "To let a field move work without learning it, set known to 1 for every member. The game then picks the first member that can act, which uses the move and shows in the cut-in.",
+    "site tells where the question came from: 0 the field (Surf, Waterfall), 1 a script (Cut, Strength, and people who ask about a move). Test move to act only on field moves. Site 2, the party screen, does not fire yet.",
+    "slot is 255 at the script site when the Pokemon is not in the party."
+   ],
+   "payload": [
+    {
+     "name": "slot",
+     "type": "uint8_t",
+     "meaning": "the party slot asked about",
+     "writable": false,
+     "cName": "slot",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "site",
+     "type": "uint8_t",
+     "meaning": "EIDOS_MOVE_SITE_*: where the game checks",
+     "writable": false,
+     "cName": "site",
+     "cType": "u8",
+     "ruleKind": "int",
+     "enum": "EIDOS_MOVE_SITE_"
+    },
+    {
+     "name": "species",
+     "type": "uint16_t",
+     "meaning": "the member's species",
+     "writable": false,
+     "cName": "species",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "move",
+     "type": "uint16_t",
+     "meaning": "the move the game looks for",
+     "writable": false,
+     "cName": "move",
+     "cType": "u16",
+     "ruleKind": "int"
+    },
+    {
+     "name": "known",
+     "type": "uint8_t",
+     "meaning": "the game's answer; a mod sets 1 to make it known (written back)",
+     "writable": true,
+     "cName": "known",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosMoveKnown",
+   "numId": 126,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:move.known",
+   "when": "The game asks whether a party Pokemon knows a move, once for each Pokemon it asks about, in party order (the field's A check for Surf and Waterfall stops at the first that does; a script asks one slot, or each slot until one does).",
+   "functions": [
+    "species_learns",
+    "badge_has",
+    "party_get"
+   ],
+   "recipes": []
   }
  ],
  "enums": [
@@ -4030,9 +4825,39 @@
    ]
   },
   {
+   "title": "Where the game asks whether a Pokemon knows a move (move.known).",
+   "prefix": "EIDOS_MOVE_SITE_",
+   "members": [
+    {
+     "name": "EIDOS_MOVE_SITE_FRONT_TILE",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_MOVE_SITE_SCRIPT",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_MOVE_SITE_PARTY_MENU",
+     "value": 2
+    }
+   ]
+  },
+  {
    "title": "How an encounter was rolled (encounter.wild).",
    "prefix": "EIDOS_ENCOUNTER_",
    "members": [
+    {
+     "name": "EIDOS_ENCOUNTER_SLOT_GROUND",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_ENCOUNTER_SLOT_WATER",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_ENCOUNTER_SLOT_FISHING",
+     "value": 2
+    },
     {
      "name": "EIDOS_ENCOUNTER_GRASS",
      "value": 0
@@ -4060,6 +4885,174 @@
     {
      "name": "EIDOS_ENCOUNTER_DUST",
      "value": 6
+    }
+   ]
+  },
+  {
+   "title": "How well a type hits another (battle.type_effect).",
+   "prefix": "EIDOS_TYPE_EFFECT_",
+   "members": [
+    {
+     "name": "EIDOS_TYPE_EFFECT_NONE",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_TYPE_EFFECT_QUARTER",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_TYPE_EFFECT_HALF",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_TYPE_EFFECT_NORMAL",
+     "value": 3
+    },
+    {
+     "name": "EIDOS_TYPE_EFFECT_DOUBLE",
+     "value": 4
+    },
+    {
+     "name": "EIDOS_TYPE_EFFECT_QUADRUPLE",
+     "value": 5
+    }
+   ]
+  },
+  {
+   "title": "The game's special egg rules, as bits (egg.species).",
+   "prefix": "EIDOS_EGG_RULE_",
+   "members": [
+    {
+     "name": "EIDOS_EGG_RULE_NIDORAN",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_EGG_RULE_VOLBEAT",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_EGG_RULE_MANAPHY",
+     "value": 4
+    },
+    {
+     "name": "EIDOS_EGG_RULE_INCENSE",
+     "value": 8
+    },
+    {
+     "name": "EIDOS_EGG_RULE_SHELLOS",
+     "value": 16
+    },
+    {
+     "name": "EIDOS_EGG_RULE_BURMY",
+     "value": 32
+    },
+    {
+     "name": "EIDOS_EGG_RULE_BASCULIN",
+     "value": 64
+    }
+   ]
+  },
+  {
+   "title": "What a text input accepts (text_input).",
+   "prefix": "EIDOS_TEXT_INPUT_",
+   "members": [
+    {
+     "name": "EIDOS_TEXT_INPUT_NAME",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_TEXT_INPUT_CODE",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_TEXT_INPUT_LINK",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "title": "What the owner of a world asks for (world_owner).",
+   "prefix": "EIDOS_WORLD_OWNER_",
+   "members": [
+    {
+     "name": "EIDOS_WORLD_OWNER_START",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_WORLD_OWNER_CLOSE",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_WORLD_OWNER_DELETE",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_WORLD_OWNER_DONE",
+     "value": 9
+    }
+   ]
+  },
+  {
+   "title": "What a world event is about (world).",
+   "prefix": "EIDOS_WORLD_",
+   "members": [
+    {
+     "name": "EIDOS_WORLD_GENERATED",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_WORLD_WAIT",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_WORLD_JOINED",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_WORLD_ITEMS",
+     "value": 3
+    },
+    {
+     "name": "EIDOS_WORLD_POSITION",
+     "value": 4
+    },
+    {
+     "name": "EIDOS_WORLD_PLAYER_IN",
+     "value": 5
+    },
+    {
+     "name": "EIDOS_WORLD_PLAYER_OUT",
+     "value": 6
+    },
+    {
+     "name": "EIDOS_WORLD_ERROR",
+     "value": 7
+    },
+    {
+     "name": "EIDOS_WORLD_CLOSED",
+     "value": 8
+    }
+   ]
+  },
+  {
+   "title": "What an Archipelago event is about (ap).",
+   "prefix": "EIDOS_AP_",
+   "members": [
+    {
+     "name": "EIDOS_AP_LINKED",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_AP_MESSAGE",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_AP_ERROR",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_AP_CLOSED",
+     "value": 3
     }
    ]
   },
@@ -4630,6 +5623,56 @@
     {
      "name": "EIDOS_MON_FIELD_BATTLE_ABILITY",
      "value": 265
+    },
+    {
+     "name": "EIDOS_MON_FIELD_PP1",
+     "value": 58
+    },
+    {
+     "name": "EIDOS_MON_FIELD_PP2",
+     "value": 59
+    },
+    {
+     "name": "EIDOS_MON_FIELD_PP3",
+     "value": 60
+    },
+    {
+     "name": "EIDOS_MON_FIELD_PP4",
+     "value": 61
+    }
+   ]
+  },
+  {
+   "title": "The stat changes of a move (move_value).",
+   "prefix": "EIDOS_MOVE_FIELD_RANK_",
+   "members": [
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_COUNT",
+     "value": 256
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_TYPE1",
+     "value": 257
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_TYPE2",
+     "value": 258
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_TYPE3",
+     "value": 259
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_VALUE1",
+     "value": 273
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_VALUE2",
+     "value": 274
+    },
+    {
+     "name": "EIDOS_MOVE_FIELD_RANK_VALUE3",
+     "value": 275
     }
    ]
   },
@@ -4705,6 +5748,26 @@
    "writableOk": false,
    "subscript": null,
    "value": "The current zone.",
+   "fromC": true
+  },
+  {
+   "name": "player_x",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "The cell the player stands on (version 5).",
+   "fromC": true
+  },
+  {
+   "name": "player_z",
+   "sub": "plain",
+   "writable": false,
+   "readable": true,
+   "writableOk": false,
+   "subscript": null,
+   "value": "The cell the player stands on (version 5).",
    "fromC": true
   },
   {
@@ -4845,6 +5908,16 @@
    "writableOk": false,
    "subscript": "a number",
    "value": "How many of item i the bag holds.",
+   "fromC": true
+  },
+  {
+   "name": "work",
+   "sub": "int",
+   "writable": true,
+   "readable": true,
+   "writableOk": true,
+   "subscript": "a number",
+   "value": "Script work variable w: the saved ones (0x4000 to 0x40FF), and the script's own (0x8000 to 0x80FF) while a field script runs a command (version 6).",
    "fromC": true
   },
   {
@@ -5723,7 +6796,8 @@
     "battle.exp",
     "item.use",
     "heal.hp",
-    "mon.revive"
+    "mon.revive",
+    "move.known"
    ],
    "fromC": true,
    "since": 0
@@ -6070,7 +7144,10 @@
     "catch.attempt",
     "catch.result",
     "battle.trainer_mon",
-    "dex.register"
+    "dex.register",
+    "move.forget",
+    "starter.choices",
+    "egg.species"
    ],
    "fromC": true,
    "since": 0
@@ -6080,7 +7157,7 @@
    "kind": "state",
    "name": "badge_count",
    "cName": "eidos_badge_count",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "uint32_t eidos_badge_count(void)",
    "params": [],
    "what": "How many badges the player holds.",
@@ -6103,7 +7180,7 @@
    "kind": "state",
    "name": "badge_has",
    "cName": "eidos_badge_has",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "int32_t eidos_badge_has(uint32_t badge)",
    "params": [
     "uint32_t badge"
@@ -6115,7 +7192,9 @@
     "c"
    ],
    "rule": "badge[n]",
-   "events": [],
+   "events": [
+    "move.known"
+   ],
    "fromC": true,
    "since": 0
   },
@@ -6124,7 +7203,7 @@
    "kind": "state",
    "name": "money",
    "cName": "eidos_money",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "uint32_t eidos_money(void)",
    "params": [],
    "what": "The player's money.",
@@ -6151,7 +7230,7 @@
    "kind": "state",
    "name": "money_set",
    "cName": "eidos_money_set",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "int32_t eidos_money_set(uint32_t amount)",
    "params": [
     "uint32_t amount"
@@ -6180,7 +7259,7 @@
    "kind": "state",
    "name": "flag",
    "cName": "eidos_flag",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "int32_t eidos_flag(uint32_t flag, uint32_t *out)",
    "params": [
     "uint32_t flag",
@@ -6205,7 +7284,19 @@
     "pc.open",
     "badge.get",
     "flag.set",
-    "dex.register"
+    "dex.register",
+    "script.done",
+    "move.forget",
+    "mon.shiny",
+    "item.usable",
+    "season.change",
+    "encounter.slot",
+    "battle.type_effect",
+    "starter.choices",
+    "egg.species",
+    "text_input.done",
+    "world",
+    "ap"
    ],
    "fromC": true,
    "since": 0
@@ -6215,7 +7306,7 @@
    "kind": "state",
    "name": "flag_set",
    "cName": "eidos_flag_set",
-   "group": "Badges, money and flags",
+   "group": "Badges, money, flags and works",
    "signature": "int32_t eidos_flag_set(uint32_t flag, uint32_t value)",
    "params": [
     "uint32_t flag",
@@ -6240,7 +7331,19 @@
     "pc.open",
     "badge.get",
     "flag.set",
-    "dex.register"
+    "dex.register",
+    "script.done",
+    "move.forget",
+    "mon.shiny",
+    "item.usable",
+    "season.change",
+    "encounter.slot",
+    "battle.type_effect",
+    "starter.choices",
+    "egg.species",
+    "text_input.done",
+    "world",
+    "ap"
    ],
    "fromC": true,
    "since": 0
@@ -6275,7 +7378,19 @@
     "encounter.trainer",
     "badge.get",
     "flag.set",
-    "dex.register"
+    "dex.register",
+    "script.done",
+    "move.forget",
+    "mon.shiny",
+    "item.usable",
+    "season.change",
+    "encounter.slot",
+    "battle.type_effect",
+    "starter.choices",
+    "egg.species",
+    "text_input.done",
+    "world",
+    "ap"
    ],
    "fromC": true,
    "since": 0
@@ -6703,7 +7818,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:battle_weather",
@@ -6722,7 +7837,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:species_learns",
@@ -6744,9 +7859,119 @@
     "c"
    ],
    "rule": null,
+   "events": [
+    "move.known"
+   ],
+   "fromC": true,
+   "since": 0
+  },
+  {
+   "id": "fn:whiteout",
+   "kind": "state",
+   "name": "whiteout",
+   "cName": "eidos_whiteout",
+   "group": "The map and the player",
+   "signature": "int32_t eidos_whiteout(void)",
+   "params": [],
+   "what": "Whites the player out as the game does after a lost battle: back to the last Pokemon Centre. It is queued for a quiet field frame and raises no whiteout event.",
+   "result": "0 when queued, -1 when the game cannot do it.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
+  },
+  {
+   "id": "fn:work_get",
+   "kind": "state",
+   "name": "work_get",
+   "cName": "eidos_work_get",
+   "group": "Badges, money, flags and works",
+   "signature": "int32_t eidos_work_get(uint32_t id, uint16_t *out)",
+   "params": [
+    "uint32_t id",
+    "uint16_t *out"
+   ],
+   "what": "Reads a work variable. The saved works (0x4000 to 0x40FF) can be read whenever a game is loaded. A script's own works (0x8000 to 0x80FF) only while a field script runs a command: from a flag.set handler or a script command handler.",
+   "result": "0 on success; the value goes into out. -1 when the work cannot be reached now.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "work[id]",
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:work_set",
+   "kind": "state",
+   "name": "work_set",
+   "cName": "eidos_work_set",
+   "group": "Badges, money, flags and works",
+   "signature": "int32_t eidos_work_set(uint32_t id, uint32_t value)",
+   "params": [
+    "uint32_t id",
+    "uint32_t value"
+   ],
+   "what": "Writes a work variable, with the same limits as work_get.",
+   "result": "0 on success, -1 when the work cannot be reached now.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "set work[id] value",
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:badge_set",
+   "kind": "state",
+   "name": "badge_set",
+   "cName": "eidos_badge_set",
+   "group": "Badges, money, flags and works",
+   "signature": "int32_t eidos_badge_set(uint32_t bit)",
+   "params": [
+    "uint32_t bit"
+   ],
+   "what": "Gives the player a badge (0 to 7) through the game's own call, so badge.get fires as for a badge won in a gym.",
+   "result": "0 on success, -1 for a bit past 7 or with no game loaded.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:game_code",
+   "kind": "state",
+   "name": "game_code",
+   "cName": "eidos_game_code",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_game_code(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Copies the cartridge's 4-letter game code: IRBO is English Black, IRAO English White, and the last letter is the language.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
   },
   {
    "id": "fn:message",
@@ -6830,7 +8055,19 @@
     "badge.get",
     "flag.set",
     "dex.register",
-    "battle.turn"
+    "battle.turn",
+    "script.done",
+    "move.forget",
+    "mon.shiny",
+    "item.usable",
+    "season.change",
+    "encounter.slot",
+    "battle.type_effect",
+    "starter.choices",
+    "egg.species",
+    "text_input.done",
+    "world",
+    "ap"
    ],
    "fromC": true,
    "since": 0
@@ -7591,7 +8828,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:shared_get",
@@ -7613,7 +8850,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:shared_set",
@@ -7635,7 +8872,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:shared_add",
@@ -7657,7 +8894,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
   },
   {
    "id": "fn:shared_cas",
@@ -7680,7 +8917,702 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 5
+   "since": 0
+  },
+  {
+   "id": "fn:vfs_member_set",
+   "kind": "service",
+   "name": "vfs_member_set",
+   "cName": "eidos_vfs_member_set",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_vfs_member_set(const char *archive, uint32_t index, const void *data, uint32_t size)",
+   "params": [
+    "const char *archive",
+    "uint32_t index",
+    "const void *data",
+    "uint32_t size"
+   ],
+   "what": "Changes a member of a game archive without a file. archive is the NitroFS path, such as a/0/5/7. The bytes go to the mod's memory layer, which wins over the files of the mod's folder. A change to an archive the game holds open is applied between frames; what the game already copied changes the next time it loads it. 16 MiB per mod, 32 MiB for all mods.",
+   "result": "0 on success, -1 past a limit or for a member past the end of an open archive.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:vfs_member_clear",
+   "kind": "service",
+   "name": "vfs_member_clear",
+   "cName": "eidos_vfs_member_clear",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_vfs_member_clear(const char *archive, uint32_t index)",
+   "params": [
+    "const char *archive",
+    "uint32_t index"
+   ],
+   "what": "Takes the mod's own changes to members out again. Index 0xFFFFFFFF takes all of the mod's members of the archive; an empty archive name takes every member the mod holds.",
+   "result": "How many members it took out.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:vfs_member_get",
+   "kind": "service",
+   "name": "vfs_member_get",
+   "cName": "eidos_vfs_member_get",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_vfs_member_get(const char *archive, uint32_t index, void *out, uint32_t size)",
+   "params": [
+    "const char *archive",
+    "uint32_t index",
+    "void *out",
+    "uint32_t size"
+   ],
+   "what": "Reads a member as the game's next read sees it, every mod's changes included, and copies up to size bytes.",
+   "result": "The member's whole size, or -1.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:text_get",
+   "kind": "service",
+   "name": "text_get",
+   "cName": "eidos_text_get",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_text_get(uint32_t archive, uint32_t file, uint32_t entry, uint32_t block, uint16_t *out, uint32_t max_units)",
+   "params": [
+    "uint32_t archive",
+    "uint32_t file",
+    "uint32_t entry",
+    "uint32_t block",
+    "uint16_t *out",
+    "uint32_t max_units"
+   ],
+   "what": "Reads a text entry. archive is 2 (system text) or 3 (story text). The units are the game's 16-bit code units, control codes included, without the end code. A Japanese bank has two blocks (kana and kanji); the others have one.",
+   "result": "The entry's length in units; up to max_units are copied.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:text_set",
+   "kind": "service",
+   "name": "text_set",
+   "cName": "eidos_text_set",
+   "group": "Game files and text",
+   "signature": "int32_t eidos_text_set(uint32_t archive, uint32_t file, uint32_t entry, uint32_t block, const uint16_t *units, uint32_t count)",
+   "params": [
+    "uint32_t archive",
+    "uint32_t file",
+    "uint32_t entry",
+    "uint32_t block",
+    "const uint16_t *units",
+    "uint32_t count"
+   ],
+   "what": "Writes a text entry. The whole bank goes to the mod's memory layer with the one entry changed. An entry past the end makes the bank longer with empty lines.",
+   "result": "0 on success.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:text_language",
+   "kind": "service",
+   "name": "text_language",
+   "cName": "eidos_text_language",
+   "group": "Game files and text",
+   "signature": "uint32_t eidos_text_language(void)",
+   "params": [],
+   "what": "The game's language: 1 Japanese, 2 English, 3 French, 4 Italian, 5 German, 7 Spanish, 8 Korean.",
+   "result": "The language id.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:script_run",
+   "kind": "service",
+   "name": "script_run",
+   "cName": "eidos_script_run",
+   "group": "Field scripts and text input",
+   "signature": "int32_t eidos_script_run(uint32_t script_id, uint32_t *ticket)",
+   "params": [
+    "uint32_t script_id",
+    "uint32_t *ticket"
+   ],
+   "what": "Starts a field script. It waits for a field frame with no event, no battle and no menu, and scripts start one at a time in order. script.done fires with the ticket when the script ends.",
+   "result": "0 when queued (the ticket goes into ticket), -1 when the queue is full.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:type_chart_set",
+   "kind": "service",
+   "name": "type_chart_set",
+   "cName": "eidos_type_chart_set",
+   "group": "Item, move and type data",
+   "signature": "int32_t eidos_type_chart_set(const EidosTypeChart *chart)",
+   "params": [
+    "const EidosTypeChart *chart"
+   ],
+   "what": "Replaces the battle type chart, 17 by 17, in the game's codes: 0 no effect, 2 half, 4 normal, 8 double; cell[attacking * 17 + defending]. The chart stays in force for every battle. With several mods, the last in the load order wins. NULL takes the mod's chart away. For one battle or one trainer, use the event battle.type_effect instead.",
+   "result": "0 on success, -1 for a code that is not one of the four.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:type_chart_get",
+   "kind": "service",
+   "name": "type_chart_get",
+   "cName": "eidos_type_chart_get",
+   "group": "Item, move and type data",
+   "signature": "int32_t eidos_type_chart_get(EidosTypeChart *out)",
+   "params": [
+    "EidosTypeChart *out"
+   ],
+   "what": "Reads the type chart in force: a mod's, or the game's own as the last battle loaded it.",
+   "result": "0 on success, -1 before any battle has loaded it.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:text_input",
+   "kind": "service",
+   "name": "text_input",
+   "cName": "eidos_text_input",
+   "group": "Field scripts and text input",
+   "signature": "int32_t eidos_text_input(const char *title, uint32_t max_units, uint32_t kind, uint32_t *ticket)",
+   "params": [
+    "const char *title",
+    "uint32_t max_units",
+    "uint32_t kind",
+    "uint32_t *ticket"
+   ],
+   "what": "Opens the game's name entry screen on a quiet field with a title (UTF-8). kind is EIDOS_TEXT_INPUT_NAME, _CODE (letters and digits only) or _LINK. The screen holds at most 10 units. The answer comes in the event text_input.done; B cancels.",
+   "result": "0 when queued (the ticket goes into ticket), -1 when it cannot open.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mod_file_write",
+   "kind": "service",
+   "name": "mod_file_write",
+   "cName": "eidos_mod_file_write",
+   "group": "Mod files",
+   "signature": "int32_t eidos_mod_file_write(const char *name, const void *data, uint32_t size)",
+   "params": [
+    "const char *name",
+    "const void *data",
+    "uint32_t size"
+   ],
+   "what": "Writes a file in the mod's own folder, shared across the player's saves. A name is 1 to 64 letters, digits and . _ - and does not start with a dot. The write is all or nothing. 16 MiB for all of a mod's files.",
+   "result": "0 on success, -1 for a bad name or past the quota (the old file stays).",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mod_file_read",
+   "kind": "service",
+   "name": "mod_file_read",
+   "cName": "eidos_mod_file_read",
+   "group": "Mod files",
+   "signature": "int32_t eidos_mod_file_read(const char *name, void *out, uint32_t size, uint32_t *got)",
+   "params": [
+    "const char *name",
+    "void *out",
+    "uint32_t size",
+    "uint32_t *got"
+   ],
+   "what": "Reads a file of the mod's own folder and copies up to size bytes; got says how many were copied.",
+   "result": "The file's size, or -1.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mod_file_list",
+   "kind": "service",
+   "name": "mod_file_list",
+   "cName": "eidos_mod_file_list",
+   "group": "Mod files",
+   "signature": "int32_t eidos_mod_file_list(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Lists the mod's files: a line `used <bytes> quota <bytes>`, then `<name> <size>` per file. The list is cut at size.",
+   "result": "The length the whole list needs.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mod_file_delete",
+   "kind": "service",
+   "name": "mod_file_delete",
+   "cName": "eidos_mod_file_delete",
+   "group": "Mod files",
+   "signature": "int32_t eidos_mod_file_delete(const char *name)",
+   "params": [
+    "const char *name"
+   ],
+   "what": "Deletes a file of the mod's own folder.",
+   "result": "0 on success, -1 when there is no such file.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_create",
+   "kind": "service",
+   "name": "world_create",
+   "cName": "eidos_world_create",
+   "group": "World sessions",
+   "signature": "int32_t eidos_world_create(const char *config_json, uint32_t *ticket)",
+   "params": [
+    "const char *config_json",
+    "uint32_t *ticket"
+   ],
+   "what": "Asks metaxy to make an eidos-only world from a JSON configuration (up to 64 KB). The answer comes as a world event of kind EIDOS_WORLD_GENERATED, with the code and the owner key.",
+   "result": "0 when sent (the ticket goes into ticket), -1 when the relay cannot be reached.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_owner",
+   "kind": "service",
+   "name": "world_owner",
+   "cName": "eidos_world_owner",
+   "group": "World sessions",
+   "signature": "int32_t eidos_world_owner(const char *code, const char *owner_key, uint32_t action)",
+   "params": [
+    "const char *code",
+    "const char *owner_key",
+    "uint32_t action"
+   ],
+   "what": "The owner of a world starts, closes or deletes it (EIDOS_WORLD_OWNER_START, _CLOSE, _DELETE) with its code and owner key. The answer comes as a world event of kind EIDOS_WORLD_OWNER_DONE.",
+   "result": "0 when sent, -1 otherwise.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_join",
+   "kind": "service",
+   "name": "world_join",
+   "cName": "eidos_world_join",
+   "group": "World sessions",
+   "signature": "int32_t eidos_world_join(const char *code, const char *name_or_key, uint32_t *ticket)",
+   "params": [
+    "const char *code",
+    "const char *name_or_key",
+    "uint32_t *ticket"
+   ],
+   "what": "Joins a world by its code, with the player's name or the player key of an earlier join. The answer comes as a world event of kind EIDOS_WORLD_JOINED, with the player key and the player's data. Not during a relay session (co-op).",
+   "result": "0 when sent (the ticket goes into ticket), -1 otherwise.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_checks",
+   "kind": "service",
+   "name": "world_checks",
+   "cName": "eidos_world_checks",
+   "group": "World sessions",
+   "signature": "int32_t eidos_world_checks(const uint32_t *location_ids, uint32_t count)",
+   "params": [
+    "const uint32_t *location_ids",
+    "uint32_t count"
+   ],
+   "what": "Sends checks (location ids) to the world. The single location 0 says the goal is reached. The port keeps the checks and sends them again after each join, so a check made while offline is not lost.",
+   "result": "0 when sent, -1 with no world session.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_leave",
+   "kind": "service",
+   "name": "world_leave",
+   "cName": "eidos_world_leave",
+   "group": "World sessions",
+   "signature": "void eidos_world_leave(void)",
+   "params": [],
+   "what": "Ends the world session.",
+   "result": null,
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:world_read",
+   "kind": "service",
+   "name": "world_read",
+   "cName": "eidos_world_read",
+   "group": "World sessions",
+   "signature": "int32_t eidos_world_read(void *out, uint32_t size)",
+   "params": [
+    "void *out",
+    "uint32_t size"
+   ],
+   "what": "Inside a world handler, copies up to size bytes of the event's data: a player's data can be up to 1 MB, more than the handler's copy holds.",
+   "result": "The data's whole size, or -1 outside a world handler.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:ap_link",
+   "kind": "service",
+   "name": "ap_link",
+   "cName": "eidos_ap_link",
+   "group": "The Archipelago link",
+   "signature": "int32_t eidos_ap_link(const char *room, const char *slot, const char *password, uint32_t *ticket)",
+   "params": [
+    "const char *room",
+    "const char *slot",
+    "const char *password",
+    "uint32_t *ticket"
+   ],
+   "what": "Links to an Archipelago server through metaxy, by room link or host:port. The answers are ap events (EIDOS_AP_LINKED, _MESSAGE, _ERROR, _CLOSED). The slot and password go in Archipelago's own Connect message, which the mod sends with ap_send once linked. metaxy does not serve the link yet.",
+   "result": "0 when sent (the ticket goes into ticket), -1 otherwise.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:ap_send",
+   "kind": "service",
+   "name": "ap_send",
+   "cName": "eidos_ap_send",
+   "group": "The Archipelago link",
+   "signature": "int32_t eidos_ap_send(const char *json, uint32_t size)",
+   "params": [
+    "const char *json",
+    "uint32_t size"
+   ],
+   "what": "Sends one Archipelago JSON message over the link.",
+   "result": "0 when sent, -1 with no link.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:ap_read",
+   "kind": "service",
+   "name": "ap_read",
+   "cName": "eidos_ap_read",
+   "group": "The Archipelago link",
+   "signature": "int32_t eidos_ap_read(void *out, uint32_t size)",
+   "params": [
+    "void *out",
+    "uint32_t size"
+   ],
+   "what": "Inside an ap handler, copies up to size bytes of the Archipelago message.",
+   "result": "The message's whole size, or -1 outside an ap handler.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:peer_position",
+   "kind": "service",
+   "name": "peer_position",
+   "cName": "eidos_peer_position",
+   "group": "World sessions",
+   "signature": "int32_t eidos_peer_position(int32_t on)",
+   "params": [
+    "int32_t on"
+   ],
+   "what": "Turns sharing positions in a world session on (1) or off (0). On, the port sends this game's zone and tile and draws the other players in the same zone with the hero's sprite. Their positions also come as world events of kind EIDOS_WORLD_POSITION.",
+   "result": "0.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:townmap_marker_set",
+   "kind": "service",
+   "name": "townmap_marker_set",
+   "cName": "eidos_townmap_marker_set",
+   "group": "World sessions",
+   "signature": "int32_t eidos_townmap_marker_set(uint32_t id, uint32_t zone, uint32_t icon, const char *name)",
+   "params": [
+    "uint32_t id",
+    "uint32_t zone",
+    "uint32_t icon",
+    "const char *name"
+   ],
+   "what": "Sets a Town Map marker by id (up to 32): a zone, an icon and a name. The port keeps the markers; drawing them on the Town Map is not built yet.",
+   "result": "0 on success, -1 when all 32 are used.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:townmap_marker_clear",
+   "kind": "service",
+   "name": "townmap_marker_clear",
+   "cName": "eidos_townmap_marker_clear",
+   "group": "World sessions",
+   "signature": "int32_t eidos_townmap_marker_clear(uint32_t id)",
+   "params": [
+    "uint32_t id"
+   ],
+   "what": "Takes a Town Map marker away by id.",
+   "result": "0 on success, -1 for an unknown id.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mode_get",
+   "kind": "service",
+   "name": "mode_get",
+   "cName": "eidos_mode_get",
+   "group": "Modes, text options and the tracker",
+   "signature": "int32_t eidos_mode_get(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "During game.new, the mode the player chose on the Multiplayer screen for this new game, if it is one of this mod's modes.",
+   "result": "The length of the mode's id; an empty text for a plain New Game.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:setting_text",
+   "kind": "service",
+   "name": "setting_text",
+   "cName": "eidos_setting_text",
+   "group": "Modes, text options and the tracker",
+   "signature": "int32_t eidos_setting_text(const char *key, char *out, uint32_t size)",
+   "params": [
+    "const char *key",
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Reads one of the mod's text options (a `text` line in the settings file).",
+   "result": "The text's length, or -1 for a key the mod does not declare.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:player_name",
+   "kind": "service",
+   "name": "player_name",
+   "cName": "eidos_player_name",
+   "group": "Modes, text options and the tracker",
+   "signature": "int32_t eidos_player_name(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "The multiplayer name the player chose on the Multiplayer screen, so a mod never asks for a name of its own.",
+   "result": "The name's length; 0 while none is chosen.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:mode_code",
+   "kind": "service",
+   "name": "mode_code",
+   "cName": "eidos_mode_code",
+   "group": "Modes, text options and the tracker",
+   "signature": "int32_t eidos_mode_code(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "During game.new, the world code the player typed in the Multiplayer screen's Join box, for a mode marked joins.",
+   "result": "The code's length; an empty text for a world made here.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
+  },
+  {
+   "id": "fn:tracker_set",
+   "kind": "service",
+   "name": "tracker_set",
+   "cName": "eidos_tracker_set",
+   "group": "Modes, text options and the tracker",
+   "signature": "int32_t eidos_tracker_set(const char *text, uint32_t size)",
+   "params": [
+    "const char *text",
+    "uint32_t size"
+   ],
+   "what": "Hands eidos the mod's whole tracker as lines of tab-separated words (area, check, item, count). The field's top bar then shows a Tracker button. Set it again after each change, and in game.new and save.load: a new game or a loaded save clears it. At most 128 KB.",
+   "result": "0 on success, -1 when too long.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 6
   }
  ],
  "functionGroups": [
@@ -7744,20 +9676,43 @@
    ]
   },
   {
-   "title": "Badges, money and flags",
+   "title": "Badges, money, flags and works",
    "fns": [
     "badge_count",
     "badge_has",
+    "badge_set",
     "money",
     "money_set",
     "flag",
-    "flag_set"
+    "flag_set",
+    "work_get",
+    "work_set"
    ]
   },
   {
    "title": "The map and the player",
    "fns": [
-    "zone"
+    "zone",
+    "whiteout"
+   ]
+  },
+  {
+   "title": "Game files and text",
+   "fns": [
+    "vfs_member_set",
+    "vfs_member_clear",
+    "vfs_member_get",
+    "text_get",
+    "text_set",
+    "text_language",
+    "game_code"
+   ]
+  },
+  {
+   "title": "Field scripts and text input",
+   "fns": [
+    "script_run",
+    "text_input"
    ]
   },
   {
@@ -7791,7 +9746,9 @@
    "fns": [
     "item_value",
     "move_value",
-    "type_effect"
+    "type_effect",
+    "type_chart_set",
+    "type_chart_get"
    ]
   },
   {
@@ -7886,6 +9843,47 @@
     "state_info",
     "state_dir",
     "state_in_step"
+   ]
+  },
+  {
+   "title": "Mod files",
+   "fns": [
+    "mod_file_write",
+    "mod_file_read",
+    "mod_file_list",
+    "mod_file_delete"
+   ]
+  },
+  {
+   "title": "Modes, text options and the tracker",
+   "fns": [
+    "mode_get",
+    "mode_code",
+    "setting_text",
+    "player_name",
+    "tracker_set"
+   ]
+  },
+  {
+   "title": "World sessions",
+   "fns": [
+    "world_create",
+    "world_owner",
+    "world_join",
+    "world_checks",
+    "world_leave",
+    "world_read",
+    "peer_position",
+    "townmap_marker_set",
+    "townmap_marker_clear"
+   ]
+  },
+  {
+   "title": "The Archipelago link",
+   "fns": [
+    "ap_link",
+    "ap_send",
+    "ap_read"
    ]
   }
  ],
@@ -8150,6 +10148,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:arm9:0x02017ED8",
+   "name": "POKE_TOOL_IsShinyOtIdPersonality",
+   "region": "arm9",
+   "addr": "0x02017ED8",
+   "key": "arm9:0x02017ED8",
+   "events": [
+    "mon.shiny"
+   ],
+   "proto": "unsigned int (unsigned int, unsigned int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:arm9:0x020180F4",
    "name": "POKE_TOOL_PushMove",
    "region": "arm9",
@@ -8272,6 +10283,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:arm9:0x020212E4",
+   "name": "FILE_UTIL_IsHmMove",
+   "region": "arm9",
+   "addr": "0x020212E4",
+   "key": "arm9:0x020212E4",
+   "events": [
+    "move.forget"
+   ],
+   "proto": "unsigned int (unsigned short)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:arm9:0x0202627C",
    "name": "GAME_COMM_Update",
    "region": "arm9",
@@ -8301,6 +10325,19 @@
    "key": "arm9:0x020263B0",
    "events": [],
    "proto": "void (void *, unsigned int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:arm9:0x0202E8CC",
+   "name": "COMM_PLAYER_SUPPORT_SetSeason",
+   "region": "arm9",
+   "addr": "0x0202E8CC",
+   "key": "arm9:0x0202E8CC",
+   "events": [
+    "season.change"
+   ],
+   "proto": "void (void *, int)",
    "aliases": [],
    "protoFromC": true
   },
@@ -8508,9 +10545,7 @@
    "region": "ov010",
    "addr": "0x02158A20",
    "key": "ov010:0x02158A20",
-   "events": [
-    "whiteout"
-   ],
+   "events": [],
    "proto": "void (void *, int)",
    "aliases": [],
    "protoFromC": true
@@ -8957,6 +10992,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov010:0x0215F6E8",
+   "name": "SCRCMD_NETWORK_CreateWhiteOutEvent",
+   "region": "ov010",
+   "addr": "0x0215F6E8",
+   "key": "ov010:0x0215F6E8",
+   "events": [
+    "whiteout"
+   ],
+   "proto": "void * (void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov010:0x0215F8A8",
    "name": "EVENT_GAMECLEAR_Create",
    "region": "ov010",
@@ -9292,6 +11340,20 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov020:0x02183B6C",
+   "name": "EVENT_MAPCHANGE_CreateByMode",
+   "region": "ov020",
+   "addr": "0x02183B6C",
+   "key": "ov020:0x02183B6C",
+   "events": [
+    "game.new",
+    "save.load"
+   ],
+   "proto": "void * (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov020:0x02183C9C",
    "name": "EVENT_MAPCHANGE_NewGameStartEvent",
    "region": "ov020",
@@ -9592,6 +11654,58 @@
     "encounter.wild"
    ],
    "proto": "void * (void *, void *, unsigned int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov021:0x021A9DC8",
+   "name": "FIELD_ENCOUNT_RandPercent",
+   "region": "ov021",
+   "addr": "0x021A9DC8",
+   "key": "ov021:0x021A9DC8",
+   "events": [
+    "encounter.slot"
+   ],
+   "proto": "unsigned int (void)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov021:0x021A9DE0",
+   "name": "FIELD_ENCOUNT_PickGroundSlot",
+   "region": "ov021",
+   "addr": "0x021A9DE0",
+   "key": "ov021:0x021A9DE0",
+   "events": [
+    "encounter.slot"
+   ],
+   "proto": "unsigned int (unsigned char)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov021:0x021A9E64",
+   "name": "FIELD_ENCOUNT_PickWaterSlot",
+   "region": "ov021",
+   "addr": "0x021A9E64",
+   "key": "ov021:0x021A9E64",
+   "events": [
+    "encounter.slot"
+   ],
+   "proto": "unsigned int (unsigned char)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov021:0x021A9E98",
+   "name": "FIELD_ENCOUNT_PickFishingSlot",
+   "region": "ov021",
+   "addr": "0x021A9E98",
+   "key": "ov021:0x021A9E98",
+   "events": [
+    "encounter.slot"
+   ],
+   "proto": "unsigned int (unsigned char)",
    "aliases": [],
    "protoFromC": true
   },
@@ -10264,6 +12378,19 @@
    "protoFromC": true
   },
   {
+   "id": "hook:ov091:0x021BDCC0",
+   "name": "PLIST_DEMO_CanUseGracidea",
+   "region": "ov091",
+   "addr": "0x021BDCC0",
+   "key": "ov091:0x021BDCC0",
+   "events": [
+    "item.usable"
+   ],
+   "proto": "int (void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
    "id": "hook:ov091:0x021BDD78",
    "name": "PLIST_DEMO_CheckItemUsable",
    "region": "ov091",
@@ -10897,9 +13024,7 @@
    "region": "ov093",
    "addr": "0x021D1960",
    "key": "ov093:0x021D1960",
-   "events": [
-    "whiteout"
-   ],
+   "events": [],
    "proto": "int (void *, void *)",
    "aliases": [],
    "protoFromC": true
@@ -10971,6 +13096,19 @@
    "key": "ov093:0x021D7930",
    "events": [],
    "proto": "int (int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021D794C",
+   "name": "BTL_CALC_GetTypeAffinity",
+   "region": "ov093",
+   "addr": "0x021D794C",
+   "key": "ov093:0x021D794C",
+   "events": [
+    "battle.type_effect"
+   ],
+   "proto": "int (int, int)",
    "aliases": [],
    "protoFromC": true
   },
@@ -11243,6 +13381,17 @@
     "mon.nickname"
    ],
    "proto": "void * (unsigned short, void *, void *, void *, unsigned int, void *, void *, void *, void *)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov223:0x021B9608",
+   "name": "PSEL_Init",
+   "region": "ov223",
+   "addr": "0x021B9608",
+   "key": "ov223:0x021B9608",
+   "events": [],
+   "proto": "int (void *, int, void *)",
    "aliases": [],
    "protoFromC": true
   }

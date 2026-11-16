@@ -5,7 +5,7 @@
 
 const rule = (s) => s.replace(/^\n/, "").replace(/\n\s*$/, "\n");
 
-// Entry points shared by the C recipes (eidos_wasm.h, api 5). A handler is
+// Entry points shared by the C recipes (eidos_wasm.h, api 6). A handler is
 // registered by its function table index, which is its address.
 const start = (reg) => `EIDOS_EXPORT("eidos_mod_start")
 int32_t eidos_mod_start(void)
@@ -82,6 +82,14 @@ export default {
     EIDOS_SESSION_: "What a session handler is told about",
     EIDOS_RESTART_: "The flags of a run restart",
     EIDOS_ZONE_: "How the zone was entered (route.change).",
+    EIDOS_MOVE_SITE_: "Where the game asks whether a Pokemon knows a move (move.known).",
+    EIDOS_TYPE_EFFECT_: "How well a type hits another (battle.type_effect).",
+    EIDOS_EGG_RULE_: "The game's special egg rules, as bits (egg.species).",
+    EIDOS_TEXT_INPUT_: "What a text input accepts (text_input).",
+    EIDOS_WORLD_OWNER_: "What the owner of a world asks for (world_owner).",
+    EIDOS_WORLD_: "What a world event is about (world).",
+    EIDOS_AP_: "What an Archipelago event is about (ap).",
+    EIDOS_MOVE_FIELD_RANK_: "The stat changes of a move (move_value).",
   },
 
   // Per event: `facts` are details v4 does not carry; `functions` are the calls
@@ -143,6 +151,15 @@ export default {
       functions: ["party_get", "battle_get", "battle_wild"],
     },
     "battle.trainer_mon": {
+    },
+    "move.known": {
+      facts: [
+        "It fires once for each party member each time the game asks, and never for an egg. Set known to 1 to answer that the Pokemon knows the move.",
+        "To let a field move work without learning it, set known to 1 for every member. The game then picks the first member that can act, which uses the move and shows in the cut-in.",
+        "site tells where the question came from: 0 the field (Surf, Waterfall), 1 a script (Cut, Strength, and people who ask about a move). Test move to act only on field moves. Site 2, the party screen, does not fire yet.",
+        "slot is 255 at the script site when the Pokemon is not in the party.",
+      ],
+      functions: ["species_learns", "badge_has", "party_get"],
     },
   },
 
@@ -258,6 +275,43 @@ export default {
     state_info: { what: "Reads the header of the mod's saved data.", tiers: ["c"] },
     state_dir: { what: "The path of the mod's own folder.", tiers: ["c"] },
     state_in_step: { what: "Whether the mod's saved data was written together with the game save now in force.", result: "1 in step, 0 out of step, -1 unknown.", tiers: ["c"] },
+
+    whiteout: { what: "Whites the player out as the game does after a lost battle: back to the last Pokemon Centre. It is queued for a quiet field frame and raises no whiteout event.", result: "0 when queued, -1 when the game cannot do it.", tiers: ["c"] },
+    work_get: { what: "Reads a work variable. The saved works (0x4000 to 0x40FF) can be read whenever a game is loaded. A script's own works (0x8000 to 0x80FF) only while a field script runs a command: from a flag.set handler or a script command handler.", result: "0 on success; the value goes into out. -1 when the work cannot be reached now.", tiers: ["rules", "c"], rule: "work[id]" },
+    work_set: { what: "Writes a work variable, with the same limits as work_get.", result: "0 on success, -1 when the work cannot be reached now.", tiers: ["rules", "c"], rule: "set work[id] value" },
+    badge_set: { what: "Gives the player a badge (0 to 7) through the game's own call, so badge.get fires as for a badge won in a gym.", result: "0 on success, -1 for a bit past 7 or with no game loaded.", tiers: ["c"] },
+    game_code: { what: "Copies the cartridge's 4-letter game code: IRBO is English Black, IRAO English White, and the last letter is the language.", result: "0 on success.", tiers: ["c"] },
+    vfs_member_set: { what: "Changes a member of a game archive without a file. archive is the NitroFS path, such as a/0/5/7. The bytes go to the mod's memory layer, which wins over the files of the mod's folder. A change to an archive the game holds open is applied between frames; what the game already copied changes the next time it loads it. 16 MiB per mod, 32 MiB for all mods.", result: "0 on success, -1 past a limit or for a member past the end of an open archive.", tiers: ["c"] },
+    vfs_member_clear: { what: "Takes the mod's own changes to members out again. Index 0xFFFFFFFF takes all of the mod's members of the archive; an empty archive name takes every member the mod holds.", result: "How many members it took out.", tiers: ["c"] },
+    vfs_member_get: { what: "Reads a member as the game's next read sees it, every mod's changes included, and copies up to size bytes.", result: "The member's whole size, or -1.", tiers: ["c"] },
+    text_get: { what: "Reads a text entry. archive is 2 (system text) or 3 (story text). The units are the game's 16-bit code units, control codes included, without the end code. A Japanese bank has two blocks (kana and kanji); the others have one.", result: "The entry's length in units; up to max_units are copied.", tiers: ["c"] },
+    text_set: { what: "Writes a text entry. The whole bank goes to the mod's memory layer with the one entry changed. An entry past the end makes the bank longer with empty lines.", result: "0 on success.", tiers: ["c"] },
+    text_language: { what: "The game's language: 1 Japanese, 2 English, 3 French, 4 Italian, 5 German, 7 Spanish, 8 Korean.", result: "The language id.", tiers: ["c"] },
+    script_run: { what: "Starts a field script. It waits for a field frame with no event, no battle and no menu, and scripts start one at a time in order. script.done fires with the ticket when the script ends.", result: "0 when queued (the ticket goes into ticket), -1 when the queue is full.", tiers: ["c"] },
+    type_chart_set: { what: "Replaces the battle type chart, 17 by 17, in the game's codes: 0 no effect, 2 half, 4 normal, 8 double; cell[attacking * 17 + defending]. The chart stays in force for every battle. With several mods, the last in the load order wins. NULL takes the mod's chart away. For one battle or one trainer, use the event battle.type_effect instead.", result: "0 on success, -1 for a code that is not one of the four.", tiers: ["c"] },
+    type_chart_get: { what: "Reads the type chart in force: a mod's, or the game's own as the last battle loaded it.", result: "0 on success, -1 before any battle has loaded it.", tiers: ["c"] },
+    text_input: { what: "Opens the game's name entry screen on a quiet field with a title (UTF-8). kind is EIDOS_TEXT_INPUT_NAME, _CODE (letters and digits only) or _LINK. The screen holds at most 10 units. The answer comes in the event text_input.done; B cancels.", result: "0 when queued (the ticket goes into ticket), -1 when it cannot open.", tiers: ["c"] },
+    mod_file_write: { what: "Writes a file in the mod's own folder, shared across the player's saves. A name is 1 to 64 letters, digits and . _ - and does not start with a dot. The write is all or nothing. 16 MiB for all of a mod's files.", result: "0 on success, -1 for a bad name or past the quota (the old file stays).", tiers: ["c"] },
+    mod_file_read: { what: "Reads a file of the mod's own folder and copies up to size bytes; got says how many were copied.", result: "The file's size, or -1.", tiers: ["c"] },
+    mod_file_list: { what: "Lists the mod's files: a line `used <bytes> quota <bytes>`, then `<name> <size>` per file. The list is cut at size.", result: "The length the whole list needs.", tiers: ["c"] },
+    mod_file_delete: { what: "Deletes a file of the mod's own folder.", result: "0 on success, -1 when there is no such file.", tiers: ["c"] },
+    world_create: { what: "Asks metaxy to make an eidos-only world from a JSON configuration (up to 64 KB). The answer comes as a world event of kind EIDOS_WORLD_GENERATED, with the code and the owner key.", result: "0 when sent (the ticket goes into ticket), -1 when the relay cannot be reached.", tiers: ["c"] },
+    world_owner: { what: "The owner of a world starts, closes or deletes it (EIDOS_WORLD_OWNER_START, _CLOSE, _DELETE) with its code and owner key. The answer comes as a world event of kind EIDOS_WORLD_OWNER_DONE.", result: "0 when sent, -1 otherwise.", tiers: ["c"] },
+    world_join: { what: "Joins a world by its code, with the player's name or the player key of an earlier join. The answer comes as a world event of kind EIDOS_WORLD_JOINED, with the player key and the player's data. Not during a relay session (co-op).", result: "0 when sent (the ticket goes into ticket), -1 otherwise.", tiers: ["c"] },
+    world_checks: { what: "Sends checks (location ids) to the world. The single location 0 says the goal is reached. The port keeps the checks and sends them again after each join, so a check made while offline is not lost.", result: "0 when sent, -1 with no world session.", tiers: ["c"] },
+    world_leave: { what: "Ends the world session.", tiers: ["c"] },
+    world_read: { what: "Inside a world handler, copies up to size bytes of the event's data: a player's data can be up to 1 MB, more than the handler's copy holds.", result: "The data's whole size, or -1 outside a world handler.", tiers: ["c"] },
+    ap_link: { what: "Links to an Archipelago server through metaxy, by room link or host:port. The answers are ap events (EIDOS_AP_LINKED, _MESSAGE, _ERROR, _CLOSED). The slot and password go in Archipelago's own Connect message, which the mod sends with ap_send once linked. metaxy does not serve the link yet.", result: "0 when sent (the ticket goes into ticket), -1 otherwise.", tiers: ["c"] },
+    ap_send: { what: "Sends one Archipelago JSON message over the link.", result: "0 when sent, -1 with no link.", tiers: ["c"] },
+    ap_read: { what: "Inside an ap handler, copies up to size bytes of the Archipelago message.", result: "The message's whole size, or -1 outside an ap handler.", tiers: ["c"] },
+    peer_position: { what: "Turns sharing positions in a world session on (1) or off (0). On, the port sends this game's zone and tile and draws the other players in the same zone with the hero's sprite. Their positions also come as world events of kind EIDOS_WORLD_POSITION.", result: "0.", tiers: ["c"] },
+    townmap_marker_set: { what: "Sets a Town Map marker by id (up to 32): a zone, an icon and a name. The port keeps the markers; drawing them on the Town Map is not built yet.", result: "0 on success, -1 when all 32 are used.", tiers: ["c"] },
+    townmap_marker_clear: { what: "Takes a Town Map marker away by id.", result: "0 on success, -1 for an unknown id.", tiers: ["c"] },
+    mode_get: { what: "During game.new, the mode the player chose on the Multiplayer screen for this new game, if it is one of this mod's modes.", result: "The length of the mode's id; an empty text for a plain New Game.", tiers: ["c"] },
+    mode_code: { what: "During game.new, the world code the player typed in the Multiplayer screen's Join box, for a mode marked joins.", result: "The code's length; an empty text for a world made here.", tiers: ["c"] },
+    setting_text: { what: "Reads one of the mod's text options (a `text` line in the settings file).", result: "The text's length, or -1 for a key the mod does not declare.", tiers: ["c"] },
+    player_name: { what: "The multiplayer name the player chose on the Multiplayer screen, so a mod never asks for a name of its own.", result: "The name's length; 0 while none is chosen.", tiers: ["c"] },
+    tracker_set: { what: "Hands eidos the mod's whole tracker as lines of tab-separated words (area, check, item, count). The field's top bar then shows a Tracker button. Set it again after each change, and in game.new and save.load: a new game or a loaded save clears it. At most 128 KB.", result: "0 on success, -1 when too long.", tiers: ["c"] },
   },
 
   functionGroups: [
@@ -267,12 +321,14 @@ export default {
     { title: "The boxes", fns: ["box_count","box_ref","box_get","box_set"] },
     { title: "A Pokemon in battle", fns: ["battle_ref","battle_get","battle_set"] },
     { title: "Species and dex", fns: ["species_value","species_base","species_shiny","species_learns","dex_caught"] },
-    { title: "Badges, money and flags", fns: ["badge_count","badge_has","money","money_set","flag","flag_set"] },
-    { title: "The map and the player", fns: ["zone"] },
+    { title: "Badges, money, flags and works", fns: ["badge_count","badge_has","badge_set","money","money_set","flag","flag_set","work_get","work_set"] },
+    { title: "The map and the player", fns: ["zone","whiteout"] },
+    { title: "Game files and text", fns: ["vfs_member_set","vfs_member_clear","vfs_member_get","text_get","text_set","text_language","game_code"] },
+    { title: "Field scripts and text input", fns: ["script_run","text_input"] },
     { title: "Moves between places", fns: ["mon_to_box","mon_to_box_n","mon_from_box","mon_take_item","mon_release"] },
     { title: "Recalculating a Pokemon", fns: ["mon_recalc"] },
     { title: "The world, the battle and play time", fns: ["area_of","battle_wild","battle_trainer","battle_weather","play_seconds"] },
-    { title: "Item, move and type data", fns: ["item_value","move_value","type_effect"] },
+    { title: "Item, move and type data", fns: ["item_value","move_value","type_effect","type_chart_set","type_chart_get"] },
     { title: "Mod data tables", fns: ["table_get"] },
     { title: "Messages", fns: ["message","confirm"] },
     { title: "Miscellaneous", fns: ["item_count","item_add","setting_get","player_pos","battle_style"] },
@@ -283,6 +339,10 @@ export default {
     { title: "Run, random, input and frame", fns: ["run_restart","rand_seed","rand_next","input_press","on_frame"] },
     { title: "External control and save handoff", fns: ["on_command","publish","save_send","on_save_received"] },
     { title: "Saved data", fns: ["state_load","state_store","state_clear","state_info","state_dir","state_in_step"] },
+    { title: "Mod files", fns: ["mod_file_write","mod_file_read","mod_file_list","mod_file_delete"] },
+    { title: "Modes, text options and the tracker", fns: ["mode_get","mode_code","setting_text","player_name","tracker_set"] },
+    { title: "World sessions", fns: ["world_create","world_owner","world_join","world_checks","world_leave","world_read","peer_position","townmap_marker_set","townmap_marker_clear"] },
+    { title: "The Archipelago link", fns: ["ap_link","ap_send","ap_read"] },
   ],
 
   actions: [
