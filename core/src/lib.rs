@@ -23,6 +23,7 @@ pub mod nsbmd;
 pub mod project;
 pub mod props;
 pub mod rig;
+pub mod romhack;
 pub mod scripts;
 pub mod sdat;
 pub mod sound_add;

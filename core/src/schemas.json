@@ -3550,6 +3550,270 @@
      ]
     }
    ]
+  },
+  {
+   "id": "trades",
+   "label": "In-game trades",
+   "archive": 165,
+   "path": "a/1/6/5",
+   "members": "one member per trade id, a 108-byte record",
+   "memberCount": 13,
+   "recordSize": 108,
+   "compressed": false,
+   "src": "fld_trade.c (FldTradeData, FLD_TRADE_Create, FLD_TRADE_BuildPokemon)",
+   "fields": [
+    {
+     "name": "tradeId",
+     "label": "Trade id",
+     "offset": 0,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "the record's own trade id, as the script passes it"
+    },
+    {
+     "name": "species",
+     "label": "Pokemon given",
+     "offset": 4,
+     "type": "u32",
+     "enum": "species",
+     "confidence": "verified"
+    },
+    {
+     "name": "form",
+     "label": "Form",
+     "offset": 8,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "level",
+     "label": "Level",
+     "offset": 12,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "ivHp",
+     "label": "IV HP",
+     "offset": 16,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "ivAttack",
+     "label": "IV Attack",
+     "offset": 20,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "ivDefense",
+     "label": "IV Defense",
+     "offset": 24,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "ivSpeed",
+     "label": "IV Speed",
+     "offset": 28,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "ivSpAtk",
+     "label": "IV Sp. Atk",
+     "offset": 32,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "ivSpDef",
+     "label": "IV Sp. Def",
+     "offset": 36,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31"
+    },
+    {
+     "name": "abilitySlot",
+     "label": "Ability",
+     "offset": 40,
+     "type": "u32",
+     "enum": "tradeAbilitySlot",
+     "confidence": "verified",
+     "note": "which of the species' three abilities"
+    },
+    {
+     "name": "nature",
+     "label": "Nature",
+     "offset": 44,
+     "type": "u32",
+     "enum": "nature",
+     "confidence": "verified"
+    },
+    {
+     "name": "gender",
+     "label": "Gender",
+     "offset": 48,
+     "type": "u32",
+     "enum": "tradeGender",
+     "confidence": "inferred",
+     "note": "passed to POKE_TOOL_AdjustPersonalRnd with the OT id to pick the personality"
+    },
+    {
+     "name": "otId",
+     "label": "OT id",
+     "offset": 52,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "the trainer id; with the gender it fixes the personality (and so the shininess)"
+    },
+    {
+     "name": "contestCool",
+     "label": "Contest Cool",
+     "offset": 56,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "contestBeauty",
+     "label": "Contest Beauty",
+     "offset": 60,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "contestCute",
+     "label": "Contest Cute",
+     "offset": 64,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "contestSmart",
+     "label": "Contest Smart",
+     "offset": 68,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "contestTough",
+     "label": "Contest Tough",
+     "offset": 72,
+     "type": "u32",
+     "confidence": "verified"
+    },
+    {
+     "name": "heldItem",
+     "label": "Held item",
+     "offset": 76,
+     "type": "u32",
+     "enum": "item",
+     "confidence": "verified"
+    },
+    {
+     "name": "otGender",
+     "label": "OT gender",
+     "offset": 80,
+     "type": "u32",
+     "enum": "tradeOtGender",
+     "confidence": "verified",
+     "note": "the trainer's gender (MYSTATUS_SetSex)"
+    },
+    {
+     "name": "tradeFlag",
+     "label": "Value at 0x54",
+     "offset": 84,
+     "type": "u32",
+     "confidence": "inferred",
+     "note": "not read by the trade code in ov021; meaning not established"
+    },
+    {
+     "name": "language",
+     "label": "Language",
+     "offset": 88,
+     "type": "u32",
+     "enum": "pokemonLanguage",
+     "confidence": "verified",
+     "note": "the Pokemon's language of origin"
+    },
+    {
+     "name": "wantedSpecies",
+     "label": "Pokemon wanted",
+     "offset": 92,
+     "type": "u32",
+     "enum": "species",
+     "confidence": "verified",
+     "note": "what the trader asks for (FLD_TRADE_GetWantedSpecies)"
+    },
+    {
+     "name": "wantedGender",
+     "label": "Gender wanted",
+     "offset": 96,
+     "type": "u32",
+     "confidence": "inferred",
+     "note": "read by the trade script command (FLD_TRADE_GetWantedGender); values not checked"
+    },
+    {
+     "name": "nickname",
+     "label": "Nickname",
+     "offset": 100,
+     "type": "u32",
+     "enum": "tradeText",
+     "confidence": "verified",
+     "note": "a line of the trade text bank (system text 35; 34 on Japanese)"
+    },
+    {
+     "name": "otName",
+     "label": "OT name",
+     "offset": 104,
+     "type": "u32",
+     "enum": "tradeText",
+     "confidence": "verified",
+     "note": "a line of the trade text bank"
+    }
+   ]
+  },
+  {
+   "id": "expCurves",
+   "label": "Experience curves",
+   "archive": 17,
+   "path": "a/0/1/7",
+   "members": "one member per growth rate (the species' growth rate field), 101 u32: the total experience for levels 0 to 100",
+   "memberCount": 8,
+   "recordSize": 404,
+   "compressed": false,
+   "nameEnum": "growthRate",
+   "src": "poke_tool.c (POKE_TOOL_LoadExpTable, POKE_TOOL_CalcLevelFromExp)",
+   "fields": [
+    {
+     "name": "level0",
+     "label": "Level 0",
+     "offset": 0,
+     "type": "u32",
+     "readonly": true,
+     "confidence": "verified",
+     "note": "level 0; no Pokemon has it"
+    },
+    {
+     "name": "level",
+     "label": "Level",
+     "offset": 4,
+     "type": "u32",
+     "repeat": {
+      "count": 100,
+      "stride": 4
+     },
+     "confidence": "verified",
+     "note": "the total experience a Pokemon needs to reach this level; keep each value above the one before"
+    }
+   ]
   }
  ],
  "enums": {
@@ -3686,6 +3950,45 @@
     "Level in moss area",
     "Level in ice area",
     "Level in extra area"
+   ]
+  },
+  "tradeText": {
+   "source": {
+    "archive": 2,
+    "bank": 35
+   }
+  },
+  "tradeAbilitySlot": {
+   "values": [
+    "First ability",
+    "Second ability",
+    "Hidden ability"
+   ]
+  },
+  "tradeGender": {
+   "values": [
+    "Male",
+    "Female",
+    "Genderless"
+   ]
+  },
+  "tradeOtGender": {
+   "values": [
+    "Male",
+    "Female"
+   ]
+  },
+  "pokemonLanguage": {
+   "values": [
+    "",
+    "Japanese",
+    "English",
+    "French",
+    "Italian",
+    "German",
+    "",
+    "Spanish",
+    "Korean"
    ]
   }
  },

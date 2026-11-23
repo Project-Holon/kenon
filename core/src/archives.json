@@ -2673,16 +2673,16 @@
   {
    "id": 165,
    "path": "a/1/6/5",
-   "label": "Record table (unidentified)",
-   "group": "Other",
+   "label": "In-game trades",
+   "group": "World",
    "kind": "data",
    "members": 13,
    "formats": {
     "RAW": 13
    },
-   "source": "data shape",
-   "confidence": "inferred",
-   "note": "13 records of 108 bytes; no code consumer found."
+   "source": "fld_trade.c:200",
+   "confidence": "verified",
+   "note": "13 records of 108 bytes, one per trade id: the Pokemon given (species, level, IVs, nature, ability, item, OT), the one wanted, and the text lines of its nickname and OT name."
   },
   {
    "id": 166,

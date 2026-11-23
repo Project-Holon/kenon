@@ -131,6 +131,8 @@ pub struct Table {
     pub records_per_member: Option<usize>,
     pub container: Option<String>,
     pub name_bank: Option<BankRef>,
+    /// Entry names from an enum of the schema, when there is no text bank.
+    pub name_enum: Option<String>,
     pub layout: Option<String>,
     #[serde(default)]
     pub fields: Vec<Field>,
@@ -663,11 +665,11 @@ pub fn entries(bridge: &Bridge, id: &str) -> Result<std::sync::Arc<Vec<Entry>>, 
 fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
     let t = table(id)?;
     let count = bridge.base_archive(t.archive)?.len();
-    let names = t
-        .name_bank
-        .as_ref()
-        .map(|b| bank_strings(bridge, b))
-        .unwrap_or_default();
+    let names = match (&t.name_bank, &t.name_enum) {
+        (Some(b), _) => bank_strings(bridge, b),
+        (None, Some(e)) => enum_values(bridge, e)?.as_ref().clone(),
+        (None, None) => Vec::new(),
+    };
     Ok((0..count)
         .map(|index| Entry {
             index,

@@ -35,7 +35,7 @@ time; it ships no game data. Edits are saved as a mod folder that
   - [x] Battle sprite, trainer and back sprite animations
   - [x] 3D textures (view only)
 - [x] **Milestone 3**: Data and text
-  - [x] Tables: Pokémon, moves, items, trainers and parties, wild encounters
+  - [x] Tables: Pokémon, moves, items, trainers and parties, wild encounters, in-game trades, experience curves
   - [x] Wild encounters by Pokémon
   - [x] Text banks
   - [x] Trainer speech
@@ -51,6 +51,7 @@ time; it ships no game data. Edits are saved as a mod folder that
   - [x] `.bw` package (zip, lossless)
   - [x] Hook and rule editors (Monaco), checked against eidos
   - [x] Mod settings, load order, conflict hints
+  - [x] ROM hack patches (xdelta) turned into projects: changed members become editable changes; code changes are listed
 - [ ] **Milestone 6**: Full map building
   - [ ] Copy map pieces between places
   - [ ] Paint the ground itself (new 3D map pieces)

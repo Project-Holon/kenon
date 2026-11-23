@@ -7,12 +7,14 @@
     forgetRecent,
     gameText,
     importBw,
+    importPatch,
     isReady,
     newProject,
     openProject,
     recentProjects,
     setRom,
     type NewProject,
+    type PatchImport,
     type RecentProject,
     type Status,
   } from "../lib/backend";
@@ -21,6 +23,7 @@
   import { openMenu } from "morphe/menu.svelte";
   import ThemePicker from "../lib/ThemePicker.svelte";
   import NewProjectDialog from "../lib/NewProjectDialog.svelte";
+  import PatchImportDialog from "../lib/PatchImportDialog.svelte";
 
   let {
     status,
@@ -40,6 +43,7 @@
   let sound = $state(sfxOn());
   let recent = $state<RecentProject[]>([]);
   let spriteOk = $state(true);
+  let imported = $state<PatchImport | null>(null);
 
   const ready = $derived(isReady(status));
   const identity = $derived(status.check?.state === "rom" ? status.check.identity : null);
@@ -99,19 +103,30 @@
       onProject(await openProject(root));
     });
 
-  // A mod folder, or a .bw file unpacked into a new folder beside it.
+  // A mod folder, a .bw file unpacked into a new folder beside it, or a ROM
+  // hack patch turned into a new project.
   const openSomething = () =>
     run(async () => {
       const picked = await open({
         multiple: false,
-        title: "Open a project: choose a .bw file, or cancel to pick a folder",
-        filters: [{ name: "eidos mod", extensions: ["bw"] }],
+        title: "Open a project: choose a .bw file or a patch, or cancel to pick a folder",
+        filters: [
+          { name: "eidos mod or ROM hack patch", extensions: ["bw", "xdelta"] },
+          { name: "eidos mod", extensions: ["bw"] },
+          { name: "ROM hack patch (xdelta)", extensions: ["xdelta"] },
+        ],
       });
       if (typeof picked === "string") {
         const parent = await open({ directory: true, multiple: false, title: "Where should the project folder go?" });
         if (typeof parent !== "string") return;
-        const base = picked.split(/[\\/]/).pop()!.replace(/\.bw$/i, "");
-        const root = await importBw(picked, await join(parent, base));
+        const file = picked.split(/[\\/]/).pop()!;
+        if (/\.xdelta$/i.test(file)) {
+          const base = file.replace(/\.xdelta$/i, "");
+          imported = await importPatch(picked, await join(parent, base), base);
+          play("decide");
+          return;
+        }
+        const root = await importBw(picked, await join(parent, file.replace(/\.bw$/i, "")));
         play("decide");
         onProject(await openProject(root));
         return;
@@ -264,7 +279,7 @@
     </button>
     <button class="window tile" disabled={!ready || busy} onclick={openSomething}>
       <span class="ic">⤓</span>
-      <span><b>Open a project</b><span class="muted">A mod folder or a .bw file.</span></span>
+      <span><b>Open a project</b><span class="muted">A mod folder, a .bw file or an xdelta patch.</span></span>
     </button>
     <button class="window tile" disabled={!ready} onclick={() => (play("decide"), onView())}>
       <span class="ic">▦</span>
@@ -312,6 +327,10 @@
 
 {#if creating}
   <NewProjectDialog gameCode={code} onCreate={create} onClose={() => (creating = false)} />
+{/if}
+
+{#if imported}
+  <PatchImportDialog report={imported} onOpen={openRoot} onClose={() => (imported = null)} />
 {/if}
 
 <style>

@@ -21,7 +21,7 @@ export const GROUPS: Group[] = [
   {
     label: "Pokemon",
     items: [
-      { id: "species", label: "Pokemon stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions"] },
+      { id: "species", label: "Pokemon stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions", "expCurves"] },
       { id: "battle-sprites", label: "Pokemon battle sprites", kind: "graphics", archive: 4 },
       { id: "pokemon-icons", label: "Pokemon icons", kind: "graphics", archive: 7 },
     ],
@@ -42,6 +42,7 @@ export const GROUPS: Group[] = [
       { id: "trainer-sprites", label: "Trainer sprites (front)", kind: "graphics", archive: 72 },
       { id: "trainer-sprites-back", label: "Trainer sprites (back)", kind: "graphics", archive: 73 },
       { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },
+      { id: "trades", label: "In-game trades", kind: "table", tables: ["trades"] },
     ],
   },
   {

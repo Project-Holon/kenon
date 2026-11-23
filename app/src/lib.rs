@@ -284,6 +284,28 @@ fn import_bw(bw_path: PathBuf, into_dir: PathBuf) -> Result<PathBuf, String> {
     Ok(into_dir)
 }
 
+/// Makes a project in `into_dir` from a ROM hack patch (xdelta), applied to
+/// the open ROM. The caller shows the report and opens the project with
+/// `open_project`.
+#[tauri::command]
+async fn import_patch(
+    state: State<'_, AppState>,
+    patch_path: PathBuf,
+    into_dir: PathBuf,
+    name: String,
+) -> Result<kenon_core::romhack::PatchImport, String> {
+    let rom = state.settings.lock().unwrap().game.clone();
+    let rom = rom.filter(|p| p.is_file()).ok_or_else(|| {
+        "a patch needs the ROM it was made for: choose a ROM file first".to_string()
+    })?;
+    tauri::async_runtime::spawn_blocking(move || {
+        kenon_core::romhack::import_patch(&rom, &patch_path, &into_dir, &name)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Closes the project: back to the game as it is.
 #[tauri::command]
 fn close_project(state: State<AppState>) -> Status {
@@ -1615,6 +1637,7 @@ pub fn run() {
             close_project,
             export_bw,
             import_bw,
+            import_patch,
             archives,
             export_asset,
             export_member,

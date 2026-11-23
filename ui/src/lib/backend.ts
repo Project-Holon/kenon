@@ -109,6 +109,21 @@ export const openProject = (root: string) => invoke<Status>("open_project", { ro
 export const closeProject = () => invoke<Status>("close_project");
 export const exportBw = (path: string) => invoke<void>("export_bw", { path });
 export const importBw = (bwPath: string, intoDir: string) => invoke<string>("import_bw", { bwPath, intoDir });
+/// What a patch import wrote and what a mod cannot carry.
+export interface PatchImport {
+  root: string;
+  name: string;
+  icon: boolean;
+  gameCode: string;
+  members: number;
+  archives: number;
+  files: string[];
+  code: string[];
+  leftOut: string[];
+  fillerWindows: number;
+}
+export const importPatch = (patchPath: string, intoDir: string, name: string) =>
+  invoke<PatchImport>("import_patch", { patchPath, intoDir, name });
 export const archives = () => once("archives", () => invoke<ArchiveInfo[]>("archives"));
 export const members = (arc: number) => once(`members/${arc}`, () => invoke<MemberInfo[]>("members", { arc }));
 export const changedMembers = (arc: number) => invoke<number[]>("changed_members", { arc });
