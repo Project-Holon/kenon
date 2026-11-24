@@ -1678,7 +1678,7 @@ dependencies = [
 
 [[package]]
 name = "kenon"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "kenon-core",
  "serde",
@@ -1691,7 +1691,7 @@ dependencies = [
 
 [[package]]
 name = "kenon-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "eidos-mod",
  "nds",
