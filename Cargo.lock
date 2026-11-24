@@ -716,8 +716,8 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "eidos-mod"
-version = "0.11.0"
-source = "git+https://github.com/Project-Holon/morphe?tag=v0.11.0#3e99b6bbfc77a9ddbc30ff93dbd3d92394fed1b3"
+version = "0.12.0"
+source = "git+https://github.com/Project-Holon/morphe?tag=v0.12.0#d8c490de233da8c6bc291d9242d3913cc57d554e"
 dependencies = [
  "serde",
  "serde_json",
@@ -1917,8 +1917,8 @@ dependencies = [
 
 [[package]]
 name = "nds"
-version = "0.11.0"
-source = "git+https://github.com/Project-Holon/morphe?tag=v0.11.0#3e99b6bbfc77a9ddbc30ff93dbd3d92394fed1b3"
+version = "0.12.0"
+source = "git+https://github.com/Project-Holon/morphe?tag=v0.12.0#d8c490de233da8c6bc291d9242d3913cc57d554e"
 dependencies = [
  "png 0.18.1",
  "serde",
@@ -4493,8 +4493,8 @@ dependencies = [
 
 [[package]]
 name = "xdelta"
-version = "0.11.0"
-source = "git+https://github.com/Project-Holon/morphe?tag=v0.11.0#3e99b6bbfc77a9ddbc30ff93dbd3d92394fed1b3"
+version = "0.12.0"
+source = "git+https://github.com/Project-Holon/morphe?tag=v0.12.0#d8c490de233da8c6bc291d9242d3913cc57d554e"
 
 [[package]]
 name = "yoke"

@@ -24,6 +24,8 @@ export interface ModSettings {
   tags: string[];
   /// The mod's picture: `item <n>`, `species <n>` or a .png in the folder.
   icon: string | null;
+  /// Pages about the mod: `Text | https://...`, one per line.
+  links: string[];
   /// The game it works on: `black`, `white`, an older cartridge code, or
   /// null for both.
   game: string | null;

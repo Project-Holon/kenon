@@ -15,6 +15,7 @@
     version: "",
     tags: [],
     icon: null,
+    links: [],
     game: null,
     api: null,
     port: null,
@@ -45,6 +46,7 @@
       version: s.version.trim(),
       tags: [...new Set(s.tags.map((t) => t.trim().toLowerCase()).filter((t) => t))],
       icon: text(s.icon),
+      links: s.links.map((l) => l.trim()).filter((l) => l),
       game: text(s.game),
       api: Number.isFinite(s.api) ? s.api : null,
       port: text(s.port),
@@ -197,6 +199,19 @@
             square PNG in the mod folder, at most 256x256 and 64 KB.
           </p>
           {#each about("icon") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
+        </div>
+
+        <label for="mod-links">Links</label>
+        <div class="field">
+          <textarea
+            id="mod-links"
+            rows="2"
+            placeholder="Forum thread | https://example.org/thread"
+            value={form.links.join("\n")}
+            oninput={(e) => (form.links = e.currentTarget.value.split("\n"))}
+          ></textarea>
+          <p class="hint muted">Pages about the mod or its makers, one per line: text, a bar, then an https address. The mod index shows them.</p>
+          {#each about("links") as p}<p class="warn">{p.message}</p>{/each}
         </div>
 
         <label for="mod-game">Works on</label>
