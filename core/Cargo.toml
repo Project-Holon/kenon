@@ -7,9 +7,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-eidos-mod = { git = "https://github.com/Project-Holon/morphe", tag = "v0.9.0" }
-nds = { git = "https://github.com/Project-Holon/morphe", tag = "v0.9.0" }
-xdelta = { git = "https://github.com/Project-Holon/morphe", tag = "v0.9.0" }
+eidos-mod = { git = "https://github.com/Project-Holon/morphe", tag = "v0.10.0" }
+nds = { git = "https://github.com/Project-Holon/morphe", tag = "v0.10.0" }
+xdelta = { git = "https://github.com/Project-Holon/morphe", tag = "v0.10.0" }
 png = "0.18"
 serde.workspace = true
 serde_json.workspace = true

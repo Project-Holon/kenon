@@ -1,22 +1,22 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "d539e95",
-  "apiVersion": 6,
+  "eidosRevision": "fdfe88c",
+  "apiVersion": 7,
   "apiStatus": "open",
   "sources": [
-   "sdk/api/v6/core.json",
-   "sdk/api/v6/events.json",
-   "sdk/api/v6/rules.json",
-   "sdk/api/v6/state.json",
-   "sdk/api/v6/services.json",
-   "sdk/api/v6/enums.json",
-   "sdk/api/v6/hooks.json",
-   "sdk/api/v6/eidos_wasm.h",
+   "sdk/api/v7/core.json",
+   "sdk/api/v7/events.json",
+   "sdk/api/v7/rules.json",
+   "sdk/api/v7/state.json",
+   "sdk/api/v7/services.json",
+   "sdk/api/v7/enums.json",
+   "sdk/api/v7/hooks.json",
+   "sdk/api/v7/eidos_wasm.h",
    "docs/mod-backlog.md",
    "ui/src/lib/moddocs/curated.mjs"
   ],
-  "note": "The structure and the words are eidos's sdk/api/v6. kenon's curated text fills what it does not carry."
+  "note": "The structure and the words are eidos's sdk/api/v7. kenon's curated text fills what it does not carry."
  },
  "categories": [
   "Session",
@@ -49,7 +49,10 @@
     "state_store",
     "message"
    ],
-   "recipes": []
+   "recipes": [
+    "wonder-card",
+    "national-dex-early"
+   ]
   },
   {
    "name": "save.begin",
@@ -193,7 +196,10 @@
     "state_store",
     "message"
    ],
-   "recipes": []
+   "recipes": [
+    "wonder-card",
+    "national-dex-early"
+   ]
   },
   {
    "name": "game.cleared",
@@ -5757,7 +5763,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The cell the player stands on (version 5).",
+   "value": "The cell the player stands on.",
    "fromC": true
   },
   {
@@ -5767,7 +5773,7 @@
    "readable": true,
    "writableOk": false,
    "subscript": null,
-   "value": "The cell the player stands on (version 5).",
+   "value": "The cell the player stands on.",
    "fromC": true
   },
   {
@@ -5917,7 +5923,7 @@
    "readable": true,
    "writableOk": true,
    "subscript": "a number",
-   "value": "Script work variable w: the saved ones (0x4000 to 0x40FF), and the script's own (0x8000 to 0x80FF) while a field script runs a command (version 6).",
+   "value": "Script work variable w: the saved ones (0x4000 to 0x40FF), and the script's own (0x8000 to 0x80FF) while a field script runs a command.",
    "fromC": true
   },
   {
@@ -6352,6 +6358,16 @@
    "note": "It cannot be changed yet."
   },
   {
+   "name": "national_dex",
+   "sub": "plain",
+   "writable": true,
+   "readable": true,
+   "writableOk": true,
+   "subscript": null,
+   "value": "Whether the Pokedex has its National mode; a rule can write 1 only.",
+   "fromC": true
+  },
+  {
    "name": "in_battle",
    "sub": "plain",
    "writable": false,
@@ -6416,6 +6432,12 @@
    "syntax": "do withdraw <box> <slot>",
    "what": "Moves the Pokemon at a box and slot to the party. It is applied at the next field step. It fails when the party is full or the slot is empty.",
    "example": "do withdraw 0 1"
+  },
+  {
+   "name": "gift",
+   "syntax": "do gift \"<card file>\"",
+   "what": "Puts a Wonder Card (a .pgf file of 204 bytes in the mod's folder) in the save's card album, as a Mystery Gift does; the delivery man in a Pokemon Centre then hands over its gift. The file is checked when the rule loads, so a missing or wrong file stops the rule. A save gets each card once: a card it received before is not added again, even when the player deleted it. Run it at save.load and game.new.",
+   "example": "do gift \"cards/liberty_pass.pgf\""
   },
   {
    "name": "give",
@@ -7905,7 +7927,7 @@
    "rule": "work[id]",
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:work_set",
@@ -7928,7 +7950,7 @@
    "rule": "set work[id] value",
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:badge_set",
@@ -7949,7 +7971,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:game_code",
@@ -7971,7 +7993,70 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
+  },
+  {
+   "id": "fn:national_dex",
+   "kind": "state",
+   "name": "national_dex",
+   "cName": "eidos_national_dex",
+   "group": "Species and dex",
+   "signature": "int32_t eidos_national_dex(void)",
+   "params": [],
+   "what": "Whether the Pokedex has its National mode, which the game turns on after the Elite Four.",
+   "result": "1 or 0; -1 with no game loaded.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "national_dex",
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:national_dex_set",
+   "kind": "state",
+   "name": "national_dex_set",
+   "cName": "eidos_national_dex_set",
+   "group": "Species and dex",
+   "signature": "int32_t eidos_national_dex_set(void)",
+   "params": [],
+   "what": "Turns the Pokedex's National mode on, as the game does after the Elite Four. No call turns it off.",
+   "result": "0 on success, -1 with no game loaded.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "set national_dex 1",
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:mystery_card_add",
+   "kind": "state",
+   "name": "mystery_card_add",
+   "cName": "eidos_mystery_card_add",
+   "group": "Wonder Cards",
+   "signature": "int32_t eidos_mystery_card_add(const void *pgf, uint32_t size)",
+   "params": [
+    "const void *pgf",
+    "uint32_t size"
+   ],
+   "what": "Puts a Wonder Card (the 204 bytes of a .pgf file) in the save's card album, dated today, as a Mystery Gift does. The delivery man in a Pokemon Centre then hands over its gift. A save gets each card id once: a card it received before is not added again, even when the player deleted it.",
+   "result": "The album slot (0 to 11); -1 not a card or no game loaded; -2 the save has this card already (nothing changes); -3 the album is full.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "do gift \"<card file>\"",
+   "events": [],
+   "fromC": true,
+   "since": 7
   },
   {
    "id": "fn:message",
@@ -8941,7 +9026,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:vfs_member_clear",
@@ -8963,7 +9048,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:vfs_member_get",
@@ -8987,7 +9072,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:text_get",
@@ -9013,7 +9098,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:text_set",
@@ -9039,7 +9124,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:text_language",
@@ -9058,7 +9143,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:script_run",
@@ -9080,7 +9165,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:type_chart_set",
@@ -9101,7 +9186,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:type_chart_get",
@@ -9122,7 +9207,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:text_input",
@@ -9146,7 +9231,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mod_file_write",
@@ -9169,7 +9254,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mod_file_read",
@@ -9193,7 +9278,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mod_file_list",
@@ -9215,7 +9300,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mod_file_delete",
@@ -9236,7 +9321,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_create",
@@ -9258,7 +9343,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_owner",
@@ -9281,7 +9366,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_join",
@@ -9304,7 +9389,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_checks",
@@ -9326,7 +9411,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_leave",
@@ -9345,7 +9430,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:world_read",
@@ -9367,7 +9452,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:ap_link",
@@ -9391,7 +9476,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:ap_send",
@@ -9413,7 +9498,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:ap_read",
@@ -9435,7 +9520,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:peer_position",
@@ -9456,7 +9541,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:townmap_marker_set",
@@ -9480,7 +9565,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:townmap_marker_clear",
@@ -9501,7 +9586,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mode_get",
@@ -9523,7 +9608,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:setting_text",
@@ -9546,7 +9631,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:player_name",
@@ -9568,7 +9653,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:mode_code",
@@ -9590,7 +9675,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   },
   {
    "id": "fn:tracker_set",
@@ -9612,7 +9697,7 @@
    "rule": null,
    "events": [],
    "fromC": true,
-   "since": 6
+   "since": 0
   }
  ],
  "functionGroups": [
@@ -9672,7 +9757,15 @@
     "species_base",
     "species_shiny",
     "species_learns",
-    "dex_caught"
+    "dex_caught",
+    "national_dex",
+    "national_dex_set"
+   ]
+  },
+  {
+   "title": "Wonder Cards",
+   "fns": [
+    "mystery_card_add"
    ]
   },
   {
@@ -14284,6 +14377,53 @@
     "Whiteout is a separate event, `whiteout`. Poison on the field does not faint a Pokemon in this game."
    ],
    "id": "recipe:release-on-faint"
+  },
+  {
+   "slug": "wonder-card",
+   "title": "Hand out a Wonder Card",
+   "goal": "Give every save the Liberty Pass card, as the Mystery Gift event did, when the player turns on an option.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "save.load",
+    "game.new"
+   ],
+   "functions": [
+    "mystery_card_add",
+    "setting_get"
+   ],
+   "steps": [
+    "Put the card's .pgf file (204 bytes) in the mod's folder, here `cards/liberty_pass.pgf`.",
+    "`gift` puts the card in the save's album. The delivery man in any Pokemon Centre then hands over the gift.",
+    "A save gets each card once, so the rule can run at every load. A second rule file with the same lines `on game.new` gives the card to a new game before its first save.",
+    "The option `liberty_pass` is declared in the options file; with it off the rule does nothing."
+   ],
+   "rule": "language 1\nrule pass on save.load\n    when setting.liberty_pass == 1\n    do gift \"cards/liberty_pass.pgf\"\n",
+   "settings": "option liberty_pass bool \"Liberty Pass\" on\n",
+   "id": "recipe:wonder-card"
+  },
+  {
+   "slug": "national-dex-early",
+   "title": "The National Pokedex from the start",
+   "goal": "Turn the Pokedex's National mode on in every save, before the Elite Four.",
+   "tier": [
+    "rules"
+   ],
+   "events": [
+    "save.load",
+    "game.new"
+   ],
+   "functions": [
+    "national_dex",
+    "national_dex_set"
+   ],
+   "steps": [
+    "`national_dex` reads 1 when the mode is on. A rule can write 1 to turn it on; no write turns it off.",
+    "This rule runs at every load. A second rule file with the same lines `on game.new` turns it on in a new game before its first save."
+   ],
+   "rule": "language 1\nrule national on save.load\n    when national_dex == 0\n    do set national_dex 1\n",
+   "id": "recipe:national-dex-early"
   },
   {
    "slug": "gift-on-map",

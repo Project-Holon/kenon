@@ -1152,6 +1152,7 @@ fn mod_check_rule(
     let ctx = modcode::RuleContext {
         tables: tables.as_ref(),
         settings: settings.as_ref(),
+        root: root.as_deref(),
     };
     modcode::check_rule_ctx(&text, event.as_deref(), ctx)
 }

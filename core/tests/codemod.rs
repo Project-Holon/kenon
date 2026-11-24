@@ -21,7 +21,7 @@ fn template_is_written_once() {
     );
     let settings = modcode::read_settings(&project.root).unwrap();
     assert_eq!(settings.code.as_deref(), Some("mod.wasm"));
-    assert_eq!(settings.api, Some(6));
+    assert_eq!(settings.api, Some(7));
 
     // Edits stay; a second call writes nothing.
     fs::write(project.root.join("src/mod.c"), "// mine\n").unwrap();

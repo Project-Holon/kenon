@@ -5,7 +5,7 @@
 
 const rule = (s) => s.replace(/^\n/, "").replace(/\n\s*$/, "\n");
 
-// Entry points shared by the C recipes (eidos_wasm.h, api 6). A handler is
+// Entry points shared by the C recipes (eidos_wasm.h, api 7). A handler is
 // registered by its function table index, which is its address.
 const start = (reg) => `EIDOS_EXPORT("eidos_mod_start")
 int32_t eidos_mod_start(void)
@@ -311,6 +311,9 @@ export default {
     mode_code: { what: "During game.new, the world code the player typed in the Multiplayer screen's Join box, for a mode marked joins.", result: "The code's length; an empty text for a world made here.", tiers: ["c"] },
     setting_text: { what: "Reads one of the mod's text options (a `text` line in the settings file).", result: "The text's length, or -1 for a key the mod does not declare.", tiers: ["c"] },
     player_name: { what: "The multiplayer name the player chose on the Multiplayer screen, so a mod never asks for a name of its own.", result: "The name's length; 0 while none is chosen.", tiers: ["c"] },
+    national_dex: { what: "Whether the Pokedex has its National mode, which the game turns on after the Elite Four.", result: "1 or 0; -1 with no game loaded.", tiers: ["rules", "c"], rule: "national_dex" },
+    national_dex_set: { what: "Turns the Pokedex's National mode on, as the game does after the Elite Four. No call turns it off.", result: "0 on success, -1 with no game loaded.", tiers: ["rules", "c"], rule: "set national_dex 1" },
+    mystery_card_add: { what: "Puts a Wonder Card (the 204 bytes of a .pgf file) in the save's card album, dated today, as a Mystery Gift does. The delivery man in a Pokemon Centre then hands over its gift. A save gets each card id once: a card it received before is not added again, even when the player deleted it.", result: "The album slot (0 to 11); -1 not a card or no game loaded; -2 the save has this card already (nothing changes); -3 the album is full.", tiers: ["rules", "c"], rule: "do gift \"<card file>\"" },
     tracker_set: { what: "Hands eidos the mod's whole tracker as lines of tab-separated words (area, check, item, count). The field's top bar then shows a Tracker button. Set it again after each change, and in game.new and save.load: a new game or a loaded save clears it. At most 128 KB.", result: "0 on success, -1 when too long.", tiers: ["c"] },
   },
 
@@ -320,7 +323,8 @@ export default {
     { title: "The party", fns: ["party_count","party_ref","party_get","party_set"] },
     { title: "The boxes", fns: ["box_count","box_ref","box_get","box_set"] },
     { title: "A Pokemon in battle", fns: ["battle_ref","battle_get","battle_set"] },
-    { title: "Species and dex", fns: ["species_value","species_base","species_shiny","species_learns","dex_caught"] },
+    { title: "Species and dex", fns: ["species_value","species_base","species_shiny","species_learns","dex_caught","national_dex","national_dex_set"] },
+    { title: "Wonder Cards", fns: ["mystery_card_add"] },
     { title: "Badges, money, flags and works", fns: ["badge_count","badge_has","badge_set","money","money_set","flag","flag_set","work_get","work_set"] },
     { title: "The map and the player", fns: ["zone","whiteout"] },
     { title: "Game files and text", fns: ["vfs_member_set","vfs_member_clear","vfs_member_get","text_get","text_set","text_language","game_code"] },
@@ -355,6 +359,7 @@ export default {
     { name: "release", syntax: "do release <mon or party position>", what: "Releases a Pokemon of the player's party for good. It is applied at the first player step on the field after a battle, and not when it would leave only eggs.", example: "do release event.mon" },
     { name: "box", syntax: "do box <mon or party position> <n>", what: "Moves a party Pokemon to box n, counted from 0. It is applied at the next field step. It fails when the box is full, and not when it would leave only eggs.", example: "do box event.mon 23" },
     { name: "withdraw", syntax: "do withdraw <box> <slot>", what: "Moves the Pokemon at a box and slot to the party. It is applied at the next field step. It fails when the party is full or the slot is empty.", example: "do withdraw 0 1" },
+    { name: "gift", syntax: "do gift \"<card file>\"", what: "Puts a Wonder Card (a .pgf file of 204 bytes in the mod's folder) in the save's card album, as a Mystery Gift does; the delivery man in a Pokemon Centre then hands over its gift. The file is checked when the rule loads, so a missing or wrong file stops the rule. A save gets each card once: a card it received before is not added again, even when the player deleted it. Run it at save.load and game.new.", example: "do gift \"cards/liberty_pass.pgf\"" },
     { name: "give", syntax: "do give <item> <count>", what: "Puts a number of an item in the bag at once. Nothing happens when the bag cannot take it, and the rule stops for that firing.", example: "do give 17 5" },
   ],
 
@@ -714,6 +719,45 @@ static int32_t on_faint(EidosEvent *event)
 
 ${start("    return eidos_on(EIDOS_EVENT_BATTLE_FAINT, (uint32_t)(uintptr_t)on_faint);")}`,
       notes: ["Whiteout is a separate event, `whiteout`. Poison on the field does not faint a Pokemon in this game."],
+    },
+    {
+      slug: "wonder-card",
+      title: "Hand out a Wonder Card",
+      goal: "Give every save the Liberty Pass card, as the Mystery Gift event did, when the player turns on an option.",
+      tier: ["rules"],
+      events: ["save.load", "game.new"],
+      functions: ["mystery_card_add", "setting_get"],
+      steps: [
+        "Put the card's .pgf file (204 bytes) in the mod's folder, here `cards/liberty_pass.pgf`.",
+        "`gift` puts the card in the save's album. The delivery man in any Pokemon Centre then hands over the gift.",
+        "A save gets each card once, so the rule can run at every load. A second rule file with the same lines `on game.new` gives the card to a new game before its first save.",
+        "The option `liberty_pass` is declared in the options file; with it off the rule does nothing.",
+      ],
+      rule: rule(`
+language 1
+rule pass on save.load
+    when setting.liberty_pass == 1
+    do gift "cards/liberty_pass.pgf"
+`),
+      settings: `option liberty_pass bool "Liberty Pass" on\n`,
+    },
+    {
+      slug: "national-dex-early",
+      title: "The National Pokedex from the start",
+      goal: "Turn the Pokedex's National mode on in every save, before the Elite Four.",
+      tier: ["rules"],
+      events: ["save.load", "game.new"],
+      functions: ["national_dex", "national_dex_set"],
+      steps: [
+        "`national_dex` reads 1 when the mode is on. A rule can write 1 to turn it on; no write turns it off.",
+        "This rule runs at every load. A second rule file with the same lines `on game.new` turns it on in a new game before its first save.",
+      ],
+      rule: rule(`
+language 1
+rule national on save.load
+    when national_dex == 0
+    do set national_dex 1
+`),
     },
     {
       slug: "gift-on-map",
