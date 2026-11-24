@@ -313,8 +313,10 @@ fn text(
             }
         }
     }
+    // A place can have several banks (a city and its buildings): the number
+    // tells them apart.
     info.title = if !places.is_empty() {
-        format!("Dialogue: {}", places.join(", "))
+        format!("Dialogue: {} (story text {index})", places.join(", "))
     } else if arc == 3 {
         format!("Story text {index}")
     } else {

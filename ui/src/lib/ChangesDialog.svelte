@@ -43,11 +43,14 @@
   let busy = $state(false);
   // Open or shut by the user; untouched entries follow `OPEN_FIRST`.
   let toggled = $state<Record<string, boolean>>({});
-  // Pictures load when an entry opens: only the first few start open, and
-  // the list grows by pages.
+  // Categories open or shut by the user; untouched ones start shut unless
+  // there is only one.
+  let shown = $state<Record<string, boolean>>({});
+  // Pictures load when an entry opens: only the first few of a category
+  // start open, and each category grows by pages.
   const OPEN_FIRST = 5;
   const PAGE = 100;
-  let limit = $state(PAGE);
+  let limits = $state<Record<string, number>>({});
   let confirmAll = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
   // Defeats the webview's image cache: a picture can change between opens.
@@ -91,12 +94,20 @@
       { label: "Copy title", run: () => copyText(c.title) },
     ]);
 
+  // Each category in the order it first appears, its changes by title with
+  // numbers in number order (Game text 44 before Game text 173).
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const groups = $derived.by(() => {
     const out = new Map<string, ChangeInfo[]>();
-    for (const c of (list ?? []).slice(0, limit)) out.set(c.category, [...(out.get(c.category) ?? []), c]);
+    for (const c of list ?? []) {
+      const items = out.get(c.category);
+      if (items) items.push(c);
+      else out.set(c.category, [c]);
+    }
+    for (const items of out.values()) items.sort((a, b) => collator.compare(a.title, b.title));
     return [...out];
   });
-  const position = $derived(new Map((list ?? []).map((c, i) => [c.path, i])));
+  const isShown = (category: string) => shown[category] ?? groups.length === 1;
 
   const withStamp = (path: string) => `${path}${path.includes("?") ? "&" : "?"}v=${stamp}`;
 
@@ -173,11 +184,19 @@
     {:else if !list.length}
       <p class="muted">No changes yet. What you save in an editor is listed here.</p>
     {:else}
-      {#each groups as [category, items]}
+      {#each groups as [category, items] (category)}
+        {@const visible = isShown(category)}
+        {@const limit = limits[category] ?? PAGE}
         <section>
-          <h3>{category} <span class="muted">{items.length}</span></h3>
-          {#each items as c (c.path)}
-            {@const open = toggled[c.path] ?? (position.get(c.path) ?? 0) < OPEN_FIRST}
+          <h3>
+            <button class="group quiet" onclick={() => (shown[category] = !visible)} aria-expanded={visible}>
+              <span class="caret" class:open={visible}></span>
+              {category} <span class="muted">{items.length}</span>
+            </button>
+          </h3>
+          {#if visible}
+          {#each items.slice(0, limit) as c, i (c.path)}
+            {@const open = toggled[c.path] ?? i < OPEN_FIRST}
             <article class="change" oncontextmenu={(e) => menu(e, c)}>
               <div class="row">
                 <button class="title quiet" onclick={() => (toggled[c.path] = !open)} aria-expanded={open} title={c.path}>
@@ -242,11 +261,12 @@
               {/if}
             </article>
           {/each}
+          {#if items.length > limit}
+            <button class="more" onclick={() => (limits[category] = limit + PAGE)}>Show more ({items.length - limit} left)</button>
+          {/if}
+          {/if}
         </section>
       {/each}
-      {#if list.length > limit}
-        <button class="more" onclick={() => (limit += PAGE)}>Show more ({list.length - limit} left)</button>
-      {/if}
     {/if}
   </div>
 </dialog>
@@ -298,8 +318,22 @@
     min-height: 0;
   }
   section h3 {
-    margin: 0.8rem 0 0.4rem;
+    margin: 0.4rem 0;
     font-size: 0.95rem;
+  }
+  .group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    font: inherit;
+    font-weight: 700;
+    box-shadow: none;
+  }
+  .more {
+    margin-bottom: 0.5rem;
   }
   .change {
     border: 2px solid var(--outline);
