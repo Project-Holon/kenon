@@ -13,10 +13,12 @@ use std::path::Path;
 use eidos_mod::manifest::Icon;
 use nds::banner::Banner;
 use nds::rom::{Game, Rom};
-use nds::romdiff::{self, FileDiff};
+use nds::romdiff::{self, CodeDiff, FileDiff};
 use serde::Serialize;
 
 use crate::bridge::Error;
+use crate::codenames;
+use crate::codeview::{self, CodeView, Context};
 use crate::project::Project;
 
 /// Where the banner's icon goes in the project.
@@ -38,13 +40,24 @@ pub struct PatchImport {
     pub archives: usize,
     /// Whole files written.
     pub files: Vec<String>,
-    /// Code the patch changes, which the mod does not carry: one line each.
-    pub code: Vec<String>,
+    /// Code the patch changes, which the mod does not carry: one per part.
+    pub code: Vec<CodeChange>,
     /// Other things the mod does not carry.
     pub left_out: Vec<String>,
     /// Parts of the ROM past its game data that differ from the ROM the
     /// patch was made on (only filler there).
     pub filler_windows: usize,
+}
+
+/// The code a patch changes in one part (ARM9, an overlay, ARM7).
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeChange {
+    /// "arm9: 96 bytes changed at ..."
+    pub summary: String,
+    /// The game's instructions and the patch's, side by side (ARM9 and
+    /// overlays; the ARM7 has none).
+    pub views: Vec<CodeView>,
 }
 
 /// Applies `patch` to `rom` and writes the differences as a new project in
@@ -192,13 +205,63 @@ pub fn import_patch(
         } else {
             String::new()
         };
-        report.code.push(format!(
+        let summary = format!(
             "{}: {bytes} bytes changed at {}{more}",
             c.part,
             spans.join(", ")
-        ));
+        );
+        report.code.push(CodeChange {
+            summary,
+            views: code_views(&base, &hacked, c),
+        });
     }
     Ok(report)
+}
+
+/// The side-by-side views of one changed code part; none for the ARM7 or
+/// when a part cannot be read.
+fn code_views(base: &Rom, hacked: &Rom, c: &CodeDiff) -> Vec<CodeView> {
+    let (region, old, new) = match c.overlay {
+        Some(n) => (
+            codenames::overlay_region(n),
+            base.overlay(n).unwrap_or_default(),
+            hacked.overlay(n).unwrap_or_default(),
+        ),
+        None if c.part == "arm9" => (
+            "arm9".to_string(),
+            base.arm9().unwrap_or_default(),
+            hacked.arm9().unwrap_or_default(),
+        ),
+        None => return Vec::new(),
+    };
+    let arm9_start = base.arm9_address().unwrap_or(0);
+    let arm9_len = base.arm9().map_or(0, |b| b.len() as u32);
+    let overlays: Vec<(u16, u32, u32)> = base
+        .overlays()
+        .iter()
+        .enumerate()
+        .map(|(n, e)| (n as u16, e.address, e.address + e.size + e.bss_size))
+        .collect();
+    // overlays are unpacked once, when a literal names their address
+    let cache = std::cell::RefCell::new(std::collections::HashMap::<u16, Vec<u8>>::new());
+    let word = |n: u16, a: u32| -> Option<u32> {
+        let start = base.overlays().get(n as usize)?.address;
+        let mut cache = cache.borrow_mut();
+        let bytes = cache
+            .entry(n)
+            .or_insert_with(|| base.overlay(n).unwrap_or_default());
+        let off = a.checked_sub(start)? as usize;
+        Some(u32::from_le_bytes(
+            bytes.get(off..off + 4)?.try_into().ok()?,
+        ))
+    };
+    let ctx = Context {
+        game_code: &base.identity.game_code,
+        arm9: (arm9_start, arm9_start + arm9_len),
+        overlays,
+        word: &word,
+    };
+    codeview::views(&ctx, &region, c.address, &old, &new, &c.ranges)
 }
 
 /// The ROM's used size (header 0x80): where its game data ends.

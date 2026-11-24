@@ -1694,6 +1694,7 @@ name = "kenon-core"
 version = "0.2.0"
 dependencies = [
  "eidos-mod",
+ "flate2",
  "nds",
  "png 0.18.1",
  "serde",

@@ -5,6 +5,7 @@
 //! app, and the app asks this crate.
 
 pub mod addresses;
+pub mod arm;
 pub mod audio_import;
 pub mod bridge;
 pub mod catalog;
@@ -12,6 +13,8 @@ pub mod changes;
 pub mod characters;
 pub mod code;
 pub mod codemod;
+pub mod codenames;
+pub mod codeview;
 pub mod data_root;
 pub mod fielditems;
 pub mod g3d;

@@ -127,9 +127,30 @@ export interface PatchImport {
   members: number;
   archives: number;
   files: string[];
-  code: string[];
+  code: CodeChange[];
   leftOut: string[];
   fillerWindows: number;
+}
+/// The code a patch changes in one part (ARM9, an overlay, ARM7).
+export interface CodeChange {
+  summary: string;
+  views: CodeView[];
+}
+/// The game's instructions and the patch's around one group of changes.
+export interface CodeView {
+  start: number;
+  end: number;
+  functions: { name: string; file: string; address: number; thumb: boolean }[];
+  game: CodeLine[];
+  patch: CodeLine[];
+  note: string | null;
+}
+export interface CodeLine {
+  address: number;
+  bytes: string;
+  text: string;
+  note: string;
+  changed: boolean;
 }
 export const importPatch = (patchPath: string, intoDir: string, name: string) =>
   invoke<PatchImport>("import_patch", { patchPath, intoDir, name });
