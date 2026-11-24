@@ -21,8 +21,10 @@ use serde::Serialize;
 use crate::narc;
 
 // The manifest and the notes file are morphe's (eidos-mod).
+pub use eidos_mod::manifest::{
+    game_versions, KenonFile, Manifest, KENON_FILE, MANIFEST, ORDER_LIMIT,
+};
 use eidos_mod::manifest::{write_atomic, Folder};
-pub use eidos_mod::manifest::{KenonFile, Manifest, KENON_FILE, MANIFEST, ORDER_LIMIT};
 
 /// One changed asset in a project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

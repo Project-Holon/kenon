@@ -2,10 +2,11 @@
 
 export type GameKind = "black" | "white" | "other";
 
-/// Black or White, from a game code (IRB*: Black, IRA*: White).
+/// Black or White, from a game code (IRB*: Black, IRA*: White) or a
+/// manifest's `game = black` / `game = white`.
 export function gameOf(code: string): GameKind {
-  if (code.startsWith("IRB")) return "black";
-  if (code.startsWith("IRA")) return "white";
+  if (code === "black" || code.startsWith("IRB")) return "black";
+  if (code === "white" || code.startsWith("IRA")) return "white";
   return "other";
 }
 

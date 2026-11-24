@@ -24,6 +24,10 @@ export interface ModSettings {
   tags: string[];
   /// The mod's picture: `item <n>`, `species <n>` or a .png in the folder.
   icon: string | null;
+  /// The game it works on: `black`, `white`, an older cartridge code, or
+  /// null for both.
+  game: string | null;
+  /// Needed with code; without code it keeps older games from loading it.
   api: number | null;
   port: string | null;
   code: string | null;

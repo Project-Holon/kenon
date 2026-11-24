@@ -12,7 +12,7 @@ use std::path::Path;
 
 use eidos_mod::manifest::Icon;
 use nds::banner::Banner;
-use nds::rom::Rom;
+use nds::rom::{Game, Rom};
 use nds::romdiff::{self, FileDiff};
 use serde::Serialize;
 
@@ -84,7 +84,12 @@ pub fn import_patch(
 
     let mut project =
         Project::create(into, name, Some(rom)).map_err(|e| io("the project folder", e))?;
-    project.manifest.game = base.identity.game_code.clone();
+    // A hack is built on one game's files: it works on that game only.
+    project.manifest.game = match base.identity.game {
+        Game::Black => "black".into(),
+        Game::White => "white".into(),
+        Game::Other => String::new(),
+    };
     if let Some(file) = patch.file_name() {
         project.manifest.description = format!("Made from {}.", file.to_string_lossy());
     }

@@ -243,16 +243,17 @@ fn new_project(
     description: Option<String>,
     author: Option<String>,
     version: Option<String>,
+    game: Option<String>,
 ) -> Result<Status, String> {
+    // `black` or `white` limits the mod to that game; none is both.
+    let game = game.unwrap_or_default();
+    kenon_core::project::game_versions(&game)?;
     let rom = state.settings.lock().unwrap().game.clone();
     let mut project = Project::create(&root, &name, rom.as_deref()).map_err(|e| e.to_string())?;
     project.manifest.description = description.unwrap_or_default();
     project.manifest.author = author.unwrap_or_default();
     project.manifest.version = version.unwrap_or_default();
-    // The mod is made for the cartridge that is open.
-    if let Some(GameCheck::Rom { identity, .. }) = &state.open.read().unwrap().check {
-        project.manifest.game = identity.game_code.clone();
-    }
+    project.manifest.game = game;
     project.save_meta().map_err(|e| e.to_string())?;
     remember(&state, &root)?;
     set_project(&state, Some(project));

@@ -18,7 +18,7 @@
     type RecentProject,
     type Status,
   } from "../lib/backend";
-  import { gameBadge, gameOf, languageOf, legendaryOf, since } from "../lib/games";
+  import { gameBadge, gameName, gameOf, languageOf, legendaryOf, since } from "../lib/games";
   import { enableSfx, play, setSfx, sfxOn } from "../lib/sfx";
   import { openMenu } from "morphe/menu.svelte";
   import ThemePicker from "../lib/ThemePicker.svelte";
@@ -255,7 +255,7 @@
             <span class="gb" class:b={gameOf(last.game) === "black"} class:w={gameOf(last.game) === "white"}
               >{gameBadge(last.game)}</span
             >
-            {#if code && last.game !== code}<span class="muted small">Made for another cartridge than the open one.</span>{/if}
+            {#if code && gameOf(last.game) !== gameOf(code)}<span class="muted small">Made for {gameName(gameOf(last.game))} only.</span>{/if}
           </div>
         {/if}
         <div class="actions">

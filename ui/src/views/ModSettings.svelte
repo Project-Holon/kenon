@@ -15,6 +15,7 @@
     version: "",
     tags: [],
     icon: null,
+    game: null,
     api: null,
     port: null,
     code: null,
@@ -44,7 +45,8 @@
       version: s.version.trim(),
       tags: [...new Set(s.tags.map((t) => t.trim().toLowerCase()).filter((t) => t))],
       icon: text(s.icon),
-      api: code ? s.api : null,
+      game: text(s.game),
+      api: Number.isFinite(s.api) ? s.api : null,
       port: text(s.port),
       code,
       state: text(s.state),
@@ -72,6 +74,15 @@
 
   const dirty = $derived(JSON.stringify(clean(form)) !== JSON.stringify(clean(original)));
   const hasCode = $derived(!!form.code?.trim());
+  // An older manifest names a cartridge code: IRB* is Black, IRA* White.
+  const gameChoice = $derived.by(() => {
+    const g = form.game?.trim() ?? "";
+    if (!g) return "both";
+    if (g === "black" || g === "white") return g;
+    if (g.length === 4 && g.startsWith("IRB")) return "black";
+    if (g.length === 4 && g.startsWith("IRA")) return "white";
+    return "other";
+  });
   const watched = debounced(() => JSON.stringify(clean(form)), 250);
   let seq = 0;
   $effect(() => {
@@ -188,6 +199,25 @@
           {#each about("icon") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
         </div>
 
+        <label for="mod-game">Works on</label>
+        <div class="field">
+          <select
+            id="mod-game"
+            value={gameChoice}
+            onchange={(e) => (form.game = e.currentTarget.value === "both" ? null : e.currentTarget.value)}
+          >
+            <option value="both">Black and White</option>
+            <option value="black">Black only</option>
+            <option value="white">White only</option>
+            {#if gameChoice === "other"}<option value="other" disabled>{form.game}</option>{/if}
+          </select>
+          <p class="hint muted">
+            Players without this game see the mod as unavailable. Choose both only if the mod changes nothing that
+            differs between Black and White.
+          </p>
+          {#each about("game") as p}<p class="bad">{p.message}</p>{/each}
+        </div>
+
         <label for="mod-order">Load order</label>
         <div class="field">
           <input id="mod-order" type="number" step="1" bind:value={form.order} />
@@ -207,14 +237,23 @@
           {#each about("code") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
         </div>
 
-        {#if hasCode}
-          <label for="mod-api">API version</label>
-          <div class="field">
-            <input id="mod-api" type="number" min="0" step="1" bind:value={form.api} />
-            <p class="hint muted">The interface version the code is built for. The game accepts 3 and 4. Use 4 for WebAssembly code.</p>
-            {#each about("api") as p}<p class="bad">{p.message}</p>{/each}
-          </div>
-        {/if}
+        <label for="mod-api">API version</label>
+        <div class="field">
+          <input
+            id="mod-api"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="none"
+            value={form.api ?? ""}
+            oninput={(e) => (form.api = e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+          />
+          <p class="hint muted">
+            The mod interface the mod is built for; the newest is {apiVersion}. Code needs it. Without code, it keeps
+            older versions of the game from loading the mod without its newer rules.
+          </p>
+          {#each about("api") as p}<p class="bad">{p.message}</p>{/each}
+        </div>
 
         <label for="mod-port">Game version</label>
         <div class="field">
@@ -319,6 +358,7 @@
     gap: 0.25rem;
   }
   .field input,
+  .field select,
   .field textarea {
     width: 100%;
   }

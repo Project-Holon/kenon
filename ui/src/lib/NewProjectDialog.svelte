@@ -42,6 +42,8 @@
   let author = $state(read(AUTHOR));
   let version = $state("0.1.0");
   let parent = $state(read(PARENT));
+  // Works on the open cartridge's game only, unless the author says both.
+  let both = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
 
@@ -76,6 +78,7 @@
         description: description.trim(),
         author: author.trim(),
         version: version.trim(),
+        game: both || kind === "other" ? null : kind,
       });
       dialog?.close();
     } catch (e) {
@@ -126,9 +129,20 @@
       <span class="swatch"></span>
       <div>
         <b>{gameName(kind)}{lang ? ` · ${lang.name}` : ""}</b>
-        <div class="muted small">{gameCode ?? "No ROM"}, from your ROM. The project is made for this cartridge.</div>
+        <div class="muted small">{gameCode ?? "No ROM"}, from your ROM. The project is built on it.</div>
       </div>
     </div>
+    {#if kind !== "other"}
+      <div class="works" role="radiogroup" aria-label="Works on">
+        <label><input type="radio" bind:group={both} value={false} /> {kind === "black" ? "Black" : "White"} only</label>
+        <label><input type="radio" bind:group={both} value={true} /> Black and White</label>
+      </div>
+      <p class="muted small">
+        {both
+          ? "Players of both games can install it. Choose this only if it changes nothing that differs between them."
+          : `Players without ${gameName(kind)} see the mod as unavailable.`}
+      </p>
+    {/if}
   </div>
   <div class="field">
     <span>Folder</span>
@@ -213,6 +227,19 @@
   }
   .small {
     font-size: 0.85rem;
+  }
+  .works {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.2rem;
+  }
+  .works label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  p.small {
+    margin: 0;
   }
   .folder {
     display: flex;

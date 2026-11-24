@@ -52,6 +52,8 @@ export interface NewProject {
   description: string;
   author: string;
   version: string;
+  /// The game it works on; null for both.
+  game: "black" | "white" | null;
 }
 
 export interface ArchiveInfo {
@@ -102,7 +104,14 @@ export type Ref = [number, number];
 export const appStatus = () => invoke<Status>("app_status");
 export const setRom = (path: string | null) => invoke<Status>("set_rom", { path });
 export const newProject = (root: string, p: NewProject) =>
-  invoke<Status>("new_project", { root, name: p.name, description: p.description, author: p.author, version: p.version });
+  invoke<Status>("new_project", {
+    root,
+    name: p.name,
+    description: p.description,
+    author: p.author,
+    version: p.version,
+    game: p.game,
+  });
 export const recentProjects = () => invoke<RecentProject[]>("recent_projects");
 export const forgetRecent = (root: string) => invoke<void>("forget_recent", { root });
 export const openProject = (root: string) => invoke<Status>("open_project", { root });

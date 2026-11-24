@@ -51,6 +51,7 @@ time; it ships no game data. Edits are saved as a mod folder that
   - [x] `.bw` package (zip, lossless)
   - [x] Hook and rule editors (Monaco), checked against eidos
   - [x] Mod settings, load order, conflict hints
+  - [x] Which game a mod works on: Black, White or both
   - [x] ROM hack patches (xdelta) turned into projects: changed members become editable changes; code changes are listed
 - [ ] **Milestone 6**: Full map building
   - [ ] Copy map pieces between places
