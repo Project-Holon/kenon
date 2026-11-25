@@ -137,15 +137,29 @@ export const modReadRule = (path: string) => invoke<string>("mod_read_rule", { p
 export const modCheckRule = (text: string) => invoke<Diagnostic[]>("mod_check_rule", { text, event: null });
 /// One option of the mod's options file. `line`, `lead`, `comment` and `raw`
 /// keep the file's comments and unedited lines; send them back unchanged.
+/// One line of a mod's options file (morphe modopts::OptionDecl): an option,
+/// or a tab, heading, help, button or shown row (`entry`).
 export interface OptionDecl {
+  entry: "option" | "heading" | "help" | "tab" | "button" | "show";
+  /// The option, button or shown row's key; the option a help line names.
   key: string;
+  /// The label; a tab's or heading's text; a help line's text.
   label: string;
-  kind: "bool" | "choice" | "int";
+  kind: "bool" | "choice" | "int" | "text" | "secret";
   /// 0 or 1 for a bool, 0 for a choice (the first value), the number for an int.
   default: number;
   min: number;
+  /// An int's highest value; a text's or secret's longest length.
   max: number;
   values: string[];
+  /// A text option's default.
+  text: string;
+  /// A text option of one word: the game's keyboard has no space key.
+  word: boolean;
+  /// The condition without its ?: "ra.who=" or "ra.who!=x"; "" for none.
+  when: string;
+  /// The @ word without its @: "lobby" or mode names; "" for none.
+  tags: string;
   line: number;
   lead: string[];
   comment: string;
