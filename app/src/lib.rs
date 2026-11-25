@@ -1453,6 +1453,14 @@ async fn build_code_mod(
     .map_err(|e| e.to_string())
 }
 
+/// Copies the mod C library into the project (morphe's modsdk/v7/libc).
+#[tauri::command]
+fn mod_code_add_libc(state: State<AppState>) -> Result<Vec<String>, String> {
+    let written = codemod::add_libc(&mod_root(&state)?).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(written)
+}
+
 #[tauri::command]
 fn mod_code_files(state: State<AppState>) -> Result<Vec<codemod::SourceFile>, String> {
     Ok(codemod::list_sources(&mod_root(&state)?))
@@ -1743,6 +1751,7 @@ pub fn run() {
             fetch_zig,
             new_code_mod,
             build_code_mod,
+            mod_code_add_libc,
             mod_code_files,
             mod_code_read,
             mod_code_write,

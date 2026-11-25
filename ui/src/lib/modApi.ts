@@ -232,6 +232,8 @@ export const fetchZig = () => invoke<ZigStatus>("fetch_zig");
 export const newCodeMod = () => invoke<string[]>("new_code_mod");
 export const buildCodeMod = () => invoke<BuildResult>("build_code_mod");
 export const modCodeFiles = () => invoke<SourceFile[]>("mod_code_files");
+/// Copies the mod C library into src/libc and include/; the paths written.
+export const modCodeAddLibc = () => invoke<string[]>("mod_code_add_libc");
 export const modCodeRead = (path: string) => invoke<string>("mod_code_read", { path });
 export const modCodeWrite = (path: string, text: string) => invoke<void>("mod_code_write", { path, text });
 export const modCodeNew = (path: string) => invoke<void>("mod_code_new", { path });

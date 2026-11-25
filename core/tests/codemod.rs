@@ -169,6 +169,44 @@ fn find_zig() -> Option<PathBuf> {
 }
 
 #[test]
+fn build_with_the_c_library() {
+    let Some(zig) = find_zig() else {
+        eprintln!("skipped: no Zig (set KENON_ZIG or put zig on PATH)");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("cache");
+    let project = new_project(dir.path());
+    new_code_mod(&project).unwrap();
+    let written = add_libc(&project.root).unwrap();
+    assert!(written.iter().any(|p| p == "src/libc/printf.c"));
+    assert!(!project.root.join("src/alloc.c").exists());
+    fs::write(
+        project.root.join("src/mod.c"),
+        "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include \"eidos_wasm.h\"\n\
+         static int cmp(const void *a, const void *b) { return *(const int *)a - *(const int *)b; }\n\
+         EIDOS_EXPORT(\"eidos_mod_start\") int32_t eidos_mod_start(void) {\n\
+             int *v = malloc(4 * sizeof *v); char t[32];\n\
+             if (!v) return 1; v[0] = 3; v[1] = 1; v[2] = 2; v[3] = 0;\n\
+             qsort(v, 4, sizeof *v, cmp);\n\
+             int n = snprintf(t, sizeof t, \"%d%d%d%d %.2f\", v[0], v[1], v[2], v[3], 1.5);\n\
+             eidos_log(t, (uint32_t)n); free(v); return 0; }\n\
+         EIDOS_EXPORT(\"eidos_mod_stop\") void eidos_mod_stop(void) {}\n",
+    )
+    .unwrap();
+    let result = build_code_mod(&project, &zig, Some(&cache));
+    assert!(result.ok, "{:?}\n{}", result.diagnostics, result.log);
+    assert!(
+        result.diagnostics.is_empty(),
+        "the library builds without warnings: {:?}",
+        result.diagnostics
+    );
+    let bytes = fs::read(project.root.join("mod.wasm")).unwrap();
+    let info = check_module(&bytes, &contract()).unwrap();
+    assert!(info.imports.iter().all(|i| i.module == "eidos"));
+}
+
+#[test]
 fn real_build() {
     let Some(zig) = find_zig() else {
         eprintln!("skipped: no Zig (set KENON_ZIG or put zig on PATH)");

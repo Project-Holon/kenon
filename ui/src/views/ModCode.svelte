@@ -10,6 +10,7 @@
   import {
     buildCodeMod,
     fetchZig,
+    modCodeAddLibc,
     modCodeApi,
     modCodeDelete,
     modCodeFiles,
@@ -52,8 +53,25 @@
   let result = $state<BuildResult | null>(null);
 
   const dirty = $derived(path !== null && text !== original);
-  const sources = $derived(files.filter((f) => f.path.startsWith("src/")));
+  const LIBC = "src/libc/";
+  const sources = $derived(files.filter((f) => f.path.startsWith("src/") && !f.path.startsWith(LIBC)));
   const headers = $derived(files.filter((f) => f.path.startsWith("include/")));
+  // The C library's files, shown under one row that opens.
+  const libc = $derived(files.filter((f) => f.path.startsWith(LIBC)));
+  let libcOpen = $state(false);
+
+  async function addLibc() {
+    error = null;
+    try {
+      await modCodeAddLibc();
+      await refresh();
+      play("save");
+      onSaved();
+    } catch (e) {
+      error = String(e);
+      play("cancel");
+    }
+  }
 
   async function refresh() {
     files = await modCodeFiles();
@@ -326,6 +344,21 @@
             </button>
           {/each}
         {/if}
+        {#if dir === "src" && libc.length}
+          <button class="row-item" aria-expanded={libcOpen} onclick={() => (libcOpen = !libcOpen)} title="The C library">
+            <span class="label">libc/ <span class="muted">{libc.length} files</span></span>
+          </button>
+          {#if libcOpen}
+            {#each libc as f (f.path)}
+              <button class="row-item sub" aria-current={f.path === path} onclick={() => pick(f.path)} title={f.path}>
+                <span class="label">{f.path.slice(LIBC.length)}</span>
+                {#if f.path === path ? dirty : drafts.has(f.path)}
+                  <span class="tag changed" title="Not saved yet">edited</span>
+                {/if}
+              </button>
+            {/each}
+          {/if}
+        {/if}
       {/each}
     </div>
     {#if zig?.path}
@@ -398,6 +431,9 @@
           {building ? "Building" : "Build"}
         </button>
         <button title="Events, services and examples for code mods" onclick={() => (docs = true)}>Docs</button>
+        {#if !libc.length}
+          <button title="malloc, printf, string functions and more, copied into src/libc" onclick={addLibc}>Add C library</button>
+        {/if}
         <span class={result && !result.ok ? "bad" : "muted"}>{summary}</span>
         {#if error}<span class="bad">{error}</span>{/if}
       </div>
@@ -460,6 +496,9 @@
   .dir {
     margin: 0.4rem 0.6rem 0.1rem;
     font-size: 0.8rem;
+  }
+  .sub {
+    padding-left: 1.4rem;
   }
   .zig {
     font-size: 0.85rem;

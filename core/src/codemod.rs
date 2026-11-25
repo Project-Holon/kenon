@@ -30,9 +30,9 @@ pub const ZIG_VERSION: &str = "0.15.2";
 
 // The contract, the header reader and the module check live in eidos-mod.
 pub use eidos_mod::sdk::{
-    check_module, code_api, contract, parse_header, read_module, ApiConstant, ApiFunction, CodeApi,
-    Contract, Export, Import, ModuleInfo, HEADER, HEADER_NAME, INCLUDE_DIR, SRC_DIR,
-    TEMPLATE_ALLOC, TEMPLATE_MOD,
+    add_libc, check_module, code_api, contract, parse_header, read_module, ApiConstant,
+    ApiFunction, CodeApi, Contract, Export, Import, ModuleInfo, HEADER, HEADER_NAME, INCLUDE_DIR,
+    LIBC_DIR, SRC_DIR, TEMPLATE_ALLOC, TEMPLATE_MOD,
 };
 
 fn bad(msg: impl Into<String>) -> io::Error {
