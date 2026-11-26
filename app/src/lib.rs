@@ -641,7 +641,63 @@ async fn battle_coded_all(
 #[tauri::command]
 async fn type_chart(state: State<'_, AppState>) -> Result<Vec<Vec<u8>>, String> {
     let bridge = state.need_bridge()?;
-    kenon_core::battle::type_chart(&bridge).map_err(|e| e.to_string())
+    kenon_core::types::chart(&bridge).map_err(|e| e.to_string())
+}
+
+/// Writes the type chart (eidos type_chart.txt).
+#[tauri::command]
+fn set_type_chart(state: State<AppState>, chart: Vec<Vec<u8>>) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::types::set_chart(&bridge, &chart).map_err(|e| e.to_string())
+}
+
+/// Adds a type matching up like `from`; returns its id.
+#[tauri::command]
+fn add_type(state: State<AppState>, name: String, from: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let id = kenon_core::types::add(&bridge, &name, from).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(id)
+}
+
+/// Removes a type the mod adds; later types move down one.
+#[tauri::command]
+fn remove_type(state: State<AppState>, id: usize) -> Result<kenon_core::content::Removed, String> {
+    let bridge = state.need_bridge()?;
+    let r = kenon_core::types::remove(&bridge, id).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(r)
+}
+
+/// How many types the mod has.
+#[tauri::command]
+fn type_count(state: State<AppState>) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    Ok(kenon_core::types::count(&bridge))
+}
+
+/// A table as a grid for bulk editing (None when it has no grid view).
+#[tauri::command]
+async fn table_grid(
+    state: State<'_, AppState>,
+    table: String,
+) -> Result<Option<kenon_core::grid::Grid>, String> {
+    let bridge = state.need_bridge()?;
+    if !kenon_core::grid::supported(&table) {
+        return Ok(None);
+    }
+    kenon_core::grid::grid(&bridge, &table).map(Some).map_err(|e| e.to_string())
+}
+
+/// Saves edited grid cells; returns how many entries changed.
+#[tauri::command]
+fn set_grid_cells(
+    state: State<AppState>,
+    table: String,
+    cells: Vec<kenon_core::grid::Cell>,
+) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::grid::set_cells(&bridge, &table, &cells).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -2377,6 +2433,12 @@ pub fn run() {
             battle_coded,
             battle_coded_all,
             type_chart,
+            set_type_chart,
+            add_type,
+            remove_type,
+            type_count,
+            table_grid,
+            set_grid_cells,
             move_users,
             ability_users,
             ability_checks,

@@ -8,6 +8,7 @@
   import { loadIcons, moveIcon, speciesIcon, typeIcon } from "../lib/icons.svelte";
   import { clearEnums, enumValues } from "../lib/tables";
   import TextPanel from "../lib/TextPanel.svelte";
+  import { toast } from "morphe/menu.svelte";
 
   let { version, readOnly, onSaved }: { version: number; readOnly: boolean; onSaved: () => void } = $props();
 
@@ -25,13 +26,89 @@
     enumValues("species").then((s) => (species = s));
     enumValues("move").then((m) => (moves = m));
   });
+  // The chart as saved, and as edited (a click cycles a cell).
+  let saved = $state<number[][]>([]);
+  let count = $state(17);
+  async function loadAll() {
+    count = await invoke<number>("type_count");
+    clearEnums();
+    types = (await enumValues("type")).slice(0, count);
+    saved = await invoke<number[][]>("type_chart");
+    chart = saved.map((r) => [...r]);
+  }
   $effect(() => {
     void version;
-    enumValues("type").then((t) => (types = t.slice(0, 17)));
-    invoke<number[][]>("type_chart")
-      .then((c) => (chart = c))
-      .catch((e) => (error = String(e)));
+    loadAll().catch((e) => (error = String(e)));
   });
+  const dirty = $derived(JSON.stringify(chart) !== JSON.stringify(saved));
+  const NEXT: Record<number, number> = { 4: 8, 8: 2, 2: 0, 0: 4 };
+  function cycle(a: number, d: number) {
+    if (readOnly) return;
+    play("select");
+    chart = chart.map((r, i) => (i === a ? r.map((v, j) => (j === d ? NEXT[v] ?? 4 : v)) : r));
+  }
+  let busy = $state(false);
+  async function save() {
+    busy = true;
+    try {
+      await invoke("set_type_chart", { chart });
+      await loadAll();
+      onSaved();
+      play("save");
+      toast("Type chart saved");
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      busy = false;
+    }
+  }
+  // A new type: its name and the type it matches up like at first.
+  let adding = $state(false);
+  let newName = $state("");
+  let newFrom = $state(0);
+  async function addType() {
+    busy = true;
+    try {
+      const id = await invoke<number>("add_type", { name: newName, from: newFrom });
+      adding = false;
+      newName = "";
+      await loadAll();
+      onSaved();
+      play("save");
+      picked = id;
+      toast(`Added ${types[id]}`);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      busy = false;
+    }
+  }
+  let confirmRemove = $state(false);
+  $effect(() => {
+    void picked;
+    confirmRemove = false;
+  });
+  async function removeType(id: number) {
+    if (!confirmRemove) {
+      confirmRemove = true;
+      return;
+    }
+    busy = true;
+    try {
+      const name = types[id];
+      const r = await invoke<{ updated: string[] }>("remove_type", { id });
+      picked = null;
+      await loadAll();
+      onSaved();
+      play("save");
+      const n = r.updated.length;
+      toast(`Removed ${name}${n ? `. ${n} record${n > 1 ? "s" : ""} now use Normal` : ""}`);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      busy = false;
+    }
+  }
   $effect(() => {
     void version;
     const at = picked;
@@ -74,10 +151,30 @@
 <div class="types">
   <section class="chart-pane">
     <div class="head">
-      <h2>Type chart</h2>
+      <div class="title">
+        <h2>Type chart</h2>
+        {#if !readOnly}
+          <div class="acts">
+            <button class="quiet" disabled={busy} onclick={() => (adding = !adding)}>New type</button>
+            <button class="quiet" disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
+            <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
+          </div>
+        {/if}
+      </div>
       <p class="muted">
         Attacking type by row, defending type by column. 2: super effective, &frac12;: not very effective, 0: no effect.
+        {#if !readOnly}Click a cell to cycle effectiveness.{/if}
       </p>
+      {#if adding}
+        <form class="new" onsubmit={(e) => (e.preventDefault(), addType())}>
+          <label class="field"><span class="name">Name</span><input bind:value={newName} maxlength="8" /></label>
+          <label class="field">
+            <span class="name">Copy matchups from</span>
+            <select bind:value={newFrom}>{#each types as t, i}<option value={i}>{t}</option>{/each}</select>
+          </label>
+          <button class="primary" disabled={busy || !newName.trim() || dirty} title={dirty ? "Save or discard chart edits first." : ""}>Add</button>
+        </form>
+      {/if}
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
     <div class="scroll">
@@ -103,7 +200,14 @@
                 </button>
               </th>
               {#each row as v, d}
-                <td class="cell v{v}" class:cross={picked === a || picked === d} onmouseenter={() => (hover = [a, d])}>{MARK[v] ?? v}</td>
+                <td
+                  class="cell v{v}"
+                  class:cross={picked === a || picked === d}
+                  class:edited={saved[a]?.[d] !== v}
+                  class:editable={!readOnly}
+                  onmouseenter={() => (hover = [a, d])}
+                  onclick={() => cycle(a, d)}
+                >{MARK[v] ?? v}</td>
               {/each}
             </tr>
           {/each}
@@ -123,7 +227,10 @@
     {:else}
       <div class="pad">
         <h2>{types[picked]}</h2>
-        <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, 17))))} />
+        <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
+        {#if !readOnly && picked >= 17}
+          <button class="quiet remove" disabled={busy} onclick={() => removeType(picked!)}>{confirmRemove ? "Confirm removal" : "Remove type"}</button>
+        {/if}
         <div class="facts">
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
@@ -168,6 +275,43 @@
     padding: 0.75rem 1rem;
     border-bottom: 2px solid var(--outline);
     background: var(--bg);
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .title h2 {
+    flex: 1;
+  }
+  .acts {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .new {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.8rem;
+    margin-top: 0.6rem;
+  }
+  .new .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .new .name {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .cell.editable {
+    cursor: pointer;
+  }
+  .cell.edited {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .remove {
+    margin-top: 0.8rem;
   }
   .scroll {
     overflow: auto;

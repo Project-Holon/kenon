@@ -836,3 +836,51 @@ fn a_new_move_gets_its_own_animation_script() {
     anims::drop_script(&bridge, 560).unwrap();
     assert!(!anims::has_own(&project, 560));
 }
+
+#[test]
+fn a_new_type_joins_the_chart_and_follows_a_removal() {
+    use kenon_core::types;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let (fire, grass, psychic) = (9usize, 11usize, 13usize);
+    assert_eq!(types::count(&bridge), 17);
+    // An edit of the game's chart: Fire on Grass becomes normal.
+    let mut chart = types::chart(&bridge).unwrap();
+    assert_eq!(chart[fire][grass], 8);
+    chart[fire][grass] = 4;
+    types::set_chart(&bridge, &chart).unwrap();
+    let file = dir.path().join("m/eidos/tables/type_chart.txt");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert_eq!(text.lines().filter(|l| !l.starts_with('#')).count(), 1, "{text}");
+    assert!(text.contains("9 = "), "{text}");
+
+    // Fairy, matching up like Psychic.
+    let fairy = types::add(&bridge, "Fairy", psychic).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!((fairy, types::count(&bridge)), (17, 18));
+    let chart = types::chart(&bridge).unwrap();
+    assert_eq!(chart.len(), 18);
+    assert!(chart.iter().all(|r| r.len() == 18));
+    assert_eq!(chart[fairy][..17], chart[psychic][..17]);
+    assert_eq!(chart[fire][fairy], chart[fire][psychic]);
+    assert_eq!(chart[fire][grass], 4);
+    assert_eq!(tables::enum_values(&bridge, "type").unwrap()[fairy], "Fairy");
+    let manifest = std::fs::read_to_string(dir.path().join("m/eidos_mod.txt")).unwrap();
+    assert!(manifest.contains("limit.types = 17"), "{manifest}");
+
+    // Pikachu becomes Fairy; removing Fairy makes it Normal (0) again.
+    let edit = tables::Edit {
+        values: [("type1".to_string(), fairy as i64)].into_iter().collect(),
+        ..Default::default()
+    };
+    tables::save(&bridge, "species", 25, &edit).unwrap();
+    types::remove(&bridge, fairy).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(types::count(&bridge), 17);
+    let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
+    assert_eq!(rec[6], 0);
+    let chart = types::chart(&bridge).unwrap();
+    assert_eq!((chart.len(), chart[fire][grass]), (17, 4));
+    assert!(!std::fs::read_to_string(dir.path().join("m/eidos_mod.txt")).unwrap().contains("limit.types"));
+}

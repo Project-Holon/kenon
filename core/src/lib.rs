@@ -22,6 +22,7 @@ pub mod data_root;
 pub mod dex_search;
 pub mod effscript;
 pub mod fielditems;
+pub mod grid;
 pub mod g3d;
 pub mod handlers;
 pub mod import;
@@ -46,6 +47,7 @@ pub mod species_add;
 pub mod tables;
 pub mod trainer_mons;
 pub mod trainer_text;
+pub mod types;
 pub mod world;
 pub mod zonemap;
 
