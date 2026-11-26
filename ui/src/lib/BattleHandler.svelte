@@ -213,7 +213,12 @@
   const adjustable = (i: number) => Object.keys(entryOf(i)?.keys ?? {}).length > 0;
   /// Whether base b cannot go in place `at`: already picked elsewhere, or it
   /// shares a work slot with another pick.
+  // Abilities with no battle code of their own (core handlers.rs
+  // NO_ABILITY_CODE): a copy would do nothing.
+  const NO_CODE = [35, 48, 82, 99, 118, 121];
+  const noCode = (b: number) => table === "abilities" && b !== id && NO_CODE.includes(b);
   function blocked(b: number, at: number) {
+    if (noCode(b)) return true;
     // A base whose own line joins several bases cannot be joined again
     // (eidos refuses it).
     if (b !== id && (rows[String(b)]?.length ?? 0) > 1) return true;
@@ -254,7 +259,7 @@
         <span class="name">Works like</span>
         <select value="" disabled={readOnly} onchange={(e) => e.currentTarget.value !== "" && (parts = [editOf({ base: Number(e.currentTarget.value), keys: {} })])}>
           <option value="">None (no battle effect)</option>
-          {#each bases as b}<option value={String(b.i)}>{b.name}{adjustable(b.i) ? " (numbers)" : ""}</option>{/each}
+          {#each bases as b}<option value={String(b.i)} disabled={noCode(b.i)}>{b.name}{noCode(b.i) ? " (no battle code)" : adjustable(b.i) ? " (numbers)" : ""}</option>{/each}
         </select>
       </label>
     {/if}
@@ -267,7 +272,7 @@
             <select value={String(p.base)} disabled={readOnly} onchange={(ev) => setBase(i, Number(ev.currentTarget.value))}>
               {#if !added && i === 0}<option value={String(id)}>{nameOf(id)}</option>{/if}
               {#each bases.filter((b) => b.i !== id || added) as b}
-                <option value={String(b.i)} disabled={blocked(b.i, i)}>{b.name}{adjustable(b.i) ? " (numbers)" : ""}</option>
+                <option value={String(b.i)} disabled={blocked(b.i, i)}>{b.name}{noCode(b.i) ? " (no battle code)" : adjustable(b.i) ? " (numbers)" : ""}</option>
               {/each}
             </select>
           </label>

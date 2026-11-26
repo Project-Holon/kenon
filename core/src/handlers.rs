@@ -22,6 +22,9 @@ const BUNDLED: &str = include_str!("handler_params.json");
 
 /// eidos takes up to four bases on one line.
 pub const MAX_BASES: usize = 4;
+/// Abilities with no battle code of their own (Illuminate, Early Bird,
+/// Gluttony, No Guard, Honey Gather, Multitype): not a base to copy.
+pub const NO_ABILITY_CODE: [usize; 6] = [35, 48, 82, 99, 118, 121];
 
 /// The handler kind of a content table.
 pub fn kind_of(table: &str) -> Option<&'static str> {
@@ -231,6 +234,13 @@ pub fn set(
         }
         if out.iter().any(|p| p.base == part.base) {
             return Err(format!("{} is picked twice", part.base));
+        }
+        // An ability works only through battle code the game registers for
+        // it. These six have none: the game tests their ids elsewhere, so a
+        // copy would do nothing (eidos research abilities.md: no registry
+        // row, checked against the ROM).
+        if kind == "ability" && part.base != id && NO_ABILITY_CODE.contains(&part.base) {
+            return Err(format!("ability {} has no battle code of its own to copy", part.base));
         }
         // Bases that keep a counter in the same work slot (Slow Start's
         // turns, Flash Fire's flag) would overwrite each other.

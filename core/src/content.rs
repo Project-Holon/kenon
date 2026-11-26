@@ -138,7 +138,8 @@ const ITEMS: Kind = Kind {
 };
 
 /// Abilities have no record: an ability is its id (one byte in a Pokemon,
-/// so 255 at most), its texts, and the battle code that tests the id.
+/// so 254 at most: 255 is the game's "none"), its texts, and the battle
+/// code that tests the id.
 /// Banks: 182 names, 285 names in capitals, 183 descriptions (165 lines
 /// each in the ROM). eidos has no ability limit to raise.
 const ABILITIES: Kind = Kind {
@@ -146,7 +147,7 @@ const ABILITIES: Kind = Kind {
     has_record: false,
     limit: "",
     last: 164,
-    ceiling: 255,
+    ceiling: 254,
     name_bank: 182,
     enum_name: "ability",
     texts: &[

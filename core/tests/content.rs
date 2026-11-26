@@ -468,6 +468,8 @@ fn an_added_ability_works_like_another_and_follows_a_removal() {
         Some(vec![part(26), part(54)])
     )
     .is_err());
+    // Early Bird (48) has no battle code of its own: a copy is refused.
+    assert!(handlers::set(project, "ability", &params, b, Some(vec![part(48)])).is_err());
     // A line that joins several bases cannot be a base itself.
     assert!(handlers::set(project, "ability", &params, b, Some(vec![part(165)])).is_err());
     // Back to plain Intimidate for the removal below.
