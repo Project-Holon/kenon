@@ -1,6 +1,7 @@
 <script lang="ts">
-  // A move's battle animation: one of the game's moves (1..559), eidos
-  // tables/move_anims.txt (core/src/move_anims.rs). Preview starts eidos on
+  // A move's battle animation (core/src/move_anims.rs, effscript.rs): which
+  // script it plays (eidos tables/move_anims.txt), and its own script, edited
+  // as text and saved as the game's binary (a/0/6/6). Preview starts eidos on
   // a copy of the profile's save and loops the animation.
   import { untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
@@ -8,7 +9,10 @@
   import { enumValues } from "./tables";
   import { play } from "./sfx";
   import { toast } from "morphe/menu.svelte";
+  import { debounced } from "morphe/cache.svelte";
   import { useParts } from "./parts.svelte";
+  import CodeEditor from "./CodeEditor.svelte";
+  import { EFFECT_LANGUAGE, setEffectCommands, type Marker } from "./monaco";
 
   let {
     id,
@@ -22,7 +26,7 @@
     onSaved: () => void;
   } = $props();
 
-  /// The last move with an animation of its own.
+  /// The last move with an animation of its own in the game.
   const LAST = 559;
   /// eidos's preview Pokémon when none is chosen (Pikachu on Patrat).
   const ATTACKER = 25;
@@ -32,29 +36,63 @@
   let species = $state<string[]>([]);
   enumValues("move").then((n) => (names = n));
   enumValues("species").then((n) => (species = n));
+  invoke<[string, number][]>("effect_commands").then(setEffectCommands).catch(() => {});
 
-  let saved = $state<{ anim: number; default: number } | null>(null);
+  interface Saved {
+    anim: number;
+    default: number;
+    own: boolean;
+  }
+  let saved = $state<Saved | null>(null);
+  let ownScripts = $state<number[]>([]);
   let pick = $state(0);
   let error = $state("");
+  // The move's own script: as saved, and as edited.
+  let scriptSaved = $state<string | null>(null);
+  let script = $state("");
+  let showScript = $state(false);
+  let busy = $state(false);
+
   function reset() {
     pick = saved?.anim ?? 0;
+    script = scriptSaved ?? "";
+  }
+  async function load() {
+    const m = id;
+    const [a, own] = await Promise.all([invoke<Saved>("move_anim", { id: m }), invoke<number[]>("own_move_scripts")]);
+    const text = await invoke<string | null>("move_script", { id: m });
+    if (m !== id) return;
+    saved = a;
+    ownScripts = own;
+    scriptSaved = text;
+    untrack(reset);
   }
   $effect(() => {
     void version;
-    const m = id;
-    invoke<{ anim: number; default: number }>("move_anim", { id: m })
-      .then((a) => {
-        saved = a;
-        untrack(reset);
-      })
-      .catch((e) => (error = String(e)));
+    void id;
+    showScript = false;
+    load().catch((e) => (error = String(e)));
   });
-  const dirty = $derived(!!saved && pick !== saved.anim);
+  const animDirty = $derived(!!saved && pick !== saved.anim);
+  const scriptDirty = $derived(scriptSaved !== null && script !== scriptSaved);
+  const dirty = $derived(animDirty || scriptDirty);
+
+  // Problems while typing.
+  let markers = $state<Marker[]>([]);
+  const watched = debounced(() => script, 300);
+  $effect(() => {
+    const text = watched.value;
+    if (!showScript) return;
+    invoke<[number, string] | null>("check_effect_script", { text })
+      .then((p) => (markers = p ? [{ line: p[0], start: 1, end: 200, severity: "error", message: p[1] }] : []))
+      .catch(() => {});
+  });
 
   async function save(quiet = false) {
     try {
-      await invoke("set_move_anim", { id, anim: pick === saved?.default ? null : pick });
-      saved = await invoke("move_anim", { id });
+      if (scriptDirty) await invoke("set_move_script", { id, text: script });
+      if (animDirty) await invoke("set_move_anim", { id, anim: pick === saved?.default ? null : pick });
+      await load();
       onSaved();
       if (!quiet) {
         play("save");
@@ -76,10 +114,39 @@
     });
   });
 
+  async function run(what: () => Promise<void>, done: string) {
+    busy = true;
+    try {
+      await what();
+      await load();
+      onSaved();
+      play("save");
+      toast(done);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      busy = false;
+    }
+  }
+  /// An added move gets its own script, a copy of the one it plays now.
+  function makeOwn() {
+    const from = pick;
+    run(async () => {
+      await invoke("copy_move_script", { id, from });
+      showScript = true;
+    }, `Created ${nameOf(id)}'s custom script from ${nameOf(from)}`);
+  }
+  function dropOwn() {
+    run(
+      () => invoke("drop_move_script", { id }),
+      id <= LAST ? `Restored ${nameOf(id)}'s original script` : `Removed ${nameOf(id)}'s custom script`,
+    );
+  }
+
   const moves = $derived(
     names
       .map((name, i) => ({ i, name }))
-      .filter((m) => m.i > 0 && m.i <= LAST && m.name)
+      .filter((m) => m.i > 0 && (m.i <= LAST || ownScripts.includes(m.i)) && m.name)
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
   const pokemon = $derived(
@@ -115,10 +182,25 @@
     };
   });
   const nameOf = (m: number) => names[m] ?? String(m);
+  const hasScript = $derived(scriptSaved !== null);
 </script>
 
 <div class="window block anim">
-  <h3>Animation</h3>
+  <div class="top">
+    <h3>Animation</h3>
+    {#if saved && !readOnly}
+      <div class="acts">
+        {#if hasScript}
+          <button class="quiet" onclick={() => (showScript = !showScript)}>{showScript ? "Hide script" : "Edit script"}</button>
+        {/if}
+        {#if id > LAST && !saved.own}
+          <button disabled={busy || dirty} onclick={makeOwn} title={dirty ? "Save first" : `Copies ${nameOf(pick)}'s script`}>Create custom script</button>
+        {:else if saved.own}
+          <button class="quiet" disabled={busy} onclick={dropOwn}>{id <= LAST ? "Restore original script" : "Remove custom script"}</button>
+        {/if}
+      </div>
+    {/if}
+  </div>
   {#if error}
     <p class="bad">{error}</p>
   {:else if saved}
@@ -126,7 +208,7 @@
       <label class="field">
         <span class="name">Plays</span>
         <select value={String(pick)} disabled={readOnly} onchange={(e) => (pick = Number(e.currentTarget.value))}>
-          <option value={String(saved.default)}>{nameOf(saved.default)} (default)</option>
+          <option value={String(saved.default)}>{saved.default === id ? "Own script" : nameOf(saved.default)} (default)</option>
           {#each moves.filter((m) => m.i !== saved?.default) as m}
             <option value={String(m.i)}>{m.name}</option>
           {/each}
@@ -147,8 +229,16 @@
       <button onclick={preview} disabled={dirty} title={dirty ? "Save first" : "Loops in eidos until the window closes"}>Preview</button>
     </div>
     {#if starting}<p class="muted note">Starting eidos. Animation plays in about 30 seconds.</p>{/if}
-    {#if id > LAST && pick === saved.default}
+    {#if id > LAST && !saved.own && pick === saved.default}
       <p class="muted note">Defaults to "Works like" under In battle, otherwise Pound.</p>
+    {/if}
+    {#if showScript && hasScript}
+      {#if pick !== id && saved.default === id}
+        <p class="muted note">Unused: this move plays {nameOf(pick)}'s script.</p>
+      {/if}
+      <div class="editor">
+        <CodeEditor bind:value={script} language={EFFECT_LANGUAGE} {markers} readOnly={readOnly} onSave={() => save()} label="Animation script" />
+      </div>
     {/if}
   {/if}
 </div>
@@ -157,8 +247,18 @@
   .block {
     padding: 0.9rem 1rem;
   }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
   h3 {
+    flex: 1;
     margin: 0;
+  }
+  .acts {
+    display: flex;
+    gap: 0.5rem;
   }
   .row {
     display: flex;
@@ -183,6 +283,13 @@
   .note {
     font-size: 0.9rem;
     margin: 0.5rem 0 0;
+  }
+  .editor {
+    height: 22rem;
+    margin-top: 0.7rem;
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    overflow: hidden;
   }
   .bad {
     color: var(--bad);

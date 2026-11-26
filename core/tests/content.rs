@@ -755,3 +755,84 @@ fn a_new_pokemon_joins_the_unova_pokedex() {
     assert_eq!(s.get(&Key { species: 715, form: 0 }).and_then(|s| s.shape), Some(4));
     assert!(!s.contains_key(&Key { species: 716, form: 0 }));
 }
+
+#[test]
+fn every_battle_effect_script_reads_back_byte_for_byte() {
+    use kenon_core::effscript;
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    // a/0/6/6: move scripts; a/0/6/7: status, weather and item effects.
+    let mut runs_off = Vec::new();
+    let mut ends = std::collections::BTreeSet::new();
+    let (mut total, mut left) = (0, 0);
+    for arc in [66u16, 67] {
+        let n = bridge.base_archive(arc).unwrap().len();
+        for index in 0..n {
+            let b = bridge.member(Member { arc, index }).unwrap();
+            let text = effscript::disassemble(&b).unwrap_or_else(|e| panic!("{arc}/{index}: {e}"));
+            let back = effscript::assemble(&text).unwrap_or_else(|e| panic!("{arc}/{index}: {e}\n{text}"));
+            assert_eq!(back, b, "{arc}/{index} differs:\n{text}");
+            let (ok, e, raw) = effscript::check(&b);
+            // The 360-byte fillers after the last move (560..600) hold no
+            // script.
+            if !ok && !(arc == 66 && index >= 560) {
+                runs_off.push(format!("{arc}/{index}"));
+            }
+            // Only the 4-byte alignment pad after the last command is left:
+            // the command table decodes every byte that runs.
+            assert!(raw <= 3, "{arc}/{index}: {raw} bytes undecoded");
+            ends.extend(e);
+            total += b.len();
+            left += raw;
+        }
+    }
+    println!("stop ids {ends:?}; {left} of {total} bytes undecoded; off the end: {runs_off:?}");
+    assert!(runs_off.is_empty(), "scripts that run off: {runs_off:?}");
+    // The game's scripts end on a release, a return or a jump, never on a
+    // stop id.
+    assert!(ends.is_empty(), "stop ids {ends:?}");
+}
+
+#[test]
+fn a_new_move_gets_its_own_animation_script() {
+    use kenon_core::move_anims as anims;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let a = content::add(&bridge, "moves", 85, "Spark Burst").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let b = content::add(&bridge, "moves", 85, "Moonblast").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    assert_eq!((a, b), (560, 561));
+    // No script yet: none to show, and another move cannot play it.
+    assert!(anims::script_text(&bridge, b).unwrap().is_none());
+    assert!(anims::set(&project, a, Some(b as u16)).is_err());
+
+    // Moonblast gets a copy of Thunderbolt's script, then an edit.
+    anims::copy_script(&bridge, b, 85).unwrap();
+    assert_eq!(anims::default_for(&project, b), b as u16);
+    let text = anims::script_text(&bridge, b).unwrap().unwrap();
+    assert_eq!(text, anims::script_text(&bridge, 85).unwrap().unwrap());
+    let edited = text.replacen("WaitParticles 20", "WaitParticles 30", 1);
+    anims::set_script(&bridge, b, &edited).unwrap();
+    assert_eq!(anims::script_text(&bridge, b).unwrap().unwrap(), edited);
+    assert!(anims::set_script(&bridge, b, "variant @x\n@x:\n    WaitFrames\n").is_err());
+    // Spark Burst plays Moonblast's script.
+    anims::set(&project, a, Some(b as u16)).unwrap();
+    let text_file = std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
+    assert!(text_file.contains("560 = 561\n"), "{text_file}");
+
+    // Removing Spark Burst moves Moonblast's script to 560.
+    content::remove(&bridge, "moves", a).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    assert!(anims::has_own(&project, 560) && !anims::has_own(&project, 561));
+    assert_eq!(anims::script_text(&bridge, 560).unwrap().unwrap(), edited);
+    assert!(anims::all(&project).is_empty());
+
+    // Dropping it: the move falls back to its default.
+    anims::drop_script(&bridge, 560).unwrap();
+    assert!(!anims::has_own(&project, 560));
+}

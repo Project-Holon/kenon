@@ -20,6 +20,7 @@ pub mod content;
 pub mod cries;
 pub mod data_root;
 pub mod dex_search;
+pub mod effscript;
 pub mod fielditems;
 pub mod g3d;
 pub mod handlers;

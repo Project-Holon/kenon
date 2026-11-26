@@ -758,6 +758,8 @@ fn handler_params(table: String) -> Result<kenon_core::handlers::Params, String>
 struct MoveAnim {
     anim: u16,
     default: u16,
+    /// The mod ships a script for this move.
+    own: bool,
 }
 
 #[tauri::command]
@@ -767,6 +769,7 @@ fn move_anim(state: State<AppState>, id: usize) -> Result<MoveAnim, String> {
     Ok(MoveAnim {
         anim: kenon_core::move_anims::current(project, id),
         default: kenon_core::move_anims::default_for(project, id),
+        own: kenon_core::move_anims::has_own(project, id),
     })
 }
 
@@ -778,6 +781,66 @@ fn set_move_anim(state: State<AppState>, id: usize, anim: Option<u16>) -> Result
     kenon_core::move_anims::set(project, id, anim)?;
     bridge.invalidate();
     Ok(())
+}
+
+/// A move's animation script as text (None: an added move without one).
+#[tauri::command]
+fn move_script(state: State<AppState>, id: usize) -> Result<Option<String>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::move_anims::script_text(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// Saves a move's animation script from text.
+#[tauri::command]
+fn set_move_script(state: State<AppState>, id: usize, text: String) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::move_anims::set_script(&bridge, id, &text).map_err(|e| e.to_string())
+}
+
+/// Gives a move its own script, copied from move `from`'s.
+#[tauri::command]
+fn copy_move_script(state: State<AppState>, id: usize, from: usize) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::move_anims::copy_script(&bridge, id, from).map_err(|e| e.to_string())
+}
+
+/// Drops the mod's script for a move.
+#[tauri::command]
+fn drop_move_script(state: State<AppState>, id: usize) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::move_anims::drop_script(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// The added moves that have their own script (others can play them).
+#[tauri::command]
+fn own_move_scripts(state: State<AppState>) -> Result<Vec<usize>, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    Ok(project
+        .members(kenon_core::move_anims::SCRIPTS)
+        .into_iter()
+        .filter(|&m| m > kenon_core::move_anims::LAST as usize)
+        .collect())
+}
+
+/// The first problem in a script's text: (line, message), None when it
+/// assembles.
+#[tauri::command]
+fn check_effect_script(text: String) -> Option<(usize, String)> {
+    let e = kenon_core::effscript::assemble(&text).err()?;
+    let line = e
+        .strip_prefix("line ")
+        .and_then(|r| r.split_once(':'))
+        .and_then(|(n, _)| n.parse().ok())
+        .unwrap_or(1);
+    let message = e.split_once(": ").map_or(e.clone(), |(_, m)| m.to_string());
+    Some((line, message))
+}
+
+/// The battle effect commands: name and argument count.
+#[tauri::command]
+fn effect_commands() -> Vec<(&'static str, usize)> {
+    kenon_core::effscript::COMMANDS.to_vec()
 }
 
 /// The running preview, so a new one replaces it.
@@ -2340,6 +2403,13 @@ pub fn run() {
             set_species_cry,
             import_new_cry,
             move_anim,
+            move_script,
+            set_move_script,
+            copy_move_script,
+            drop_move_script,
+            own_move_scripts,
+            check_effect_script,
+            effect_commands,
             set_move_anim,
             preview_move,
             item_prices,

@@ -26,7 +26,7 @@ import "monaco-editor/editor/contrib/wordOperations/browser/wordOperations";
 import "monaco-editor/editor/browser/coreCommands";
 import "monaco-editor/editor/common/standaloneStrings";
 import "../../../node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
-import { HOOK_LANGUAGE, RULE_LANGUAGE, TABLE_LANGUAGE, completions } from "./monaco";
+import { EFFECT_LANGUAGE, HOOK_LANGUAGE, RULE_LANGUAGE, TABLE_LANGUAGE, completions } from "./monaco";
 
 export { monaco };
 
@@ -290,6 +290,40 @@ function registerTable() {
   });
 }
 
+function registerEffect() {
+  monaco.languages.register({ id: EFFECT_LANGUAGE });
+  monaco.languages.setLanguageConfiguration(EFFECT_LANGUAGE, { comments: { lineComment: ";" } });
+  monaco.languages.setMonarchTokensProvider(EFFECT_LANGUAGE, {
+    defaultToken: "",
+    tokenizer: {
+      root: [
+        [/;.*$/, "comment"],
+        [/@[\w]+:?/, "type"],
+        [/^\s*(variant|end|bytes|pad)\b/, "keyword"],
+        [/^\s*[A-Za-z]\w*/, "keyword"],
+        [/[-+]?0[xX][0-9a-fA-F]+|[-+]?\d+/, "number"],
+      ],
+    },
+  } as monaco.languages.IMonarchLanguage);
+  monaco.languages.registerCompletionItemProvider(EFFECT_LANGUAGE, {
+    provideCompletionItems(model, position) {
+      const before = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+      if (!/^\s*\w*$/.test(before)) return { suggestions: [] };
+      const word = model.getWordUntilPosition(position);
+      const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+      return {
+        suggestions: completions.effect.map(([name, args]) => ({
+          label: name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          detail: args === 1 ? "1 argument" : `${args} arguments`,
+          insertText: args ? `${name} ${Array(args).fill("0").join(" ")}` : name,
+          range,
+        })),
+      };
+    },
+  });
+}
+
 function registerHooks() {
   monaco.languages.register({ id: HOOK_LANGUAGE });
   monaco.languages.setLanguageConfiguration(HOOK_LANGUAGE, {
@@ -377,6 +411,7 @@ export function ensureMonaco() {
   registerRule();
   registerTable();
   registerHooks();
+  registerEffect();
   applyTheme();
   new MutationObserver(applyTheme).observe(document.documentElement, {
     attributes: true,
