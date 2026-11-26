@@ -14,6 +14,7 @@
   import { tip } from "../lib/tip";
   import { provideParts } from "../lib/parts.svelte";
   import BattleHandler from "../lib/BattleHandler.svelte";
+  import MoveAnim from "../lib/MoveAnim.svelte";
   import MoveUsers from "../lib/MoveUsers.svelte";
   import ItemUsers from "../lib/ItemUsers.svelte";
   import TextPanel from "../lib/TextPanel.svelte";
@@ -1000,6 +1001,9 @@
         <!-- Kept while hidden: unsaved edits survive a tab switch. -->
         <div hidden={panel !== "battle"}>
           <BattleHandler table={tables[0] as "moves" | "items"} id={current} last={added.last} {version} {readOnly} {onSaved} />
+          {#if tables[0] === "moves"}
+            <MoveAnim id={current} {version} {readOnly} {onSaved} />
+          {/if}
         </div>
       {/if}
       {#if speciesTabs && activeTab === MACHINE_TAB}

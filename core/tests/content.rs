@@ -562,3 +562,48 @@ fn a_shop_list_is_changed_and_restored() {
     shops::set(&bridge, &game).unwrap();
     assert!(!file.exists());
 }
+
+#[test]
+fn a_move_animation_follows_its_default_and_a_removal() {
+    use kenon_core::{handlers, move_anims};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let a = content::add(&bridge, "moves", 85, "Spark Burst").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let b = content::add(&bridge, "moves", 85, "Moonblast").unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!((a, b), (560, 561));
+    let project = bridge.project().unwrap();
+    let params = handlers::params("move", None).unwrap();
+    let like = |base: usize| {
+        Some(vec![handlers::Part {
+            base,
+            keys: Default::default(),
+        }])
+    };
+
+    // Defaults: a game move plays its own, an added one its base's, else Pound's.
+    assert_eq!(move_anims::default_for(project, 53), 53);
+    handlers::set(project, "move", &params, b, like(85)).unwrap();
+    assert_eq!(move_anims::default_for(project, b), 85);
+    handlers::set(project, "move", &params, a, None).unwrap();
+    assert_eq!(move_anims::default_for(project, a), 1);
+
+    // The default writes no line; others do; values past 559 are refused.
+    move_anims::set(project, b, Some(85)).unwrap();
+    assert!(move_anims::all(project).is_empty());
+    move_anims::set(project, 53, Some(85)).unwrap();
+    move_anims::set(project, a, Some(53)).unwrap();
+    move_anims::set(project, b, Some(236)).unwrap();
+    assert!(move_anims::set(project, b, Some(560)).is_err());
+    let text =
+        std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
+    assert!(text.contains("53 = 85\n560 = 53\n561 = 236\n"), "{text}");
+
+    // Removing the first moves the second's line down to 560.
+    content::remove(&bridge, "moves", a).unwrap();
+    let all = move_anims::all(project);
+    assert_eq!(all.len(), 2);
+    assert_eq!((all[&53], all[&560]), (85, 236));
+}

@@ -751,6 +751,105 @@ fn handler_params(table: String) -> Result<kenon_core::handlers::Params, String>
     )
 }
 
+/// A move's animation: the one it plays and the one it would play with no
+/// line of its own.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MoveAnim {
+    anim: u16,
+    default: u16,
+}
+
+#[tauri::command]
+fn move_anim(state: State<AppState>, id: usize) -> Result<MoveAnim, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    Ok(MoveAnim {
+        anim: kenon_core::move_anims::current(project, id),
+        default: kenon_core::move_anims::default_for(project, id),
+    })
+}
+
+/// Sets a move's animation (eidos move_anims.txt); None: its default.
+#[tauri::command]
+fn set_move_anim(state: State<AppState>, id: usize, anim: Option<u16>) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    kenon_core::move_anims::set(project, id, anim)?;
+    bridge.invalidate();
+    Ok(())
+}
+
+/// The running preview, so a new one replaces it.
+static PREVIEW: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+
+/// Starts eidos playing a move's animation from this mod, in a loop until
+/// its window closes. When eidos refuses (exit code not 0), the
+/// `preview-ended` event carries its message.
+#[tauri::command]
+fn preview_move(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    id: usize,
+    species: Option<(usize, usize)>,
+) -> Result<(), String> {
+    use std::io::BufRead;
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
+    let (exe, _) = kenon_core::preview::program()
+        .ok_or("eidos is not installed. Install it with the eidos launcher.")?;
+    let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
+    let args = kenon_core::preview::move_args(&profile, &project.root, id, species);
+    let mut slot = PREVIEW.lock().unwrap();
+    if let Some(mut old) = slot.take() {
+        let _ = old.kill();
+        let _ = old.wait();
+    }
+    let mut cmd = std::process::Command::new(&exe);
+    cmd.args(&args).stderr(std::process::Stdio::piped());
+    if let Some(dir) = exe.parent() {
+        cmd.current_dir(dir);
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("eidos did not start: {e}"))?;
+    let stderr = child.stderr.take();
+    let pid = child.id();
+    *slot = Some(child);
+    drop(slot);
+    std::thread::spawn(move || {
+        // eidos's own message ("eidos: --preview-move: ..."), else its last line.
+        let mut said = String::new();
+        let mut last = String::new();
+        if let Some(err) = stderr {
+            for line in std::io::BufReader::new(err).lines().map_while(Result::ok) {
+                if line.starts_with("eidos: --preview") {
+                    said = line;
+                } else if !line.trim().is_empty() {
+                    last = line;
+                }
+            }
+        }
+        let status = {
+            let mut slot = PREVIEW.lock().unwrap();
+            match slot.as_mut().filter(|c| c.id() == pid) {
+                Some(c) => {
+                    let s = c.wait().ok();
+                    *slot = None;
+                    s
+                }
+                // Replaced by a newer preview, which killed it.
+                None => return,
+            }
+        };
+        if status.is_some_and(|s| !s.success()) {
+            let msg = if said.is_empty() { last } else { said };
+            let msg = msg.trim_start_matches("eidos: ").to_string();
+            let _ = app.emit("preview-ended", msg);
+        }
+    });
+    Ok(())
+}
+
 /// The mod's handler rows for a table: id to {base, keys}.
 #[tauri::command]
 fn handler_rows(
@@ -2050,6 +2149,9 @@ pub fn run() {
             set_machine,
             shops,
             set_shops,
+            move_anim,
+            set_move_anim,
+            preview_move,
             item_prices,
             icon_palette,
             set_icon_palette,
