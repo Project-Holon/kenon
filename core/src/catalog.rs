@@ -747,20 +747,22 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             .map_or(0, |m| m + 1),
     );
     let added: Vec<usize> = crate::species_add::added(bridge);
+    let layout = crate::species_add::layout(bridge);
     // Icon palettes: species_add::icon_palette (the mod's eidos rows, else
     // the game's nibble table).
     let code = bridge.code();
     let species = bank(70);
+    let named = |n: usize| species.get(n).filter(|s| !s.is_empty()).cloned();
     let name = |n: usize| match n {
         // Entry 0 is the game's "?" picture shown when no Pokemon is set.
         0 => "Placeholder".to_string(),
         650 => "Egg".to_string(),
         651 => "Manaphy Egg".to_string(),
-        n => species
-            .get(n)
-            .filter(|s| !s.is_empty())
-            .cloned()
-            .unwrap_or_else(|| format!("Form {}", n.saturating_sub(651))),
+        n => match layout.form_at(n) {
+            // A form of a Pokemon the mod adds.
+            Some((s, f)) => format!("{} (form {f})", named(s).unwrap_or_else(|| format!("Pokemon {s}"))),
+            None => named(n).unwrap_or_else(|| format!("Form {}", n.saturating_sub(651))),
+        },
     };
     let sheets = match arc {
         // Pokemon icons: species n at 7 + 2n, the female icon after it

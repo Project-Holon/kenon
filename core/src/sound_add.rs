@@ -562,6 +562,46 @@ fn add(bridge: &Bridge, name: &str, wav: &[u8], music: bool) -> Result<NewSound,
     })
 }
 
+/// Adds the WAV as a new cry: a wave archive of its own, built on species
+/// 1's cry archive (one PCM8 wave within the game's cry buffer), named
+/// `WAVE_CRY_<NAME>`. Returns its wave archive slot, which cries.txt names.
+/// A cry needs no bank or sequence: the cry player loads the wave itself.
+pub fn add_cry(
+    bridge: &Bridge,
+    name: &str,
+    wav: &[u8],
+) -> Result<(u32, crate::audio_import::AudioSummary), Error> {
+    let wav = read_wav(wav)?;
+    let sdat = bridge
+        .sdat()
+        .ok_or_else(|| Error::Missing("the sound archive".into()))?;
+    let wave_name = format!("WAVE_CRY_{}", symbol(name)?);
+    if sdat.find(Kind::WaveArc, &wave_name).is_some() {
+        return Err(bad(format!("a cry named {wave_name} exists")));
+    }
+    let template = sdat
+        .wave_archive_file(1)
+        .ok_or_else(|| bad("the game's first cry is missing"))?;
+    let (swar, summary) = crate::audio_import::cry_archive(template, &wav)?;
+    let file_id = sdat.file_count() as usize;
+    let wave_id = sdat.count(Kind::WaveArc);
+    if wave_id > 0xFFFE {
+        return Err(bad("the sound archive has no room for another wave archive"));
+    }
+    let entries = [Entry {
+        kind: Kind::WaveArc,
+        name: wave_name,
+        record: (file_id as u32).to_le_bytes().to_vec(),
+    }];
+    let bytes = append(sdat.bytes(), std::slice::from_ref(&swar), &entries)?;
+    let check = Sdat::parse(bytes.clone()).map_err(fmt_err)?;
+    if check.wave_archive_file(wave_id) != Some(&swar[..]) {
+        return Err(bad("the new cry did not land in the archive"));
+    }
+    store(bridge, bytes)?;
+    Ok((wave_id, summary))
+}
+
 /// Adds the WAV as a sound effect and returns it. `name` is what the user
 /// calls it; the archive gets `SEQ_SE_<NAME>`.
 pub fn add_sound_effect(bridge: &Bridge, name: &str, wav: &[u8]) -> Result<NewSound, Error> {

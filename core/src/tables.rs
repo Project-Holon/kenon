@@ -873,6 +873,91 @@ pub fn remap_member(
     Ok((out != old).then_some(out))
 }
 
+/// A record with the form numbers of species `species` renumbered by `map`
+/// (None when nothing changes): each form field beside a species field
+/// (encounters, trainer parties, battle facility Pokemon, trades). A
+/// dropped form becomes form 0.
+pub fn remap_forms(
+    bridge: &Bridge,
+    id: &str,
+    index: usize,
+    species: i64,
+    map: &dyn Fn(i64) -> Remap,
+) -> Result<Option<Vec<u8>>, Error> {
+    let t = table(id)?;
+    let old = bridge.member(member(t, index))?;
+    let mut out = old.clone();
+    match t.layout.as_deref() {
+        Some("list") | Some("countedList") => return Ok(None),
+        Some("variantList") => {
+            let kind_of = other_field(
+                bridge,
+                t.variant_by.as_ref().expect("variant source"),
+                index,
+            )?;
+            if let Some(v) = t
+                .variants
+                .as_ref()
+                .and_then(|v| v.get(&kind_of.to_string()))
+            {
+                let mut at = 0;
+                while at + v.size <= out.len() {
+                    remap_form_fields(&mut out, at, &v.fields, species, map);
+                    at += v.size;
+                }
+            }
+        }
+        _ => {
+            let blocks = t
+                .seasons
+                .as_ref()
+                .map_or(1, |s| (old.len() / s.block_size).max(1));
+            let block = t.seasons.as_ref().map_or(0, |s| s.block_size);
+            for b in 0..blocks {
+                let base = b * block;
+                remap_form_fields(&mut out, base, &t.fields, species, map);
+                for g in t.groups.iter().flatten() {
+                    for i in 0..g.count {
+                        remap_form_fields(&mut out, base + g.offset + i * g.stride, &g.fields, species, map);
+                    }
+                }
+            }
+        }
+    }
+    Ok((out != old).then_some(out))
+}
+
+/// The form field of a field set whose species field holds `species`.
+fn remap_form_fields(
+    bytes: &mut [u8],
+    base: usize,
+    fields: &[Field],
+    species: i64,
+    map: &dyn Fn(i64) -> Remap,
+) {
+    let Some(sp) = fields.iter().find(|f| f.enum_name.as_deref() == Some("species")) else {
+        return;
+    };
+    let Some(form) = fields.iter().find(|f| f.name == "form") else {
+        return;
+    };
+    let (count, stride) = sp.repeat.as_ref().map_or((1, 0), |r| (r.count, r.stride));
+    for n in 0..count {
+        let at = base + n * stride;
+        if read_field(bytes, at, sp) != Some(species) {
+            continue;
+        }
+        let Some(v) = read_field(bytes, at, form) else {
+            continue;
+        };
+        match map(v) {
+            Remap::Keep => {}
+            Remap::To(x) => write_field(bytes, at, form, x),
+            Remap::Drop => write_field(bytes, at, form, 0),
+        }
+    }
+}
+
 /// Applies `map` to every field (and every repeat of it) that `is` picks.
 fn remap_fields(
     bytes: &mut [u8],
@@ -1217,6 +1302,7 @@ fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
     } else {
         Vec::new()
     };
+    let layout = (!extra.is_empty()).then(|| crate::species_add::layout(bridge));
     let new_names = if extra.is_empty() {
         Vec::new()
     } else {
@@ -1238,13 +1324,19 @@ fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
                 .unwrap_or_else(|| format!("{} {index}", t.label)),
         })
         .chain(extra.into_iter().filter(|&i| i >= count).map(|index| {
-            Entry {
-                index,
-                name: new_names
-                    .get(index)
+            let named = |i: usize| {
+                new_names
+                    .get(i)
                     .filter(|n| !n.trim().is_empty())
                     .cloned()
-                    .unwrap_or_else(|| format!("New Pokemon {index}")),
+                    .unwrap_or_else(|| format!("New Pokemon {i}"))
+            };
+            Entry {
+                index,
+                name: match layout.as_ref().and_then(|l| l.form_at(index)) {
+                    Some((s, f)) => format!("{} (form {f})", named(s)),
+                    None => named(index),
+                },
             }
         }))
         .collect())

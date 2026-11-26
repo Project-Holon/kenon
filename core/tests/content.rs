@@ -607,3 +607,108 @@ fn a_move_animation_follows_its_default_and_a_removal() {
     assert_eq!(all.len(), 2);
     assert_eq!((all[&53], all[&560]), (85, 236));
 }
+
+#[test]
+fn a_new_pokemon_gets_forms_that_move_with_the_species() {
+    use kenon_core::cries::{self, Key};
+    use kenon_core::species_add;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let stats = |b: &Bridge, i: usize| b.member(Member { arc: 16, index: i }).unwrap();
+    let u16_of = |b: &[u8], at: usize| u16::from_le_bytes([b[at], b[at + 1]]) as usize;
+
+    // Voltwing from Pikachu, with a form made from Raichu (26).
+    let a = species_add::add(&bridge, 25, "Voltwing").unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(species_add::add_form(&bridge, a, 26).unwrap(), 1);
+    let bridge = reopen(bridge, &dir);
+    let l = species_add::layout(&bridge);
+    assert_eq!((l.last, l.forms[&715].clone()), (715, vec![716]));
+    let s = stats(&bridge, 715);
+    assert_eq!((u16_of(&s, 28), u16_of(&s, 30), s[32]), (716, 716, 2));
+    assert_eq!(stats(&bridge, 716)[..28], stats(&bridge, 26)[..28]);
+    let names = tables::entries(&bridge, "species").unwrap();
+    assert!(names.iter().any(|e| e.index == 716 && e.name == "Voltwing (form 1)"));
+    // The species' cry is Pikachu's; the form follows it.
+    let project = bridge.project().unwrap().clone();
+    assert_eq!(cries::current(&project, Key { species: 715, form: 0 }), 25);
+    assert_eq!(cries::current(&project, Key { species: 715, form: 1 }), 25);
+
+    // A second species takes 716; the form moves to 717.
+    let b = species_add::add(&bridge, 1, "Sprouty").unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(b, 716);
+    let l = species_add::layout(&bridge);
+    assert_eq!((l.last, l.forms[&715].clone()), (716, vec![717]));
+    assert_eq!(u16_of(&stats(&bridge, 715), 28), 717);
+    assert_eq!(stats(&bridge, 717)[..28], stats(&bridge, 26)[..28]);
+    assert_eq!(stats(&bridge, 716)[..28], stats(&bridge, 1)[..28]);
+    let m = |arc: u16, i: usize| bridge.member(Member { arc, index: i }).unwrap();
+    assert_eq!(m(4, 717 * 20 + 3), m(4, 26 * 20 + 3));
+    assert_eq!(m(7, 7 + 2 * 717), m(7, 7 + 2 * 26));
+    assert_eq!(m(20, 717), 715u16.to_le_bytes().to_vec());
+    assert_eq!(m(20, 716), 716u16.to_le_bytes().to_vec());
+
+    // Form 2 from Sprouty, then form 1 removed: form 2 becomes form 1.
+    assert_eq!(species_add::add_form(&bridge, 715, 716).unwrap(), 2);
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    cries::set(&project, Key { species: 715, form: 2 }, Some(7)).unwrap();
+    species_add::remove_form(&bridge, 715, 1).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let l = species_add::layout(&bridge);
+    assert_eq!(l.forms[&715], vec![717]);
+    assert_eq!(stats(&bridge, 717)[..28], stats(&bridge, 1)[..28]);
+    let project = bridge.project().unwrap().clone();
+    assert_eq!(cries::current(&project, Key { species: 715, form: 1 }), 7);
+
+    // Removing Voltwing: Sprouty becomes 715, no forms, slots past it go.
+    species_add::remove(&bridge, 715).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let l = species_add::layout(&bridge);
+    assert_eq!((l.last, l.forms.len()), (715, 0));
+    assert_eq!(stats(&bridge, 715)[..28], stats(&bridge, 1)[..28]);
+    let project = bridge.project().unwrap();
+    assert!(project.member(16, 716).is_none() && project.member(16, 717).is_none());
+    assert!(cries::all(project).is_empty());
+}
+
+#[test]
+fn a_new_pokemon_joins_the_unova_pokedex() {
+    use kenon_core::{regional_dex as dex, species_add};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let project = bridge.project().unwrap().clone();
+    // The game's numbers: Victini 0, Snivy 1, Genesect 155, Pikachu none.
+    assert_eq!(dex::game(&bridge, 494), Some(0));
+    assert_eq!(dex::game(&bridge, 495), Some(1));
+    assert_eq!(dex::game(&bridge, 649), Some(155));
+    assert_eq!(dex::game(&bridge, 25), None);
+    assert_eq!(dex::next_number(&bridge, &project), 156);
+
+    let a = species_add::add(&bridge, 25, "Voltwing").unwrap();
+    let b = species_add::add(&bridge, 1, "Sprouty").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    assert_eq!(dex::current(&bridge, &project, a), None);
+    dex::set(&bridge, &project, a, Some(156)).unwrap();
+    dex::set(&bridge, &project, b, Some(157)).unwrap();
+    // Pikachu joins; Snivy leaves; Victini keeps its own (no line).
+    dex::set(&bridge, &project, 25, Some(158)).unwrap();
+    dex::set(&bridge, &project, 495, None).unwrap();
+    dex::set(&bridge, &project, 494, Some(0)).unwrap();
+    assert!(dex::set(&bridge, &project, a, Some(999)).is_err());
+    let text =
+        std::fs::read_to_string(dir.path().join("m/eidos/tables/regional_dex.txt")).unwrap();
+    assert!(text.contains("25 = 158\n495 = none\n715 = 156\n716 = 157\n"), "{text}");
+    assert_eq!(dex::next_number(&bridge, &project), 159);
+    assert_eq!(dex::holder(&bridge, &project, 157, a), Some(716));
+
+    // Removing Voltwing moves Sprouty's line to 715.
+    species_add::remove(&bridge, a).unwrap();
+    let all = dex::all(&project);
+    assert_eq!(all.get(&715), Some(&Some(157)));
+    assert!(!all.contains_key(&716));
+}

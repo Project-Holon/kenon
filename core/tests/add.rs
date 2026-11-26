@@ -221,3 +221,29 @@ fn a_music_loop_is_added_and_plays() {
     let clip = bridge.serve(&format!("sound/{}", added.id)).unwrap();
     assert!(wav_seconds(&clip.bytes) >= 1.9);
 }
+
+#[test]
+fn a_new_cry_is_its_own_wave_archive() {
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    let sdat = bridge.sdat().unwrap();
+    let (waves, files) = (sdat.count(Kind::WaveArc), sdat.file_count());
+    let template = sdat.wave_archive_file(1).unwrap().to_vec();
+    let (slot, summary) = kenon_core::sound_add::add_cry(&bridge, "Voltwing", &sine(0.8, 22050)).unwrap();
+    assert_eq!(slot, waves);
+    assert_eq!(summary.format, "PCM8");
+    let sdat = bridge.sdat().unwrap();
+    assert_eq!(sdat.count(Kind::WaveArc), waves + 1);
+    assert_eq!(sdat.file_count(), files + 1);
+    assert_eq!(sdat.name(Kind::WaveArc, slot), Some("WAVE_CRY_VOLTWING"));
+    // The game's cries are untouched; the new one has the game's cry shape
+    // (one wave) and is not the template.
+    assert_eq!(sdat.wave_archive_file(1).unwrap(), &template[..]);
+    let new = sdat.wave_archive_file(slot).unwrap();
+    assert_eq!(&new[..4], b"SWAR");
+    assert_ne!(new, &template[..]);
+    // A second cry of the same name is refused, a long one is refused.
+    assert!(kenon_core::sound_add::add_cry(&bridge, "Voltwing", &sine(0.5, 22050)).is_err());
+    assert!(kenon_core::sound_add::add_cry(&bridge, "Long", &sine(20.0, 22050)).is_err());
+}

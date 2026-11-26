@@ -15,6 +15,8 @@
   import { provideParts } from "../lib/parts.svelte";
   import BattleHandler from "../lib/BattleHandler.svelte";
   import MoveAnim from "../lib/MoveAnim.svelte";
+  import SpeciesForms from "../lib/SpeciesForms.svelte";
+  import RegionalDex from "../lib/RegionalDex.svelte";
   import MoveUsers from "../lib/MoveUsers.svelte";
   import ItemUsers from "../lib/ItemUsers.svelte";
   import TextPanel from "../lib/TextPanel.svelte";
@@ -139,16 +141,31 @@
 
   // New Pokemon (core species_add.rs): ids 715 and up.
   let speciesNew = $state<number[]>([]);
+  let speciesForms = $state<Record<string, number[]>>({});
   let speciesDialog = $state<"add" | "remove" | null>(null);
+  function loadSpeciesNew() {
+    invoke<number[]>("species_added")
+      .then((s) => (speciesNew = s))
+      .catch(() => (speciesNew = []));
+    invoke<Record<string, number[]>>("species_forms")
+      .then((f) => (speciesForms = f))
+      .catch(() => (speciesForms = {}));
+  }
   $effect(() => {
     void version;
     if (tables[0] !== "species") return;
-    untrack(() => {
-      invoke<number[]>("species_added")
-        .then((s) => (speciesNew = s))
-        .catch(() => (speciesNew = []));
-    });
+    untrack(loadSpeciesNew);
   });
+  /// After forms change: the list again, then the entry to show.
+  async function formsChanged(index: number) {
+    loadSpeciesNew();
+    reloadIcons();
+    onSaved();
+    await refreshEntries();
+    current = null;
+    await open(index, false);
+    list?.reveal(entries.findIndex((e) => e.index === index));
+  }
   async function addSpecies(from: number, name: string) {
     const id = await invoke<number>("species_add", { from, name });
     play("save");
@@ -388,6 +405,7 @@
   // with the stats: its name and Pokedex text, and its TMs and tutors.
   const TEXT_TAB = -1;
   const MACHINE_TAB = -2;
+  const FORMS_TAB = -3;
   const speciesTabs = $derived(tables[0] === "species" && only === undefined && !single);
   const tabList = $derived.by((): [number, string][] => {
     const list: [number, string][] = allSections.map((s, i) => [i, sectionLabel(s)]);
@@ -395,6 +413,9 @@
     const at = list.findIndex(([, l]) => l.startsWith("Level-up"));
     list.splice(at < 0 ? list.length : at + 1, 0, [MACHINE_TAB, "TMs and tutors"]);
     list.splice(1, 0, [TEXT_TAB, "Name and Pokedex"]);
+    // Forms are for the mod's own Pokemon (and their form entries).
+    const own = current !== null && (speciesNew.includes(current) || Object.values(speciesForms).some((v) => v.includes(current!)));
+    list.push([FORMS_TAB, own ? "Forms and cry" : "Cry"]);
     return list;
   });
   // Moves and items: the editor's parts as tabs (data, battle code, uses).
@@ -982,6 +1003,9 @@
         <!-- Kept while hidden: unsaved text survives a tab switch. -->
         <div hidden={speciesTabs ? activeTab !== TEXT_TAB : panelTabs ? panel !== "text" : tabbed && activeTab !== 0}>
           <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
+          {#if speciesTabs && (current <= 649 || speciesNew.includes(current))}
+            <RegionalDex species={current} {nameOf} {version} {readOnly} {onSaved} />
+          {/if}
         </div>
       {/if}
       {#if noun && current !== null && records[0] && only === undefined && !single && panel === "data"}
@@ -1005,6 +1029,21 @@
             <MoveAnim id={current} {version} {readOnly} {onSaved} />
           {/if}
         </div>
+      {/if}
+      {#if speciesTabs && activeTab === FORMS_TAB && current !== null}
+        <SpeciesForms
+          id={current}
+          {speciesNew}
+          forms={speciesForms}
+          {nameOf}
+          {version}
+          {readOnly}
+          onChanged={formsChanged}
+          onOpen={(i) => {
+            open(i);
+            list?.reveal(entries.findIndex((e) => e.index === i));
+          }}
+        />
       {/if}
       {#if speciesTabs && activeTab === MACHINE_TAB}
         {@const fs = records[0]?.sections.find((x) => x.kind === "fields")}

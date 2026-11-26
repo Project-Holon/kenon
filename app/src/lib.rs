@@ -1043,11 +1043,136 @@ fn set_text_lines(
     kenon_core::catalog::set_text_lines(&bridge, 2, &lines).map_err(|e| e.to_string())
 }
 
-/// The species ids the mod adds (715 and up).
+/// The species ids the mod adds (715 and up), forms not included.
 #[tauri::command]
 fn species_added(state: State<AppState>) -> Result<Vec<usize>, String> {
     let bridge = state.need_bridge()?;
-    Ok(kenon_core::species_add::added(&bridge))
+    let l = kenon_core::species_add::layout(&bridge);
+    Ok((kenon_core::species_add::FIRST_NEW..=l.last).collect())
+}
+
+/// The forms of the Pokemon the mod adds: species to its form slots
+/// (form 1 first).
+#[tauri::command]
+fn species_forms(
+    state: State<AppState>,
+) -> Result<std::collections::BTreeMap<usize, Vec<usize>>, String> {
+    let bridge = state.need_bridge()?;
+    Ok(kenon_core::species_add::layout(&bridge).forms)
+}
+
+/// Adds a form to a Pokemon the mod adds, made from slot `from`; returns
+/// its form number.
+#[tauri::command]
+fn species_add_form(state: State<AppState>, species: usize, from: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let f = kenon_core::species_add::add_form(&bridge, species, from).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(f)
+}
+
+/// Removes a form of a Pokemon the mod adds.
+#[tauri::command]
+fn species_remove_form(
+    state: State<AppState>,
+    species: usize,
+    form: usize,
+) -> Result<kenon_core::content::Removed, String> {
+    let bridge = state.need_bridge()?;
+    let r = kenon_core::species_add::remove_form(&bridge, species, form)
+        .map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(r)
+}
+
+/// The cry a Pokemon or form plays: its wave archive slot, the default
+/// one, and the species whose cry that slot is (0: a cry the mod added).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CryChoice {
+    slot: u32,
+    default: u32,
+    /// The wave archive's name in the sound archive.
+    name: String,
+}
+
+#[tauri::command]
+fn species_cry(state: State<AppState>, species: usize, form: usize) -> Result<CryChoice, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    let key = kenon_core::cries::Key { species, form };
+    let slot = kenon_core::cries::current(project, key);
+    let name = bridge
+        .sdat()
+        .and_then(|s| s.name(kenon_core::sdat::Kind::WaveArc, slot).map(str::to_string))
+        .unwrap_or_default();
+    Ok(CryChoice {
+        slot,
+        default: kenon_core::cries::default_for(project, key),
+        name,
+    })
+}
+
+/// Sets the cry slot of a Pokemon or form (None: its default).
+#[tauri::command]
+fn set_species_cry(
+    state: State<AppState>,
+    species: usize,
+    form: usize,
+    slot: Option<u32>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    kenon_core::cries::set(project, kenon_core::cries::Key { species, form }, slot)?;
+    bridge.invalidate();
+    Ok(())
+}
+
+/// A Pokemon's Unova Pokedex number (None: national only), the game's,
+/// and the next free number.
+#[tauri::command]
+fn regional_dex(
+    state: State<AppState>,
+    species: usize,
+) -> Result<kenon_core::regional_dex::Info, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    Ok(kenon_core::regional_dex::info(&bridge, project, species))
+}
+
+/// Sets a Pokemon's Unova Pokedex number (None: national only). Returns
+/// the other Pokemon that has that number, if any.
+#[tauri::command]
+fn set_regional_dex(
+    state: State<AppState>,
+    species: usize,
+    number: Option<u16>,
+) -> Result<Option<usize>, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    kenon_core::regional_dex::set(&bridge, project, species, number)?;
+    bridge.invalidate();
+    Ok(number.and_then(|n| kenon_core::regional_dex::holder(&bridge, project, n, species)))
+}
+
+/// Gives a Pokemon or form a brand-new cry from a WAV file: a wave archive
+/// of its own, appended to the sound archive.
+#[tauri::command]
+async fn import_new_cry(
+    state: State<'_, AppState>,
+    species: usize,
+    form: usize,
+    name: String,
+    path: PathBuf,
+) -> Result<kenon_core::audio_import::AudioSummary, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?.clone();
+    let wav = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    let (slot, summary) =
+        kenon_core::sound_add::add_cry(&bridge, &name, &wav).map_err(|e| e.to_string())?;
+    kenon_core::cries::set(&project, kenon_core::cries::Key { species, form }, Some(slot))?;
+    bridge.invalidate();
+    Ok(summary)
 }
 
 /// Adds a Pokemon made from `from`; returns its id.
@@ -2166,6 +2291,14 @@ pub fn run() {
             set_machine,
             shops,
             set_shops,
+            species_forms,
+            regional_dex,
+            set_regional_dex,
+            species_add_form,
+            species_remove_form,
+            species_cry,
+            set_species_cry,
+            import_new_cry,
             move_anim,
             set_move_anim,
             preview_move,
