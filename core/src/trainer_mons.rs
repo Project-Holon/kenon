@@ -2,8 +2,10 @@
 //! for: `eidos/tables/trainer_mons.txt`, one line per member (eidos
 //! docs/trainer-mons.md):
 //!
-//!     <trainer id>.<slot> = [key=value ...]
-//!     164.0 = ivs=31,31,31,31,31,31 evs=252,0,4,0,0,252 nature=jolly
+//! ```text
+//! <trainer id>.<slot> = [key=value ...]
+//! 164.0 = ivs=31,31,31,31,31,31 evs=252,0,4,0,0,252 nature=jolly
+//! ```
 //!
 //! Every key is optional; a member with no line is the game's own.
 

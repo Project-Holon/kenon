@@ -2,8 +2,10 @@
 //! (101 machines: TM01..TM95, then HM01..HM06) and the mod's lines in
 //! `eidos/tables/machine_moves.txt` (eidos docs/game-tables.md):
 //!
-//!     TM35 = 53
-//!     HM03 = 57
+//! ```text
+//! TM35 = 53
+//! HM03 = 57
+//! ```
 //!
 //! A TM item's description is its own text, so changing a machine's move
 //! also rewrites that item's description to the move's.

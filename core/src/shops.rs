@@ -2,8 +2,10 @@
 //! overlay 21, and the mod's lines in `eidos/tables/shops.txt` (eidos
 //! docs/game-tables.md):
 //!
-//!     mart.<n> = <item> <item> ...       n = 0..25
-//!     bp.<n> = <item>:<price> ...        n = 0..2
+//! ```text
+//! mart.<n> = <item> <item> ...       n = 0..25
+//! bp.<n> = <item>:<price> ...        n = 0..2
+//! ```
 //!
 //! A mart item sells at its item-data price. The main clerk picks list
 //! 0..5 by badges (0, 1-2, 3-4, 5-6, 7, 8); lists 6..25 are the other
@@ -114,7 +116,10 @@ fn parse(line: &str) -> Option<Line> {
 }
 
 /// The mod's lines.
-fn lines(bridge: &Bridge) -> (BTreeMap<usize, Vec<u16>>, BTreeMap<usize, Vec<(u16, u16)>>) {
+/// The mod's mart lines and prize lines, by list number.
+type Lines = (BTreeMap<usize, Vec<u16>>, BTreeMap<usize, Vec<(u16, u16)>>);
+
+fn lines(bridge: &Bridge) -> Lines {
     let mut marts = BTreeMap::new();
     let mut prizes = BTreeMap::new();
     if let Some(text) = bridge
