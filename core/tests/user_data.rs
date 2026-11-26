@@ -896,7 +896,8 @@ fn changes_described() {
     let bridge = Bridge::new(Rom::open(path.as_ref()).unwrap()).with_project(Some(project));
     // A trainer field, an event move, a copy, a trainer swap and tiles.
     let mut values = std::collections::HashMap::new();
-    values.insert("aiFlags".to_string(), 0i64);
+    // Trainer 1 has AI script 1 ("Avoid useless moves") on.
+    values.insert("aiScript1".to_string(), 0i64);
     tables::save(
         &bridge,
         "trainers",

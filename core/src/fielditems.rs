@@ -142,12 +142,22 @@ pub fn set_event_item(
     item: u16,
     count: Option<u16>,
 ) -> Result<(), Error> {
-    let bad = || Error::BadPath(format!("script {script_id} is not an item script"));
-    let (_, works) = works_of(script_id).ok_or_else(bad)?;
-    let mut s = find(bridge, script_id, &works).ok_or_else(bad)?;
     if item == 0 || item >= LITERAL_MAX || count.is_some_and(|c| c == 0 || c >= LITERAL_MAX) {
         return Err(Error::BadPath("item or count out of range".into()));
     }
+    write_event_item(bridge, script_id, item, count)
+}
+
+/// Writes the item (0 allowed: the entry it named was removed) and count.
+pub(crate) fn write_event_item(
+    bridge: &Bridge,
+    script_id: u16,
+    item: u16,
+    count: Option<u16>,
+) -> Result<(), Error> {
+    let bad = || Error::BadPath(format!("script {script_id} is not an item script"));
+    let (_, works) = works_of(script_id).ok_or_else(bad)?;
+    let mut s = find(bridge, script_id, &works).ok_or_else(bad)?;
     s.bytes[s.item..s.item + 2].copy_from_slice(&item.to_le_bytes());
     if let Some(c) = count {
         s.bytes[s.count..s.count + 2].copy_from_slice(&c.to_le_bytes());

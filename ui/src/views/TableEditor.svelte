@@ -4,12 +4,23 @@
   import { play } from "../lib/sfx";
   import VirtualList from "../lib/VirtualList.svelte";
   import SearchSelect from "morphe/SearchSelect.svelte";
-  import { enumIcon, itemIcon, loadIcons, moveIcon, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
-  import { debounced } from "morphe/cache.svelte";
+  import { enumIcon, itemIcon, loadIcons, moveIcon, reloadIcons, speciesIcon, trainerClassIcon, trainerIcon } from "../lib/icons.svelte";
+  import { debounced, forget } from "morphe/cache.svelte";
+  import ContentDialog from "../lib/ContentDialog.svelte";
+  import EffectSummary from "../lib/EffectSummary.svelte";
+  import BattleHandler from "../lib/BattleHandler.svelte";
+  import MoveUsers from "../lib/MoveUsers.svelte";
+  import ItemUsers from "../lib/ItemUsers.svelte";
+  import TextPanel from "../lib/TextPanel.svelte";
+  import MachineGrid from "../lib/MachineGrid.svelte";
+
+  // The species fields MachineGrid shows as checkboxes.
+  const MACHINE_KEYS = ["tmFlags1", "tmFlags2", "tmFlags3", "tmFlags4", "tutorFlags"];
   import { asset, changedMembers, revert } from "../lib/backend";
   import { copyText, guarded, openInFiles, saveMember } from "../lib/exporter";
   import { keepNative, openMenu, toast } from "morphe/menu.svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { open as openFile } from "@tauri-apps/plugin-dialog";
   import {
     enumValues,
     saveRecord,
@@ -81,6 +92,143 @@
       if (current !== null) reload();
     });
   });
+
+  // New entries: moves and items a mod adds after the game's own
+  // (core/src/content.rs). `added` is null for other tables.
+  const ADDS: Record<string, string> = { moves: "move", items: "item" };
+  const noun = $derived(ADDS[tables[0]] ?? null);
+  let added = $state<{ last: number; ids: number[]; ceiling: number } | null>(null);
+  let dialog = $state<{ mode: "add" | "remove" } | null>(null);
+  $effect(() => {
+    void version;
+    if (!noun) return;
+    untrack(() => {
+      invoke<{ last: number; ids: number[]; ceiling: number }>("content_added", { table: tables[0] })
+        .then((a) => (added = a))
+        .catch(() => (added = null));
+    });
+  });
+  const isAdded = (index: number) => !!added && index > added.last;
+
+  // The list again (names and count change with an add or a remove).
+  async function refreshEntries() {
+    forget(`entries/${tables[0]}`);
+    entries = await tableEntries(tables[0]);
+  }
+
+  async function addEntry(from: number, name: string) {
+    const id = await invoke<number>("content_add", { table: tables[0], from, name });
+    play("save");
+    reloadIcons();
+    onSaved();
+    await refreshEntries();
+    drafts.delete(id);
+    current = null;
+    await open(id, false);
+    list?.reveal(entries.findIndex((e) => e.index === id));
+    toast(`Added ${name} as ${noun} ${id}`);
+  }
+
+  // New Pokemon (core species_add.rs): ids 715 and up.
+  let speciesNew = $state<number[]>([]);
+  let speciesDialog = $state<"add" | "remove" | null>(null);
+  $effect(() => {
+    void version;
+    if (tables[0] !== "species") return;
+    untrack(() => {
+      invoke<number[]>("species_added")
+        .then((s) => (speciesNew = s))
+        .catch(() => (speciesNew = []));
+    });
+  });
+  async function addSpecies(from: number, name: string) {
+    const id = await invoke<number>("species_add", { from, name });
+    play("save");
+    reloadIcons();
+    onSaved();
+    await refreshEntries();
+    current = null;
+    await open(id, false);
+    list?.reveal(entries.findIndex((e) => e.index === id));
+    toast(`Added ${name} as Pokemon ${id}`);
+  }
+  async function removeSpecies(id: number) {
+    const name = nameOf(id);
+    const r = await invoke<{ renumbered: [number, number][]; updated: string[] }>("species_remove", { id });
+    play("save");
+    reloadIcons();
+    onSaved();
+    await refreshEntries();
+    current = null;
+    const next = entries.find((e) => e.index === id) ?? entries.find((e) => e.index === id - 1) ?? entries[1];
+    if (next) await open(next.index, false);
+    const parts = [`Removed ${name}`];
+    if (r.renumbered.length) parts.push(`${r.renumbered.length} later Pokemon moved down one number`);
+    if (r.updated.length) parts.push(`${r.updated.length} record${r.updated.length > 1 ? "s" : ""} updated`);
+    toast(parts.join("; "));
+  }
+
+  // A trainer's party kind (custom moves bit 0, held items bit 1): saving
+  // the trainer alone converts its party (core tables.rs convert_party).
+  async function setPartyKind(kind: number) {
+    if (current === null) return;
+    busy = true;
+    error = null;
+    try {
+      await saveRecord("trainers", current, { values: { partyType: kind }, lists: {}, season: 0 });
+      play("save");
+      onSaved();
+      await reload();
+    } catch (e) {
+      error = String(e);
+      play("cancel");
+    } finally {
+      busy = false;
+    }
+  }
+
+  // An added item's own picture, from a PNG (core content::set_item_icon).
+  async function newIcon() {
+    if (current === null) return;
+    const item = current;
+    const path = await openFile({ multiple: false, filters: [{ name: "PNG picture", extensions: ["png"] }], title: "Icon for this item" });
+    if (typeof path !== "string") return;
+    busy = true;
+    try {
+      await invoke("content_item_icon", { item, path });
+      play("save");
+      reloadIcons();
+      onSaved();
+      toast("Icon set");
+    } catch (e) {
+      error = String(e);
+      play("cancel");
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function removeEntry(id: number) {
+    const name = nameOf(id);
+    const r = await invoke<{ renumbered: [number, number][]; cleared: string[]; updated: string[] }>("content_remove", {
+      table: tables[0],
+      id,
+    });
+    play("save");
+    reloadIcons();
+    for (const [old] of r.renumbered) drafts.delete(old);
+    drafts.delete(id);
+    onSaved();
+    await refreshEntries();
+    current = null;
+    const next = entries.find((e) => e.index === id) ?? entries.find((e) => e.index === id - 1) ?? entries[0];
+    if (next) await open(next.index, false);
+    const parts = [`Removed ${name}`];
+    if (r.renumbered.length) parts.push(`${r.renumbered.length} later ${noun}${r.renumbered.length > 1 ? "s" : ""} moved down one number`);
+    if (r.updated.length) parts.push(`${r.updated.length} record${r.updated.length > 1 ? "s" : ""} updated`);
+    if (r.cleared.length) parts.push(`no longer used in: ${r.cleared.join(", ")}`);
+    toast(parts.join("; "));
+  }
 
   async function loadNames(rs: (TableRecord | null)[]) {
     const wanted = new Set<string>();
@@ -368,6 +516,22 @@
     entryMenu(e, current, table);
   }
 
+  // An evolution's parameter is an item, a move or a Pokemon by its method
+  // (core tables.rs evolution_param_enum; enum evolutionMethod).
+  const EVO_ITEM = [6, 8, 17, 18, 19, 20];
+  function columnEnum(s: Extract<Section, { kind: "list" }>, c: { name: string; enum: string | null }, row: number[]): string | null {
+    if (c.name !== "param" || !s.columns.some((x) => x.name === "method")) return c.enum;
+    const method = Number(row[s.columns.findIndex((x) => x.name === "method")]);
+    if (EVO_ITEM.includes(method)) return "item";
+    if (method === 21) return "move";
+    if (method === 22) return "species";
+    return null;
+  }
+  // Names for those pickers load with the record's own enums.
+  $effect(() => {
+    if (tables.includes("evolutions")) for (const n of ["item", "move", "species"]) if (!names[n]) enumValues(n).then((v) => (names[n] = v));
+  });
+
   const sectionLabel = (s: Section) => (s.kind === "list" ? `${s.label} (${s.rows.length})` : s.label);
 </script>
 
@@ -399,6 +563,7 @@
             {#if src}<img class="px ico" {src} alt="" loading="lazy" />{:else}<span class="ico"></span>{/if}
           {/if}
           <span class="label">{e.name}</span>
+          {#if isAdded(e.index)}<span class="tag new" title="Added by this mod">new</span>{/if}
           {#if edited(e.index)}<span class="tag changed" title="Not saved yet">edited</span>{/if}
         </button>
       {/snippet}
@@ -446,6 +611,21 @@
       {#if readOnly}
         <span class="tag">read only</span>
       {:else}
+        {#if tables[0] === "species" && !single}
+          {#if current !== null && speciesNew.includes(current)}
+            <button class="act" disabled={busy} onclick={() => ((speciesDialog = "remove"), play("decide"))}>Remove Pokemon</button>
+          {/if}
+          <button class="act" disabled={busy} onclick={() => ((speciesDialog = "add"), play("decide"))} title="A new Pokemon made from a copy of this one">New Pokemon</button>
+        {/if}
+        {#if noun && added && !single}
+          {#if current !== null && isAdded(current)}
+            {#if tables[0] === "items"}
+              <button class="act" disabled={busy} onclick={newIcon} title="A 32 x 32 PNG; its colours become the icon's palette">New icon...</button>
+            {/if}
+            <button class="act" disabled={busy} onclick={() => ((dialog = { mode: "remove" }), play("decide"))}>Remove {noun}</button>
+          {/if}
+          <button class="act" disabled={busy} onclick={() => ((dialog = { mode: "add" }), play("decide"))} title="A new {noun} made from a copy of this one">New {noun}</button>
+        {/if}
         <button class="act" disabled={!dirty || busy} onclick={() => reload()}>Discard</button>
         <button class="act primary" disabled={!dirty || busy} onclick={save}>Save</button>
       {/if}
@@ -460,8 +640,44 @@
       </div>
     {/if}
     <div class="scroll body">
+      {#if tables[0] === "trainers" && current !== null && tabbed && allSections[activeTab]?.kind === "list" && !readOnly}
+        {@const kind = Number(fieldValue("partyType") ?? 0)}
+        <div class="window block party-kind">
+          <span>This trainer's Pokemon have</span>
+          <label class="flag">
+            <input type="checkbox" checked={(kind & 1) === 1} disabled={busy || dirty} onchange={(e) => setPartyKind((kind & ~1) | ((e.currentTarget as HTMLInputElement).checked ? 1 : 0))} />
+            custom moves
+          </label>
+          <label class="flag">
+            <input type="checkbox" checked={(kind & 2) === 2} disabled={busy || dirty} onchange={(e) => setPartyKind((kind & ~2) | ((e.currentTarget as HTMLInputElement).checked ? 2 : 0))} />
+            held items
+          </label>
+          <span class="muted">
+            {dirty ? "Save or discard your edits first." : "Turning one on gives every member the column; new moves start as the ones it knows at its level."}
+          </span>
+        </div>
+      {/if}
       {#if !records.length && loading}
         <p class="muted">Loading...</p>
+      {/if}
+      {#if ["moves", "items", "species", "trainers"].includes(tables[0]) && current !== null && current > 0 && only === undefined && !single && (!tabbed || activeTab === 0)}
+        <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
+      {/if}
+      {#if noun && current !== null && records[0] && only === undefined && !single}
+        <EffectSummary
+          table={tables[0] as "moves" | "items"}
+          id={current}
+          record={records[0]}
+          {names}
+          added={isAdded(current)}
+          onOpen={(other) => {
+            open(other);
+            list?.reveal(entries.findIndex((e) => e.index === other));
+          }}
+        />
+        {#if added && current > 0}
+          <BattleHandler table={tables[0] as "moves" | "items"} id={current} last={added.last} {version} {readOnly} {onSaved} />
+        {/if}
       {/if}
       {#each records as r, ri}
         {#each r?.sections ?? [] as s, si}
@@ -469,21 +685,33 @@
           <div class="window block">
             {#if !single && !tabbed}<h3>{s.label}</h3>{/if}
             {#if s.kind === "fields"}
+              {@const isFlag = (v: (typeof s.values)[number]) => !(v.enum && names[v.enum]?.length) && v.max === 1 && v.min === 0}
+              {@const isMachine = (v: (typeof s.values)[number]) => tables[ri] === "species" && MACHINE_KEYS.includes(v.key)}
               <div class="grid">
-                {#each s.values as v}
-                  <label class="field" title={v.note ?? ""}>
+                {#each s.values.filter((v) => !isFlag(v) && !isMachine(v)) as v}
+                  <label class="field" title={v.note ?? ""} style:grid-column-start={v.rowStart ? 1 : undefined}>
                     <span class="name">
                       {v.label}
                       {#if v.inferred}<span class="tag" title="Meaning inferred, not confirmed in the game's code">?</span>{/if}
                     </span>
-                    {#if !(v.enum && names[v.enum]?.length) && v.max === 1 && v.min === 0}
-                      <input type="checkbox" checked={v.value === 1} disabled={readOnly || v.readonly} onchange={(e) => (v.value = (e.currentTarget as HTMLInputElement).checked ? 1 : 0)} />
-                    {:else}
-                      {@render pick(v, "value", v.enum, v.min, v.max, readOnly || v.readonly, v.label)}
-                    {/if}
+                    {@render pick(v, "value", v.enum, v.min, v.max, readOnly || v.readonly || (tables[ri] === "trainers" && v.key === "partyType"), v.label)}
                   </label>
                 {/each}
               </div>
+              {#if s.values.some(isFlag)}
+                <div class="flags">
+                  {#each s.values.filter(isFlag) as v}
+                    <label class="flag" title={v.note ?? ""}>
+                      <input type="checkbox" checked={v.value === 1} disabled={readOnly || v.readonly} onchange={(e) => (v.value = (e.currentTarget as HTMLInputElement).checked ? 1 : 0)} />
+                      <span>{v.label}</span>
+                      {#if v.inferred}<span class="tag" title="Meaning inferred, not confirmed in the game's code">?</span>{/if}
+                    </label>
+                  {/each}
+                </div>
+              {/if}
+              {#if s.values.some(isMachine)}
+                <MachineGrid values={s.values} readOnly={readOnly} />
+              {/if}
             {:else}
               {#if s.rows.length === 0}<p class="muted">Nothing here yet.</p>{/if}
               {#if single}
@@ -501,7 +729,7 @@
                         {#each s.columns as c, ci}
                           <label class="field">
                             <span class="name">{c.label}</span>
-                            {@render pick(row, ci, c.enum, c.min, c.max, readOnly, c.label)}
+                            {@render pick(row, ci, columnEnum(s, c, row), c.min, c.max, readOnly, c.label)}
                           </label>
                         {/each}
                       </div>
@@ -513,7 +741,7 @@
                   <thead>
                     <tr>
                       {#each s.columns as c}
-                        <th style:width={c.enum && names[c.enum]?.length ? undefined : "5.5rem"}>{c.label}</th>
+                        <th style:width={(c.enum && names[c.enum]?.length) || (c.name === "param" && s.columns.some((x) => x.name === "method")) ? undefined : "5.5rem"}>{c.label}</th>
                       {/each}
                       {#if !s.fixed && !readOnly}<th style="width: 5.5rem"></th>{/if}
                     </tr>
@@ -522,7 +750,7 @@
                     {#each s.rows as row, rn}
                       <tr>
                         {#each s.columns as c, ci}
-                          <td>{@render pick(row, ci, c.enum, c.min, c.max, readOnly, c.label)}</td>
+                          <td>{@render pick(row, ci, columnEnum(s, c, row), c.min, c.max, readOnly, c.label)}</td>
                         {/each}
                         {#if !s.fixed && !readOnly}
                           <td><button class="quiet" onclick={() => s.rows.splice(rn, 1)} aria-label="Remove row {rn + 1}">Remove</button></td>
@@ -543,11 +771,81 @@
           {/if}
         {/each}
       {/each}
+      {#if tables[0] === "moves" && current !== null && current > 0 && only === undefined && !single}
+        <MoveUsers id={current} {version} />
+      {/if}
+      {#if tables[0] === "items" && current !== null && current > 0 && only === undefined && !single}
+        <ItemUsers id={current} {version} />
+      {/if}
     </div>
   </section>
 </div>
 
+{#if speciesDialog}
+  <ContentDialog
+    mode={speciesDialog}
+    noun="Pokemon"
+    names={(() => {
+      const out: string[] = [];
+      for (const e of entries) if (e.index <= 649 || speciesNew.includes(e.index)) out[e.index] = e.name;
+      return Array.from(out, (n) => n ?? "");
+    })()}
+    from={current !== null && (current <= 649 || speciesNew.includes(current)) ? current : 1}
+    removing={current !== null ? { id: current, name: nameOf(current) } : null}
+    icon={rowIcon}
+    onAdd={addSpecies}
+    onRemove={removeSpecies}
+    onClose={() => (speciesDialog = null)}
+  />
+{/if}
+
+{#if dialog && noun}
+  <ContentDialog
+    mode={dialog.mode}
+    {noun}
+    names={entries.map((e) => e.name)}
+    from={current ?? 1}
+    removing={current !== null ? { id: current, name: nameOf(current) } : null}
+    icon={rowIcon}
+    onAdd={addEntry}
+    onRemove={removeEntry}
+    onClose={() => (dialog = null)}
+  />
+{/if}
+
 <style>
+  .party-kind {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.2rem;
+    padding: 0.7rem 1rem;
+  }
+  .party-kind .muted {
+    font-size: 0.85rem;
+  }
+  .flags {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.35rem 1rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--rim);
+  }
+  .flag {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+  }
+  .flag input {
+    margin: 0;
+  }
+  .tag.new {
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent-dark);
+  }
   .tables {
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr);
@@ -786,10 +1084,6 @@
   .field input[type="number"],
   .field select {
     width: 100%;
-  }
-  .field input[type="checkbox"] {
-    width: 1.2rem;
-    height: 1.2rem;
   }
   table {
     width: 100%;

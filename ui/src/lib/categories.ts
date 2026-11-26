@@ -9,6 +9,8 @@ export type Category =
   | { id: string; label: string; kind: "files" }
   | { id: string; label: string; kind: "cries" }
   | { id: string; label: string; kind: "worldmap" }
+  | { id: string; label: string; kind: "abilities" }
+  | { id: string; label: string; kind: "types" }
   | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
@@ -24,6 +26,7 @@ export const GROUPS: Group[] = [
       { id: "species", label: "Pokemon stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions", "expCurves"] },
       { id: "battle-sprites", label: "Pokemon battle sprites", kind: "graphics", archive: 4 },
       { id: "pokemon-icons", label: "Pokemon icons", kind: "graphics", archive: 7 },
+      { id: "dex-icons", label: "Pokedex list icons", kind: "graphics", archive: 167 },
     ],
   },
   {
@@ -31,6 +34,8 @@ export const GROUPS: Group[] = [
     items: [
       { id: "moves", label: "Moves", kind: "table", tables: ["moves"] },
       { id: "items", label: "Items", kind: "table", tables: ["items"] },
+      { id: "abilities", label: "Abilities", kind: "abilities" },
+      { id: "types", label: "Types", kind: "types" },
       { id: "item-icons", label: "Item icons", kind: "graphics", archive: 25 },
     ],
   },

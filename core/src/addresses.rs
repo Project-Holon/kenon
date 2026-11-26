@@ -26,6 +26,7 @@ fn table() -> &'static Table {
 fn image(name: &str) -> Image {
     match name {
         "script_ranges" => Image::Overlay(10),
+        "type_chart" | "move_handlers" | "ability_handlers" | "item_handlers" => Image::Overlay(93),
         _ => Image::Arm9,
     }
 }

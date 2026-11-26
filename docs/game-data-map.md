@@ -153,15 +153,15 @@ Reader: `FILE_UTIL_GetItemRecordParam` and `FILE_UTIL_GetItemExtParam` (`file_ut
 | 0x07 | u8 | `naturalGiftPower` | Natural Gift power. | [V] |
 | 0x08 | bits 0-4 of u16 | `naturalGiftType` | Natural Gift type. enum type. type id; 31 = none | [V] |
 | 0x08 | bit 5 of u16 | `preventToss` | Cannot be tossed. | [V] |
-| 0x08 | bit 6 of u16 | `selectable` | Selectable in bag. | [V] |
+| 0x08 | bit 6 of u16 | `selectable` | Can be registered to the Y button. Set on 7 key items (Bicycle among them). | [V] |
 | 0x08 | bits 7-10 of u16 | `pocket` | Bag pocket. enum itemPocket (verified: 0 items/balls, 1 medicine, 2 machines, 3 berries, 4 key items) | [V] |
-| 0x08 | bits 11-15 of u16 | `sortGroup` | Bag sort group. | [V] |
-| 0x0A | u8 | `fieldUse` | Field use. field-use handler id (0 none, 1, 6, 7, 8, 19, 20, 21 seen) | [I] |
-| 0x0B | u8 | `battleUse` | Battle use. 0 none, 1..3 seen | [I] |
+| 0x08 | bits 11-14 of u16 | `battlePocket*` | Battle bag pockets, one bit each: 11 Poke Balls, 12 battle items, 13 HP/PP, 14 status (Full Restore 13+14). Bit 15 is never set. The battle bag reads its own copy in `a/2/3/2` (below); the two agree for all 627 items. | [V] |
+| 0x0A | u8 | `fieldUse` | Use outside battle (getter case 6). | [V] |
+| 0x0B | u8 | `battleUse` | Use in battle (getter case 7). | [V] |
 | 0x0C | u8 | `extType` | Extension present. 1 = the 18-byte medicine block at 0x10 applies; 0 = byte 0x10 is a plain value | [V] |
-| 0x0D | u8 | `partyUse` | Party-screen use. | [I] |
-| 0x0E | u8 | `partyUseParam` | Party-screen parameter. | [I] |
-| 0x0F | u8 | `partyUseOption` | Party-screen option. | [I] |
+| 0x0D | u8 | `partyUse` | Item kind: 0 medicine, 1 held, 2 general, 3 battle, 4 ball, 5 mail. Sorts the bag (itemmenu.c:2056). | [V] |
+| 0x0E | bit 0 of u8 | `partyUseParam` | Used up: not given back after a battle (berries, Berry Juice). | [V] |
+| 0x0F | u8 | `partyUseOption` | Bag sort order among items of the same kind (itemmenu.c:2057). | [V] |
 | 0x10 | u8 | `extByte` | Plain value (extType 0). read only when extType is 0 Only when extType = 0. | [V] |
 | 0x10 | bit 0 of u8 | `cureSleep` | Cures sleep. Only when extType = 1. | [V] |
 | 0x10 | bit 1 of u8 | `curePoison` | Cures poison. Only when extType = 1. | [V] |
@@ -179,9 +179,9 @@ Reader: `FILE_UTIL_GetItemRecordParam` and `FILE_UTIL_GetItemExtParam` (`file_ut
 | 0x12 | bits 0-3 of u8 | `defStage` | Defense stage boost. Only when extType = 1. | [V] |
 | 0x12 | bits 4-7 of u8 | `spAtkStage` | Sp. Atk stage boost. Only when extType = 1. | [V] |
 | 0x13 | bits 0-3 of u8 | `spDefStage` | Sp. Def stage boost. Only when extType = 1. | [V] |
-| 0x13 | bits 4-7 of u8 | `accStage` | Accuracy stage boost. Only when extType = 1. | [V] |
-| 0x14 | bits 0-3 of u8 | `critStage` | Crit stage boost. Only when extType = 1. | [V] |
-| 0x14 | bits 4-5 of u8 | `ppRestoreKind` | PP restore kind. Only when extType = 1. | [I] |
+| 0x13 | bits 4-7 of u8 | `speedStage` | Speed stage boost (X Speed). Only when extType = 1. | [V] |
+| 0x14 | bits 0-3 of u8 | `accStage` | Accuracy stage boost (X Accuracy). Only when extType = 1. | [V] |
+| 0x14 | bits 4-5 of u8 | `critStage` | Critical-hit stages (Dire Hit). Only when extType = 1. | [V] |
 | 0x14 | bit 6 of u8 | `ppUp` | PP Up. Only when extType = 1. | [V] |
 | 0x14 | bit 7 of u8 | `ppUpMax` | PP Max. Only when extType = 1. | [V] |
 | 0x15 | bit 0 of u8 | `ppRestore` | Restores PP (one move). Only when extType = 1. | [V] |
@@ -193,10 +193,10 @@ Reader: `FILE_UTIL_GetItemRecordParam` and `FILE_UTIL_GetItemExtParam` (`file_ut
 | 0x15 | bit 6 of u8 | `speedEvUp` | Speed EV up. Only when extType = 1. | [V] |
 | 0x15 | bit 7 of u8 | `spAtkEvUp` | Sp. Atk EV up. Only when extType = 1. | [V] |
 | 0x16 | bit 0 of u8 | `spDefEvUp` | Sp. Def EV up. Only when extType = 1. | [V] |
-| 0x16 | bit 1 of u8 | `friendshipLow` | Friendship change (low tier). Only when extType = 1. | [V] |
-| 0x16 | bit 2 of u8 | `friendshipMid` | Friendship change (mid tier). Only when extType = 1. | [V] |
-| 0x16 | bit 3 of u8 | `friendshipHigh` | Friendship change (high tier). Only when extType = 1. | [V] |
-| 0x16 | bit 4 of u8 | `evLimitIgnore` | Ignores EV cap. Only when extType = 1. | [V] |
+| 0x16 | bit 1 of u8 | `evLimitIgnore` | EV change works past the vitamin limit of 100. Set on the Wings only. Only when extType = 1. | [V] |
+| 0x16 | bit 2 of u8 | `friendshipLow` | Uses the friendship change below 100. Only when extType = 1. | [V] |
+| 0x16 | bit 3 of u8 | `friendshipMid` | Uses the friendship change from 100 to 199. Only when extType = 1. | [V] |
+| 0x16 | bit 4 of u8 | `friendshipHigh` | Uses the friendship change at 200 and up. Only when extType = 1. | [V] |
 | 0x17 | s8 | `hpEv` | HP EV change. Only when extType = 1. | [V] |
 | 0x18 | s8 | `atkEv` | Attack EV change. Only when extType = 1. | [V] |
 | 0x19 | s8 | `defEv` | Defense EV change. Only when extType = 1. | [V] |
@@ -495,6 +495,8 @@ Data in the ARM9 image, not in a NARC. Addresses are Black addresses; `extract/a
 ## Other useful archives
 
 - **Battle facility.** `a/2/1/4` (id 214): 1000 records of 16 bytes (species u16, four u16 moves, EV spread mask u8, nature u8, item u16, form u16), the Pokemon sets of the battle facilities; `a/2/1/5` (id 215): 315 group lists `[u16 group][u16 count][u16 set id * count]` indexing `a/2/1/4`. The reader is `fld_btl_inst_tool.c` in ov010. `a/1/6/9` and `a/1/6/8` have the same shapes but no reader in the image. [V for 214/215]
+- **Battle bag pockets** `a/2/3/2` (id 232): one member, `battle_pocket.dat`, one byte per item id with the battle bag pockets (the same bits as item header bits 11-14). Read only by `B_BAG_MAIN_BuildPocketLists` (ov197) as `table[item]` with no bound check, so a new item needs a byte. kenon rebuilds it from the item records whenever items change (`content::sync_battle_pockets`). [V]
+- **Battle handler tables** (eidos 0.2.8, not game data): `eidos/tables/{move,ability,item}_handlers.txt`, one line per id, `<id> = <base> [key=value ...]`: the id runs the base's battle code with the named numbers changed. The keys each base takes come from eidos's `handler_params.json` (copied to the eidos user folder at each start; kenon bundles a fallback). Several bases joined with ` + ` are planned. kenon: `core/src/handlers.rs`. [V]
 - **Cry parameters** `a/1/9/4`, see Sound. [V]
 - **Species base index** `a/0/2/0` (id 20): 650 members of one u16 each, read as an evolution-family base species index by an ov021 function; the meaning is not pinned. [I]
 - **Event data** `a/1/2/5` (id 125): 428 members, per-zone event tables (a u32 offset to a trailing block, four u8 counts, then arrays of background events 20, NPCs 36, warps 20 and position events 22 bytes). Layouts and the trainer-to-location rule are in "Event data and trainer locations" and in `schemas.json` (`eventData`, `trainerLocation`). [V]

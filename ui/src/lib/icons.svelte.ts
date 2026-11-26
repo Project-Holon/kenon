@@ -2,7 +2,7 @@
 // species' menu icon, an item's bag icon, a trainer class's sprite.
 import { invoke } from "@tauri-apps/api/core";
 import { asset } from "./backend";
-import { once } from "morphe/cache.svelte";
+import { forget, once } from "morphe/cache.svelte";
 
 const state = $state({
   // Pokemon icon sheet -> palette bank offset (named sheets of archive 7).
@@ -34,6 +34,13 @@ export function loadIcons() {
   once("trainerClasses", () => invoke<number[]>("trainer_classes"))
     .then((c) => (state.trainerClass = c))
     .catch(() => {});
+}
+
+/// Reads the item icons and move types again: a mod added or removed some.
+export function reloadIcons() {
+  forget("table/item_icons", "moveTypes");
+  started = false;
+  loadIcons();
 }
 
 export function speciesIcon(sp: number): string | null {

@@ -173,6 +173,34 @@ pub const UI_TABLES: &[(&str, usize)] = &[
 /// The entries a cache keeps before it starts over.
 const CACHE_LIMIT: usize = 4096;
 
+/// The message archives (a/0/0/2 and a/0/0/3), whose members take `.msg`
+/// line files.
+pub const TEXT_ARCHIVES: [u16; 2] = [2, 3];
+
+/// A bank with lines set over it: an index past the end grows the bank,
+/// with empty strings in between (eidos sdk/vfs_msg.h, "Merge").
+pub fn merge_lines(
+    bank: &[u8],
+    lines: &std::collections::BTreeMap<usize, String>,
+) -> Result<Vec<u8>, Error> {
+    let mut parsed = msg::Bank::parse(bank).map_err(|e| Error::Format(e.to_string()))?;
+    let section = parsed
+        .sections
+        .first_mut()
+        .ok_or_else(|| Error::Format("the bank has no text".into()))?;
+    for (&index, text) in lines {
+        let units = msg::parse_display(text).map_err(Error::BadPath)?;
+        while section.messages.len() <= index {
+            section.messages.push(msg::Message {
+                units: Vec::new(),
+                reserved: 0,
+            });
+        }
+        section.messages[index].units = units;
+    }
+    Ok(parsed.build())
+}
+
 /// Serves assets from one data folder, caching archives, fonts and results.
 pub struct Bridge {
     source: Source,
@@ -516,9 +544,26 @@ impl Bridge {
                     .iter()
                     .find(|t| t.0 == parts[1])
                     .ok_or_else(|| Error::BadPath(path.to_string()))?;
-                let bytes = self
+                let mut bytes = self
                     .code_table(name, len)
                     .ok_or_else(|| Error::Missing("the game's code".to_string()))?;
+                // The item icons with the mod's rows (crate::content).
+                if name == "item_icons" {
+                    if let Some(k) = crate::content::kind("items") {
+                        let count = crate::content::count(self, k)?;
+                        bytes.resize(count * 4, 0);
+                        let rows = self
+                            .project()
+                            .map(|p| p.table_rows("item_icons"))
+                            .unwrap_or_default();
+                        for (id, row) in rows.iter().filter(|(id, r)| **id < count && r.len() >= 2)
+                        {
+                            let at = id * 4;
+                            bytes[at..at + 2].copy_from_slice(&(row[0] as u16).to_le_bytes());
+                            bytes[at + 2..at + 4].copy_from_slice(&(row[1] as u16).to_le_bytes());
+                        }
+                    }
+                }
                 let values: Vec<String> = bytes.iter().map(u8::to_string).collect();
                 Ok(json(format!("[{}]", values.join(","))))
             }
@@ -854,6 +899,23 @@ impl Bridge {
 
     /// A member's bytes, decompressed when compressed.
     pub fn member(&self, m: Member) -> Result<Vec<u8>, Error> {
+        let bytes = self.member_base(m)?;
+        // A text bank takes the mod's line file on top, as the port merges
+        // it (eidos sdk/vfs_msg.h).
+        if TEXT_ARCHIVES.contains(&m.arc) {
+            if let Some(p) = &self.project {
+                let lines = p.msg_lines(m.arc, m.index);
+                if !lines.is_empty() {
+                    return merge_lines(&bytes, &lines);
+                }
+            }
+        }
+        Ok(bytes)
+    }
+
+    /// A member without the mod's text lines: the mod's member, else the
+    /// game's.
+    pub fn member_base(&self, m: Member) -> Result<Vec<u8>, Error> {
         if let Some(bytes) = self.project.as_ref().and_then(|p| p.member(m.arc, m.index)) {
             return Ok(lz::decompress_if_compressed(&bytes).into_owned());
         }

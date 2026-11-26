@@ -16,6 +16,8 @@
   import TextureBrowser from "../views/TextureBrowser.svelte";
   import WorldMap from "../views/WorldMap.svelte";
   import TableEditor from "../views/TableEditor.svelte";
+  import AbilitiesView from "../views/AbilitiesView.svelte";
+  import TypesView from "../views/TypesView.svelte";
   import ModSettings from "../views/ModSettings.svelte";
   import ModHooks from "../views/ModHooks.svelte";
   import ModRules from "../views/ModRules.svelte";
@@ -203,6 +205,10 @@
         <TextBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "textures"}
         <TextureBrowser archive={current.archive} noun={current.noun} />
+      {:else if current.kind === "abilities"}
+        <AbilitiesView {version} {readOnly} onSaved={saved} />
+      {:else if current.kind === "types"}
+        <TypesView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "worldmap"}
         <WorldMap {readOnly} onOpen={openAt} onSaved={saved} />
       {:else if current.kind === "cries"}

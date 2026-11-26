@@ -615,6 +615,224 @@ async fn save_record(
     tables::save(&bridge, &table, index, &edit).map_err(|e| e.to_string())
 }
 
+/// The battle code a move, ability or item has (kenon_core::battle).
+#[tauri::command]
+async fn battle_coded(
+    state: State<'_, AppState>,
+    owner: String,
+    id: u16,
+) -> Result<Option<kenon_core::battle::Coded>, String> {
+    let bridge = state.need_bridge()?;
+    let owner = kenon_core::battle::Owner::parse(&owner).ok_or("no such owner")?;
+    kenon_core::battle::coded_of(&bridge, owner, id).map_err(|e| e.to_string())
+}
+
+/// Every id of an owner that has battle code.
+#[tauri::command]
+async fn battle_coded_all(
+    state: State<'_, AppState>,
+    owner: String,
+) -> Result<Arc<Vec<kenon_core::battle::Coded>>, String> {
+    let bridge = state.need_bridge()?;
+    let owner = kenon_core::battle::Owner::parse(&owner).ok_or("no such owner")?;
+    kenon_core::battle::coded(&bridge, owner).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn type_chart(state: State<'_, AppState>) -> Result<Vec<Vec<u8>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::type_chart(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn move_users(
+    state: State<'_, AppState>,
+    id: u16,
+) -> Result<kenon_core::battle::MoveUsers, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::move_users(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// Where the game tests an ability's id itself (in battle or outside it).
+#[tauri::command]
+fn ability_checks(id: u16) -> Vec<kenon_core::battle::CodeCheck> {
+    kenon_core::battle::ability_checks(id)
+}
+
+#[tauri::command]
+async fn ability_users(
+    state: State<'_, AppState>,
+    id: u8,
+) -> Result<kenon_core::battle::AbilityUsers, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::ability_users(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// The move each TM/HM teaches (TM01..TM95, HM01..HM06).
+#[tauri::command]
+async fn machine_moves(state: State<'_, AppState>) -> Result<Vec<u16>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::machine_moves(&bridge).map_err(|e| e.to_string())
+}
+
+/// Where an item is found or used (wild, trainers, trades, maps).
+#[tauri::command]
+async fn item_users(
+    state: State<'_, AppState>,
+    id: u16,
+) -> Result<kenon_core::battle::ItemUsers, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::item_users(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// Names of the species and form records ("Deoxys (form 1)").
+#[tauri::command]
+async fn record_names(state: State<'_, AppState>) -> Result<Arc<Vec<String>>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::record_names(&bridge).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn type_users(
+    state: State<'_, AppState>,
+    id: u8,
+) -> Result<kenon_core::battle::TypeUsers, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::battle::type_users(&bridge, id).map_err(|e| e.to_string())
+}
+
+/// The ids a mod adds to a table (new moves, new items).
+#[tauri::command]
+async fn content_added(
+    state: State<'_, AppState>,
+    table: String,
+) -> Result<kenon_core::content::Added, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::content::added(&bridge, &table).map_err(|e| e.to_string())
+}
+
+/// Adds an entry made from `from` with a new name; returns its id.
+#[tauri::command]
+fn content_add(
+    state: State<AppState>,
+    table: String,
+    from: usize,
+    name: String,
+) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let id = kenon_core::content::add(&bridge, &table, from, &name).map_err(|e| e.to_string())?;
+    // The manifest's limit line is written on disk.
+    reload_project(&state)?;
+    Ok(id)
+}
+
+/// Removes an added entry; the later ones move down one id and the mod's
+/// records follow.
+#[tauri::command]
+fn content_remove(
+    state: State<AppState>,
+    table: String,
+    id: usize,
+) -> Result<kenon_core::content::Removed, String> {
+    let bridge = state.need_bridge()?;
+    let removed = kenon_core::content::remove(&bridge, &table, id).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(removed)
+}
+
+/// The battle handler reference for a table (moves, items, abilities): the
+/// copy the last eidos run left, else the bundled one.
+#[tauri::command]
+fn handler_params(table: String) -> Result<kenon_core::handlers::Params, String> {
+    let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
+    kenon_core::handlers::params(
+        kind,
+        kenon_core::data_root::eidos_handler_params().as_deref(),
+    )
+}
+
+/// The mod's handler rows for a table: id to {base, keys}.
+#[tauri::command]
+fn handler_rows(
+    state: State<AppState>,
+    table: String,
+) -> Result<std::collections::BTreeMap<usize, kenon_core::handlers::Row>, String> {
+    let bridge = state.need_bridge()?;
+    let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
+    Ok(bridge
+        .project()
+        .map(|p| kenon_core::handlers::rows(p, kind))
+        .unwrap_or_default())
+}
+
+/// Sets what an entry does in battle (None: its own code).
+#[tauri::command]
+fn set_handler(
+    state: State<AppState>,
+    table: String,
+    id: usize,
+    row: Option<kenon_core::handlers::Row>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
+    let project = bridge.project().ok_or("no project is open")?;
+    let params = kenon_core::handlers::params(
+        kind,
+        kenon_core::data_root::eidos_handler_params().as_deref(),
+    )?;
+    kenon_core::handlers::set(project, kind, &params, id, row)
+}
+
+/// Sets single text lines of a/0/0/2: [bank, index, text] each.
+#[tauri::command]
+fn set_text_lines(
+    state: State<AppState>,
+    lines: Vec<(usize, usize, String)>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::catalog::set_text_lines(&bridge, 2, &lines).map_err(|e| e.to_string())
+}
+
+/// The species ids the mod adds (715 and up).
+#[tauri::command]
+fn species_added(state: State<AppState>) -> Result<Vec<usize>, String> {
+    let bridge = state.need_bridge()?;
+    Ok(kenon_core::species_add::added(&bridge))
+}
+
+/// Adds a Pokemon made from `from`; returns its id.
+#[tauri::command]
+fn species_add(state: State<AppState>, from: usize, name: String) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let id = kenon_core::species_add::add(&bridge, from, &name).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(id)
+}
+
+/// Removes a Pokemon the mod adds; later ones move down one id.
+#[tauri::command]
+fn species_remove(
+    state: State<AppState>,
+    id: usize,
+) -> Result<kenon_core::content::Removed, String> {
+    let bridge = state.need_bridge()?;
+    let removed = kenon_core::species_add::remove(&bridge, id).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(removed)
+}
+
+/// Gives an added item its own icon from a PNG file.
+#[tauri::command]
+async fn content_item_icon(
+    state: State<'_, AppState>,
+    item: usize,
+    path: PathBuf,
+) -> Result<Vec<u32>, String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    kenon_core::content::set_item_icon(&bridge, item, &bytes).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn enum_values(state: State<'_, AppState>, name: String) -> Result<Arc<Vec<String>>, String> {
     let bridge = state.need_bridge()?;
@@ -978,7 +1196,9 @@ async fn prop_model_names(
 #[tauri::command]
 async fn move_types(state: State<'_, AppState>) -> Result<Vec<u8>, String> {
     let bridge = state.need_bridge()?;
-    let count = bridge.base_archive(21).map_err(|e| e.to_string())?.len();
+    // The mod's added moves too (kenon_core::content).
+    let moves = kenon_core::content::kind("moves").ok_or("no moves kind")?;
+    let count = kenon_core::content::count(&bridge, moves).map_err(|e| e.to_string())?;
     Ok((0..count)
         .map(|index| {
             bridge
@@ -1677,6 +1897,27 @@ pub fn run() {
             revert,
             named_sheets,
             table_entries,
+            content_added,
+            battle_coded,
+            battle_coded_all,
+            type_chart,
+            move_users,
+            ability_users,
+            ability_checks,
+            type_users,
+            item_users,
+            machine_moves,
+            record_names,
+            content_add,
+            content_remove,
+            handler_params,
+            handler_rows,
+            set_handler,
+            content_item_icon,
+            species_added,
+            set_text_lines,
+            species_add,
+            species_remove,
             table_record,
             save_record,
             enum_values,

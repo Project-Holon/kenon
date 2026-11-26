@@ -11,6 +11,8 @@ export interface Value {
   enum: string | null;
   readonly: boolean;
   inferred: boolean;
+  /// Starts a new row of fields (a group).
+  rowStart: boolean;
   note: string | null;
 }
 

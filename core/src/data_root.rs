@@ -98,6 +98,25 @@ pub fn eidos_default() -> Option<PathBuf> {
     eidos_home().map(|home| home.join("extract"))
 }
 
+/// eidos's user folder, where its saves and settings live and where the game
+/// copies its `handler_params.json` at each start (from 0.2.8). On Windows
+/// this is the roaming folder, unlike the extraction's local one.
+pub fn eidos_user_folder() -> Option<PathBuf> {
+    if cfg!(windows) {
+        std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("eidos"))
+    } else {
+        eidos_home()
+    }
+}
+
+/// The battle handler reference of the eidos that ran last, when there is
+/// one: `<user folder>/handler_params.json`.
+pub fn eidos_handler_params() -> Option<PathBuf> {
+    eidos_user_folder()
+        .map(|dir| dir.join("handler_params.json"))
+        .filter(|f| f.is_file())
+}
+
 fn eidos_home() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
     if cfg!(windows) {

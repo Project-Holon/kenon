@@ -603,17 +603,61 @@ pub fn save_text_bank(
     strings: &[String],
 ) -> Result<(), Error> {
     let m = Member { arc, index: bank };
+    // Lines the mod keeps in its line file (`<bank>.msg`) are saved there,
+    // the rest into the member, so no line is set in both places.
+    let project = project_of(bridge)?;
+    let mut lines = project.msg_lines(arc, bank);
     let mut parsed =
-        msg::Bank::parse(&bridge.member(m)?).map_err(|e| Error::Format(e.to_string()))?;
+        msg::Bank::parse(&bridge.member_base(m)?).map_err(|e| Error::Format(e.to_string()))?;
     let table = bridge.packed_table();
     let section = parsed
         .sections
         .first_mut()
         .ok_or_else(|| Error::Format("the bank has no text".into()))?;
-    for (message, text) in section.messages.iter_mut().zip(strings) {
-        message.units = msg::parse(text, table.as_deref()).map_err(Error::BadPath)?;
+    for (index, text) in strings.iter().enumerate() {
+        let units = msg::parse(text, table.as_deref()).map_err(Error::BadPath)?;
+        let packed = text.starts_with("{packed}");
+        if !packed && (lines.contains_key(&index) || index >= section.messages.len()) {
+            lines.insert(index, msg::Display(&units).to_string());
+        } else if let Some(message) = section.messages.get_mut(index) {
+            message.units = units;
+        }
     }
-    write_member(bridge, m, &parsed.build())
+    project
+        .write_msg_lines(arc, bank, &lines)
+        .map_err(|e| Error::Missing(e.to_string()))?;
+    let built = parsed.build();
+    if built == bridge.member_base(m)? {
+        bridge.invalidate();
+        return Ok(());
+    }
+    write_member(bridge, m, &built)
+}
+
+/// Sets single text lines (bank, index, text in the display form), as the
+/// text browser saves them: a line the mod keeps in its line file, or one
+/// past the bank's end, goes to the line file; a game line goes into the
+/// bank member.
+pub fn set_text_lines(
+    bridge: &Bridge,
+    arc: u16,
+    lines: &[(usize, usize, String)],
+) -> Result<(), Error> {
+    let mut banks: BTreeMap<usize, Vec<(usize, String)>> = BTreeMap::new();
+    for (bank, index, text) in lines {
+        banks.entry(*bank).or_default().push((*index, text.clone()));
+    }
+    for (bank, changes) in banks {
+        let mut strings = text_bank(bridge, arc, bank)?;
+        for (index, text) in changes {
+            if strings.len() <= index {
+                strings.resize(index + 1, String::new());
+            }
+            strings[index] = text;
+        }
+        save_text_bank(bridge, arc, bank, &strings)?;
+    }
+    Ok(())
 }
 
 /// Drops the project's version of a member.
@@ -668,7 +712,23 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
         )
     };
     let archive = bridge.base_archive(arc)?;
-    let size = |i: usize| archive.raw(i).map_or(0, <[u8]>::len);
+    // Members the mod adds past the game's (new Pokemon) count too.
+    let project = bridge.project();
+    let size = |i: usize| match project.and_then(|p| p.member(arc, i)) {
+        Some(b) => b.len(),
+        None => archive.raw(i).map_or(0, <[u8]>::len),
+    };
+    let count = archive.len().max(
+        project
+            .and_then(|p| p.last_member(arc))
+            .map_or(0, |m| m + 1),
+    );
+    let added: Vec<usize> = crate::species_add::added(bridge);
+    // New Pokemon's icon palettes: the mod's rows (eidos table
+    // icon_palette), else the game's nibble table.
+    let palette_rows = project
+        .map(|p| p.table_rows("icon_palette"))
+        .unwrap_or_default();
     let code = bridge.code();
     let species = bank(70);
     let name = |n: usize| match n {
@@ -687,13 +747,21 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
         7 => {
             let mut out = Vec::new();
             let mut n = 0;
-            while 7 + 2 * n < archive.len() {
-                let nibble = code
-                    .and_then(|c| {
-                        let (image, at) = c.table_at("icon_palette")?;
-                        c.read(image, at + n as u32, 1)
-                    })
-                    .map_or(0, |b| b[0]);
+            while 7 + 2 * n < count {
+                // Past the game's icons, only the mod's new Pokemon.
+                if 7 + 2 * n >= archive.len() && !added.contains(&n) {
+                    n += 1;
+                    continue;
+                }
+                let nibble = match palette_rows.get(&n).and_then(|r| r.first()) {
+                    Some(&v) => v as u8,
+                    None => code
+                        .and_then(|c| {
+                            let (image, at) = c.table_at("icon_palette")?;
+                            c.read(image, at + n as u32, 1)
+                        })
+                        .map_or(0, |b| b[0]),
+                };
                 out.push(NamedSheet {
                     label: name(n),
                     chr: 7 + 2 * n,
@@ -725,7 +793,11 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
         4 => {
             let mut out = Vec::new();
             let mut n = 0;
-            while 20 * n + 19 < archive.len() {
+            while 20 * n + 19 < count {
+                if 20 * n + 19 >= archive.len() && !added.contains(&n) {
+                    n += 1;
+                    continue;
+                }
                 let block = 20 * n;
                 let shiny = vec![("Shiny".to_string(), block + 19)];
                 for (role, side) in [
@@ -764,23 +836,47 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             }
             out
         }
+        // Pokedex icons (a/1/6/7): species n is member n + 5, palette 0,
+        // cells 2 and animations 1 up to Arceus (493), cells 4 and
+        // animations 3 after (ov206 zukan_info.c GetSpeciesCellFileId,
+        // GetPaletteFileId, CLACT_RegisterCellAnim(GetCellAnimFileId,
+        // GetCellAnimMode)). One colour; the Pokedex tints it.
+        167 => {
+            let mut out = Vec::new();
+            for n in 0..count.saturating_sub(5) {
+                if n + 5 >= archive.len() && !added.contains(&n) {
+                    continue;
+                }
+                let gen5 = n > 493;
+                out.push(NamedSheet {
+                    label: name(n),
+                    chr: n + 5,
+                    pal: 0,
+                    palettes: Vec::new(),
+                    palette_offset: 0,
+                    cells: Some(if gen5 { 4 } else { 2 }),
+                    anims: Some(if gen5 { 3 } else { 1 }),
+                    rig: None,
+                });
+            }
+            out
+        }
         // Item icons: the ARM9 table pairs each item with a tile and a
         // palette member; items sharing a picture are listed together.
         25 => {
-            let Some(code) = code else {
+            if code.is_none() {
                 return Ok(None);
-            };
+            }
             let items = bank(54);
             let mut by_tiles: Vec<(usize, usize, Vec<String>)> = Vec::new();
-            for (item, label) in items.iter().enumerate().take(627) {
-                let Some(pair) = code
-                    .table_at("item_icons")
-                    .and_then(|(image, at)| code.read(image, at + item as u32 * 4, 4))
-                else {
+            // The game's rows, then the mod's (crate::content).
+            let kind = crate::content::kind("items").expect("items take new entries");
+            let count = crate::content::count(bridge, kind)?;
+            for (item, label) in items.iter().enumerate().take(count) {
+                let Ok(row) = crate::content::icon_row(bridge, kind, item) else {
                     break;
                 };
-                let chr = u16::from_le_bytes([pair[0], pair[1]]) as usize;
-                let pal = u16::from_le_bytes([pair[2], pair[3]]) as usize;
+                let (chr, pal) = (row[0] as usize, row[1] as usize);
                 let label = label.clone();
                 if label.is_empty() || label == "???" {
                     continue;

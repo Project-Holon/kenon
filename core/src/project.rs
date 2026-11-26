@@ -12,6 +12,7 @@
 //! when it has one, else the game's. Writing only ever touches the mod
 //! folder; the ROM is never changed.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -88,8 +89,153 @@ impl Project {
         fs::read_dir(&dir)
             .ok()?
             .flatten()
-            .find(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+            .find(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                name.starts_with(&prefix) && !is_line_file(&name)
+            })
             .and_then(|e| fs::read(e.path()).ok())
+    }
+
+    /// The highest member index the mod writes in an archive, line files
+    /// left out.
+    pub fn last_member(&self, arc: u16) -> Option<usize> {
+        self.members(arc).last().copied()
+    }
+
+    /// The member indices the mod writes in an archive, in order, line
+    /// files left out.
+    pub fn members(&self, arc: u16) -> Vec<usize> {
+        let Some(dir) = self.member_dir(arc) else {
+            return Vec::new();
+        };
+        let Ok(entries) = fs::read_dir(dir) else {
+            return Vec::new();
+        };
+        let mut out: Vec<usize> = entries
+            .flatten()
+            .filter(|e| e.path().is_file())
+            .filter_map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if is_line_file(&name) {
+                    return None;
+                }
+                name.split('.').next()?.parse::<usize>().ok()
+            })
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// The lines a text line file (`<bank>.msg`, eidos sdk/vfs_msg.h) sets
+    /// for a bank, by index, in the display form. Empty when there is none.
+    pub fn msg_lines(&self, arc: u16, bank: usize) -> BTreeMap<usize, String> {
+        let Some(dir) = self.member_dir(arc) else {
+            return BTreeMap::new();
+        };
+        fs::read_to_string(dir.join(format!("{bank}.msg")))
+            .map(|t| parse_lines(&t))
+            .unwrap_or_default()
+    }
+
+    /// Writes a bank's line file; no lines removes it.
+    pub fn write_msg_lines(
+        &self,
+        arc: u16,
+        bank: usize,
+        lines: &BTreeMap<usize, String>,
+    ) -> io::Result<()> {
+        let dir = self
+            .member_dir(arc)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "bad archive id"))?;
+        let path = dir.join(format!("{bank}.msg"));
+        if lines.is_empty() {
+            if path.is_file() {
+                fs::remove_file(path)?;
+            }
+            return Ok(());
+        }
+        fs::create_dir_all(&dir)?;
+        let mut text = String::from("# Written by kenon: one line per text id.\n");
+        for (index, line) in lines {
+            text.push_str(&format!("{index} = {}\n", line.replace(['\r', '\n'], "")));
+        }
+        write_atomic(&path, text.as_bytes())
+    }
+
+    /// The rows the mod gives an eidos data table (`eidos/tables/<name>.txt`,
+    /// eidos sdk/bw_limits.c): id to values.
+    pub fn table_rows(&self, name: &str) -> BTreeMap<usize, Vec<u32>> {
+        fs::read_to_string(self.table_path(name))
+            .map(|t| {
+                parse_lines(&t)
+                    .into_iter()
+                    .filter_map(|(id, v)| {
+                        let values = v
+                            .split_whitespace()
+                            .map(|x| x.parse().ok())
+                            .collect::<Option<Vec<u32>>>()?;
+                        Some((id, values))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Writes an eidos data table's rows; no rows removes the file.
+    pub fn write_table_rows(&self, name: &str, rows: &BTreeMap<usize, Vec<u32>>) -> io::Result<()> {
+        let path = self.table_path(name);
+        if rows.is_empty() {
+            if path.is_file() {
+                fs::remove_file(path)?;
+            }
+            return Ok(());
+        }
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        let mut text = String::from("# Written by kenon: <id> = <values>.\n");
+        for (id, values) in rows {
+            let v: Vec<String> = values.iter().map(|x| x.to_string()).collect();
+            text.push_str(&format!("{id} = {}\n", v.join(" ")));
+        }
+        write_atomic(&path, text.as_bytes())
+    }
+
+    /// An eidos table's rows as text (`<id> = <words>`), for tables whose
+    /// values are not all numbers (the handler tables).
+    pub fn table_lines(&self, name: &str) -> BTreeMap<usize, String> {
+        fs::read_to_string(self.table_path(name))
+            .map(|t| parse_lines(&t))
+            .unwrap_or_default()
+    }
+
+    /// Writes an eidos table's text rows; no rows removes the file.
+    pub fn write_table_lines(
+        &self,
+        name: &str,
+        rows: &BTreeMap<usize, String>,
+        header: &str,
+    ) -> io::Result<()> {
+        let path = self.table_path(name);
+        if rows.is_empty() {
+            if path.is_file() {
+                fs::remove_file(path)?;
+            }
+            return Ok(());
+        }
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        let mut text = format!("# Written by kenon: {header}\n");
+        for (id, line) in rows {
+            text.push_str(&format!("{id} = {}\n", line.replace(['\r', '\n'], "")));
+        }
+        write_atomic(&path, text.as_bytes())
+    }
+
+    fn table_path(&self, name: &str) -> PathBuf {
+        self.root.join("eidos/tables").join(format!("{name}.txt"))
     }
 
     pub fn write_member(&self, arc: u16, index: usize, bytes: &[u8]) -> io::Result<()> {
@@ -160,8 +306,35 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Change>) {
     }
 }
 
+/// `<bank>.msg` holds lines for a text bank; the port does not read it as a
+/// member (eidos sdk/vfs_narc.c, msg_index).
+fn is_line_file(name: &str) -> bool {
+    name.ends_with(".msg")
+}
+
+/// `<id> = <text>` lines: `#` starts a comment line, one space after `=` is
+/// skipped and the rest of the line is kept (eidos sdk/vfs_msg.h). A later
+/// line for the same id wins.
+fn parse_lines(text: &str) -> BTreeMap<usize, String> {
+    let mut out = BTreeMap::new();
+    for line in text.lines() {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let Some((id, rest)) = line.split_once('=') else {
+            continue;
+        };
+        let Ok(id) = id.trim().parse::<usize>() else {
+            continue;
+        };
+        out.insert(id, rest.strip_prefix(' ').unwrap_or(rest).to_string());
+    }
+    out
+}
+
 /// Removes every file of `dir` that names member `index` (`N` or `N.ext`),
-/// except the bare `N` when `keep_bare`.
+/// except the bare `N` when `keep_bare`. Line files stay.
 fn remove_siblings(dir: &Path, index: usize, keep_bare: bool) -> io::Result<()> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Ok(());
@@ -170,7 +343,7 @@ fn remove_siblings(dir: &Path, index: usize, keep_bare: bool) -> io::Result<()> 
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let stem = name.split('.').next().unwrap_or("");
-        if stem == bare && !(keep_bare && name == bare) {
+        if stem == bare && !(keep_bare && name == bare) && !is_line_file(&name) {
             fs::remove_file(entry.path())?;
         }
     }

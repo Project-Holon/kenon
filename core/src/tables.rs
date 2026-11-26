@@ -70,6 +70,10 @@ pub struct Field {
     pub when: Option<When>,
     #[serde(default)]
     pub readonly: bool,
+    /// The interface starts a new row of fields here (a group: a condition,
+    /// one stat change).
+    #[serde(default, rename = "rowStart")]
+    pub row_start: bool,
     pub confidence: Option<String>,
     pub note: Option<String>,
 }
@@ -249,6 +253,7 @@ pub struct Value {
     pub enum_name: Option<String>,
     pub readonly: bool,
     pub inferred: bool,
+    pub row_start: bool,
     pub note: Option<String>,
 }
 
@@ -339,6 +344,7 @@ fn values_of(bytes: &[u8], base: usize, fields: &[Field], prefix: &str) -> Vec<V
                 enum_name: f.enum_name.clone(),
                 readonly: f.readonly,
                 inferred: f.confidence.as_deref() == Some("inferred"),
+                row_start: f.row_start && n == 0,
                 note: f.note.clone(),
             });
         }
@@ -480,10 +486,13 @@ pub fn record_of(
                 }
                 None => 0,
             };
-            sections.push(Section::Fields {
-                label: t.label.clone(),
-                values: values_of(&bytes, base, &t.fields, ""),
-            });
+            // A table made only of rows (evolutions) has no field section.
+            if !t.fields.is_empty() {
+                sections.push(Section::Fields {
+                    label: t.label.clone(),
+                    values: values_of(&bytes, base, &t.fields, ""),
+                });
+            }
             for g in t.groups.iter().flatten() {
                 sections.push(Section::List {
                     key: g.name.clone(),
@@ -514,6 +523,19 @@ pub fn save(bridge: &Bridge, id: &str, index: usize, edit: &Edit) -> Result<(), 
         return Err(Error::BadPath(format!("{} cannot be saved yet", t.label)));
     }
     let old = bridge.member(member(t, index))?;
+    // A trainer's party kind sets the layout of its party members: change
+    // the party with it, or the game reads the members wrong.
+    if id == "trainers" {
+        if let (Some(f), Some(&new_kind)) = (
+            t.fields.iter().find(|f| f.name == "partyType"),
+            edit.values.get("partyType"),
+        ) {
+            let old_kind = read_field(&old, 0, f).unwrap_or(0);
+            if old_kind != new_kind {
+                convert_party(bridge, index, old_kind, new_kind)?;
+            }
+        }
+    }
     let bytes = match t.layout.as_deref() {
         Some("list") => {
             let e = t.element.as_ref().expect("list layout has an element");
@@ -600,8 +622,294 @@ pub fn save(bridge: &Bridge, id: &str, index: usize, edit: &Edit) -> Result<(), 
     };
     if bytes != old {
         crate::catalog::write_member(bridge, member(t, index), &bytes)?;
+        // The battle bag reads its own copy of the pocket bits.
+        if id == "items" && bytes.get(8..10) != old.get(8..10) {
+            crate::content::sync_battle_pockets(bridge)?;
+        }
     }
     Ok(())
+}
+
+/// Rewrites trainer `index`'s party for a new party kind: each member keeps
+/// the fields both layouts have; moves a member gains are the last four it
+/// learns by level up to its level (what the game gives a member without
+/// custom moves, POKE_TOOL_SetDefaultMoves), a held item it gains is none.
+fn convert_party(bridge: &Bridge, index: usize, old_kind: i64, new_kind: i64) -> Result<(), Error> {
+    let t = table("trainerParties")?;
+    let variants = t.variants.as_ref().expect("party variants");
+    let (Some(from), Some(to)) = (
+        variants.get(&old_kind.to_string()),
+        variants.get(&new_kind.to_string()),
+    ) else {
+        return Err(Error::BadPath(format!("no party kind {new_kind}")));
+    };
+    let old = bridge.member(member(t, index))?;
+    let count = old.len() / from.size;
+    let mut out = vec![0u8; count * to.size];
+    for m in 0..count {
+        let (src, dst) = (m * from.size, m * to.size);
+        for f in &to.fields {
+            if let Some(g) = from.fields.iter().find(|g| g.name == f.name) {
+                if let Some(v) = read_field(&old, src, g) {
+                    write_field(&mut out, dst, f, v);
+                }
+            }
+        }
+        let gains_moves = to.fields.iter().any(|f| f.name == "move1")
+            && !from.fields.iter().any(|f| f.name == "move1");
+        if gains_moves {
+            let field = |n: &str| from.fields.iter().find(|f| f.name == n);
+            let species = field("species")
+                .and_then(|f| read_field(&old, src, f))
+                .unwrap_or(0) as usize;
+            let level = field("level")
+                .and_then(|f| read_field(&old, src, f))
+                .unwrap_or(0);
+            let moves = level_up_moves(bridge, species, level);
+            for (k, mv) in moves.iter().enumerate() {
+                if let Some(f) = to
+                    .fields
+                    .iter()
+                    .find(|f| f.name == format!("move{}", k + 1))
+                {
+                    write_field(&mut out, dst, f, *mv as i64);
+                }
+            }
+        }
+    }
+    crate::catalog::write_member(bridge, member(t, index), &out)
+}
+
+/// The last four moves `species` learns by level up to `level`, as a
+/// Pokemon without custom moves knows them.
+fn level_up_moves(bridge: &Bridge, species: usize, level: i64) -> Vec<u16> {
+    let Ok(b) = bridge.member(Member {
+        arc: 18,
+        index: species,
+    }) else {
+        return Vec::new();
+    };
+    let mut known: Vec<u16> = Vec::new();
+    for pair in b.as_chunks::<4>().0 {
+        let mv = u16::from_le_bytes([pair[0], pair[1]]);
+        let at = u16::from_le_bytes([pair[2], pair[3]]) as i64;
+        if mv == 0xFFFF || at > level {
+            break;
+        }
+        if !known.contains(&mv) {
+            known.push(mv);
+        }
+    }
+    let start = known.len().saturating_sub(4);
+    known[start..].to_vec()
+}
+
+// ---------------------------------------------------------------- ids
+
+/// What happens to an id a record holds when ids are renumbered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Remap {
+    /// The id stays.
+    Keep,
+    /// The id becomes this one.
+    To(i64),
+    /// The id names an entry that is gone: a list row with it goes, any
+    /// other place becomes 0 (none).
+    Drop,
+}
+
+/// Evolution methods whose parameter is an item, and the one whose
+/// parameter is a move (enum evolutionMethod).
+const EVOLUTION_ITEM_METHODS: [i64; 6] = [6, 8, 17, 18, 19, 20];
+const EVOLUTION_MOVE_METHOD: i64 = 21;
+
+/// The enum an evolution row's parameter holds, by its method.
+fn evolution_param_enum(method: i64) -> Option<&'static str> {
+    if EVOLUTION_ITEM_METHODS.contains(&method) {
+        Some("item")
+    } else if method == EVOLUTION_MOVE_METHOD {
+        Some("move")
+    } else {
+        None
+    }
+}
+
+/// Rewrites the ids of enum `kind` ("move", "item") in one member of a
+/// table with `map`. Returns the new bytes when something changed.
+pub fn remap_member(
+    bridge: &Bridge,
+    id: &str,
+    index: usize,
+    kind: &str,
+    map: &dyn Fn(i64) -> Remap,
+) -> Result<Option<Vec<u8>>, Error> {
+    let t = table(id)?;
+    let old = bridge.member(member(t, index))?;
+    let is = |f: &Field| f.enum_name.as_deref() == Some(kind);
+    let mut out = old.clone();
+    match t.layout.as_deref() {
+        Some("list") | Some("countedList") => {
+            let e = t.element.as_ref().expect("list layouts have an element");
+            let counted = t.layout.as_deref() == Some("countedList");
+            let start = if counted { 2 } else { 0 };
+            let count = if counted {
+                old.get(..2)
+                    .map_or(0, |b| u16::from_le_bytes([b[0], b[1]]) as usize)
+            } else {
+                usize::MAX
+            };
+            let mut rows = Vec::new();
+            let mut at = start;
+            let mut changed = false;
+            while rows.len() < count && at + e.size <= old.len() {
+                let mut row = old[at..at + e.size].to_vec();
+                if !counted
+                    && e.fields
+                        .iter()
+                        .all(|f| read_field(&row, 0, f) == Some(0xFFFF))
+                {
+                    break;
+                }
+                let mut keep = true;
+                for f in e.fields.iter().filter(|f| is(f)) {
+                    match read_field(&row, 0, f).map_or(Remap::Keep, map) {
+                        Remap::Keep => {}
+                        Remap::To(v) => {
+                            write_field(&mut row, 0, f, v);
+                            changed = true;
+                        }
+                        Remap::Drop => {
+                            keep = false;
+                            changed = true;
+                        }
+                    }
+                }
+                if keep {
+                    rows.push(row);
+                }
+                at += e.size;
+            }
+            if !changed {
+                return Ok(None);
+            }
+            out = Vec::new();
+            if counted {
+                out.extend_from_slice(&(rows.len() as u16).to_le_bytes());
+            }
+            for r in &rows {
+                out.extend_from_slice(r);
+            }
+            if counted {
+                // Bytes after the counted rows stay as they were.
+                out.extend_from_slice(old.get(at..).unwrap_or(&[]));
+            } else {
+                let mut end = vec![0u8; e.size];
+                for f in &e.fields {
+                    write_field(&mut end, 0, f, 0xFFFF);
+                }
+                out.extend_from_slice(&end);
+            }
+        }
+        Some("variantList") => {
+            let kind_of = other_field(
+                bridge,
+                t.variant_by.as_ref().expect("variant source"),
+                index,
+            )?;
+            if let Some(v) = t
+                .variants
+                .as_ref()
+                .and_then(|v| v.get(&kind_of.to_string()))
+            {
+                let mut at = 0;
+                while at + v.size <= out.len() {
+                    remap_fields(&mut out, at, &v.fields, &is, map);
+                    at += v.size;
+                }
+            }
+        }
+        _ => {
+            let blocks = t
+                .seasons
+                .as_ref()
+                .map_or(1, |s| (old.len() / s.block_size).max(1));
+            let block = t.seasons.as_ref().map_or(0, |s| s.block_size);
+            for b in 0..blocks {
+                let base = b * block;
+                remap_fields(&mut out, base, &t.fields, &is, map);
+                for g in t.groups.iter().flatten() {
+                    for i in 0..g.count {
+                        remap_fields(
+                            &mut out,
+                            base + g.offset + i * g.stride,
+                            &g.fields,
+                            &is,
+                            map,
+                        );
+                    }
+                }
+            }
+            if id == "evolutions" {
+                for g in t.groups.iter().flatten() {
+                    remap_evolutions(&mut out, g, kind, map);
+                }
+            }
+        }
+    }
+    Ok((out != old).then_some(out))
+}
+
+/// Applies `map` to every field (and every repeat of it) that `is` picks.
+fn remap_fields(
+    bytes: &mut [u8],
+    base: usize,
+    fields: &[Field],
+    is: &dyn Fn(&Field) -> bool,
+    map: &dyn Fn(i64) -> Remap,
+) {
+    for f in fields.iter().filter(|f| is(f)) {
+        let (count, stride) = f.repeat.as_ref().map_or((1, 0), |r| (r.count, r.stride));
+        for n in 0..count {
+            let at = base + n * stride;
+            let Some(v) = read_field(bytes, at, f) else {
+                continue;
+            };
+            match map(v) {
+                Remap::Keep => {}
+                Remap::To(x) => write_field(bytes, at, f, x),
+                Remap::Drop => write_field(bytes, at, f, 0),
+            }
+        }
+    }
+}
+
+/// An evolution row's parameter is an item or a move by its method; a row
+/// that needs a removed entry goes (method, parameter and species 0).
+fn remap_evolutions(bytes: &mut [u8], rows: &Group, kind: &str, map: &dyn Fn(i64) -> Remap) {
+    let fields = &rows.fields;
+    let by = |name: &str| fields.iter().find(|f| f.name == name);
+    let (Some(method), Some(param)) = (by("method"), by("param")) else {
+        return;
+    };
+    for n in 0..rows.count {
+        let at = rows.offset + n * rows.stride;
+        let m = read_field(bytes, at, method).unwrap_or(0);
+        if evolution_param_enum(m) != Some(kind) {
+            continue;
+        }
+        let Some(v) = read_field(bytes, at, param) else {
+            continue;
+        };
+        match map(v) {
+            Remap::Keep => {}
+            Remap::To(x) => write_field(bytes, at, param, x),
+            Remap::Drop => {
+                for f in fields {
+                    write_field(bytes, at, f, 0);
+                }
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------- names
@@ -644,11 +952,61 @@ fn make_enum_values(bridge: &Bridge, name: &str) -> Result<Vec<String>, Error> {
         .enums
         .get(name)
         .ok_or_else(|| Error::BadPath(format!("no enum {name}")))?;
-    Ok(match (&def.source, &def.values) {
-        (Some(bank), _) => bank_strings(bridge, bank),
-        (None, Some(values)) => values.clone(),
-        (None, None) => Vec::new(),
+    Ok(match (name, &def.source, &def.values) {
+        ("holdEffect", _, _) => item_kind_names(bridge, 2),
+        ("pluckEffect", _, _) => item_kind_names(bridge, 4),
+        ("flingEffect", _, _) => item_kind_names(bridge, 5),
+        ("naturalGiftType", _, _) => {
+            // 5 bits: the types, then 31 for none (file_util.c ItemRecord).
+            let mut out = enum_values(bridge, "type")?.as_ref().clone();
+            out.resize(31, String::new());
+            out.push("None".into());
+            out
+        }
+        (_, Some(bank), _) => bank_strings(bridge, bank),
+        (_, None, Some(values)) => values.clone(),
+        (_, None, None) => Vec::new(),
     })
+}
+
+/// A hold, pluck or fling effect is a kind shared by the items that behave alike in
+/// battle: named after the game's items that have it ("Mystic Water / Sea
+/// Incense / Wave Incense"), read from the ROM's item records (byte `offset`: +2 hold,
+/// +4 pluck, +5 fling).
+fn item_kind_names(bridge: &Bridge, offset: usize) -> Vec<String> {
+    let Ok(t) = table("items") else {
+        return Vec::new();
+    };
+    let names = t
+        .name_bank
+        .as_ref()
+        .map(|b| bank_strings(bridge, b))
+        .unwrap_or_default();
+    let count = bridge.base_archive(t.archive).map(|a| a.len()).unwrap_or(0);
+    let mut by: Vec<Vec<String>> = vec![Vec::new(); 256];
+    for item in 1..count {
+        let Ok(b) = bridge.base_archive(t.archive).and_then(|a| {
+            a.raw(item)
+                .map(|r| r.to_vec())
+                .map_err(|e| Error::Missing(e.to_string()))
+        }) else {
+            continue;
+        };
+        if let (Some(&effect), Some(name)) = (b.get(offset), names.get(item)) {
+            if effect != 0 && !name.trim().is_empty() && name != "???" {
+                by[effect as usize].push(name.clone());
+            }
+        }
+    }
+    let last = by.iter().rposition(|v| !v.is_empty()).unwrap_or(0);
+    (0..=last)
+        .map(|e| match (e, by[e].len()) {
+            (0, _) => "None".to_string(),
+            (_, 0) => format!("Unused ({e})"),
+            (_, 1..=3) => by[e].join(" / "),
+            _ => format!("{} / {} and {} more", by[e][0], by[e][1], by[e].len() - 2),
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -664,11 +1022,57 @@ pub fn entries(bridge: &Bridge, id: &str) -> Result<std::sync::Arc<Vec<Entry>>, 
 
 fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
     let t = table(id)?;
-    let count = bridge.base_archive(t.archive)?.len();
+    // The mod's entries after the game's count too (crate::content).
+    let count = match crate::content::kind(id) {
+        Some(k) => crate::content::count(bridge, k)?,
+        None => bridge.base_archive(t.archive)?.len(),
+    };
     let names = match (&t.name_bank, &t.name_enum) {
+        // Wild encounter tables: named by the places (zones) that use them.
+        _ if id == "encounters" => {
+            let mut by: Vec<Vec<String>> = vec![Vec::new(); count];
+            for z in crate::world::zones(bridge)?.iter() {
+                if let Some(e) = z.encounters {
+                    if let Some(list) = by.get_mut(e as usize) {
+                        if !z.place.is_empty() && !list.contains(&z.place) {
+                            list.push(z.place.clone());
+                        }
+                    }
+                }
+            }
+            by.into_iter()
+                .map(|l| match l.len() {
+                    0 => "Not used by any place".to_string(),
+                    1..=2 => l.join(", "),
+                    n => format!("{}, {} and {} more", l[0], l[1], n - 2),
+                })
+                .collect()
+        }
+        // Species and form records: forms named after their species.
+        _ if matches!(id, "species" | "learnsets" | "evolutions") => {
+            crate::battle::record_names(bridge)?.as_ref().clone()
+        }
         (Some(b), _) => bank_strings(bridge, b),
         (None, Some(e)) => enum_values(bridge, e)?.as_ref().clone(),
         (None, None) => Vec::new(),
+    };
+    // Species tables: the mod's new Pokemon (715 and up) after the game's,
+    // without the unused ids between.
+    let extra: Vec<usize> = if matches!(id, "species" | "learnsets" | "evolutions" | "eggMoves") {
+        crate::species_add::added(bridge)
+    } else {
+        Vec::new()
+    };
+    let new_names = if extra.is_empty() {
+        Vec::new()
+    } else {
+        bank_strings(
+            bridge,
+            &BankRef {
+                archive: 2,
+                bank: 70,
+            },
+        )
     };
     Ok((0..count)
         .map(|index| Entry {
@@ -679,6 +1083,16 @@ fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
                 .cloned()
                 .unwrap_or_else(|| format!("{} {index}", t.label)),
         })
+        .chain(extra.into_iter().filter(|&i| i >= count).map(|index| {
+            Entry {
+                index,
+                name: new_names
+                    .get(index)
+                    .filter(|n| !n.trim().is_empty())
+                    .cloned()
+                    .unwrap_or_else(|| format!("New Pokemon {index}")),
+            }
+        }))
         .collect())
 }
 
@@ -706,6 +1120,7 @@ mod tests {
             repeat: None,
             when: None,
             readonly: false,
+            row_start: false,
             confidence: None,
             note: None,
         };

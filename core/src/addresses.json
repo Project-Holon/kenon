@@ -10,7 +10,11 @@
   "packed_chars": "0x0209E864",
   "timezone_light": "0x0209DF10",
   "machine_moves": "0x0209EAA0",
-  "script_ranges": "0x021701A8"
+  "script_ranges": "0x021701A8",
+  "type_chart": "0x021F047C",
+  "move_handlers": "0x021F3030",
+  "ability_handlers": "0x021F0E74",
+  "item_handlers": "0x021F1EA4"
  },
  "IRAO": {
   "type_palette": "0x0209FD10",
@@ -23,7 +27,11 @@
   "packed_chars": "0x0209E87C",
   "timezone_light": "0x0209DF28",
   "machine_moves": "0x0209EAB8",
-  "script_ranges": "0x021701C8"
+  "script_ranges": "0x021701C8",
+  "type_chart": "0x021F049C",
+  "move_handlers": "0x021F3050",
+  "ability_handlers": "0x021F0E94",
+  "item_handlers": "0x021F1EC4"
  },
  "IRBF": {
   "type_palette": "0x0209FC68",
@@ -36,7 +44,11 @@
   "packed_chars": "0x0209E7E4",
   "timezone_light": "0x0209DE90",
   "machine_moves": "0x0209EA20",
-  "script_ranges": "0x02170118"
+  "script_ranges": "0x02170118",
+  "type_chart": "0x021F03FC",
+  "move_handlers": "0x021F2FB0",
+  "ability_handlers": "0x021F0DF4",
+  "item_handlers": "0x021F1E24"
  },
  "IRAF": {
   "type_palette": "0x0209FC80",
@@ -49,7 +61,11 @@
   "packed_chars": "0x0209E7FC",
   "timezone_light": "0x0209DEA8",
   "machine_moves": "0x0209EA38",
-  "script_ranges": "0x02170138"
+  "script_ranges": "0x02170138",
+  "type_chart": "0x021F041C",
+  "move_handlers": "0x021F2FD0",
+  "ability_handlers": "0x021F0E14",
+  "item_handlers": "0x021F1E44"
  },
  "IRBD": {
   "type_palette": "0x0209FC2C",
@@ -62,7 +78,11 @@
   "packed_chars": "0x0209E7E4",
   "timezone_light": "0x0209DE90",
   "machine_moves": "0x0209EA20",
-  "script_ranges": "0x021700D8"
+  "script_ranges": "0x021700D8",
+  "type_chart": "0x021F03BC",
+  "move_handlers": "0x021F2F70",
+  "ability_handlers": "0x021F0DB4",
+  "item_handlers": "0x021F1DE4"
  },
  "IRAD": {
   "type_palette": "0x0209FC44",
@@ -75,7 +95,11 @@
   "packed_chars": "0x0209E7FC",
   "timezone_light": "0x0209DEA8",
   "machine_moves": "0x0209EA38",
-  "script_ranges": "0x021700F8"
+  "script_ranges": "0x021700F8",
+  "type_chart": "0x021F03DC",
+  "move_handlers": "0x021F2F90",
+  "ability_handlers": "0x021F0DD4",
+  "item_handlers": "0x021F1E04"
  },
  "IRBI": {
   "type_palette": "0x0209FBF0",
@@ -88,7 +112,11 @@
   "packed_chars": "0x0209E7E4",
   "timezone_light": "0x0209DE90",
   "machine_moves": "0x0209EA20",
-  "script_ranges": "0x02170098"
+  "script_ranges": "0x02170098",
+  "type_chart": "0x021F037C",
+  "move_handlers": "0x021F2F30",
+  "ability_handlers": "0x021F0D74",
+  "item_handlers": "0x021F1DA4"
  },
  "IRAI": {
   "type_palette": "0x0209FC08",
@@ -101,7 +129,11 @@
   "packed_chars": "0x0209E7FC",
   "timezone_light": "0x0209DEA8",
   "machine_moves": "0x0209EA38",
-  "script_ranges": "0x021700B8"
+  "script_ranges": "0x021700B8",
+  "type_chart": "0x021F039C",
+  "move_handlers": "0x021F2F50",
+  "ability_handlers": "0x021F0D94",
+  "item_handlers": "0x021F1DC4"
  },
  "IRBS": {
   "type_palette": "0x0209FCA0",
@@ -114,7 +146,11 @@
   "packed_chars": "0x0209E834",
   "timezone_light": "0x0209DEE0",
   "machine_moves": "0x0209EA70",
-  "script_ranges": "0x02170158"
+  "script_ranges": "0x02170158",
+  "type_chart": "0x021F043C",
+  "move_handlers": "0x021F2FF0",
+  "ability_handlers": "0x021F0E34",
+  "item_handlers": "0x021F1E64"
  },
  "IRAS": {
   "type_palette": "0x0209FCB8",
@@ -127,7 +163,11 @@
   "packed_chars": "0x0209E84C",
   "timezone_light": "0x0209DEF8",
   "machine_moves": "0x0209EA88",
-  "script_ranges": "0x02170158"
+  "script_ranges": "0x02170158",
+  "type_chart": "0x021F043C",
+  "move_handlers": "0x021F2FF0",
+  "ability_handlers": "0x021F0E34",
+  "item_handlers": "0x021F1E64"
  },
  "IRBJ": {
   "type_palette": "0x0209F950",
@@ -139,7 +179,11 @@
   "cursor_tile": "0x0209E774",
   "timezone_light": "0x0209DE1C",
   "machine_moves": "0x0209E948",
-  "script_ranges": "0x0216FEAC"
+  "script_ranges": "0x0216FEAC",
+  "type_chart": "0x021F01EC",
+  "move_handlers": "0x021F2DA0",
+  "ability_handlers": "0x021F0BE4",
+  "item_handlers": "0x021F1C14"
  },
  "IRAJ": {
   "type_palette": "0x0209F968",
@@ -151,6 +195,10 @@
   "cursor_tile": "0x0209E78C",
   "timezone_light": "0x0209DE34",
   "machine_moves": "0x0209E960",
-  "script_ranges": "0x0216FECC"
+  "script_ranges": "0x0216FECC",
+  "type_chart": "0x021F020C",
+  "move_handlers": "0x021F2DC0",
+  "ability_handlers": "0x021F0C04",
+  "item_handlers": "0x021F1C34"
  }
 }

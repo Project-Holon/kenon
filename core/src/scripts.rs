@@ -1217,6 +1217,40 @@ pub fn resolve_stats(bridge: &Bridge) -> Result<ResolveStats, Error> {
     Ok(stats)
 }
 
+/// Where the scripts of member `file` of a/0/5/7 name an item as a literal
+/// operand (the item of AddItem, opcode 181), as byte offsets in that file.
+/// An item set through a work variable is not listed: item balls and
+/// hidden items are (crate::fielditems).
+pub fn item_literals(bridge: &Bridge, file: u16) -> Result<Vec<usize>, Error> {
+    let mut ctx = Ctx::new(bridge, 0)?;
+    let mut sites = HashMap::new();
+    for index in 0..ctx.count(file) {
+        let Some(start) = ctx.entry(file, index) else {
+            continue;
+        };
+        let loc = Loc {
+            file,
+            bank: 0,
+            index,
+        };
+        let mut acc = Acc {
+            sites: Some(std::mem::take(&mut sites)),
+            ..Acc::default()
+        };
+        let mut seen = Seen::default();
+        ctx.walk(&loc, start, 0, &mut acc, &mut seen, State::default());
+        sites = acc.sites.take().unwrap_or_default();
+    }
+    let mut out: Vec<usize> = sites
+        .into_iter()
+        .filter(|((cat, f, ..), o)| *cat == Cat::Item && *f == file && matches!(o, Opnd::Lit(_)))
+        .map(|((_, _, pc, n), _)| pc + 2 + n)
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    Ok(out)
+}
+
 fn event_file(bridge: &Bridge, zone: usize) -> Result<Vec<u8>, Error> {
     let zones = crate::world::zones(bridge)?;
     let z = zones

@@ -32,6 +32,15 @@ TABLES = [
     ("timezone_light", None, 0x0209DF10, 20, None, 0),
     ("machine_moves", None, 0x0209EAA0, 202, None, 0),
     ("script_ranges", 10, 0x021701A8, 460, None, 0),
+    # Battle (overlay 93): the type chart, 17 x 17 effectiveness bytes
+    # (gBtlCalcTypeAffinityTable), and the handler registries that give
+    # moves, abilities and held items their coded effects: rows of
+    # {u16 id, u16 pad, u32 handler getter} (gWazaHandlerRegistry,
+    # gAbilityHandlerRegistry, gItemHandlerRegistry).
+    ("type_chart", 93, 0x021F047C, 17 * 17, None, 0),
+    ("move_handlers", 93, 0x021F3030, 0x102 * 8, None, 0),
+    ("ability_handlers", 93, 0x021F0E74, 0x9E * 8, None, 0),
+    ("item_handlers", 93, 0x021F1EA4, 0xAC * 8, None, 0),
 ]
 
 # game code: extraction folder in the aletheia checkout
