@@ -16,6 +16,7 @@
   import BattleHandler from "../lib/BattleHandler.svelte";
   import MoveAnim from "../lib/MoveAnim.svelte";
   import SpeciesForms from "../lib/SpeciesForms.svelte";
+  import SpeciesPictures from "../lib/SpeciesPictures.svelte";
   import RegionalDex from "../lib/RegionalDex.svelte";
   import MoveUsers from "../lib/MoveUsers.svelte";
   import ItemUsers from "../lib/ItemUsers.svelte";
@@ -414,6 +415,7 @@
   const TEXT_TAB = -1;
   const MACHINE_TAB = -2;
   const FORMS_TAB = -3;
+  const PICTURES_TAB = -4;
   const speciesTabs = $derived(tables[0] === "species" && only === undefined && !single);
   const tabList = $derived.by((): [number, string][] => {
     const list: [number, string][] = allSections.map((s, i) => [i, sectionLabel(s)]);
@@ -424,6 +426,7 @@
     // Forms are for the mod's own Pokemon (and their form entries).
     const own = current !== null && (speciesNew.includes(current) || Object.values(speciesForms).some((v) => v.includes(current!)));
     list.push([FORMS_TAB, own ? "Forms and cry" : "Cry"]);
+    list.push([PICTURES_TAB, "Pictures"]);
     return list;
   });
   // Moves and items: the editor's parts as tabs (data, battle code, uses).
@@ -1040,6 +1043,9 @@
             <MoveAnim id={current} {version} {readOnly} {onSaved} />
           {/if}
         </div>
+      {/if}
+      {#if speciesTabs && activeTab === PICTURES_TAB && current !== null}
+        <SpeciesPictures slot={current} {version} />
       {/if}
       {#if speciesTabs && activeTab === FORMS_TAB && current !== null}
         <SpeciesForms

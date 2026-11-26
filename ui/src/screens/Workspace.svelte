@@ -213,7 +213,7 @@
   <main class="content">
     {#key `${current.id}/${start}/${reverts}`}
       {#if current.kind === "graphics"}
-        <GraphicsBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
+        <GraphicsBrowser archive={current.archive} {start} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "interface"}
         <InterfaceView screen={interfaceScreen} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "sound"}

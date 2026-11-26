@@ -26,10 +26,18 @@
 
   let {
     archive,
+    start,
     readOnly,
     version,
     onSaved,
-  }: { archive: number | null; readOnly: boolean; version: number; onSaved: () => void } = $props();
+  }: {
+    archive: number | null;
+    /// The sheet member to open first (a link from another screen).
+    start?: number;
+    readOnly: boolean;
+    version: number;
+    onSaved: () => void;
+  } = $props();
 
   // One picture of the list: a named sheet when the archive's layout is
   // known (names read from the ROM), else a bare member.
@@ -56,6 +64,7 @@
   let list = $state<MemberInfo[]>([]);
   let items = $state<Item[]>([]);
   let selected = $state<Item | null>(null);
+  let listEl = $state<VirtualList<Item> | undefined>(undefined);
   let palette = $state<number | null>(null);
   let filter = $state("");
   let error = $state<string | null>(null);
@@ -164,7 +173,12 @@
               offset: 0,
             }));
       if (!named) items = [...screenItems, ...items];
-      if (items[0]) choose(items[0], false);
+      const first = (start !== undefined && items.find((i) => i.chr === start)) || items[0];
+      if (first) {
+        choose(first, false);
+        // A link's picture: scrolled into view once the list draws.
+        if (start !== undefined) setTimeout(() => listEl?.reveal(items.indexOf(first)));
+      }
       loaded = true;
     } catch (e) {
       if (mine === loadId) error = String(e);
@@ -301,7 +315,7 @@
       bind:value={filter}
       onkeydown={(e) => e.key === "Escape" && (filter = "")}
     />
-    <VirtualList items={shown} height={54} key={(i) => i.key} label="Pictures">
+    <VirtualList bind:this={listEl} items={shown} height={54} key={(i) => i.key} label="Pictures">
       {#snippet row(item)}
         <button class="row-item sheet" role="option" aria-selected={item === selected} onclick={() => choose(item)} oncontextmenu={(e) => menuFor(e, item)}>
           <span class="thumb"><Thumb src={thumb(item)} /></span>
