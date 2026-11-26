@@ -843,11 +843,28 @@ fn preview_move(
         };
         if status.is_some_and(|s| !s.success()) {
             let msg = if said.is_empty() { last } else { said };
-            let msg = msg.trim_start_matches("eidos: ").to_string();
+            let msg = preview_message(&msg);
             let _ = app.emit("preview-ended", msg);
         }
     });
     Ok(())
+}
+
+/// eidos's refusal without the program and flag names: "eidos:
+/// --preview-move: no move 9999 (...)" becomes "No move 9999 (...)".
+fn preview_message(line: &str) -> String {
+    let rest = line.trim().trim_start_matches("eidos:").trim_start();
+    if rest.starts_with("--preview-move needs a save") {
+        return "Start a game in eidos once first. The preview needs a save.".into();
+    }
+    let rest = ["--preview-move", "--preview-species"]
+        .iter()
+        .find_map(|f| rest.strip_prefix(f))
+        .map_or(rest, |r| r.trim_start_matches(':').trim_start());
+    let mut c = rest.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }
 
 /// The mod's handler rows for a table: id to {base, keys}.
