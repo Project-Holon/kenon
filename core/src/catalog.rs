@@ -69,6 +69,29 @@ pub fn archives(bridge: &Bridge) -> Vec<ArchiveInfo> {
         .collect()
 }
 
+/// A name for each member of a 3D archive: its first texture's name
+/// ("batt_stage01"), or "" when it holds none. Read from the texture
+/// headers only; listed once per game and edit.
+pub fn texture_set_names(bridge: &Bridge, arc: u16) -> Result<Arc<Vec<String>>, Error> {
+    bridge.cached(&format!("texture-names/{arc}"), || {
+        let count = members(bridge, arc)?.len();
+        Ok((0..count)
+            .map(|index| {
+                bridge
+                    .member(Member { arc, index })
+                    .ok()
+                    .and_then(|bytes| {
+                        crate::g3d::find_tex0(&bytes).into_iter().find_map(|b| {
+                            crate::g3d::Tex0::parse(b)
+                                .and_then(|t| t.textures.first().map(|x| x.name.clone()))
+                        })
+                    })
+                    .unwrap_or_default()
+            })
+            .collect())
+    })
+}
+
 /// The members of one archive, listed once per game and edit.
 pub fn members(bridge: &Bridge, arc: u16) -> Result<Arc<Vec<MemberInfo>>, Error> {
     bridge.cached(&format!("members/{arc}"), || {
@@ -724,14 +747,13 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
             .map_or(0, |m| m + 1),
     );
     let added: Vec<usize> = crate::species_add::added(bridge);
-    // New Pokemon's icon palettes: the mod's rows (eidos table
-    // icon_palette), else the game's nibble table.
-    let palette_rows = project
-        .map(|p| p.table_rows("icon_palette"))
-        .unwrap_or_default();
+    // Icon palettes: species_add::icon_palette (the mod's eidos rows, else
+    // the game's nibble table).
     let code = bridge.code();
     let species = bank(70);
     let name = |n: usize| match n {
+        // Entry 0 is the game's "?" picture shown when no Pokemon is set.
+        0 => "Placeholder".to_string(),
         650 => "Egg".to_string(),
         651 => "Manaphy Egg".to_string(),
         n => species
@@ -753,15 +775,7 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
                     n += 1;
                     continue;
                 }
-                let nibble = match palette_rows.get(&n).and_then(|r| r.first()) {
-                    Some(&v) => v as u8,
-                    None => code
-                        .and_then(|c| {
-                            let (image, at) = c.table_at("icon_palette")?;
-                            c.read(image, at + n as u32, 1)
-                        })
-                        .map_or(0, |b| b[0]),
-                };
+                let nibble = crate::species_add::icon_palette(bridge, n);
                 out.push(NamedSheet {
                     label: name(n),
                     chr: 7 + 2 * n,

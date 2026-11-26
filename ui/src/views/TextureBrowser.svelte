@@ -30,7 +30,13 @@
   let error = $state<string | null>(null);
   let ready = $state(false);
 
+  // Each set named by its first texture ("batt_stage01"); a set without
+  // textures keeps "Model 12".
+  let setNames = $state<string[]>([]);
   onMount(async () => {
+    invoke<string[]>("texture_set_names", { archive })
+      .then((n) => (setNames = n))
+      .catch(() => {});
     try {
       const members = await once(`count/${archive}`, () => invoke<{ index: number }[]>("members", { arc: archive }));
       count = members.length;
@@ -109,7 +115,8 @@
     <VirtualList items={sets} height={34} key={(i) => i} label="Texture sets">
       {#snippet row(i)}
         <button class="row-item" aria-current={i === current} onclick={() => open(i)} oncontextmenu={(e) => setMenu(e, i)}>
-          <span class="label">{noun} {i}</span>
+          <span class="snum muted">{i}</span>
+          <span class="label">{setNames[i] || `${noun} ${i}`}</span>
         </button>
       {/snippet}
       {#snippet empty()}
@@ -122,7 +129,7 @@
     <div class="head">
       <input
         class="search"
-        placeholder="Search {textures.length} textures"
+        placeholder="Search {textures.length} texture{textures.length === 1 ? '' : 's'}"
         aria-label="Search textures"
         bind:value={filter}
         onkeydown={(e) => e.key === "Escape" && filter && ((filter = ""), e.stopPropagation())}
@@ -154,8 +161,27 @@
 <style>
   .textures {
     display: grid;
-    grid-template-columns: 12rem minmax(0, 1fr);
+    grid-template-columns: 15rem minmax(0, 1fr);
     height: 100%;
+  }
+  /* A set row: its number, then its name. */
+  .sets :global(.row-item) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .snum {
+    flex: none;
+    width: 2rem;
+    text-align: right;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .sets .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .sets {
     display: flex;
@@ -201,7 +227,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
     align-content: start;
     gap: 0.5rem;
     padding: 1rem;
@@ -214,16 +240,16 @@
     padding: 0.5rem;
   }
   .pic {
-    width: 96px;
-    height: 96px;
+    width: 144px;
+    height: 144px;
     display: grid;
     place-items: center;
     background: repeating-conic-gradient(var(--stage-check) 0 25%, var(--stage) 0 50%) 0 0 / 12px 12px;
     border-radius: 4px;
   }
   .pic :global(img) {
-    width: 96px;
-    height: 96px;
+    width: 144px;
+    height: 144px;
     object-fit: contain;
     image-rendering: pixelated;
   }

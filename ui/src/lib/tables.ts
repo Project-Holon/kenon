@@ -13,6 +13,10 @@ export interface Value {
   inferred: boolean;
   /// Starts a new row of fields (a group).
   rowStart: boolean;
+  /// The heading it is shown under; "Advanced" is shown closed.
+  group: string | null;
+  /// The game stores value / scale (a price / 10); shown as value x scale.
+  scale: number | null;
   note: string | null;
 }
 

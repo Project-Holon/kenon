@@ -139,7 +139,7 @@
     {/if}
     <div class="spacer"></div>
     {#if !readOnly && tab === "general"}
-      <button class="quiet" disabled={!dirty || busy} onclick={() => (form = { ...original })}>Undo</button>
+      <button class="quiet" disabled={!dirty || busy} onclick={() => (form = { ...original })}>Discard</button>
       <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
     {/if}
   </header>

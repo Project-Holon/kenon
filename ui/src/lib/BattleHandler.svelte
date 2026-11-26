@@ -9,6 +9,7 @@
   import { enumValues } from "./tables";
   import { play } from "./sfx";
   import { toast } from "morphe/menu.svelte";
+  import { useParts } from "./parts.svelte";
 
   let {
     table,
@@ -124,20 +125,34 @@
     if (free) parts = [...parts, editOf({ base: free.i, keys: {} })];
   }
 
-  async function save() {
+  async function save(quiet = false) {
     saving = true;
     try {
       await invoke("set_handler", { table, id, row: current.length ? current : null });
       rows = await invoke<Record<string, Part[]>>("handler_rows", { table });
-      play("save");
       onSaved();
-      toast(`Saved what ${names[id] ?? "it"} does in battle`);
+      if (!quiet) {
+        play("save");
+        toast(`Saved what ${names[id] ?? "it"} does in battle`);
+      }
     } catch (e) {
+      if (quiet) throw e;
       toast(String(e));
     } finally {
       saving = false;
     }
   }
+
+  // Inside an entry screen, the screen's Save and Discard cover this panel.
+  const entryParts = useParts();
+  $effect(() => {
+    if (!entryParts || readOnly) return;
+    return entryParts.register("battle", {
+      dirty: () => dirty,
+      save: () => save(true),
+      discard: () => reset(),
+    });
+  });
 
   // Plain words for keys and values (eidos sdk/battle_handlers.h).
   const KEY_LABEL: Record<string, string> = {
@@ -199,19 +214,33 @@
   /// Whether base b cannot go in place `at`: already picked elsewhere, or it
   /// shares a work slot with another pick.
   function blocked(b: number, at: number) {
+    // A base whose own line joins several bases cannot be joined again
+    // (eidos refuses it).
+    if (b !== id && (rows[String(b)]?.length ?? 0) > 1) return true;
     const slots = entryOf(b)?.work ?? [];
     return parts.some((p, j) => j !== at && (p.base === b || (entryOf(p.base)?.work ?? []).some((s) => slots.includes(s))));
   }
+  // Number boxes in reading order: what changes, then by how much and how
+  // often.
+  const KEY_ORDER = ["stat", "stages", "status", "type", "weather", "chance", "ratio", "hp"];
+  const keyRank = (k: string) => {
+    const [name, n] = k.split(".");
+    const r = KEY_ORDER.indexOf(name);
+    return (r < 0 ? KEY_ORDER.length : r) * 10 + Number(n ?? 1);
+  };
+  const orderedKeys = (e: Entry) => Object.keys(e.keys).sort((a, b) => keyRank(a) - keyRank(b));
+  /// eidos takes up to four bases on one line.
+  const MAX_BASES = 4;
   const nameOf = (b: number) => (b === id && !added ? `Itself (${names[id] ?? id})` : (names[b] ?? String(b)));
 </script>
 
 <div class="window block handler">
   <div class="top">
     <h3>In battle</h3>
-    {#if !readOnly && params}
+    {#if !readOnly && params && !entryParts}
       <div class="acts">
         {#if dirty}<button class="quiet" onclick={reset} disabled={saving}>Discard</button>{/if}
-        <button class="primary" onclick={save} disabled={!dirty || saving}>{saving ? "Saving..." : "Save"}</button>
+        <button class="primary" onclick={() => save()} disabled={!dirty || saving}>{saving ? "Saving..." : "Save"}</button>
       </div>
     {/if}
   </div>
@@ -224,7 +253,7 @@
       <label class="field works">
         <span class="name">Works like</span>
         <select value="" disabled={readOnly} onchange={(e) => e.currentTarget.value !== "" && (parts = [editOf({ base: Number(e.currentTarget.value), keys: {} })])}>
-          <option value="">Nothing (no battle effect)</option>
+          <option value="">None (no battle effect)</option>
           {#each bases as b}<option value={String(b.i)}>{b.name}{adjustable(b.i) ? " (numbers)" : ""}</option>{/each}
         </select>
       </label>
@@ -243,12 +272,12 @@
             </select>
           </label>
           {#if !readOnly && (parts.length > 1 || added)}
-            <button class="quiet" onclick={() => setBase(i, null)} title="Stop working like this one">Remove</button>
+            <button class="quiet" onclick={() => setBase(i, null)} title="Remove this effect">Remove</button>
           {/if}
         </div>
         {#if e && Object.keys(e.keys).length}
           <div class="grid">
-            {#each Object.keys(e.keys) as k}
+            {#each orderedKeys(e) as k}
               <label class="field">
                 <span class="name">{keyLabel(e, k)}</span>
                 {#if numeric(k)}
@@ -273,26 +302,26 @@
             {/each}
           </div>
         {:else}
-          <p class="muted note">{p.base === id ? "Its" : `${names[p.base] ?? p.base}'s`} battle code has no numbers that can be changed here.</p>
+          <p class="muted note">{p.base === id ? "Its" : `${names[p.base] ?? p.base}'s`} handler has no editable parameters.</p>
         {/if}
         {#if e?.notes.length}
           <p class="muted note">
-            {e.notes.length === 1 ? "One more number" : `${e.notes.length} more numbers`} in this code {e.notes.length === 1 ? "is" : "are"} worked
-            out during the battle and cannot be changed.
+            {e.notes.length === 1 ? "One additional parameter is" : `${e.notes.length} additional parameters are`} computed at runtime
+            and cannot be edited.
           </p>
         {/if}
       </div>
     {/each}
-    {#if multi && parts.length && !readOnly}
-      <button class="quiet add" onclick={addPart}>Also works like...</button>
+    {#if multi && parts.length && parts.length < MAX_BASES && !readOnly}
+      <button class="quiet add" onclick={addPart}>Add handler...</button>
     {/if}
     {#if parts.some((p) => p.base !== id)}
       <p class="muted note">
-        Effects the game checks by the other {table === "abilities" ? "ability" : table === "moves" ? "move" : "item"}'s own number
-        elsewhere do not come with it.{#if parts.length > 1} When two do the same thing, both run in this order.{/if}
+        Checks for the source {table === "abilities" ? "ability" : table === "moves" ? "move" : "item"}'s ID
+        elsewhere in the game are not included.{#if parts.length > 1} Overlapping effects all run, in this order.{/if}
       </p>
     {/if}
-    <p class="muted note small">Works in eidos 0.2.8 and later.</p>
+    <p class="muted note small">Requires eidos 0.2.8 or later.</p>
   {/if}
 </div>
 

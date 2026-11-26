@@ -507,20 +507,16 @@ pub fn move_users(bridge: &Bridge, mv: u16) -> Result<MoveUsers, Error> {
 /// The move of each TM/HM slot (TM01..TM95, HM01..HM06), from the ARM9
 /// table `machine_moves` (arm9/file_util.c FILE_UTIL_GetMachineMove).
 pub fn machine_moves(bridge: &Bridge) -> Result<Vec<u16>, Error> {
-    let code = bridge
-        .code()
-        .ok_or_else(|| Error::Missing("the game's code is not loaded".into()))?;
-    let t = code
-        .table("machine_moves", 101 * 2)
-        .ok_or_else(|| Error::Missing("the TM table is not known for this cartridge".into()))?;
-    Ok((0..101).filter_map(|i| u16_at(t, i * 2)).collect())
+    // The mod's machine_moves.txt over the game's table.
+    crate::machines::moves(bridge)
 }
 
 /// The TM/HM slot (0..100: TM01..TM95, then HM01..HM06) that teaches a move.
 fn machine_slot(bridge: &Bridge, mv: u16) -> Option<usize> {
-    let code = bridge.code()?;
-    let t = code.table("machine_moves", 101 * 2)?;
-    (0..101).find(|&i| u16_at(t, i * 2) == Some(mv))
+    crate::machines::moves(bridge)
+        .ok()?
+        .iter()
+        .position(|&m| m == mv)
 }
 
 /// Trainers whose party names `id` of enum `kind` ("move" or "item").

@@ -12,7 +12,7 @@
  "tables": [
   {
    "id": "species",
-   "label": "Pokemon stats (personal data)",
+   "label": "Stats",
    "archive": 16,
    "path": "a/0/1/6",
    "members": "one member per species or form record: 0 is a 56-byte sentinel, 1..649 species, 650..667 extra form records, 668 is the form table (not a record)",
@@ -28,45 +28,51 @@
    "fields": [
     {
      "name": "baseHp",
-     "label": "Base HP",
+     "label": "HP",
      "offset": 0,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Base stats"
     },
     {
      "name": "baseAttack",
-     "label": "Base Attack",
+     "label": "Attack",
      "offset": 1,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Base stats"
     },
     {
      "name": "baseDefense",
-     "label": "Base Defense",
+     "label": "Defense",
      "offset": 2,
      "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "baseSpeed",
-     "label": "Base Speed",
-     "offset": 3,
-     "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Base stats"
     },
     {
      "name": "baseSpAttack",
-     "label": "Base Sp. Atk",
+     "label": "Sp. Atk",
      "offset": 4,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Base stats"
     },
     {
      "name": "baseSpDefense",
-     "label": "Base Sp. Def",
+     "label": "Sp. Def",
      "offset": 5,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Base stats"
+    },
+    {
+     "name": "baseSpeed",
+     "label": "Speed",
+     "offset": 3,
+     "type": "u8",
+     "confidence": "verified",
+     "group": "Base stats"
     },
     {
      "name": "type1",
@@ -75,7 +81,7 @@
      "type": "u8",
      "enum": "type",
      "confidence": "verified",
-     "note": "type id; see enum type"
+     "group": "Types and abilities"
     },
     {
      "name": "type2",
@@ -84,171 +90,8 @@
      "type": "u8",
      "enum": "type",
      "confidence": "verified",
-     "note": "equal to type1 for a mono-type species"
-    },
-    {
-     "name": "catchRate",
-     "label": "Catch rate",
-     "offset": 8,
-     "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "evoStage",
-     "label": "Evolution stage",
-     "offset": 9,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "1, 2 or 3 in its line, counting baby Pokemon (Pichu 1, Pikachu 2, Raichu 3). No code of Black and White reads it."
-    },
-    {
-     "name": "evHp",
-     "label": "EV yield HP",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 0,
-     "width": 2,
-     "confidence": "verified",
-     "note": "0..3"
-    },
-    {
-     "name": "evAttack",
-     "label": "EV yield Attack",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 2,
-     "width": 2,
-     "confidence": "verified"
-    },
-    {
-     "name": "evDefense",
-     "label": "EV yield Defense",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 4,
-     "width": 2,
-     "confidence": "verified"
-    },
-    {
-     "name": "evSpeed",
-     "label": "EV yield Speed",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 6,
-     "width": 2,
-     "confidence": "verified"
-    },
-    {
-     "name": "evSpAttack",
-     "label": "EV yield Sp. Atk",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 8,
-     "width": 2,
-     "confidence": "verified"
-    },
-    {
-     "name": "evSpDefense",
-     "label": "EV yield Sp. Def",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 10,
-     "width": 2,
-     "confidence": "verified"
-    },
-    {
-     "name": "yieldFlag",
-     "label": "Sprite stays still",
-     "offset": 10,
-     "type": "bits",
-     "size": 2,
-     "bit": 12,
-     "width": 1,
-     "confidence": "verified",
-     "note": "Set on Diglett and Dugtrio: their sprite is not moved or tilted in the summary, the Musical and the trade (p_sta_sub.c:468, sta_act_poke.c:499)."
-    },
-    {
-     "name": "heldItemCommon",
-     "label": "Wild held item (common)",
-     "offset": 12,
-     "type": "u16",
-     "enum": "item",
-     "confidence": "verified",
-     "note": "50% (60% with Compound Eyes). If it equals the rare item the Pokemon always holds it (field_encount.c RollHeldItem)."
-    },
-    {
-     "name": "heldItemRare",
-     "label": "Wild held item (rare)",
-     "offset": 14,
-     "type": "u16",
-     "enum": "item",
-     "confidence": "verified",
-     "note": "5% (20% with Compound Eyes)."
-    },
-    {
-     "name": "heldItemDream",
-     "label": "Wild held item (shaking grass)",
-     "offset": 16,
-     "type": "u16",
-     "enum": "item",
-     "confidence": "verified",
-     "note": "Only in shaking grass: 1% (5% with Compound Eyes)."
-    },
-    {
-     "name": "genderRatio",
-     "label": "Gender ratio",
-     "offset": 18,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "female threshold out of 254: 0 always male, 254 always female, 255 genderless (31 = 12.5 percent female, 127 = 50 percent)",
-     "enum": "genderRatio"
-    },
-    {
-     "name": "eggCycles",
-     "label": "Egg cycles",
-     "offset": 19,
-     "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "baseFriendship",
-     "label": "Base friendship",
-     "offset": 20,
-     "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "growthRate",
-     "label": "Growth rate",
-     "offset": 21,
-     "type": "u8",
-     "enum": "growthRate",
-     "confidence": "verified",
-     "note": "enum growthRate"
-    },
-    {
-     "name": "eggGroup1",
-     "label": "Egg group 1",
-     "offset": 22,
-     "type": "u8",
-     "enum": "eggGroup",
-     "confidence": "verified",
-     "note": "enum eggGroup"
-    },
-    {
-     "name": "eggGroup2",
-     "label": "Egg group 2",
-     "offset": 23,
-     "type": "u8",
-     "enum": "eggGroup",
-     "confidence": "verified",
-     "note": "enum eggGroup"
+     "note": "Same as Type 1 for a single-type Pokemon.",
+     "group": "Types and abilities"
     },
     {
      "name": "ability1",
@@ -257,7 +100,7 @@
      "type": "u8",
      "enum": "ability",
      "confidence": "verified",
-     "note": "ability id; 0 = none"
+     "group": "Types and abilities"
     },
     {
      "name": "ability2",
@@ -266,7 +109,7 @@
      "type": "u8",
      "enum": "ability",
      "confidence": "verified",
-     "note": "ability id; 0 = none"
+     "group": "Types and abilities"
     },
     {
      "name": "hiddenAbility",
@@ -275,47 +118,186 @@
      "type": "u8",
      "enum": "ability",
      "confidence": "verified",
-     "note": "ability id; 0 = none"
+     "group": "Types and abilities"
     },
     {
-     "name": "escapeRate",
-     "label": "Safari flee rate (unused)",
-     "offset": 27,
+     "name": "catchRate",
+     "label": "Catch rate",
+     "offset": 8,
      "type": "u8",
      "confidence": "verified",
-     "note": "Values 0, 60, 90, 120, 150; Black and White never read it.",
-     "readonly": true
+     "group": "Training"
     },
     {
-     "name": "formStatsIndex",
-     "label": "Forms: first form record",
-     "offset": 28,
+     "name": "baseExp",
+     "label": "Base experience",
+     "offset": 34,
      "type": "u16",
      "confidence": "verified",
-     "note": "member index of this species' first extra form record; form n (n >= 1) lives at formStatsIndex + n - 1 (poke_personal.c 'species-to-form resolver'); 0 = none",
-     "readonly": true
+     "group": "Training"
     },
     {
-     "name": "formSpriteIndex",
-     "label": "Forms: first form sprite",
-     "offset": 30,
-     "type": "u16",
-     "confidence": "verified",
-     "note": "base for the form's sprite blocks: battle sprite block 652 + formSpriteIndex + form - 1, icon member (formSpriteIndex + form - 1) * 2 + 1311, icon palette index formSpriteIndex + form + 651",
-     "readonly": true
-    },
-    {
-     "name": "formCount",
-     "label": "Number of forms",
-     "offset": 32,
+     "name": "baseFriendship",
+     "label": "Base friendship",
+     "offset": 20,
      "type": "u8",
      "confidence": "verified",
-     "note": "number of forms including the base form",
-     "readonly": true
+     "group": "Training"
+    },
+    {
+     "name": "growthRate",
+     "label": "Growth rate",
+     "offset": 21,
+     "type": "u8",
+     "enum": "growthRate",
+     "confidence": "verified",
+     "group": "Training"
+    },
+    {
+     "name": "evoStage",
+     "label": "Evolution stage",
+     "offset": 9,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "1 to 3 in its line counting baby forms; unused by Black and White.",
+     "group": "Training"
+    },
+    {
+     "name": "evHp",
+     "label": "HP",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 2,
+     "confidence": "verified",
+     "note": "0 to 3.",
+     "group": "EV yield"
+    },
+    {
+     "name": "evAttack",
+     "label": "Attack",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 2,
+     "width": 2,
+     "confidence": "verified",
+     "group": "EV yield"
+    },
+    {
+     "name": "evDefense",
+     "label": "Defense",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 4,
+     "width": 2,
+     "confidence": "verified",
+     "group": "EV yield"
+    },
+    {
+     "name": "evSpAttack",
+     "label": "Sp. Atk",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 8,
+     "width": 2,
+     "confidence": "verified",
+     "group": "EV yield"
+    },
+    {
+     "name": "evSpDefense",
+     "label": "Sp. Def",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 10,
+     "width": 2,
+     "confidence": "verified",
+     "group": "EV yield"
+    },
+    {
+     "name": "evSpeed",
+     "label": "Speed",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 6,
+     "width": 2,
+     "confidence": "verified",
+     "group": "EV yield"
+    },
+    {
+     "name": "heldItemCommon",
+     "label": "Common",
+     "offset": 12,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "note": "50% (60% with Compound Eyes), or 100% if it matches the rare item.",
+     "group": "Wild held items"
+    },
+    {
+     "name": "heldItemRare",
+     "label": "Rare",
+     "offset": 14,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "note": "5% (20% with Compound Eyes).",
+     "group": "Wild held items"
+    },
+    {
+     "name": "heldItemDream",
+     "label": "Shaking grass",
+     "offset": 16,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "note": "1% in shaking grass (5% with Compound Eyes).",
+     "group": "Wild held items"
+    },
+    {
+     "name": "genderRatio",
+     "label": "Gender ratio",
+     "offset": 18,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "Female threshold out of 254: 0 male only, 254 female only, 255 genderless (31 = 12.5%, 127 = 50%).",
+     "enum": "genderRatio",
+     "group": "Breeding"
+    },
+    {
+     "name": "eggGroup1",
+     "label": "Egg group 1",
+     "offset": 22,
+     "type": "u8",
+     "enum": "eggGroup",
+     "confidence": "verified",
+     "group": "Breeding"
+    },
+    {
+     "name": "eggGroup2",
+     "label": "Egg group 2",
+     "offset": 23,
+     "type": "u8",
+     "enum": "eggGroup",
+     "confidence": "verified",
+     "group": "Breeding"
+    },
+    {
+     "name": "eggCycles",
+     "label": "Egg cycles",
+     "offset": 19,
+     "type": "u8",
+     "confidence": "verified",
+     "group": "Breeding"
     },
     {
      "name": "color",
-     "label": "Dex color",
+     "label": "Color",
      "offset": 33,
      "type": "bits",
      "size": 1,
@@ -323,18 +305,47 @@
      "width": 6,
      "enum": "dexColor",
      "confidence": "verified",
-     "note": "enum dexColor"
+     "group": "Pokedex"
+    },
+    {
+     "name": "height",
+     "label": "Height (0.1 m)",
+     "offset": 36,
+     "type": "u16",
+     "confidence": "verified",
+     "group": "Pokedex"
+    },
+    {
+     "name": "weight",
+     "label": "Weight (0.1 kg)",
+     "offset": 38,
+     "type": "u16",
+     "confidence": "verified",
+     "group": "Pokedex"
+    },
+    {
+     "name": "yieldFlag",
+     "label": "Stays still",
+     "offset": 10,
+     "type": "bits",
+     "size": 2,
+     "bit": 12,
+     "width": 1,
+     "confidence": "verified",
+     "note": "Keeps the sprite still in the summary, Musical, and trade (used by Diglett and Dugtrio).",
+     "group": "Sprite"
     },
     {
      "name": "spriteFlip",
-     "label": "Never mirror the sprite",
+     "label": "Never mirror",
      "offset": 33,
      "type": "bits",
      "size": 1,
      "bit": 6,
      "width": 1,
      "confidence": "verified",
-     "note": "The Pokedex and the Musical show it unmirrored (zukan_info.c:1176)."
+     "note": "Shown unmirrored in the Pokedex and Musical.",
+     "group": "Sprite"
     },
     {
      "name": "formSpriteShared",
@@ -345,64 +356,81 @@
      "bit": 7,
      "width": 1,
      "confidence": "verified",
-     "note": "1 = the extra forms are palette-only (pokegra.c palOnlyForms): no separate sprite block",
-     "readonly": true
+     "note": "Extra forms reuse the base sprite with different palettes.",
+     "readonly": true,
+     "group": "Sprite"
     },
     {
-     "name": "baseExp",
-     "label": "Base experience",
-     "offset": 34,
-     "type": "u16",
+     "name": "formCount",
+     "label": "Form count",
+     "offset": 32,
+     "type": "u8",
      "confidence": "verified",
-     "note": "named baseExp in the decompilation; Bulbasaur 64 verified in data"
+     "note": "Includes the base form.",
+     "readonly": true,
+     "group": "Advanced"
     },
     {
-     "name": "height",
-     "label": "Height (0.1 m)",
-     "offset": 36,
+     "name": "formStatsIndex",
+     "label": "First form stats",
+     "offset": 28,
      "type": "u16",
      "confidence": "verified",
-     "note": "decimetres; Bulbasaur 7 verified in data"
+     "note": "Index of the first extra form's stats record (form n is at base + n - 1; 0 = none).",
+     "readonly": true,
+     "group": "Advanced"
     },
     {
-     "name": "weight",
-     "label": "Weight (0.1 kg)",
-     "offset": 38,
+     "name": "formSpriteIndex",
+     "label": "First form sprite",
+     "offset": 30,
      "type": "u16",
      "confidence": "verified",
-     "note": "hectograms; Bulbasaur 69 verified in data"
+     "note": "Base index for extra form battle sprites (652 + base + form - 1), icons ((base + form - 1) * 2 + 1311), and icon palettes (base + form + 651).",
+     "readonly": true,
+     "group": "Advanced"
+    },
+    {
+     "name": "escapeRate",
+     "label": "Safari flee rate",
+     "offset": 27,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "Unused by Black and White (values 0, 60, 90, 120, or 150).",
+     "readonly": true,
+     "group": "Advanced"
     },
     {
      "name": "tmFlags1",
-     "label": "TM/HM flags 1",
+     "label": "TMs 01-32",
      "offset": 40,
      "type": "u32",
      "confidence": "verified",
-     "note": "machine bits 0..31: TM01..TM32. Bit layout over the four words: bits 0..91 TM01..92, bits 92..94 TM93..95, bits 95..100 HM01..06 (verified against file_util.c GetId and a species with known TM and HM sets)"
+     "note": "Bits 0 to 31: TM01 to TM32."
     },
     {
      "name": "tmFlags2",
-     "label": "TM/HM flags 2",
+     "label": "TMs 33-64",
      "offset": 44,
      "type": "u32",
      "confidence": "verified",
-     "note": "machine bits 32..63"
+     "note": "Bits 32 to 63: TM33 to TM64."
     },
     {
      "name": "tmFlags3",
-     "label": "TM/HM flags 3",
+     "label": "TMs 65-95, HM01",
      "offset": 48,
      "type": "u32",
      "confidence": "verified",
-     "note": "machine bits 64..95"
+     "note": "Bits 64 to 95: TM65 to TM95 and HM01 (bit 95)."
     },
     {
      "name": "tmFlags4",
-     "label": "TM/HM flags 4",
+     "label": "HMs 02-06",
      "offset": 52,
      "type": "u32",
      "confidence": "verified",
-     "note": "machine bits 96..100 (HM bits 95..100 straddle words 3 and 4)"
+     "note": "Bits 96 to 100: HM02 to HM06 (HM01 is in the previous field)."
     },
     {
      "name": "tutorFlags",
@@ -410,7 +438,7 @@
      "offset": 56,
      "type": "u32",
      "confidence": "verified",
-     "note": "Bit 0 Grass Pledge, 1 Fire Pledge, 2 Water Pledge, 3 Frenzy Plant, 4 Blast Burn, 5 Hydro Cannon, 6 Draco Meteor (scrcmd_pokemon_fld.c GetTutorMoveId; Draco Meteor from the data)."
+     "note": "Bits 0 to 6: Grass Pledge, Fire Pledge, Water Pledge, Frenzy Plant, Blast Burn, Hydro Cannon, Draco Meteor."
     }
    ]
   },
@@ -440,41 +468,24 @@
      "type": "u8",
      "enum": "type",
      "confidence": "verified",
-     "note": "enum type"
-    },
-    {
-     "name": "effectCategory",
-     "label": "Kind of effect",
-     "offset": 1,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "Picks how the battle runs the move (btl_server_flow.c, the switch in ProcMoveExecute). Moves of kind 13 have their own battle code.",
-     "enum": "moveCategory"
+     "group": "Basics"
     },
     {
      "name": "damageClass",
-     "label": "Damage class",
+     "label": "Category",
      "offset": 2,
      "type": "u8",
      "enum": "damageClass",
      "confidence": "verified",
-     "note": "0 status, 1 physical, 2 special"
-    },
-    {
-     "name": "target",
-     "label": "Targets",
-     "offset": 20,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "targeting mode, 14 values (0 selected target, 4 all adjacent, 5 all foes, 7 user ...); no enum fixed",
-     "enum": "moveTarget"
+     "group": "Basics"
     },
     {
      "name": "power",
      "label": "Power",
      "offset": 3,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Basics"
     },
     {
      "name": "accuracy",
@@ -482,21 +493,43 @@
      "offset": 4,
      "type": "u8",
      "confidence": "verified",
-     "note": "101 is stored for 'never misses' and read back as 100 (waza_tool.c getter case 4)"
+     "note": "101 means never misses (read as 100).",
+     "group": "Basics"
     },
     {
      "name": "pp",
      "label": "PP",
      "offset": 5,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Basics"
     },
     {
      "name": "priority",
      "label": "Priority",
      "offset": 6,
      "type": "s8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Basics"
+    },
+    {
+     "name": "target",
+     "label": "Target",
+     "offset": 20,
+     "type": "u8",
+     "confidence": "verified",
+     "enum": "moveTarget",
+     "group": "Basics"
+    },
+    {
+     "name": "effectCategory",
+     "label": "Effect category",
+     "offset": 1,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "Controls how the move runs in battle; category 13 uses move-specific code.",
+     "enum": "moveCategory",
+     "group": "Basics"
     },
     {
      "name": "hitMin",
@@ -507,7 +540,7 @@
      "bit": 0,
      "width": 4,
      "confidence": "verified",
-     "note": "multi-hit minimum"
+     "group": "Hits"
     },
     {
      "name": "hitMax",
@@ -518,22 +551,24 @@
      "bit": 4,
      "width": 4,
      "confidence": "verified",
-     "note": "multi-hit maximum"
+     "group": "Hits"
     },
     {
      "name": "criticalRank",
-     "label": "Critical-hit rank",
+     "label": "Critical-hit stage",
      "offset": 14,
      "type": "u8",
      "confidence": "verified",
-     "note": "6 is read back as 0 (always-crit marker handled elsewhere)"
+     "note": "6 marks an always-crit move and reads back as 0.",
+     "group": "Hits"
     },
     {
      "name": "shrinkPercent",
-     "label": "Flinch chance %",
+     "label": "Flinch chance (%)",
      "offset": 15,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Hits"
     },
     {
      "name": "drainRatio",
@@ -541,7 +576,8 @@
      "offset": 18,
      "type": "s8",
      "confidence": "verified",
-     "note": "positive = drain, negative = recoil (getter cases 25 and 30)"
+     "note": "Positive drains HP, negative deals recoil.",
+     "group": "HP"
     },
     {
      "name": "healRatio",
@@ -549,24 +585,8 @@
      "offset": 19,
      "type": "s8",
      "confidence": "verified",
-     "note": "positive = heal, negative = damage to the user (cases 26 and 31)"
-    },
-    {
-     "name": "effectSequence",
-     "label": "Effect id (for the trainer AI)",
-     "offset": 16,
-     "type": "u16",
-     "confidence": "verified",
-     "note": "The trainer AI picks its tactics by this id (TR_AI_CmdSwitchOnMoveEffectSequence, tr_ai.c). Give a new move the id of a move that works the same way."
-    },
-    {
-     "name": "pad1E",
-     "label": "Marker (always 0x5353)",
-     "offset": 30,
-     "type": "u16",
-     "readonly": true,
-     "confidence": "verified",
-     "note": "constant in all 560 records; keep unchanged"
+     "note": "Positive heals the user, negative damages the user.",
+     "group": "HP"
     },
     {
      "name": "sickId",
@@ -574,117 +594,118 @@
      "offset": 8,
      "type": "u16",
      "confidence": "verified",
-     "note": "The condition the move causes (BTL_SICK_* ids of the battle).",
      "enum": "condition",
-     "rowStart": true
+     "group": "Condition"
     },
     {
      "name": "sickPercent",
-     "label": "Condition chance %",
+     "label": "Chance (%)",
      "offset": 10,
      "type": "u8",
      "confidence": "verified",
-     "note": "0 on a status move means it always happens."
+     "note": "0 always triggers on a status move.",
+     "group": "Condition"
     },
     {
      "name": "sickContType",
-     "label": "Condition lasts",
+     "label": "Duration",
      "offset": 11,
      "type": "u8",
      "confidence": "verified",
-     "note": "BTL_CALC_MakeSickContFromSpec: until cured, a random number of turns from min to max, while the user stays in, or both.",
+     "note": "Until cured, random turns from min to max, while the user stays in, or both.",
      "enum": "conditionDuration",
-     "rowStart": true
+     "group": "Condition"
     },
     {
      "name": "sickTurnMin",
-     "label": "Condition turns (min)",
+     "label": "Min turns",
      "offset": 12,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Condition"
     },
     {
      "name": "sickTurnMax",
-     "label": "Condition turns (max)",
+     "label": "Max turns",
      "offset": 13,
      "type": "u8",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Condition"
     },
     {
      "name": "rankType1",
-     "label": "Stat change 1: stat",
+     "label": "Stat 1",
      "offset": 21,
      "type": "u8",
      "confidence": "verified",
-     "note": "which stat stage 1 changes",
      "enum": "statStage",
-     "rowStart": true
+     "group": "Stat changes"
     },
     {
      "name": "rankValue1",
-     "label": "Stat change 1: stages",
+     "label": "Stages 1",
      "offset": 24,
      "type": "s8",
      "confidence": "verified",
-     "note": "Negative lowers."
+     "group": "Stat changes"
     },
     {
      "name": "rankPercent1",
-     "label": "Stat change 1: chance %",
+     "label": "Chance 1 (%)",
      "offset": 27,
      "type": "u8",
      "confidence": "verified",
-     "note": "0 means always."
+     "group": "Stat changes"
     },
     {
      "name": "rankType2",
-     "label": "Stat change 2: stat",
+     "label": "Stat 2",
      "offset": 22,
      "type": "u8",
      "confidence": "verified",
      "enum": "statStage",
-     "rowStart": true
+     "group": "Stat changes"
     },
     {
      "name": "rankValue2",
-     "label": "Stat change 2: stages",
+     "label": "Stages 2",
      "offset": 25,
      "type": "s8",
      "confidence": "verified",
-     "note": "Negative lowers."
+     "group": "Stat changes"
     },
     {
      "name": "rankPercent2",
-     "label": "Stat change 2: chance %",
+     "label": "Chance 2 (%)",
      "offset": 28,
      "type": "u8",
      "confidence": "verified",
-     "note": "0 means always."
+     "group": "Stat changes"
     },
     {
      "name": "rankType3",
-     "label": "Stat change 3: stat",
+     "label": "Stat 3",
      "offset": 23,
      "type": "u8",
      "confidence": "verified",
      "enum": "statStage",
-     "rowStart": true
+     "group": "Stat changes"
     },
     {
      "name": "rankValue3",
-     "label": "Stat change 3: stages",
+     "label": "Stages 3",
      "offset": 26,
      "type": "s8",
      "confidence": "verified",
-     "note": "Negative lowers."
+     "group": "Stat changes"
     },
     {
      "name": "rankPercent3",
-     "label": "Stat change 3: chance %",
+     "label": "Chance 3 (%)",
      "offset": 29,
      "type": "u8",
      "confidence": "verified",
-     "note": "0 means always."
+     "group": "Stat changes"
     },
     {
      "name": "flagContact",
@@ -695,73 +716,53 @@
      "bit": 0,
      "width": 1,
      "confidence": "verified",
-     "note": "Read by contact abilities and items (Static, Rough Skin, Rocky Helmet...)."
-    },
-    {
-     "name": "flagCharge",
-     "label": "Two-turn move",
-     "offset": 32,
-     "type": "bits",
-     "size": 4,
-     "bit": 1,
-     "width": 1,
-     "confidence": "verified",
-     "note": "Charges first (Solar Beam, Fly); Sleep Talk refuses it (hand_waza.c:9179)."
-    },
-    {
-     "name": "flagRecharge",
-     "label": "User must recharge after",
-     "offset": 32,
-     "type": "bits",
-     "size": 4,
-     "bit": 2,
-     "width": 1,
-     "confidence": "verified",
-     "note": "Hyper Beam style (btl_server_flow.c:3779)."
+     "note": "Triggers contact abilities and items like Static, Rough Skin, and Rocky Helmet.",
+     "group": "Behavior"
     },
     {
      "name": "flagProtect",
-     "label": "Protect stops it",
+     "label": "Blocked by Protect",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 3,
      "width": 1,
      "confidence": "verified",
-     "note": "bit 3"
+     "group": "Behavior"
     },
     {
      "name": "flagMagicCoat",
-     "label": "Magic Coat reflects it",
+     "label": "Reflected by Magic Coat",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 4,
      "width": 1,
      "confidence": "verified",
-     "note": "Also Magic Bounce (hand_common.c:178)."
+     "note": "Also reflected by Magic Bounce.",
+     "group": "Behavior"
     },
     {
      "name": "flagSnatch",
-     "label": "Snatch steals it",
+     "label": "Stolen by Snatch",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 5,
      "width": 1,
      "confidence": "verified",
-     "note": "hand_waza.c:5384."
+     "group": "Behavior"
     },
     {
      "name": "flagMirrorMove",
-     "label": "Mirror Move copies it",
+     "label": "Copied by Mirror Move",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 6,
      "width": 1,
      "confidence": "verified",
-     "note": "hand_waza.c:9221."
+     "group": "Behavior"
     },
     {
      "name": "flagPunch",
@@ -772,7 +773,8 @@
      "bit": 7,
      "width": 1,
      "confidence": "verified",
-     "note": "Iron Fist powers it up 1.2x (hand_tokusei.c:2294)."
+     "note": "Boosted 1.2x by Iron Fist.",
+     "group": "Behavior"
     },
     {
      "name": "flagSound",
@@ -783,40 +785,68 @@
      "bit": 8,
      "width": 1,
      "confidence": "verified",
-     "note": "Soundproof blocks it (hand_tokusei.c:3872)."
+     "note": "Blocked by Soundproof.",
+     "group": "Behavior"
+    },
+    {
+     "name": "flagCharge",
+     "label": "Two-turn move",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 1,
+     "width": 1,
+     "confidence": "verified",
+     "note": "Charges first (like Solar Beam or Fly) and cannot be picked by Sleep Talk.",
+     "group": "Behavior"
+    },
+    {
+     "name": "flagRecharge",
+     "label": "Requires recharge",
+     "offset": 32,
+     "type": "bits",
+     "size": 4,
+     "bit": 2,
+     "width": 1,
+     "confidence": "verified",
+     "note": "Skips the next turn like Hyper Beam.",
+     "group": "Behavior"
     },
     {
      "name": "flagGravity",
-     "label": "Fails under Gravity",
+     "label": "Blocked by Gravity",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 9,
      "width": 1,
      "confidence": "verified",
-     "note": "Cannot be chosen while Gravity is up (btl_client.c:2836)."
+     "note": "Cannot be selected while Gravity is active.",
+     "group": "Behavior"
     },
     {
      "name": "flagDefrost",
-     "label": "Thaws the user",
+     "label": "Thaws user",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 10,
      "width": 1,
      "confidence": "verified",
-     "note": "A frozen user thaws out to use it (BTL_SERVER_FLOW_CheckFreezeThaw)."
+     "note": "A frozen user thaws out to use it.",
+     "group": "Behavior"
     },
     {
      "name": "flagDistanceTriple",
-     "label": "Reaches far in triple battles",
+     "label": "Hits anywhere in triples",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 11,
      "width": 1,
      "confidence": "verified",
-     "note": "Can hit any Pokemon, not just neighbours (btl_calc.c:740)."
+     "note": "Reaches non-adjacent targets in triple battles.",
+     "group": "Behavior"
     },
     {
      "name": "flagHeal",
@@ -827,18 +857,38 @@
      "bit": 12,
      "width": 1,
      "confidence": "verified",
-     "note": "Heal Block stops it (btl_client.c:2820)."
+     "note": "Blocked by Heal Block.",
+     "group": "Behavior"
     },
     {
      "name": "flagIgnoreSubstitute",
-     "label": "Goes through Substitute",
+     "label": "Bypasses Substitute",
      "offset": 32,
      "type": "bits",
      "size": 4,
      "bit": 13,
      "width": 1,
      "confidence": "verified",
-     "note": "btl_server_flow.c:3844."
+     "group": "Behavior"
+    },
+    {
+     "name": "effectSequence",
+     "label": "Trainer AI effect",
+     "offset": 16,
+     "type": "u16",
+     "confidence": "verified",
+     "note": "Tells the trainer AI how to use this move; copy a similar move's value for new moves.",
+     "group": "Advanced"
+    },
+    {
+     "name": "pad1E",
+     "label": "End marker",
+     "offset": 30,
+     "type": "u16",
+     "readonly": true,
+     "confidence": "verified",
+     "note": "Always 0x5353 in every move record; keep unchanged.",
+     "group": "Advanced"
     }
    ]
   },
@@ -863,93 +913,13 @@
    "fields": [
     {
      "name": "price",
-     "label": "Price / 10",
+     "label": "Price",
      "offset": 0,
      "type": "u16",
      "confidence": "verified",
-     "note": "the game reads price * 10 (file_util.c GetItemRecordParam case 0); sell price is half"
-    },
-    {
-     "name": "holdEffect",
-     "label": "Hold effect (works like)",
-     "offset": 2,
-     "type": "u8",
-     "confidence": "verified",
-     "enum": "holdEffect",
-     "note": "What it does when held, by the game items that share it; the effect's strength is the parameter beside it."
-    },
-    {
-     "name": "holdEffectParam",
-     "label": "Hold effect strength",
-     "offset": 3,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "Its meaning depends on the effect: HP restored, the % of a boost, a chance..."
-    },
-    {
-     "name": "pluckEffect",
-     "label": "Pluck / Bug Bite effect (works like)",
-     "offset": 4,
-     "type": "u8",
-     "confidence": "verified",
-     "enum": "pluckEffect",
-     "note": "What eating it with Pluck or Bug Bite does, by the berries that share it."
-    },
-    {
-     "name": "flingEffect",
-     "label": "Fling effect (works like)",
-     "offset": 5,
-     "type": "u8",
-     "confidence": "verified",
-     "enum": "flingEffect",
-     "note": "What it does to the target when flung, by the items that share it."
-    },
-    {
-     "name": "flingPower",
-     "label": "Fling power",
-     "offset": 6,
-     "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "naturalGiftPower",
-     "label": "Natural Gift power",
-     "offset": 7,
-     "type": "u8",
-     "confidence": "verified"
-    },
-    {
-     "name": "naturalGiftType",
-     "label": "Natural Gift type",
-     "offset": 8,
-     "type": "bits",
-     "size": 2,
-     "bit": 0,
-     "width": 5,
-     "enum": "naturalGiftType",
-     "confidence": "verified",
-     "note": "type id; 31 = none"
-    },
-    {
-     "name": "preventToss",
-     "label": "Cannot be tossed",
-     "offset": 8,
-     "type": "bits",
-     "size": 2,
-     "bit": 5,
-     "width": 1,
-     "confidence": "verified"
-    },
-    {
-     "name": "selectable",
-     "label": "Can be registered (Y button)",
-     "offset": 8,
-     "type": "bits",
-     "size": 2,
-     "bit": 6,
-     "width": 1,
-     "confidence": "verified",
-     "note": "Set on 7 key items, the Bicycle among them."
+     "note": "Shop price; sells for half. Steps of 10.",
+     "scale": 10,
+     "group": "Basics"
     },
     {
      "name": "pocket",
@@ -961,7 +931,78 @@
      "width": 4,
      "enum": "itemPocket",
      "confidence": "verified",
-     "note": "enum itemPocket (verified: 0 items/balls, 1 medicine, 2 machines, 3 berries, 4 key items)"
+     "group": "Basics"
+    },
+    {
+     "name": "partyUse",
+     "label": "Item kind",
+     "offset": 13,
+     "type": "u8",
+     "confidence": "verified",
+     "enum": "itemKind",
+     "note": "Sorts the bag; Poke Ball marks a ball.",
+     "group": "Basics"
+    },
+    {
+     "name": "partyUseOption",
+     "label": "Sort order",
+     "offset": 15,
+     "type": "u8",
+     "confidence": "verified",
+     "group": "Basics"
+    },
+    {
+     "name": "fieldUse",
+     "label": "Field use",
+     "offset": 10,
+     "type": "u8",
+     "confidence": "verified",
+     "enum": "itemFieldUse",
+     "group": "Basics"
+    },
+    {
+     "name": "battleUse",
+     "label": "Battle use",
+     "offset": 11,
+     "type": "u8",
+     "confidence": "verified",
+     "enum": "itemBattleUse",
+     "group": "Basics"
+    },
+    {
+     "name": "preventToss",
+     "label": "Cannot be tossed",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 5,
+     "width": 1,
+     "confidence": "verified",
+     "group": "Bag"
+    },
+    {
+     "name": "selectable",
+     "label": "Registerable (Y button)",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 6,
+     "width": 1,
+     "confidence": "verified",
+     "note": "Set on 7 key items including the Bicycle.",
+     "group": "Bag"
+    },
+    {
+     "name": "partyUseParam",
+     "label": "Consumable",
+     "offset": 14,
+     "type": "bits",
+     "confidence": "verified",
+     "note": "Consumed permanently when used in battle (Berries and Berry Juice).",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "group": "Bag"
     },
     {
      "name": "battlePocketBalls",
@@ -972,7 +1013,7 @@
      "bit": 11,
      "width": 1,
      "confidence": "verified",
-     "note": "Which battle bag pocket shows it. The battle bag also reads a/2/3/2, the same bits."
+     "group": "Bag"
     },
     {
      "name": "battlePocketItems",
@@ -983,425 +1024,93 @@
      "bit": 12,
      "width": 1,
      "confidence": "verified",
-     "note": "Which battle bag pocket shows it. The battle bag also reads a/2/3/2, the same bits."
+     "group": "Bag"
     },
     {
      "name": "battlePocketHp",
-     "label": "Battle bag: HP and PP",
+     "label": "Battle bag: HP/PP",
      "offset": 8,
      "type": "bits",
      "size": 2,
      "bit": 13,
      "width": 1,
      "confidence": "verified",
-     "note": "Which battle bag pocket shows it. The battle bag also reads a/2/3/2, the same bits."
+     "group": "Bag"
     },
     {
      "name": "battlePocketStatus",
-     "label": "Battle bag: status healers",
+     "label": "Battle bag: status",
      "offset": 8,
      "type": "bits",
      "size": 2,
      "bit": 14,
      "width": 1,
      "confidence": "verified",
-     "note": "Which battle bag pocket shows it. The battle bag also reads a/2/3/2, the same bits."
+     "group": "Bag"
     },
     {
-     "name": "fieldUse",
-     "label": "Use outside battle",
-     "offset": 10,
+     "name": "holdEffect",
+     "label": "Effect",
+     "offset": 2,
      "type": "u8",
      "confidence": "verified",
-     "note": "What using it from the bag does (getter case 6).",
-     "enum": "itemFieldUse"
+     "enum": "holdEffect",
+     "group": "Held effect"
     },
     {
-     "name": "battleUse",
-     "label": "Use in battle",
-     "offset": 11,
+     "name": "holdEffectParam",
+     "label": "Effect strength",
+     "offset": 3,
      "type": "u8",
      "confidence": "verified",
-     "note": "getter case 7; b_bag_main.c:1744 checks 3.",
-     "enum": "itemBattleUse"
+     "note": "Meaning depends on the effect (HP restored, boost %, or chance).",
+     "group": "Held effect"
     },
     {
-     "name": "extType",
-     "label": "Has a medicine block",
-     "offset": 12,
+     "name": "flingPower",
+     "label": "Fling power",
+     "offset": 6,
      "type": "u8",
      "confidence": "verified",
-     "note": "1 = the 18-byte medicine block at 0x10 applies; 0 = byte 0x10 is a plain value",
-     "readonly": true
+     "group": "Fling, Natural Gift, Pluck"
     },
     {
-     "name": "partyUse",
-     "label": "Kind",
-     "offset": 13,
+     "name": "flingEffect",
+     "label": "Fling effect",
+     "offset": 5,
      "type": "u8",
      "confidence": "verified",
-     "enum": "itemKind",
-     "note": "Sorts the bag (itemmenu.c:2056) and marks Poke Balls (4, scrcmd_proc.c:1660)."
+     "enum": "flingEffect",
+     "group": "Fling, Natural Gift, Pluck"
     },
     {
-     "name": "partyUseParam",
-     "label": "Used up",
-     "offset": 14,
-     "type": "bits",
-     "confidence": "verified",
-     "note": "Not given back after a battle and removed when used in one (btl_main.c:3478, btl_server_flow.c:5387). Berries and Berry Juice.",
-     "size": 1,
-     "bit": 0,
-     "width": 1
-    },
-    {
-     "name": "partyUseOption",
-     "label": "Bag sort order",
-     "offset": 15,
+     "name": "naturalGiftPower",
+     "label": "Natural Gift power",
+     "offset": 7,
      "type": "u8",
      "confidence": "verified",
-     "note": "Its place among items of the same kind (itemmenu.c:2057)."
+     "group": "Fling, Natural Gift, Pluck"
     },
     {
-     "name": "extByte",
-     "label": "Number within its group",
-     "offset": 16,
+     "name": "naturalGiftType",
+     "label": "Natural Gift type",
+     "offset": 8,
+     "type": "bits",
+     "size": 2,
+     "bit": 0,
+     "width": 5,
+     "enum": "naturalGiftType",
+     "confidence": "verified",
+     "group": "Fling, Natural Gift, Pluck"
+    },
+    {
+     "name": "pluckEffect",
+     "label": "Pluck / Bug Bite",
+     "offset": 4,
      "type": "u8",
-     "when": {
-      "field": "extType",
-      "equals": 0
-     },
      "confidence": "verified",
-     "note": "Items without a medicine block: which ball (Master 0, Ultra 1...), which mail design, which rod."
-    },
-    {
-     "name": "cureSleep",
-     "label": "Cures sleep",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "curePoison",
-     "label": "Cures poison",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 1,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "cureBurn",
-     "label": "Cures burn",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 2,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "cureFreeze",
-     "label": "Cures freeze",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 3,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "cureParalysis",
-     "label": "Cures paralysis",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "cureConfusion",
-     "label": "Cures confusion",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 5,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "cureInfatuation",
-     "label": "Cures infatuation",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 6,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "guardSpec",
-     "label": "Guard Spec.",
-     "offset": 16,
-     "type": "bits",
-     "size": 1,
-     "bit": 7,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "revive",
-     "label": "Revives",
-     "offset": 17,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "reviveAll",
-     "label": "Revives all",
-     "offset": 17,
-     "type": "bits",
-     "size": 1,
-     "bit": 1,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "levelUp",
-     "label": "Raises level",
-     "offset": 17,
-     "type": "bits",
-     "size": 1,
-     "bit": 2,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "evolve",
-     "label": "Evolution stone effect",
-     "offset": 17,
-     "type": "bits",
-     "size": 1,
-     "bit": 3,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "atkStage",
-     "label": "Raises Attack (stages)",
-     "offset": 17,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Attack."
-    },
-    {
-     "name": "defStage",
-     "label": "Raises Defense (stages)",
-     "offset": 18,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Defend."
-    },
-    {
-     "name": "spAtkStage",
-     "label": "Raises Sp. Atk (stages)",
-     "offset": 18,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Special."
-    },
-    {
-     "name": "spDefStage",
-     "label": "Raises Sp. Def (stages)",
-     "offset": 19,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Sp. Def."
-    },
-    {
-     "name": "speedStage",
-     "label": "Raises Speed (stages)",
-     "offset": 19,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Speed. Byte 19, high half."
-    },
-    {
-     "name": "accStage",
-     "label": "Raises accuracy (stages)",
-     "offset": 20,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 4,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "X Accuracy. Byte 20, low half."
-    },
-    {
-     "name": "critStage",
-     "label": "Raises critical-hit ratio (stages)",
-     "offset": 20,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 2,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "Dire Hit 1, 2 and 3. Byte 20, bits 4-5."
-    },
-    {
-     "name": "ppUp",
-     "label": "PP Up",
-     "offset": 20,
-     "type": "bits",
-     "size": 1,
-     "bit": 6,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "ppUpMax",
-     "label": "PP Max",
-     "offset": 20,
-     "type": "bits",
-     "size": 1,
-     "bit": 7,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "ppRestore",
-     "label": "Restores PP (one move)",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "ppRestoreAll",
-     "label": "Restores PP (all moves)",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 1,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
+     "enum": "pluckEffect",
+     "group": "Fling, Natural Gift, Pluck"
     },
     {
      "name": "hpRestore",
@@ -1415,217 +1124,8 @@
       "field": "extType",
       "equals": 1
      },
-     "confidence": "verified"
-    },
-    {
-     "name": "hpEvUp",
-     "label": "HP EV up",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 3,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "atkEvUp",
-     "label": "Attack EV up",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "defEvUp",
-     "label": "Defense EV up",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 5,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "speedEvUp",
-     "label": "Speed EV up",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 6,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "spAtkEvUp",
-     "label": "Sp. Atk EV up",
-     "offset": 21,
-     "type": "bits",
-     "size": 1,
-     "bit": 7,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "spDefEvUp",
-     "label": "Sp. Def EV up",
-     "offset": 22,
-     "type": "bits",
-     "size": 1,
-     "bit": 0,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "friendshipLow",
-     "label": "Changes friendship (below 100)",
-     "offset": 22,
-     "type": "bits",
-     "size": 1,
-     "bit": 2,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
      "confidence": "verified",
-     "note": "Uses the friendship change for a Pokemon whose friendship is below 100."
-    },
-    {
-     "name": "friendshipMid",
-     "label": "Changes friendship (100 to 199)",
-     "offset": 22,
-     "type": "bits",
-     "size": 1,
-     "bit": 3,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "Uses the friendship change for a Pokemon whose friendship is 100 to 199."
-    },
-    {
-     "name": "friendshipHigh",
-     "label": "Changes friendship (200 and up)",
-     "offset": 22,
-     "type": "bits",
-     "size": 1,
-     "bit": 4,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "Uses the friendship change for a Pokemon whose friendship is 200 and up."
-    },
-    {
-     "name": "evLimitIgnore",
-     "label": "Raises EVs past the vitamin limit",
-     "offset": 22,
-     "type": "bits",
-     "size": 1,
-     "bit": 1,
-     "width": 1,
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified",
-     "note": "Set on the Wings only: the EV change works past 100, where vitamins stop."
-    },
-    {
-     "name": "hpEv",
-     "label": "HP EV change",
-     "offset": 23,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "atkEv",
-     "label": "Attack EV change",
-     "offset": 24,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "defEv",
-     "label": "Defense EV change",
-     "offset": 25,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "speedEv",
-     "label": "Speed EV change",
-     "offset": 26,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "spAtkEv",
-     "label": "Sp. Atk EV change",
-     "offset": 27,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
-    },
-    {
-     "name": "spDefEv",
-     "label": "Sp. Def EV change",
-     "offset": 28,
-     "type": "s8",
-     "when": {
-      "field": "extType",
-      "equals": 1
-     },
-     "confidence": "verified"
+     "group": "Healing"
     },
     {
      "name": "hpRestoreAmount",
@@ -1637,7 +1137,173 @@
       "equals": 1
      },
      "confidence": "verified",
-     "note": "255 = full restore; Potion 20, Super Potion 50, Hyper Potion 200 verified in data"
+     "note": "255 = full restore.",
+     "group": "Healing"
+    },
+    {
+     "name": "revive",
+     "label": "Revives",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "reviveAll",
+     "label": "Revives all",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureSleep",
+     "label": "Cures sleep",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "curePoison",
+     "label": "Cures poison",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureBurn",
+     "label": "Cures burn",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureFreeze",
+     "label": "Cures freeze",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureParalysis",
+     "label": "Cures paralysis",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureConfusion",
+     "label": "Cures confusion",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 5,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "cureInfatuation",
+     "label": "Cures infatuation",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "ppRestore",
+     "label": "Restores one move's PP",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "ppRestoreAll",
+     "label": "Restores all moves' PP",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
     },
     {
      "name": "ppRestoreAmount",
@@ -1648,40 +1314,471 @@
       "field": "extType",
       "equals": 1
      },
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "ppUp",
+     "label": "PP Up",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "ppUpMax",
+     "label": "PP Max",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "levelUp",
+     "label": "Raises level",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "evolve",
+     "label": "Triggers evolution",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Healing"
+    },
+    {
+     "name": "atkStage",
+     "label": "Attack",
+     "offset": 17,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "defStage",
+     "label": "Defense",
+     "offset": 18,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "spAtkStage",
+     "label": "Sp. Atk",
+     "offset": 18,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "spDefStage",
+     "label": "Sp. Def",
+     "offset": 19,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "speedStage",
+     "label": "Speed",
+     "offset": 19,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "accStage",
+     "label": "Accuracy",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 4,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "critStage",
+     "label": "Critical-hit ratio",
+     "offset": 20,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 2,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "note": "Values 1 to 3 (Dire Hit).",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "guardSpec",
+     "label": "Guard Spec.",
+     "offset": 16,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Battle stat boosts"
+    },
+    {
+     "name": "hpEv",
+     "label": "HP change",
+     "offset": 23,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "atkEv",
+     "label": "Attack change",
+     "offset": 24,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "defEv",
+     "label": "Defense change",
+     "offset": 25,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "spAtkEv",
+     "label": "Sp. Atk change",
+     "offset": 27,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "spDefEv",
+     "label": "Sp. Def change",
+     "offset": 28,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "speedEv",
+     "label": "Speed change",
+     "offset": 26,
+     "type": "s8",
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "hpEvUp",
+     "label": "HP up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "atkEvUp",
+     "label": "Attack up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "defEvUp",
+     "label": "Defense up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 5,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "spAtkEvUp",
+     "label": "Sp. Atk up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 7,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "spDefEvUp",
+     "label": "Sp. Def up",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 0,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "speedEvUp",
+     "label": "Speed up",
+     "offset": 21,
+     "type": "bits",
+     "size": 1,
+     "bit": 6,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "EVs"
+    },
+    {
+     "name": "evLimitIgnore",
+     "label": "Ignores the 100 EV cap",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 1,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "note": "Used by the Wings.",
+     "group": "EVs"
     },
     {
      "name": "friendshipDeltaLow",
-     "label": "Friendship delta (low)",
+     "label": "Change (0-99)",
      "offset": 31,
      "type": "s8",
      "when": {
       "field": "extType",
       "equals": 1
      },
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Friendship"
     },
     {
      "name": "friendshipDeltaMid",
-     "label": "Friendship delta (mid)",
+     "label": "Change (100-199)",
      "offset": 32,
      "type": "s8",
      "when": {
       "field": "extType",
       "equals": 1
      },
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Friendship"
     },
     {
      "name": "friendshipDeltaHigh",
-     "label": "Friendship delta (high)",
+     "label": "Change (200+)",
      "offset": 33,
      "type": "s8",
      "when": {
       "field": "extType",
       "equals": 1
      },
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Friendship"
+    },
+    {
+     "name": "friendshipLow",
+     "label": "Apply below 100",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 2,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Friendship"
+    },
+    {
+     "name": "friendshipMid",
+     "label": "Apply 100-199",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 3,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Friendship"
+    },
+    {
+     "name": "friendshipHigh",
+     "label": "Apply 200+",
+     "offset": 22,
+     "type": "bits",
+     "size": 1,
+     "bit": 4,
+     "width": 1,
+     "when": {
+      "field": "extType",
+      "equals": 1
+     },
+     "confidence": "verified",
+     "group": "Friendship"
+    },
+    {
+     "name": "extType",
+     "label": "Uses medicine block",
+     "offset": 12,
+     "type": "u8",
+     "confidence": "verified",
+     "note": "1 uses the 18-byte medicine block; 0 uses a single value instead.",
+     "readonly": true,
+     "group": "Advanced"
+    },
+    {
+     "name": "extByte",
+     "label": "Subtype value",
+     "offset": 16,
+     "type": "u8",
+     "when": {
+      "field": "extType",
+      "equals": 0
+     },
+     "confidence": "verified",
+     "note": "Used when medicine block is 0: ball type (Master 0, Ultra 1...), mail design, or rod.",
+     "group": "Advanced"
     }
    ]
   },
@@ -1715,15 +1812,14 @@
        "type": "u16",
        "enum": "evolutionMethod",
        "confidence": "verified",
-       "note": "enum evolutionMethod; row is unused when species is 0"
+       "note": "Row is unused when target species is 0."
       },
       {
        "name": "param",
        "label": "Parameter",
        "offset": 2,
        "type": "u16",
-       "confidence": "verified",
-       "note": "A level, an item, a move or a Pokemon, by the method."
+       "confidence": "verified"
       },
       {
        "name": "species",
@@ -1732,7 +1828,7 @@
        "type": "u16",
        "enum": "species",
        "confidence": "verified",
-       "note": "species id, 0 = no row"
+       "note": "0 = unused slot."
       }
      ]
     }
@@ -1754,22 +1850,13 @@
    "src": "tpoke_data_types.h (TpokeDataRecord), tpoke_data.c:328, tr_tool.c:146",
    "fields": [
     {
-     "name": "partyType",
-     "label": "Party kind",
-     "offset": 0,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "bit 0 = custom moves, bit 1 = held item (0 plain, 1 moves, 2 item, 3 item and moves); selects the party entry size",
-     "enum": "trainerPartyType"
-    },
-    {
      "name": "trainerClass",
      "label": "Trainer class",
      "offset": 1,
      "type": "u8",
      "enum": "trainerClass",
      "confidence": "verified",
-     "note": "class id, 2..102 in data; indexes the class-name bank, the class graphics table and the gender table (named genderClass in the decompilation)"
+     "group": "Battle"
     },
     {
      "name": "battleFormat",
@@ -1777,8 +1864,17 @@
      "offset": 2,
      "type": "u8",
      "confidence": "verified",
-     "note": "EVENT_TRAINER_IsDoubleBattle tests 1; EVENT_TRAINER_GetBattleType returns it.",
-     "enum": "trainerFormat"
+     "enum": "trainerFormat",
+     "group": "Battle"
+    },
+    {
+     "name": "partyType",
+     "label": "Party format",
+     "offset": 0,
+     "type": "u8",
+     "confidence": "verified",
+     "enum": "trainerPartyType",
+     "group": "Battle"
     },
     {
      "name": "partyCount",
@@ -1786,51 +1882,74 @@
      "offset": 3,
      "type": "u8",
      "confidence": "verified",
-     "note": "1..6"
+     "group": "Battle"
     },
     {
-     "name": "item1",
-     "label": "Bag item 1",
-     "offset": 4,
-     "type": "u16",
-     "enum": "item",
+     "name": "byte11",
+     "label": "Prize money rate",
+     "offset": 17,
+     "type": "u8",
      "confidence": "verified",
-     "note": "AI-usable battle items"
+     "note": "Payout is rate x last Pokemon's level x 4.",
+     "group": "Battle"
     },
     {
-     "name": "item2",
-     "label": "Bag item 2",
-     "offset": 6,
+     "name": "half12",
+     "label": "Post-battle reward",
+     "offset": 18,
      "type": "u16",
+     "confidence": "verified",
+     "note": "Item gifted after winning (e.g. Berries from Rangers and Breeders).",
      "enum": "item",
-     "confidence": "verified"
-    },
-    {
-     "name": "item3",
-     "label": "Bag item 3",
-     "offset": 8,
-     "type": "u16",
-     "enum": "item",
-     "confidence": "verified"
-    },
-    {
-     "name": "item4",
-     "label": "Bag item 4",
-     "offset": 10,
-     "type": "u16",
-     "enum": "item",
-     "confidence": "verified"
+     "group": "Battle"
     },
     {
      "name": "flag10",
-     "label": "Heals you after the battle",
+     "label": "Heals after battle",
      "offset": 16,
      "type": "bits",
      "size": 1,
      "bit": 0,
      "width": 1,
      "confidence": "verified",
-     "note": "Doctors and Nurses (SCRCMD_ClassifyTrainer, kind 1)."
+     "note": "Used by Doctors and Nurses.",
+     "group": "Battle"
+    },
+    {
+     "name": "item1",
+     "label": "Item 1",
+     "offset": 4,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "group": "Battle items"
+    },
+    {
+     "name": "item2",
+     "label": "Item 2",
+     "offset": 6,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "group": "Battle items"
+    },
+    {
+     "name": "item3",
+     "label": "Item 3",
+     "offset": 8,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "group": "Battle items"
+    },
+    {
+     "name": "item4",
+     "label": "Item 4",
+     "offset": 10,
+     "type": "u16",
+     "enum": "item",
+     "confidence": "verified",
+     "group": "Battle items"
     },
     {
      "name": "aiScript1",
@@ -1841,7 +1960,8 @@
      "bit": 0,
      "width": 1,
      "confidence": "verified",
-     "note": "Marks down moves the target is immune to, by type or ability, and status moves that cannot work. (AI script 1, a/1/7/1 member 0.)"
+     "note": "Avoids moves blocked by immunity or status moves that cannot work.",
+     "group": "AI"
     },
     {
      "name": "aiScript2",
@@ -1852,7 +1972,8 @@
      "bit": 1,
      "width": 1,
      "confidence": "verified",
-     "note": "Marks up moves that are super effective or do the most damage. (AI script 2, a/1/7/1 member 1.)"
+     "note": "Favors super-effective and highest-damage moves.",
+     "group": "AI"
     },
     {
      "name": "aiScript3",
@@ -1863,7 +1984,8 @@
      "bit": 2,
      "width": 1,
      "confidence": "verified",
-     "note": "Judges each move by its effect: the long script most strong trainers use. (AI script 3, a/1/7/1 member 2.)"
+     "note": "Evaluates every move's effect; used by most strong trainers.",
+     "group": "AI"
     },
     {
      "name": "aiScript4",
@@ -1874,18 +1996,20 @@
      "bit": 3,
      "width": 1,
      "confidence": "verified",
-     "note": "Prefers stat boosts, stat drops, status and screens on its first turn. (AI script 4, a/1/7/1 member 3.)"
+     "note": "Prefers stat changes, status moves, and screens on turn 1.",
+     "group": "AI"
     },
     {
      "name": "aiScript5",
-     "label": "Damage and HP based",
+     "label": "Damage and HP",
      "offset": 12,
      "type": "bits",
      "size": 4,
      "bit": 4,
      "width": 1,
      "confidence": "verified",
-     "note": "Weighs moves by how much damage they do and how much HP is left. (AI script 5, a/1/7/1 member 4.)"
+     "note": "Weighs moves by damage dealt and remaining HP.",
+     "group": "AI"
     },
     {
      "name": "aiScript6",
@@ -1896,18 +2020,20 @@
      "bit": 5,
      "width": 1,
      "confidence": "verified",
-     "note": "Prefers Fusion Bolt or Fusion Flare against Reshiram or Zekrom on the first turn. (AI script 6, a/1/7/1 member 5.)"
+     "note": "Prefers Fusion Bolt or Fusion Flare against Reshiram or Zekrom on turn 1.",
+     "group": "AI"
     },
     {
      "name": "aiScript7",
-     "label": "Boost then Baton Pass",
+     "label": "Baton Pass setup",
      "offset": 12,
      "type": "bits",
      "size": 4,
      "bit": 6,
      "width": 1,
      "confidence": "verified",
-     "note": "Uses Swords Dance, Dragon Dance, Calm Mind or Nasty Plot, then Baton Pass, when it has a Pokemon to switch to. (AI script 7, a/1/7/1 member 6.)"
+     "note": "Boosts with Swords Dance, Dragon Dance, Calm Mind, or Nasty Plot before Baton Passing.",
+     "group": "AI"
     },
     {
      "name": "aiScript8",
@@ -1918,7 +2044,8 @@
      "bit": 7,
      "width": 1,
      "confidence": "verified",
-     "note": "Thinks about its partner and both foes. Mostly set on double and triple battle trainers. (AI script 8, a/1/7/1 member 7.)"
+     "note": "Considers its partner and both foes; used in double and triple battles.",
+     "group": "AI"
     },
     {
      "name": "aiScript9",
@@ -1929,18 +2056,20 @@
      "bit": 8,
      "width": 1,
      "confidence": "verified",
-     "note": "Marks down moves that do not suit its own or the target's HP. (AI script 9, a/1/7/1 member 8.)"
+     "note": "Avoids moves poorly suited to its own or the target's HP.",
+     "group": "AI"
     },
     {
      "name": "aiScript10",
-     "label": "Weather and field first",
+     "label": "Weather and field",
      "offset": 12,
      "type": "bits",
      "size": 4,
      "bit": 9,
      "width": 1,
      "confidence": "verified",
-     "note": "On the first turn, prefers weather and field moves that are not up yet. (AI script 10, a/1/7/1 member 9.)"
+     "note": "Prefers inactive weather and field moves on turn 1.",
+     "group": "AI"
     },
     {
      "name": "aiScript11",
@@ -1951,18 +2080,20 @@
      "bit": 10,
      "width": 1,
      "confidence": "verified",
-     "note": "Prefers sleep, confusion, poison, Leech Seed, Encore, Spikes and similar. (AI script 11, a/1/7/1 member 10.)"
+     "note": "Prefers sleep, confusion, poison, Leech Seed, Encore and Spikes.",
+     "group": "AI"
     },
     {
      "name": "aiScript12",
-     "label": "Run away (roaming)",
+     "label": "Roaming flee",
      "offset": 12,
      "type": "bits",
      "size": 4,
      "bit": 11,
      "width": 1,
      "confidence": "verified",
-     "note": "Roaming Pokemon logic: runs unless trapped (Shadow Tag, Arena Trap; not if Levitate or Flying). (AI script 12, a/1/7/1 member 11.)"
+     "note": "Flees unless trapped by Shadow Tag or Arena Trap (Arena Trap does not hold Flying or Levitate).",
+     "group": "AI"
     },
     {
      "name": "aiScript13",
@@ -1973,41 +2104,26 @@
      "bit": 12,
      "width": 1,
      "confidence": "verified",
-     "note": "The script is empty: this box does nothing. (AI script 13, a/1/7/1 member 12.)"
+     "note": "Empty script with no effect.",
+     "group": "AI"
     },
     {
      "name": "aiScript14",
-     "label": "Run at low HP",
+     "label": "Flee at low HP",
      "offset": 12,
      "type": "bits",
      "size": 4,
      "bit": 13,
      "width": 1,
      "confidence": "verified",
-     "note": "Runs away at 20% HP or less. (AI script 14, a/1/7/1 member 13.)"
-    },
-    {
-     "name": "byte11",
-     "label": "Prize money rate",
-     "offset": 17,
-     "type": "u8",
-     "confidence": "verified",
-     "note": "Prize = rate x the level of its last Pokemon x 4 (BTL_CALC_CalcTrainerPrizeMoney)."
-    },
-    {
-     "name": "half12",
-     "label": "Item given after the battle",
-     "offset": 18,
-     "type": "u16",
-     "confidence": "verified",
-     "note": "Rangers and Breeders give Berries, others Ultra Balls, Rare Candy, Nuggets... (SCRCMD_ClassifyTrainer kind 2, SCRCMD_GetTrainerBattleParam).",
-     "enum": "item"
+     "note": "Flees at 20% HP or below.",
+     "group": "AI"
     }
    ]
   },
   {
    "id": "zoneHeaders",
-   "label": "Map headers (zones)",
+   "label": "Map headers",
    "archive": 12,
    "path": "a/0/1/2",
    "members": "ONE member (0) holding 427 consecutive 48-byte records; record index = zone id",
@@ -2026,95 +2142,94 @@
     },
     {
      "name": "mapSubType",
-     "label": "Map sub-type",
+     "label": "Map subtype",
      "offset": 1,
      "type": "u8",
      "confidence": "verified"
     },
     {
      "name": "areaId",
-     "label": "Area id",
+     "label": "Area",
      "offset": 2,
      "type": "u16",
      "confidence": "verified",
-     "note": "record index in the area table a/0/1/3 (0..273 in data)"
+     "note": "Area table index (0 to 273)."
     },
     {
      "name": "matrixId",
-     "label": "Matrix id",
+     "label": "Map matrix",
      "offset": 4,
      "type": "u16",
      "confidence": "verified",
-     "note": "member of a/0/0/9 (the map matrix); 0..254 in data"
+     "note": "Map matrix index (0 to 254)."
     },
     {
      "name": "scriptArcId",
-     "label": "Script id",
+     "label": "Script",
      "offset": 6,
      "type": "u16",
      "confidence": "verified",
-     "note": "member of the script archive a/0/5/7"
+     "note": "Index in the script archive."
     },
     {
      "name": "initScriptArcId",
-     "label": "Init script id",
+     "label": "Init script",
      "offset": 8,
      "type": "u16",
      "confidence": "verified",
-     "note": "member of the script archive a/0/5/7"
+     "note": "Index in the script archive."
     },
     {
      "name": "msgArcId",
-     "label": "Message bank id",
+     "label": "Text bank",
      "offset": 10,
      "type": "u16",
      "confidence": "verified",
-     "note": "message file id in a/0/0/3"
+     "note": "Index in the message archive."
     },
     {
      "name": "bgmSpring",
-     "label": "BGM (season 0)",
+     "label": "Spring music",
      "offset": 12,
      "type": "u16",
      "confidence": "verified",
-     "note": "SDAT sequence number (1000..1178 are BGM sequences)"
+     "note": "SDAT sequence number (1000 to 1178 are BGM)."
     },
     {
      "name": "bgmSummer",
-     "label": "BGM (season 1)",
+     "label": "Summer music",
      "offset": 14,
      "type": "u16",
      "confidence": "verified"
     },
     {
      "name": "bgmAutumn",
-     "label": "BGM (season 2)",
+     "label": "Autumn music",
      "offset": 16,
      "type": "u16",
      "confidence": "verified"
     },
     {
      "name": "bgmWinter",
-     "label": "BGM (season 3)",
+     "label": "Winter music",
      "offset": 18,
      "type": "u16",
      "confidence": "verified"
     },
     {
      "name": "encountId",
-     "label": "Wild encounter table",
+     "label": "Wild encounters",
      "offset": 20,
      "type": "u16",
      "confidence": "verified",
-     "note": "member of a/1/2/6; 0xFFFF = none"
+     "note": "65535 (0xFFFF) = none."
     },
     {
      "name": "eventDataId",
      "label": "Event data",
      "offset": 22,
      "type": "u16",
-     "confidence": "verified",
-     "note": "member of a/1/2/5"
+     "confidence": "verified"
     },
     {
      "name": "parentZoneId",
@@ -2132,11 +2247,11 @@
      "bit": 0,
      "width": 10,
      "confidence": "verified",
-     "note": "index into text bank 89"
+     "note": "Entry in text bank 89."
     },
     {
      "name": "placeNameWindow",
-     "label": "Place name window style",
+     "label": "Place name window",
      "offset": 26,
      "type": "bits",
      "size": 2,
@@ -2267,7 +2382,7 @@
      "offset": 36,
      "type": "s32",
      "confidence": "verified",
-     "note": "Where the player starts: a tile on a grid map, a rail position on a rail map (ZONEDATA_GetStartPos, ZONEDATA_GetStartRailPos)."
+     "note": "Tile on a grid map, or rail position on a rail map."
     },
     {
      "name": "posY",
@@ -2303,35 +2418,34 @@
      "offset": 0,
      "type": "u16",
      "confidence": "verified",
-     "note": "0..43 in data"
+     "note": "0 to 43."
     },
     {
      "name": "texSetId",
      "label": "Texture set",
      "offset": 2,
      "type": "u16",
-     "confidence": "verified",
-     "note": "The member of a/0/1/4 whose textures the area's map uses (ZONEDATA_GetAreaTexSetId, fieldmap.c:2137)."
+     "confidence": "verified"
     },
     {
      "name": "itaAnimeId",
-     "label": "Texture animation (ita)",
+     "label": "Texture animation",
      "offset": 4,
      "type": "u8",
      "confidence": "verified",
-     "note": "0xFF = none"
+     "note": "255 (0xFF) = none."
     },
     {
      "name": "itpAnimeId",
-     "label": "Palette animation (itp)",
+     "label": "Palette animation",
      "offset": 5,
      "type": "u8",
      "confidence": "verified",
-     "note": "0xFF = none"
+     "note": "255 (0xFF) = none."
     },
     {
      "name": "innerOuter",
-     "label": "Inside or outside",
+     "label": "Indoor / outdoor",
      "offset": 6,
      "type": "u8",
      "confidence": "verified"
@@ -2379,70 +2493,69 @@
    "fields": [
     {
      "name": "rate0",
-     "label": "Rate: Grass",
+     "label": "Grass rate",
      "offset": 0,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate1",
-     "label": "Rate: Double grass",
+     "label": "Double grass rate",
      "offset": 1,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate2",
-     "label": "Rate: Shaking grass / dust",
+     "label": "Shaking grass rate",
      "offset": 2,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate3",
-     "label": "Rate: Surfing",
+     "label": "Surfing rate",
      "offset": 3,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate4",
-     "label": "Rate: Surf ripples",
+     "label": "Surf ripples rate",
      "offset": 4,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate5",
-     "label": "Rate: Fishing",
+     "label": "Fishing rate",
      "offset": 5,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "rate6",
-     "label": "Rate: Fishing ripples",
+     "label": "Fishing ripples rate",
      "offset": 6,
      "type": "u8",
      "confidence": "verified",
-     "note": "How often this method finds a Pokemon (0 = never)."
+     "note": "0 = never."
     },
     {
      "name": "effectKind",
-     "label": "Shaking grass, dust and ripples",
+     "label": "Shaking spot rate",
      "offset": 7,
      "type": "bits",
      "size": 1,
      "bit": 0,
      "width": 7,
      "confidence": "verified",
-     "note": "How often a spot appears: sEffectEncountSettings (effect_encount.c), {steps, %} = {20, 10}, {20, 10}, {5, 15}.",
      "enum": "shakingSpots"
     }
    ],
@@ -2464,18 +2577,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2495,7 +2608,7 @@
     },
     {
      "name": "doubleGrass",
-     "label": "Double-grass slots",
+     "label": "Double grass slots",
      "offset": 56,
      "count": 12,
      "stride": 4,
@@ -2510,18 +2623,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2541,7 +2654,7 @@
     },
     {
      "name": "shakingGrass",
-     "label": "Shaking-grass slots",
+     "label": "Shaking grass slots",
      "offset": 104,
      "count": 12,
      "stride": 4,
@@ -2556,18 +2669,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2602,18 +2715,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2648,18 +2761,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2694,18 +2807,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2740,18 +2853,18 @@
        "width": 11,
        "enum": "species",
        "confidence": "verified",
-       "note": "species id; 0 = empty slot"
+       "note": "0 = empty slot."
       },
       {
        "name": "form",
-       "label": "Form (31 = random)",
+       "label": "Form",
        "offset": 0,
        "type": "bits",
        "size": 2,
        "bit": 11,
        "width": 5,
        "confidence": "verified",
-       "note": "31 = random form"
+       "note": "31 = random form."
       },
       {
        "name": "minLevel",
@@ -2789,7 +2902,7 @@
     65535,
     65535
    ],
-   "note": "variable length, at most 22 moves plus the terminator pair in the data (buffers are 26 entries); the member length is 4 * (n + 1)",
+   "note": "Up to 25 moves (the game's buffer holds 26 entries with the end marker).",
    "element": {
     "size": 4,
     "fields": [
@@ -2827,7 +2940,6 @@
    },
    "src": "sodateya.c:1304",
    "layout": "countedList",
-   "note": "[u16 count][u16 move * count]; 260 of the 650 members hold moves",
    "header": [
     {
      "name": "count",
@@ -2874,7 +2986,7 @@
     "field": "partyType",
     "mask": 3
    },
-   "note": "entry count is partyCount of the trainer record; every one of the 615 members equals count * stride in the data",
+   "note": "Entry count matches the trainer's party size.",
    "variants": {
     "0": {
      "size": 8,
@@ -2882,11 +2994,11 @@
      "fields": [
       {
        "name": "difficulty",
-       "label": "Strength (IVs)",
+       "label": "IV strength",
        "offset": 0,
        "type": "u8",
        "confidence": "verified",
-       "note": "All six IVs are this x 31 / 255: 0 gives 0, 255 gives 31 (tr_tool.c:223)."
+       "note": "Sets all six IVs to value x 31 / 255 (0 to 31)."
       },
       {
        "offset": 1,
@@ -2898,7 +3010,7 @@
        "width": 4,
        "enum": "trainerMonGender",
        "confidence": "verified",
-       "note": "Moves the personality across the species' gender line (tr_tool.c)."
+       "note": "Adjusts personality value to force the chosen gender."
       },
       {
        "offset": 1,
@@ -2910,7 +3022,7 @@
        "width": 4,
        "enum": "trainerMonAbility",
        "confidence": "verified",
-       "note": "TR_TOOL_FinalizePartyMember: 1 first, 2 second (first when it has none), 3 hidden."
+       "note": "1 = first, 2 = second (falls back to first), 3 = hidden."
       },
       {
        "name": "level",
@@ -2942,11 +3054,11 @@
      "fields": [
       {
        "name": "difficulty",
-       "label": "Strength (IVs)",
+       "label": "IV strength",
        "offset": 0,
        "type": "u8",
        "confidence": "verified",
-       "note": "All six IVs are this x 31 / 255: 0 gives 0, 255 gives 31 (tr_tool.c:223)."
+       "note": "Sets all six IVs to value x 31 / 255 (0 to 31)."
       },
       {
        "offset": 1,
@@ -2958,7 +3070,7 @@
        "width": 4,
        "enum": "trainerMonGender",
        "confidence": "verified",
-       "note": "Moves the personality across the species' gender line (tr_tool.c)."
+       "note": "Adjusts personality value to force the chosen gender."
       },
       {
        "offset": 1,
@@ -2970,7 +3082,7 @@
        "width": 4,
        "enum": "trainerMonAbility",
        "confidence": "verified",
-       "note": "TR_TOOL_FinalizePartyMember: 1 first, 2 second (first when it has none), 3 hidden."
+       "note": "1 = first, 2 = second (falls back to first), 3 = hidden."
       },
       {
        "name": "level",
@@ -3034,11 +3146,11 @@
      "fields": [
       {
        "name": "difficulty",
-       "label": "Strength (IVs)",
+       "label": "IV strength",
        "offset": 0,
        "type": "u8",
        "confidence": "verified",
-       "note": "All six IVs are this x 31 / 255: 0 gives 0, 255 gives 31 (tr_tool.c:223)."
+       "note": "Sets all six IVs to value x 31 / 255 (0 to 31)."
       },
       {
        "offset": 1,
@@ -3050,7 +3162,7 @@
        "width": 4,
        "enum": "trainerMonGender",
        "confidence": "verified",
-       "note": "Moves the personality across the species' gender line (tr_tool.c)."
+       "note": "Adjusts personality value to force the chosen gender."
       },
       {
        "offset": 1,
@@ -3062,7 +3174,7 @@
        "width": 4,
        "enum": "trainerMonAbility",
        "confidence": "verified",
-       "note": "TR_TOOL_FinalizePartyMember: 1 first, 2 second (first when it has none), 3 hidden."
+       "note": "1 = first, 2 = second (falls back to first), 3 = hidden."
       },
       {
        "name": "level",
@@ -3102,11 +3214,11 @@
      "fields": [
       {
        "name": "difficulty",
-       "label": "Strength (IVs)",
+       "label": "IV strength",
        "offset": 0,
        "type": "u8",
        "confidence": "verified",
-       "note": "All six IVs are this x 31 / 255: 0 gives 0, 255 gives 31 (tr_tool.c:223)."
+       "note": "Sets all six IVs to value x 31 / 255 (0 to 31)."
       },
       {
        "offset": 1,
@@ -3118,7 +3230,7 @@
        "width": 4,
        "enum": "trainerMonGender",
        "confidence": "verified",
-       "note": "Moves the personality across the species' gender line (tr_tool.c)."
+       "note": "Adjusts personality value to force the chosen gender."
       },
       {
        "offset": 1,
@@ -3130,7 +3242,7 @@
        "width": 4,
        "enum": "trainerMonAbility",
        "confidence": "verified",
-       "note": "TR_TOOL_FinalizePartyMember: 1 first, 2 second (first when it has none), 3 hidden."
+       "note": "1 = first, 2 = second (falls back to first), 3 = hidden."
       },
       {
        "name": "level",
@@ -3216,8 +3328,7 @@
      "offset": 0,
      "type": "u16",
      "enum": "species",
-     "confidence": "verified",
-     "note": "11-bit species in the game's bitfield"
+     "confidence": "verified"
     },
     {
      "name": "move1",
@@ -3253,11 +3364,11 @@
     },
     {
      "name": "evMask",
-     "label": "EV spread mask",
+     "label": "EV spread",
      "offset": 10,
      "type": "u8",
      "confidence": "verified",
-     "note": "bit per stat that receives the 510 EVs"
+     "note": "One bit per stat splitting the 510 EVs."
     },
     {
      "name": "nature",
@@ -3286,7 +3397,7 @@
   },
   {
    "id": "eventData",
-   "label": "Zone event data",
+   "label": "Map events",
    "archive": 125,
    "path": "a/1/2/5",
    "members": "one member per eventDataId of a zone header (0..426, one zone each); member 427 is a 4-byte sentinel",
@@ -3294,15 +3405,15 @@
    "compressed": false,
    "src": "eventdata_system.c:362 (ReadEventFile), eventdata_system.c:48-148, fldmmdl_types.h:52",
    "layout": "eventFile",
-   "note": "variable length file: header, then four arrays one after the other in the order background events, NPCs, warps, position events; 8 + 20*bg + 36*npc + 20*warp + 22*pos = 4 + trailerOffset in all 428 members; the trailer after the arrays is not decoded. Coordinates are in tiles of the zone map matrix (32 per chunk) except warp x/y/z and the y of triggers and signs, which are 1/16 tile",
+   "note": "Coordinates are in map tiles (32 per chunk), except warp X/Y/Z and trigger/sign Y which use 1/16 tile.",
    "fields": [
     {
      "name": "trailerOffset",
-     "label": "Trailer offset",
+     "label": "Trailer position",
      "offset": 0,
      "type": "u32",
      "confidence": "verified",
-     "note": "offset of the trailer counted from offset 4 of the file; 4 + this value is the end of the four arrays"
+     "note": "Bytes from offset 4 to the start of the trailing data."
     },
     {
      "name": "bgCount",
@@ -3896,203 +4007,29 @@
    "src": "fld_trade.c (FldTradeData, FLD_TRADE_Create, FLD_TRADE_BuildPokemon)",
    "fields": [
     {
-     "name": "tradeId",
-     "label": "Trade id",
-     "offset": 0,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "the record's own trade id, as the script passes it"
-    },
-    {
      "name": "species",
-     "label": "Pokemon given",
+     "label": "Species",
      "offset": 4,
      "type": "u32",
      "enum": "species",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Offered Pokemon"
     },
     {
      "name": "form",
      "label": "Form",
      "offset": 8,
      "type": "u32",
-     "confidence": "verified"
+     "confidence": "verified",
+     "group": "Offered Pokemon"
     },
     {
      "name": "level",
      "label": "Level",
      "offset": 12,
      "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "ivHp",
-     "label": "IV HP",
-     "offset": 16,
-     "type": "u32",
      "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "ivAttack",
-     "label": "IV Attack",
-     "offset": 20,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "ivDefense",
-     "label": "IV Defense",
-     "offset": 24,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "ivSpeed",
-     "label": "IV Speed",
-     "offset": 28,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "ivSpAtk",
-     "label": "IV Sp. Atk",
-     "offset": 32,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "ivSpDef",
-     "label": "IV Sp. Def",
-     "offset": 36,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "0 to 31"
-    },
-    {
-     "name": "abilitySlot",
-     "label": "Ability",
-     "offset": 40,
-     "type": "u32",
-     "enum": "tradeAbilitySlot",
-     "confidence": "verified",
-     "note": "which of the species' three abilities"
-    },
-    {
-     "name": "nature",
-     "label": "Nature",
-     "offset": 44,
-     "type": "u32",
-     "enum": "nature",
-     "confidence": "verified"
-    },
-    {
-     "name": "gender",
-     "label": "Gender",
-     "offset": 48,
-     "type": "u32",
-     "enum": "tradeGender",
-     "confidence": "verified",
-     "note": "Its personality is made for this gender (POKE_TOOL_AdjustPersonalRnd); 2 for a species with a fixed gender."
-    },
-    {
-     "name": "otId",
-     "label": "OT id",
-     "offset": 52,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "the trainer id; with the gender it fixes the personality (and so the shininess)"
-    },
-    {
-     "name": "contestCool",
-     "label": "Contest Cool",
-     "offset": 56,
-     "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "contestBeauty",
-     "label": "Contest Beauty",
-     "offset": 60,
-     "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "contestCute",
-     "label": "Contest Cute",
-     "offset": 64,
-     "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "contestSmart",
-     "label": "Contest Smart",
-     "offset": 68,
-     "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "contestTough",
-     "label": "Contest Tough",
-     "offset": 72,
-     "type": "u32",
-     "confidence": "verified"
-    },
-    {
-     "name": "heldItem",
-     "label": "Held item",
-     "offset": 76,
-     "type": "u32",
-     "enum": "item",
-     "confidence": "verified"
-    },
-    {
-     "name": "otGender",
-     "label": "OT gender",
-     "offset": 80,
-     "type": "u32",
-     "enum": "tradeOtGender",
-     "confidence": "verified",
-     "note": "the trainer's gender (MYSTATUS_SetSex)"
-    },
-    {
-     "name": "tradeFlag",
-     "label": "Unused",
-     "offset": 84,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "Always 0; no code reads it."
-    },
-    {
-     "name": "language",
-     "label": "Language",
-     "offset": 88,
-     "type": "u32",
-     "enum": "pokemonLanguage",
-     "confidence": "verified",
-     "note": "the Pokemon's language of origin"
-    },
-    {
-     "name": "wantedSpecies",
-     "label": "Pokemon wanted",
-     "offset": 92,
-     "type": "u32",
-     "enum": "species",
-     "confidence": "verified",
-     "note": "what the trader asks for (FLD_TRADE_GetWantedSpecies)"
-    },
-    {
-     "name": "wantedGender",
-     "label": "Wanted gender",
-     "offset": 96,
-     "type": "u32",
-     "confidence": "verified",
-     "note": "The trade script checks your Pokemon's gender unless it is Any (scrcmd_pokemon_fld.c:1044).",
-     "enum": "tradeWantedGender"
+     "group": "Offered Pokemon"
     },
     {
      "name": "nickname",
@@ -4101,16 +4038,211 @@
      "type": "u32",
      "enum": "tradeText",
      "confidence": "verified",
-     "note": "a line of the trade text bank (system text 35; 34 on Japanese)"
+     "group": "Offered Pokemon"
+    },
+    {
+     "name": "heldItem",
+     "label": "Held item",
+     "offset": 76,
+     "type": "u32",
+     "enum": "item",
+     "confidence": "verified",
+     "group": "Offered Pokemon"
+    },
+    {
+     "name": "nature",
+     "label": "Nature",
+     "offset": 44,
+     "type": "u32",
+     "enum": "nature",
+     "confidence": "verified",
+     "group": "Offered Pokemon"
+    },
+    {
+     "name": "abilitySlot",
+     "label": "Ability",
+     "offset": 40,
+     "type": "u32",
+     "enum": "tradeAbilitySlot",
+     "confidence": "verified",
+     "group": "Offered Pokemon"
+    },
+    {
+     "name": "gender",
+     "label": "Gender",
+     "offset": 48,
+     "type": "u32",
+     "enum": "tradeGender",
+     "confidence": "verified",
+     "note": "Adjusts personality for this gender; use 2 for fixed-gender species.",
+     "group": "Offered Pokemon"
+    },
+    {
+     "name": "ivHp",
+     "label": "HP",
+     "offset": 16,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
+    },
+    {
+     "name": "ivAttack",
+     "label": "Attack",
+     "offset": 20,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
+    },
+    {
+     "name": "ivDefense",
+     "label": "Defense",
+     "offset": 24,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
+    },
+    {
+     "name": "ivSpAtk",
+     "label": "Sp. Atk",
+     "offset": 32,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
+    },
+    {
+     "name": "ivSpDef",
+     "label": "Sp. Def",
+     "offset": 36,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
+    },
+    {
+     "name": "ivSpeed",
+     "label": "Speed",
+     "offset": 28,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "0 to 31.",
+     "group": "IVs"
     },
     {
      "name": "otName",
-     "label": "OT name",
+     "label": "Name",
      "offset": 104,
      "type": "u32",
      "enum": "tradeText",
      "confidence": "verified",
-     "note": "a line of the trade text bank"
+     "group": "Original trainer"
+    },
+    {
+     "name": "otId",
+     "label": "Trainer ID",
+     "offset": 52,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "Combined with gender, this fixes the personality and shininess.",
+     "group": "Original trainer"
+    },
+    {
+     "name": "otGender",
+     "label": "Gender",
+     "offset": 80,
+     "type": "u32",
+     "enum": "tradeOtGender",
+     "confidence": "verified",
+     "group": "Original trainer"
+    },
+    {
+     "name": "language",
+     "label": "Language",
+     "offset": 88,
+     "type": "u32",
+     "enum": "pokemonLanguage",
+     "confidence": "verified",
+     "group": "Original trainer"
+    },
+    {
+     "name": "wantedSpecies",
+     "label": "Species",
+     "offset": 92,
+     "type": "u32",
+     "enum": "species",
+     "confidence": "verified",
+     "group": "Wanted Pokemon"
+    },
+    {
+     "name": "wantedGender",
+     "label": "Gender",
+     "offset": 96,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "Checked by the trade script unless set to Any.",
+     "enum": "tradeWantedGender",
+     "group": "Wanted Pokemon"
+    },
+    {
+     "name": "contestCool",
+     "label": "Cool",
+     "offset": 56,
+     "type": "u32",
+     "confidence": "verified",
+     "group": "Contest stats"
+    },
+    {
+     "name": "contestBeauty",
+     "label": "Beauty",
+     "offset": 60,
+     "type": "u32",
+     "confidence": "verified",
+     "group": "Contest stats"
+    },
+    {
+     "name": "contestCute",
+     "label": "Cute",
+     "offset": 64,
+     "type": "u32",
+     "confidence": "verified",
+     "group": "Contest stats"
+    },
+    {
+     "name": "contestSmart",
+     "label": "Smart",
+     "offset": 68,
+     "type": "u32",
+     "confidence": "verified",
+     "group": "Contest stats"
+    },
+    {
+     "name": "contestTough",
+     "label": "Tough",
+     "offset": 72,
+     "type": "u32",
+     "confidence": "verified",
+     "group": "Contest stats"
+    },
+    {
+     "name": "tradeId",
+     "label": "Trade index",
+     "offset": 0,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "Value passed by the trade script to select this trade.",
+     "group": "Advanced"
+    },
+    {
+     "name": "tradeFlag",
+     "label": "Unused",
+     "offset": 84,
+     "type": "u32",
+     "confidence": "verified",
+     "note": "Always 0; unread by the game.",
+     "group": "Advanced"
     }
    ]
   },
@@ -4133,7 +4265,7 @@
      "type": "u32",
      "readonly": true,
      "confidence": "verified",
-     "note": "level 0; no Pokemon has it"
+     "note": "Unused; no Pokemon can be level 0."
     },
     {
      "name": "level",
@@ -4145,7 +4277,7 @@
       "stride": 4
      },
      "confidence": "verified",
-     "note": "the total experience a Pokemon needs to reach this level; keep each value above the one before"
+     "note": "Total experience needed for this level; each value must exceed the previous one."
     }
    ]
   }

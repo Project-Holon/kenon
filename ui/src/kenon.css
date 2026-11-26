@@ -1,0 +1,78 @@
+/* kenon's shared patterns, on top of morphe's theme. */
+
+/* Entry tabs (Stats | Moves | ...; Data | In battle | ...): underlined
+   text, so they read as places to go, not as values. Filled buttons stay
+   for values (Male / Female, Status / Physical / Special). */
+.sec-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.2rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--rim);
+}
+.sec-tabs button,
+.sec-tabs button.primary {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.45rem 0.1rem;
+  margin-bottom: -1px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.sec-tabs button:hover {
+  color: var(--ink);
+}
+.sec-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* A disabled main button (Save with nothing to save) loses its colour, so
+   it never reads as ready. */
+button.primary:disabled {
+  background: var(--panel-2);
+  border-color: var(--rim);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+/* Every entry editor's header has one height, so the tab row under it
+   sits at the same place on every screen. */
+.entry-head {
+  min-height: 84px;
+  box-sizing: border-box;
+}
+
+/* Tooltips from lib/tip.ts: placed by script, always inside the window. */
+.tip-box {
+  position: fixed;
+  z-index: 1000;
+  max-width: 22rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-s);
+  border: 2px solid var(--outline);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+}
+
+/* A list's own actions: search, then New. */
+.list-head {
+  display: flex;
+  gap: 0.5rem;
+}
+.list-head .search {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.list-head .new {
+  flex: none;
+}

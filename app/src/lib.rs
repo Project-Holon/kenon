@@ -783,6 +783,101 @@ fn set_handler(
     kenon_core::handlers::set(project, kind, &params, id, row)
 }
 
+/// Names for the text banks of an archive kenon can name (system banks by
+/// use, story banks by the places that speak from them).
+#[tauri::command]
+async fn text_bank_names(
+    state: State<'_, AppState>,
+    archive: u16,
+) -> Result<std::collections::HashMap<usize, String>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::world::text_bank_names(&bridge, archive).map_err(|e| e.to_string())
+}
+
+/// A trainer's per-member numbers (IVs, EVs, nature, shiny, friendship,
+/// ability), six slots; the game's own where the mod sets none.
+#[tauri::command]
+fn trainer_mons(
+    state: State<AppState>,
+    trainer: usize,
+) -> Result<Vec<kenon_core::trainer_mons::Extras>, String> {
+    let bridge = state.need_bridge()?;
+    Ok(bridge
+        .project()
+        .map(|p| kenon_core::trainer_mons::of(p, trainer))
+        .unwrap_or_else(|| vec![Default::default(); 6]))
+}
+
+/// Sets a trainer's per-member numbers, slot by slot.
+#[tauri::command]
+fn set_trainer_mons(
+    state: State<AppState>,
+    trainer: usize,
+    members: Vec<kenon_core::trainer_mons::Extras>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    kenon_core::trainer_mons::set(project, trainer, &members).map_err(|e| e.to_string())
+}
+
+/// The 101 TMs and HMs: label, item, move (the mod's over the game's).
+#[tauri::command]
+async fn machines(
+    state: State<'_, AppState>,
+) -> Result<Vec<kenon_core::machines::Machine>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::machines::list(&bridge).map_err(|e| e.to_string())
+}
+
+/// Sets which move machine `index` teaches (and its item description).
+#[tauri::command]
+fn set_machine(state: State<AppState>, index: usize, mv: u16) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::machines::set(&bridge, index, mv).map_err(|e| e.to_string())
+}
+
+/// An icon's palettes: (male, female), 0 to 15 each.
+#[tauri::command]
+fn icon_palette(state: State<AppState>, icon: usize) -> Result<(u8, u8), String> {
+    let bridge = state.need_bridge()?;
+    let b = kenon_core::species_add::icon_palette(&bridge, icon);
+    Ok((b & 0xF, b >> 4))
+}
+
+/// Sets an icon's palettes (eidos icon_palette.txt).
+#[tauri::command]
+fn set_icon_palette(
+    state: State<AppState>,
+    icon: usize,
+    male: u8,
+    female: u8,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::species_add::set_icon_palette(&bridge, icon, male, female)
+        .map_err(|e| e.to_string())
+}
+
+/// Each member of a 3D archive named by its first texture ("" when none).
+#[tauri::command]
+async fn texture_set_names(
+    state: State<'_, AppState>,
+    archive: u16,
+) -> Result<Vec<String>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::catalog::texture_set_names(&bridge, archive)
+        .map(|n| n.as_ref().clone())
+        .map_err(|e| e.to_string())
+}
+
+/// Where each song plays: sequence number to places.
+#[tauri::command]
+async fn music_places(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<u16, String>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::world::music_places(&bridge).map_err(|e| e.to_string())
+}
+
 /// Sets single text lines of a/0/0/2: [bank, index, text] each.
 #[tauri::command]
 fn set_text_lines(
@@ -1911,6 +2006,15 @@ pub fn run() {
             content_add,
             content_remove,
             handler_params,
+            text_bank_names,
+            machines,
+            set_machine,
+            icon_palette,
+            set_icon_palette,
+            trainer_mons,
+            set_trainer_mons,
+            texture_set_names,
+            music_places,
             handler_rows,
             set_handler,
             content_item_icon,

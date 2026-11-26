@@ -14,8 +14,35 @@
   import ContentDialog from "../lib/ContentDialog.svelte";
   import TextPanel from "../lib/TextPanel.svelte";
   import BattleHandler from "../lib/BattleHandler.svelte";
+  import { provideParts } from "../lib/parts.svelte";
 
   let { version, readOnly, onSaved }: { version: number; readOnly: boolean; onSaved: () => void } = $props();
+
+  // One Save and Discard for the panels (Name and text, In battle), and the
+  // same tabs as moves and items.
+  const entryParts = provideParts();
+  let saving = $state(false);
+  async function saveAll() {
+    saving = true;
+    try {
+      await entryParts.save();
+      play("save");
+      toast("Saved");
+    } catch (e) {
+      toast(String(e));
+      play("cancel");
+    } finally {
+      saving = false;
+    }
+  }
+  type Tab = "data" | "text" | "battle" | "users";
+  const TABS: [Tab, string][] = [
+    ["data", "Data"],
+    ["text", "Name and text"],
+    ["battle", "In battle"],
+    ["users", "Used by"],
+  ];
+  let tab = $state<Tab>("data");
 
   // New abilities (core/src/content.rs ABILITIES): a name, a description,
   // and later the battle code of another ability (eidos).
@@ -151,7 +178,12 @@
 
 <div class="tables">
   <aside class="entries">
-    <input class="search" placeholder="Search {entries.length} abilities" aria-label="Search abilities" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
+    <div class="list-head">
+      <input class="search" placeholder="Search {entries.length} abilities" aria-label="Search abilities" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
+      {#if !readOnly && added}
+        <button class="new" onclick={() => ((dialog = "add"), play("decide"))} title="Duplicate the selected ability">New</button>
+      {/if}
+    </div>
     <VirtualList bind:this={list} items={shown} height={34} key={(e) => e.index} label="Abilities">
       {#snippet row(e)}
         <button class="row-item" aria-current={e.index === current} onclick={() => pick(e.index)}>
@@ -160,7 +192,7 @@
           {#if isAdded(e.index)}
             <span class="tag new" title="Added by this mod">new</span>
           {:else if coded.length && !coded.some((c) => c.id === e.index)}
-            <span class="tag" title="No battle code of its own: the game tests its id directly">built in</span>
+            <span class="tag" title="No battle handler; the game checks its ID directly">built in</span>
           {/if}
         </button>
       {/snippet}
@@ -171,25 +203,34 @@
   </aside>
 
   <section class="record">
-    <div class="head">
+    <div class="head entry-head">
       <div class="title">
         <h2>{names[current] ?? ""}</h2>
         <p class="muted">{describe(descriptions[current])}</p>
       </div>
-      {#if !readOnly && added}
+      {#if !readOnly}
         <div class="acts">
-          {#if isAdded(current)}
+          {#if added && isAdded(current)}
             <button onclick={() => ((dialog = "remove"), play("decide"))}>Remove ability</button>
           {/if}
-          <button onclick={() => ((dialog = "add"), play("decide"))} title="A new ability made from a copy of this one">New ability</button>
+          <button disabled={!entryParts.dirty || saving} onclick={() => entryParts.discard()}>Discard</button>
+          <button class="primary" disabled={!entryParts.dirty || saving} onclick={saveAll}>Save</button>
         </div>
       {/if}
     </div>
+    <div class="sec-tabs" role="tablist">
+      {#each TABS as [t, label]}
+        <button role="tab" aria-selected={tab === t} class:primary={tab === t} onclick={() => (tab = t)}>{label}</button>
+      {/each}
+    </div>
     <div class="scroll body">
       {#if current > 0}
-        <TextPanel kind="abilities" id={current} {readOnly} onSaved={() => (onSaved(), reloadNames())} />
+        <!-- Kept while hidden: unsaved edits survive a tab switch. -->
+        <div hidden={tab !== "text"}>
+          <TextPanel kind="abilities" id={current} {readOnly} onSaved={() => (onSaved(), reloadNames())} />
+        </div>
       {/if}
-      <div class="window block">
+      <div class="window block" hidden={tab !== "data"}>
         <h3>What it does</h3>
         {#if checks.length}
           {#each ["battle", "outside battle"] as place}
@@ -197,7 +238,7 @@
               <h4>{place === "battle" ? "In battle" : "Outside battle"}</h4>
               <ul>
                 {#each checks.filter((c) => c.place === place) as c}
-                  <li>{c.what} <span class="muted">({c.function})</span></li>
+                  <li title={c.function}>{c.what}</li>
                 {/each}
               </ul>
             {/if}
@@ -205,29 +246,31 @@
         {/if}
         {#if code}
           <p>
-            Battle code: <strong>{code.label ?? code.function}</strong>{#if code.function}<span class="muted"> ({code.function})</span>{/if}.
+            Battle code: <strong title={code.function ?? ""}>{code.label ?? code.function}</strong>.
           </p>
           {#if code.sharedWith.length}
             <p>
-              The same code runs for
+              Shared with
               {#each code.sharedWith as other, i}{i ? ", " : ""}<button class="link" onclick={() => openOther(other)}>{names[other] ?? other}</button>{/each}.
             </p>
           {/if}
         {:else if checks.length}
           <p class="muted note">
-            It has no battle code of its own: the game tests its id in the places above, so another ability cannot copy it.
+            No battle handler; the game checks its ID in the places above, so other abilities cannot copy it.
           </p>
         {:else if isAdded(current)}
-          <p class="note">Added by this mod. Pick what it works like under "In battle".</p>
+          <p class="note">Added by this mod. Pick an effect under "In battle".</p>
         {:else}
-          <p class="muted">No effect: nothing in the game's code uses this ability.</p>
+          <p class="muted">No effect; unused by the game.</p>
         {/if}
       </div>
       {#if current > 0 && added}
-        <BattleHandler table="abilities" id={current} last={added.last} {version} {readOnly} {onSaved} />
+        <div hidden={tab !== "battle"}>
+          <BattleHandler table="abilities" id={current} last={added.last} {version} {readOnly} {onSaved} />
+        </div>
       {/if}
-      <div class="window block">
-        <h3>Pokemon with it</h3>
+      <div class="window block" hidden={tab !== "users"}>
+        <h3>Pokemon with this ability</h3>
         {#if !users}
           <p class="muted">Looking...</p>
         {:else if !users.first.length && !users.second.length && !users.hidden.length}
@@ -314,7 +357,7 @@
     border-bottom: 2px solid var(--outline);
     background: var(--bg);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 1rem;
   }
   .head .title {

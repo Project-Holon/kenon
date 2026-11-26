@@ -681,7 +681,8 @@ fn tables_and_names() {
     // Trainer names are packed strings: they read as names, and every
     // message of every system bank survives the display form exactly.
     let names = tables::entries(&bridge, "trainers").unwrap();
-    assert_eq!(names[1].name, "Jimmy");
+    // A trainer's row names its ace: "Jimmy · Patrat Lv 7".
+    assert_eq!(names[1].name, "Jimmy · Patrat Lv 7");
     let table = bridge.packed_table();
     for bank in 0..bridge.base_archive(2).unwrap().len() {
         let raw = bridge

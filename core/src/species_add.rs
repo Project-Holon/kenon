@@ -176,9 +176,9 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
     }
     // The icon's palette choice: the game keeps one nibble per species in
     // the ARM9 image; a new species gets a row of the eidos table
-    // icon_palette (male low nibble, female high), the source's value.
+    // icon_palette ("<palette> <female palette>"), the source's values.
     let mut rows = project.table_rows(ICON_PALETTE);
-    rows.insert(id, vec![icon_palette(bridge, from) as u32]);
+    rows.insert(id, palette_row(icon_palette(bridge, from)));
     project
         .write_table_rows(ICON_PALETTE, &rows)
         .map_err(|e| Error::Missing(e.to_string()))?;
@@ -190,14 +190,33 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
 /// The eidos table of icon palette choices (one value per species).
 const ICON_PALETTE: &str = "icon_palette";
 
-/// A species' icon palette byte: the mod's row, else the game's table.
-fn icon_palette(bridge: &Bridge, species: usize) -> u8 {
-    if let Some(v) = bridge.project().and_then(|p| {
+/// An icon_palette row (eidos docs/game-tables.md): "<palette> <female
+/// palette>", from the game's packed byte (male low nibble, female high).
+fn palette_row(byte: u8) -> Vec<u32> {
+    vec![u32::from(byte & 0xF), u32::from(byte >> 4)]
+}
+
+/// A row's packed byte. One value is the palette of both (eidos's rule);
+/// one value over 15 is a packed byte, the form kenon once wrote.
+fn row_byte(row: &[u32]) -> u8 {
+    match row {
+        [m, f, ..] => ((*m & 0xF) | ((*f & 0xF) << 4)) as u8,
+        [v] if *v > 15 => *v as u8,
+        [v] => (*v | (*v << 4)) as u8,
+        [] => 0,
+    }
+}
+
+/// An icon's palettes (icon index n: species, eggs 650/651, forms from
+/// 652), packed male low nibble, female high: the mod's row, else the
+/// game's table.
+pub fn icon_palette(bridge: &Bridge, species: usize) -> u8 {
+    if let Some(b) = bridge.project().and_then(|p| {
         p.table_rows(ICON_PALETTE)
             .get(&species)
-            .and_then(|r| r.first().copied())
+            .map(|r| row_byte(r))
     }) {
-        return v as u8;
+        return b;
     }
     bridge
         .code()
@@ -206,6 +225,33 @@ fn icon_palette(bridge: &Bridge, species: usize) -> u8 {
             c.read(image, at + species as u32, 1).map(|b| b[0])
         })
         .unwrap_or(0)
+}
+
+/// Sets an icon's palettes (eidos reads the row for any icon index).
+/// The game's own values drop the row.
+pub fn set_icon_palette(bridge: &Bridge, icon: usize, male: u8, female: u8) -> Result<(), Error> {
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    if male > 15 || female > 15 {
+        return Err(Error::BadPath("a palette is 0 to 15".into()));
+    }
+    let game = bridge.code().and_then(|c| {
+        let (image, at) = c.table_at("icon_palette")?;
+        c.read(image, at + icon as u32, 1).map(|b| b[0])
+    });
+    let mut rows = project.table_rows(ICON_PALETTE);
+    let byte = male | (female << 4);
+    if game == Some(byte) {
+        rows.remove(&icon);
+    } else {
+        rows.insert(icon, palette_row(byte));
+    }
+    project
+        .write_table_rows(ICON_PALETTE, &rows)
+        .map_err(|e| Error::Missing(e.to_string()))?;
+    bridge.invalidate();
+    Ok(())
 }
 
 /// A copy's stats record is its own species: no alternate forms.

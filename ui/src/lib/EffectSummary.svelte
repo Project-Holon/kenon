@@ -112,9 +112,9 @@
     const kind = names.moveCategory?.[cat] ?? `kind ${cat}`;
     const hasStat = [1, 2, 3].some((k) => v[`rankType${k}`] && v[`rankValue${k}`]);
     if (v.sickId && v.sickId !== 0xffff && !v.sickContType)
-      out.push({ text: "It causes a condition but the condition has no duration, so the game never applies it.", hard: true, fix: { label: "Lasts until cured", set: { sickContType: 1 } } });
+      out.push({ text: "The condition has no duration, so it never applies.", hard: true, fix: { label: "Set until cured", set: { sickContType: 1 } } });
     if (!v.sickId && v.sickContType)
-      out.push({ text: "It has a condition duration but no condition.", hard: true, fix: { label: "Clear the duration", set: { sickContType: 0 } } });
+      out.push({ text: "Duration is set with no condition.", hard: true, fix: { label: "Clear duration", set: { sickContType: 0 } } });
     if ([1, 4, 5].includes(cat) && !v.sickId)
       out.push({ text: `"${kind}" needs a condition: the battle applies the move's condition and there is none.`, hard: true });
     if ([2, 5, 6, 7].includes(cat) && !hasStat)
@@ -126,22 +126,22 @@
     if (cat === 3 && v.healRatio <= 0)
       out.push({ text: `"${kind}" needs a heal above 0.`, hard: true, fix: { label: "Heal 50%", set: { healRatio: 50 } } });
     if (cat === 10 && v.target !== 10)
-      out.push({ text: `"${kind}" works on the whole field; every game move of this kind targets the whole field.`, hard: false, fix: { label: "Target the whole field", set: { target: 10 } } });
+      out.push({ text: `"${kind}" works on the whole field; every game move of this kind targets the whole field.`, hard: false, fix: { label: "Target whole field", set: { target: 10 } } });
     if (cat !== 10 && v.target === 10)
-      out.push({ text: "It targets the whole field, which only field-changing moves do.", hard: false, fix: { label: "Kind: changes the whole field", set: { effectCategory: 10 } } });
+      out.push({ text: "Only field-changing moves target the whole field.", hard: false, fix: { label: "Make field-changing", set: { effectCategory: 10 } } });
     if (DAMAGING.includes(cat) && cat !== 9 && v.power === 0)
       out.push({ text: `"${kind}" deals damage but its power is 0.`, hard: true });
     // Me First is kind 0 and Status: its own battle code takes over.
     if (DAMAGING.includes(cat) && v.damageClass === 0 && !coded)
       out.push({ text: `"${kind}" deals damage but it is a Status move; make it Physical or Special.`, hard: true });
     if (STATUS_KINDS.includes(cat) && v.damageClass !== 0)
-      out.push({ text: `"${kind}" deals no damage; every such game move is a Status move.`, hard: false, fix: { label: "Make it Status", set: { damageClass: 0, power: 0 } } });
+      out.push({ text: `"${kind}" deals no damage; every such game move is a Status move.`, hard: false, fix: { label: "Set to Status", set: { damageClass: 0, power: 0 } } });
     if ((v.flagMagicCoat || v.flagSnatch) && v.damageClass !== 0)
-      out.push({ text: "Magic Coat and Snatch only ever apply to status moves in the game.", hard: false });
+      out.push({ text: "Magic Coat and Snatch only apply to status moves.", hard: false });
     if (v.flagPunch && !v.flagContact)
-      out.push({ text: "Every punching move in the game makes contact.", hard: false, fix: { label: "Makes contact", set: { flagContact: 1 } } });
+      out.push({ text: "All punching moves make contact.", hard: false, fix: { label: "Makes contact", set: { flagContact: 1 } } });
     if (v.drainRatio && !DAMAGING.includes(cat) && cat !== 13)
-      out.push({ text: "Drain and recoil only work on moves that deal damage.", hard: false });
+      out.push({ text: "Drain and recoil only work on damaging moves.", hard: false });
     return out;
   });
 
@@ -246,29 +246,17 @@
   </div>
 {/if}
 
-<div class="window block effect">
-  <h3>What it does</h3>
-  <ul>
-    {#each lines as l}<li>{l}</li>{/each}
-  </ul>
-  {#if added}
-    <p class="note">
-      Added by this mod. It does what the values above say; to run another {table === "moves" ? "move" : "item"}'s battle
-      code too, pick it under "In battle".
-    </p>
-  {:else if coded}
-    <p class="note">
-      It also has battle code of its own: <strong>{coded.label ?? coded.function}</strong>{#if coded.function}<span class="muted"> ({coded.function})</span>{/if}.
-      A copy gets it by picking this {table === "moves" ? "move" : "item"} under "In battle".
-      {#if coded.sharedWith.length}
-        The same code runs for
-        {#each coded.sharedWith as other, i}{i ? ", " : ""}<button class="link" onclick={() => onOpen(other)}>{nameOf(table === "moves" ? "move" : "item", other)}</button>{/each}.
-      {/if}
-    </p>
-  {:else}
-    <p class="note muted">Everything it does is in its values, so a copy works the same.</p>
+<!-- What it does, in one line above the fields (no box): the values in
+     words, and its own battle code when it has one. -->
+<p class="summary">
+  {lines.join(" ")}
+  {#if coded}
+    <span class="muted">
+      Battle code: <strong title={coded.function ?? ""}>{coded.label ?? coded.function}</strong>{#if coded.sharedWith.length}, shared with
+        {#each coded.sharedWith as other, i}{i ? ", " : ""}<button class="link" onclick={() => onOpen(other)}>{nameOf(table === "moves" ? "move" : "item", other)}</button>{/each}{/if}.
+    </span>
   {/if}
-</div>
+</p>
 
 <style>
   /* Its own padding: the table editor's .block style does not reach a child component. */
@@ -294,14 +282,13 @@
     padding: 0.1rem 0.6rem;
     font-size: 0.85rem;
   }
-  .effect ul {
-    margin: 0.35rem 0 0.5rem;
-    padding-left: 1.2rem;
+  .summary {
+    margin: 0;
+    padding: 0 0.2rem;
+    line-height: 1.45;
   }
-  .effect li {
-    margin: 0.1rem 0;
-  }
-  .note {
+  .summary .muted {
+    margin-left: 0.4rem;
     font-size: 0.9rem;
   }
   .link {

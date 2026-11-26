@@ -18,8 +18,10 @@
   import RigPlayer from "./RigPlayer.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
-  import { debounced } from "morphe/cache.svelte";
-  import { openMenu } from "morphe/menu.svelte";
+  import { debounced, forget } from "morphe/cache.svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { reloadIcons } from "../lib/icons.svelte";
+  import { openMenu, toast } from "morphe/menu.svelte";
   import { pictureMenu, picturePath, type Picture } from "../lib/graphicsMenu";
 
   let {
@@ -169,6 +171,28 @@
     }
   }
 
+  // Pokemon icons (a/0/0/7): which of the shared icon palettes an icon uses
+  // (eidos icon_palette.txt; the game uses 0 to 2). Members 7 + 2n are
+  // icon n, 8 + 2n its female icon.
+  const iconOf = (chr: number) => ({ n: Math.floor((chr - 7) / 2), female: (chr - 7) % 2 === 1 });
+  async function setIconPalette(p: number) {
+    if (!selected || arc !== 7) return;
+    const { n, female } = iconOf(selected.chr);
+    try {
+      const [male, fem] = await invoke<[number, number]>("icon_palette", { icon: n });
+      await invoke("set_icon_palette", { icon: n, male: female ? male : p, female: female ? p : fem });
+      const updated = { ...selected, offset: p };
+      items = items.map((it) => (it === selected ? updated : it));
+      selected = updated;
+      forget(`named/${arc}`);
+      reloadIcons();
+      play("save");
+      onSaved();
+    } catch (e) {
+      toast(String(e));
+    }
+  }
+
   function choose(item: Item, sound = true) {
     if (item === selected) return;
     // Opens it now, or once unsaved edits are dropped (guard runs it once).
@@ -315,7 +339,15 @@
           </RigPlayer>
         {/key}
       {/if}
-      {#key `${selected.key}/${chr.join(":")}/${pal.join(":")}/${editMode}`}
+      {#if arc === 7 && !readOnly}
+        <div class="iconpal" role="radiogroup" aria-label="Icon palette">
+          <span class="muted">Icon palette</span>
+          {#each [0, 1, 2] as p}
+            <button class:primary={selected.offset === p} aria-checked={selected.offset === p} role="radio" onclick={() => setIconPalette(p)}>{p}</button>
+          {/each}
+        </div>
+      {/if}
+      {#key `${selected.key}/${chr.join(":")}/${pal.join(":")}/${editMode}/${selected.offset}`}
         {@const rig = editMode === "animation" && selected.rig && arc !== null ? selected.rig : null}
         <PixelEditor
           chr={rig ? [arc!, rig[0]] : chr}
@@ -346,6 +378,22 @@
 </div>
 
 <style>
+  /* Which shared palette a Pokemon icon uses: 0, 1 or 2. */
+  .iconpal {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--rim);
+  }
+  .iconpal span {
+    margin-right: 0.3rem;
+    font-size: 0.85rem;
+  }
+  .iconpal button {
+    min-width: 2.2rem;
+    padding: 0.2rem 0.5rem;
+  }
   .browser {
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr);

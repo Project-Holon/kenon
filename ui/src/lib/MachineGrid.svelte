@@ -43,7 +43,7 @@
 <div class="machines">
   <div class="head">
     <h4>TMs and HMs it can learn ({count} of {machines.length})</h4>
-    <input class="search" placeholder="Find a TM or move" bind:value={filter} aria-label="Find a TM or move" />
+    <input class="search" placeholder="Search TMs or moves" bind:value={filter} aria-label="Search TMs or moves" />
   </div>
   <div class="grid">
     {#each shown as { slot, mv } (slot)}
@@ -72,7 +72,6 @@
       {/each}
     </div>
   {/if}
-  <p class="muted note">Which move each TM teaches is in the game's code; changing it needs support in eidos first.</p>
 </div>
 
 <style>
@@ -96,7 +95,7 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
     gap: 0.15rem 0.75rem;
   }
   .m {
@@ -127,9 +126,5 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .note {
-    margin-top: 0.6rem;
-    font-size: 0.85rem;
   }
 </style>

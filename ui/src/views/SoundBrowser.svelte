@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
   import { addSound, asset, audioChanges, importSound, revertSound, sounds, type AudioSummary, type NewSound, type SoundInfo } from "../lib/backend";
   import VirtualList from "../lib/VirtualList.svelte";
@@ -32,12 +33,19 @@
       .then((c) => (changed = new Set(c.sounds)))
       .catch(() => {});
 
+  // Songs: where each plays (the places whose maps name it), shown beside
+  // its name and searchable ("Route 6" finds its song).
+  let places = $state<Record<number, string>>({});
   onMount(() => {
     refresh();
     sounds()
       .then((all) => (list = all.filter((s) => s.group === group)))
       .catch((e) => (error = String(e)))
       .finally(() => (loaded = true));
+    if (group === "music")
+      invoke<Record<number, string>>("music_places")
+        .then((p) => (places = p))
+        .catch(() => {});
     return () => audio?.pause();
   });
 
@@ -48,7 +56,13 @@
   const shown = $derived.by(() => {
     const q = query.value.trim().toLowerCase();
     return q
-      ? list.filter((s) => s.name.toLowerCase().includes(q) || pretty(s.name).toLowerCase().includes(q) || String(s.index) === q)
+      ? list.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            pretty(s.name).toLowerCase().includes(q) ||
+            (places[s.index] ?? "").toLowerCase().includes(q) ||
+            String(s.index) === q,
+        )
       : list;
   });
 
@@ -198,8 +212,8 @@
           <button class="play" onclick={() => toggle(s)} aria-label={playing === s.index ? "Stop" : "Play"}>
             {loading === s.index ? "..." : playing === s.index ? "Stop" : "Play"}
           </button>
-          <span class="label">{pretty(s.name)}</span>
-          <code class="muted name">{s.name}</code>
+          <span class="label" title={s.name}>{pretty(s.name)}</span>
+          {#if places[s.index]}<span class="muted places" title={places[s.index]}>{places[s.index]}</span>{/if}
           {#if changed.has(s.index)}<span class="tag changed">Replaced</span>{/if}
           <span class="tag" title="Sound number">#{s.index}</span>
         </div>
@@ -277,11 +291,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .name {
+  .places {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 40%;
+    max-width: 50%;
+    font-size: 0.9rem;
   }
   .row-item[aria-current="true"] .muted {
     color: inherit;

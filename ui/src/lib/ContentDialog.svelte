@@ -118,8 +118,8 @@
     <header>
       <h2>Remove {removing.name}?</h2>
       <p class="muted">
-        The {noun === "ability" ? "abilities" : noun === "Pokemon" ? "Pokemon" : `${noun}s`} added after it move down one number, and everything in this mod that uses them follows.
-        Places that use {removing.name} itself get none instead.
+        The {noun === "ability" ? "abilities" : noun === "Pokemon" ? "Pokemon" : `${noun}s`} added after it shift down by one ID, and all references in this mod update.
+        References to {removing.name} are cleared.
       </p>
     </header>
     {#if error}<p class="bad">{error}</p>{/if}

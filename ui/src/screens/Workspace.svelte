@@ -18,6 +18,7 @@
   import TableEditor from "../views/TableEditor.svelte";
   import AbilitiesView from "../views/AbilitiesView.svelte";
   import TypesView from "../views/TypesView.svelte";
+  import MachinesView from "../views/MachinesView.svelte";
   import ModSettings from "../views/ModSettings.svelte";
   import ModHooks from "../views/ModHooks.svelte";
   import ModRules from "../views/ModRules.svelte";
@@ -81,8 +82,12 @@
       }
     })(),
   );
+  // Long groups of picture screens start folded, so the sidebar fits the
+  // window; a viewer's own choice wins once made.
+  const START_FOLDED = ["Interface", "Overworld textures"];
+  const isFolded = (label: string) => folded[label] ?? START_FOLDED.includes(label);
   function fold(label: string) {
-    folded[label] = !folded[label];
+    folded[label] = !isFolded(label);
     play("select");
     try {
       localStorage.setItem(FOLD, JSON.stringify(folded));
@@ -164,7 +169,7 @@
   <nav class="sidebar" aria-label="Categories">
     {#each GROUPS as group}
       {@const holds = group.items.some((c) => c.id === current.id)}
-      {@const shut = !!folded[group.label] && !holds}
+      {@const shut = isFolded(group.label) && !holds}
       <h3>
         <button class="fold" aria-expanded={!shut} onclick={() => fold(group.label)}>
           <span class="caret" class:open={!shut}></span>{group.label}
@@ -209,6 +214,8 @@
         <AbilitiesView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "types"}
         <TypesView {version} {readOnly} onSaved={saved} />
+      {:else if current.kind === "machines"}
+        <MachinesView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "worldmap"}
         <WorldMap {readOnly} onOpen={openAt} onSaved={saved} />
       {:else if current.kind === "cries"}

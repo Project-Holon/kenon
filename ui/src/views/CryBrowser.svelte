@@ -4,7 +4,6 @@
   import { asset, audioChanges, importCry, revertCry, type AudioSummary } from "../lib/backend";
   import { tableEntries, type Entry } from "../lib/tables";
   import { loadIcons, speciesIcon } from "../lib/icons.svelte";
-  import VirtualList from "../lib/VirtualList.svelte";
   import Thumb from "../lib/Thumb.svelte";
   import { debounced } from "morphe/cache.svelte";
   import { copyText, guarded, saveWav } from "../lib/exporter";
@@ -129,28 +128,29 @@
     {/if}
   </div>
   {#if error}<p class="bad pad">{error}</p>{/if}
+  <!-- A grid of cards: click one to play it (again to stop) and pick it for Replace. -->
   <div class="scroll">
-    <VirtualList items={shown} height={42} key={(e) => e.index} label="Cries">
-      {#snippet row(e)}
-        <div
-          class="row-item"
-          role="presentation"
-          aria-current={playing === e.index}
+    {#if !shown.length}
+      <p class="muted pad">{!loaded ? "Loading..." : list.length ? "Nothing matches." : "Nothing here."}</p>
+    {/if}
+    <div class="grid" aria-label="Cries">
+      {#each shown as e (e.index)}
+        <button
+          class="card"
+          aria-pressed={playing === e.index}
           class:picked={selected?.index === e.index}
-          onclick={() => (selected = e)}
+          class:playing={playing === e.index}
+          onclick={() => ((selected = e), play(e))}
           oncontextmenu={(ev) => ((selected = e), menu(ev, e))}
+          title={playing === e.index ? "Stop" : "Play"}
         >
-          <button class="play" onclick={() => play(e)}>{playing === e.index ? "Stop" : "Play"}</button>
           <span class="icon"><Thumb src={speciesIcon(e.index) ?? ""} /></span>
           <span class="label">{e.name}</span>
           {#if changed.has(e.index)}<span class="tag changed">Replaced</span>{/if}
-          <span class="tag" title="Pokedex number">#{e.index}</span>
-        </div>
-      {/snippet}
-      {#snippet empty()}
-        <p class="muted pad">{!loaded ? "Loading..." : list.length ? "Nothing matches." : "Nothing here."}</p>
-      {/snippet}
-    </VirtualList>
+          <span class="num muted">{e.index}</span>
+        </button>
+      {/each}
+    </div>
   </div>
 </div>
 
@@ -180,13 +180,40 @@
   .scroll {
     flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 0.5rem 1rem;
+    overflow-y: auto;
+    padding: 0.75rem 1rem;
   }
-  .play {
-    min-width: 4.2rem;
-    padding: 0.2rem 0.6rem;
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.4rem;
+  }
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    min-width: 0;
+  }
+  .card .label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card .num {
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .card.playing {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .card.playing .num {
+    color: inherit;
   }
   .icon {
     width: 32px;
@@ -197,8 +224,9 @@
   .icon :global(img) {
     height: 32px;
   }
-  .row-item.picked {
-    border-color: var(--outline);
+  .card.picked {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
   .pad {
     padding: 1rem;

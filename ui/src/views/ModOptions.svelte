@@ -217,7 +217,7 @@
     <button class="quiet" onclick={() => add("heading")}>Heading</button>
     <button class="quiet" onclick={() => add("button")} title="A row that sends setting.button to the mod's code">Button</button>
     <button class="quiet" onclick={() => add("show")} title="A row of text the mod's code sets; hidden while empty">Shown text</button>
-    <button class="quiet" disabled={!dirty || busy} onclick={() => take({ path, exists: true, options: JSON.parse(original), diagnostics: [] })}>Undo</button>
+    <button class="quiet" disabled={!dirty || busy} onclick={() => take({ path, exists: true, options: JSON.parse(original), diagnostics: [] })}>Discard</button>
     <button class="primary" disabled={!dirty || busy || blocked} onclick={save}>Save</button>
   </div>
 

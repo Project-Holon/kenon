@@ -8,6 +8,7 @@
   import { textBank } from "./backend";
   import { play } from "./sfx";
   import { toast } from "morphe/menu.svelte";
+  import { useParts } from "./parts.svelte";
 
   type Kind = "moves" | "items" | "abilities" | "species" | "trainers" | "types";
   let {
@@ -47,8 +48,8 @@
     species: [
       { label: "Name", bank: 70, max: 10 },
       { label: "Category", bank: 260, max: 16 },
-      { label: "Pokedex height text", bank: 245, max: 10, gameOnly: true },
-      { label: "Pokedex weight text", bank: 268, max: 12, gameOnly: true },
+      { label: "Pokedex height", bank: 245, max: 10, gameOnly: true },
+      { label: "Pokedex weight", bank: 268, max: 12, gameOnly: true },
       { label: "Pokedex entry (Black)", bank: 236, multi: true },
       { label: "Pokedex entry (White)", bank: 235, multi: true },
     ],
@@ -94,7 +95,18 @@
 
   const dirty = $derived(values.some((v, i) => fromBoxAt(i, v) !== original[i]));
 
-  async function save() {
+  // Inside an entry screen, the screen's Save and Discard cover this panel.
+  const parts = useParts();
+  $effect(() => {
+    if (!parts || readOnly) return;
+    return parts.register("text", {
+      dirty: () => dirty,
+      save: () => save(true),
+      discard: () => (values = original.map(toBox)),
+    });
+  });
+
+  async function save(quiet = false) {
     busy = true;
     try {
       const lines: [number, number, string][] = [];
@@ -119,11 +131,14 @@
         }
       }
       await invoke("set_text_lines", { lines });
-      play("save");
       original = values.map((v, i) => fromBoxAt(i, v));
       onSaved();
-      toast("Text saved");
+      if (!quiet) {
+        play("save");
+        toast("Text saved");
+      }
     } catch (e) {
+      if (quiet) throw e;
       toast(String(e));
       play("cancel");
     } finally {
@@ -133,13 +148,16 @@
 </script>
 
 <div class="window block text">
-  <div class="top">
-    <h3>Name and text</h3>
-    {#if !readOnly}
-      <button class="quiet" disabled={!dirty || busy} onclick={() => (values = original.map(toBox))}>Discard</button>
-      <button class="primary" disabled={!dirty || busy} onclick={save}>Save text</button>
-    {/if}
-  </div>
+  <!-- Inside an entry screen the fields need no title row: the header's Save covers them. -->
+  {#if !parts}
+    <div class="top">
+      <h3>Name and text</h3>
+      {#if !readOnly}
+        <button class="quiet" disabled={!dirty || busy} onclick={() => (values = original.map(toBox))}>Discard</button>
+        <button class="primary" disabled={!dirty || busy} onclick={() => save()}>Save text</button>
+      {/if}
+    </div>
+  {/if}
   <div class="grid">
     {#each fields as f, i}
       <label class="field" class:wide={f.multi}>
@@ -152,9 +170,6 @@
       </label>
     {/each}
   </div>
-  {#if kind === "species" && id > 649}
-    <p class="muted note">The Pokedex height and weight text of a new Pokemon comes with the Pokedex work in eidos.</p>
-  {/if}
 </div>
 
 <style>
@@ -174,6 +189,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
     gap: 0.6rem 1rem;
+  }
+  .top + .grid {
     margin-top: 0.6rem;
   }
   .field {
@@ -181,8 +198,11 @@
     flex-direction: column;
     gap: 0.25rem;
   }
+  /* Two columns: the game's lines are short, and the Black and White
+     Pokedex entries sit side by side. */
   .field.wide {
-    grid-column: 1 / -1;
+    grid-column: span 2;
+    max-width: 36rem;
   }
   .name {
     font-size: 0.85rem;
@@ -191,9 +211,5 @@
   textarea {
     resize: vertical;
     font: inherit;
-  }
-  .note {
-    margin: 0.5rem 0 0;
-    font-size: 0.85rem;
   }
 </style>

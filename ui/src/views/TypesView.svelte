@@ -76,7 +76,7 @@
     <div class="head">
       <h2>Type chart</h2>
       <p class="muted">
-        Attacking type down the side, defending type across the top. 2: super effective, &frac12;: not very effective, 0: no effect.
+        Attacking type by row, defending type by column. 2: super effective, &frac12;: not very effective, 0: no effect.
         {#if hover}<br /><strong>{types[hover[0]]}</strong> {WORD[chart[hover[0]][hover[1]]]} <strong>{types[hover[1]]}</strong>.{/if}
       </p>
     </div>
@@ -110,16 +110,12 @@
           {/each}
         </tbody>
       </table>
-      <p class="muted note">
-        This is the game's own chart. Changing it, or adding a type, needs support in eidos first (a chart a mod can give, and
-        room for more types); kenon will edit it here then.
-      </p>
     </div>
   </section>
 
   <aside class="side">
     {#if picked === null}
-      <p class="muted pad">Pick a type to see what it is strong and weak against, and who uses it.</p>
+      <p class="muted pad">Select a type to view matchups and users.</p>
     {:else}
       <div class="pad">
         <h2>{types[picked]}</h2>
@@ -128,7 +124,7 @@
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Resists</span><div class="row">{#each resists as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
-          <div><span class="muted">Not affected by</span><div class="row">{#each immune as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
+          <div><span class="muted">Immune to</span><div class="row">{#each immune as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
         </div>
         {#if !users}
           <p class="muted">Looking...</p>

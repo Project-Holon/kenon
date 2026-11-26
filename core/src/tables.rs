@@ -74,6 +74,15 @@ pub struct Field {
     /// one stat change).
     #[serde(default, rename = "rowStart")]
     pub row_start: bool,
+    /// The heading the interface shows it under ("Base stats"); fields of
+    /// one group are next to each other in the schema. "Advanced" is shown
+    /// closed.
+    #[serde(default)]
+    pub group: Option<String>,
+    /// The game stores the value divided by this (a price stored / 10): the
+    /// interface shows and takes value x scale.
+    #[serde(default)]
+    pub scale: Option<i64>,
     pub confidence: Option<String>,
     pub note: Option<String>,
 }
@@ -254,6 +263,8 @@ pub struct Value {
     pub readonly: bool,
     pub inferred: bool,
     pub row_start: bool,
+    pub group: Option<String>,
+    pub scale: Option<i64>,
     pub note: Option<String>,
 }
 
@@ -345,6 +356,8 @@ fn values_of(bytes: &[u8], base: usize, fields: &[Field], prefix: &str) -> Vec<V
                 readonly: f.readonly,
                 inferred: f.confidence.as_deref() == Some("inferred"),
                 row_start: f.row_start && n == 0,
+                group: f.group.clone(),
+                scale: f.scale,
                 note: f.note.clone(),
             });
         }
@@ -471,7 +484,8 @@ pub fn record_of(
                 .collect();
             sections.push(Section::List {
                 key: "rows".into(),
-                label: format!("Party ({})", v.label),
+                // The party format shows on the trainer, with its switches.
+                label: "Party".into(),
                 columns: columns(&v.fields),
                 rows,
                 fixed: false,
@@ -1015,6 +1029,121 @@ pub struct Entry {
     pub name: String,
 }
 
+fn species_names(bridge: &Bridge) -> Vec<String> {
+    bank_strings(
+        bridge,
+        &BankRef {
+            archive: 2,
+            bank: 70,
+        },
+    )
+}
+
+/// "Sandile Lv 22-24": the commonest Pokemon of the first method the table
+/// uses, and the level range over every slot (first season).
+fn encounter_detail(
+    bridge: &Bridge,
+    t: &Table,
+    index: usize,
+    species: &[String],
+) -> Option<String> {
+    let rec = bridge.member(member(t, index)).ok()?;
+    let mut lead: Option<usize> = None;
+    let (mut lo, mut hi) = (u8::MAX, 0u8);
+    for g in t.groups.iter().flatten() {
+        let mut counts: HashMap<usize, usize> = HashMap::new();
+        for slot in 0..g.count {
+            let at = g.offset + slot * g.stride;
+            let sp = rec
+                .get(at..at + 2)
+                .map(|b| (u16::from_le_bytes([b[0], b[1]]) & 0x7FF) as usize)?;
+            if sp == 0 {
+                continue;
+            }
+            *counts.entry(sp).or_default() += 1;
+            lo = lo.min(rec[at + 2]);
+            hi = hi.max(rec[at + 3]);
+        }
+        if lead.is_none() {
+            lead = counts
+                .into_iter()
+                .max_by_key(|&(sp, n)| (n, usize::MAX - sp))
+                .map(|(sp, _)| sp);
+        }
+    }
+    let name = species.get(lead?)?;
+    Some(if lo == hi {
+        format!("{name} Lv {lo}")
+    } else {
+        format!("{name} Lv {lo}-{hi}")
+    })
+}
+
+/// "Name · Ace Lv N": the last member of the trainer's party (the ace in
+/// the game's own parties), read with the layout its party kind picks.
+fn trainer_names(bridge: &Bridge, names: Vec<String>, count: usize) -> Result<Vec<String>, Error> {
+    let trainers = table("trainers")?;
+    let parties = table("trainerParties")?;
+    let field = |n: &str| trainers.fields.iter().find(|f| f.name == n);
+    let (Some(kind_f), Some(count_f)) = (field("partyType"), field("partyCount")) else {
+        return Ok(names);
+    };
+    let species = species_names(bridge);
+    let mut out = names;
+    out.resize(count, String::new());
+    for (index, name) in out.iter_mut().enumerate() {
+        let Ok(rec) = bridge.member(member(trainers, index)) else {
+            continue;
+        };
+        let kind = read_field(&rec, 0, kind_f).unwrap_or(0) & 3;
+        let n = read_field(&rec, 0, count_f).unwrap_or(0) as usize;
+        let Some(v) = parties
+            .variants
+            .as_ref()
+            .and_then(|v| v.get(&kind.to_string()))
+        else {
+            continue;
+        };
+        let Ok(party) = bridge.member(member(parties, index)) else {
+            continue;
+        };
+        let at = n.saturating_sub(1) * v.size;
+        if n == 0 || party.len() < at + 6 {
+            continue;
+        }
+        let level = u16::from_le_bytes([party[at + 2], party[at + 3]]);
+        let sp = u16::from_le_bytes([party[at + 4], party[at + 5]]) as usize & 0x7FF;
+        if let Some(s) = species.get(sp).filter(|s| !s.is_empty()) {
+            *name = format!("{name} · {s} Lv {level}");
+        }
+    }
+    Ok(out)
+}
+
+/// "Cottonee for Petilil": the Pokemon given for the one wanted.
+fn trade_names(bridge: &Bridge, t: &Table, count: usize) -> Result<Vec<String>, Error> {
+    let field = |n: &str| t.fields.iter().find(|f| f.name == n);
+    let (Some(give), Some(want)) = (field("species"), field("wantedSpecies")) else {
+        return Ok(Vec::new());
+    };
+    let species = species_names(bridge);
+    let name = |v: Option<i64>| {
+        v.and_then(|v| species.get(v as usize))
+            .cloned()
+            .unwrap_or_default()
+    };
+    Ok((0..count)
+        .map(|index| match bridge.member(member(t, index)) {
+            Ok(rec) => format!(
+                "{} for {}",
+                name(read_field(&rec, 0, give)),
+                name(read_field(&rec, 0, want))
+            ),
+            Err(_) => String::new(),
+        })
+        .collect())
+}
+
 /// The entries of a table, named from the ROM's text where it has names.
 pub fn entries(bridge: &Bridge, id: &str) -> Result<std::sync::Arc<Vec<Entry>>, Error> {
     bridge.cached(&format!("entries/{id}"), || make_entries(bridge, id))
@@ -1040,21 +1169,46 @@ fn make_entries(bridge: &Bridge, id: &str) -> Result<Vec<Entry>, Error> {
                     }
                 }
             }
-            by.into_iter()
+            let mut names: Vec<String> = by
+                .into_iter()
                 .map(|l| match l.len() {
                     0 => "Not used by any place".to_string(),
                     1..=2 => l.join(", "),
                     n => format!("{}, {} and {} more", l[0], l[1], n - 2),
                 })
-                .collect()
+                .collect();
+            // A place with several tables (Relic Castle's 17 floors) is told
+            // apart by what lives there: "Relic Castle · Sandile Lv 22-24".
+            let mut seen: HashMap<String, usize> = HashMap::new();
+            for n in &names {
+                *seen.entry(n.clone()).or_default() += 1;
+            }
+            let species = species_names(bridge);
+            for (index, name) in names.iter_mut().enumerate() {
+                if seen[name.as_str()] > 1 {
+                    if let Some(d) = encounter_detail(bridge, t, index, &species) {
+                        *name = format!("{name} · {d}");
+                    }
+                }
+            }
+            names
         }
         // Species and form records: forms named after their species.
         _ if matches!(id, "species" | "learnsets" | "evolutions") => {
             crate::battle::record_names(bridge)?.as_ref().clone()
         }
+        // In-game trades: what is swapped for what.
+        _ if id == "trades" => trade_names(bridge, t, count)?,
         (Some(b), _) => bank_strings(bridge, b),
         (None, Some(e)) => enum_values(bridge, e)?.as_ref().clone(),
         (None, None) => Vec::new(),
+    };
+    // Trainers: many share a name (Cheren has 20 battles: rematches and
+    // one party per starter), so each row also names its ace.
+    let names = if id == "trainers" {
+        trainer_names(bridge, names, count)?
+    } else {
+        names
     };
     // Species tables: the mod's new Pokemon (715 and up) after the game's,
     // without the unused ids between.
@@ -1121,6 +1275,8 @@ mod tests {
             when: None,
             readonly: false,
             row_start: false,
+            group: None,
+            scale: None,
             confidence: None,
             note: None,
         };

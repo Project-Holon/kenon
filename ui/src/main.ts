@@ -1,6 +1,7 @@
 import { mount } from "svelte";
 import App from "./App.svelte";
 import "morphe/theme.css";
+import "./kenon.css";
 import { initTheme, themeStorageKey } from "morphe/theme";
 import { installMenuFallback } from "morphe/menu.svelte";
 

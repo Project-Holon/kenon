@@ -11,6 +11,7 @@ export type Category =
   | { id: string; label: string; kind: "worldmap" }
   | { id: string; label: string; kind: "abilities" }
   | { id: string; label: string; kind: "types" }
+  | { id: string; label: string; kind: "machines" }
   | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
@@ -23,10 +24,10 @@ export const GROUPS: Group[] = [
   {
     label: "Pokemon",
     items: [
-      { id: "species", label: "Pokemon stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions", "expCurves"] },
-      { id: "battle-sprites", label: "Pokemon battle sprites", kind: "graphics", archive: 4 },
-      { id: "pokemon-icons", label: "Pokemon icons", kind: "graphics", archive: 7 },
-      { id: "dex-icons", label: "Pokedex list icons", kind: "graphics", archive: 167 },
+      { id: "species", label: "Stats and moves", kind: "table", tables: ["species", "learnsets", "eggMoves", "evolutions", "expCurves"] },
+      { id: "battle-sprites", label: "Battle sprites", kind: "graphics", archive: 4 },
+      { id: "pokemon-icons", label: "Icons", kind: "graphics", archive: 7 },
+      { id: "dex-icons", label: "Pokedex icons", kind: "graphics", archive: 167 },
     ],
   },
   {
@@ -36,16 +37,17 @@ export const GROUPS: Group[] = [
       { id: "items", label: "Items", kind: "table", tables: ["items"] },
       { id: "abilities", label: "Abilities", kind: "abilities" },
       { id: "types", label: "Types", kind: "types" },
+      { id: "machines", label: "TMs and HMs", kind: "machines" },
       { id: "item-icons", label: "Item icons", kind: "graphics", archive: 25 },
     ],
   },
   {
     label: "World",
     items: [
-      { id: "world-map", label: "World map", kind: "worldmap" },
+      { id: "world-map", label: "Overworld map", kind: "worldmap" },
       { id: "trainers", label: "Trainers", kind: "table", tables: ["trainers", "trainerParties"] },
-      { id: "trainer-sprites", label: "Trainer sprites (front)", kind: "graphics", archive: 72 },
-      { id: "trainer-sprites-back", label: "Trainer sprites (back)", kind: "graphics", archive: 73 },
+      { id: "trainer-sprites", label: "Trainer front sprites", kind: "graphics", archive: 72 },
+      { id: "trainer-sprites-back", label: "Trainer back sprites", kind: "graphics", archive: 73 },
       { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },
       { id: "trades", label: "In-game trades", kind: "table", tables: ["trades"] },
     ],
@@ -53,8 +55,8 @@ export const GROUPS: Group[] = [
   {
     label: "Battle",
     items: [
-      { id: "battle-scenes", label: "Battle backgrounds", kind: "textures", archive: 11, noun: "Model" },
-      { id: "battle-effects", label: "Battle effects", kind: "graphics", archive: 95 },
+      { id: "battle-scenes", label: "Backgrounds", kind: "textures", archive: 11, noun: "Model" },
+      { id: "battle-effects", label: "Effects", kind: "graphics", archive: 95 },
       { id: "battle-bag", label: "Battle bag", kind: "graphics", archive: 99 },
       { id: "battle-party", label: "Battle party list", kind: "graphics", archive: 100 },
     ],
@@ -64,38 +66,38 @@ export const GROUPS: Group[] = [
     // (docs/game-data-map.md, core/src/archives.json).
     label: "Overworld textures",
     items: [
-      { id: "map-textures", label: "Map ground textures", kind: "textures", archive: 14, noun: "Area" },
-      { id: "building-out", label: "Building textures (outside)", kind: "textures", archive: 176, noun: "Set" },
-      { id: "building-in", label: "Building textures (inside)", kind: "textures", archive: 177, noun: "Set" },
+      { id: "map-textures", label: "Map textures", kind: "textures", archive: 14, noun: "Area" },
+      { id: "building-out", label: "Building exteriors", kind: "textures", archive: 176, noun: "Set" },
+      { id: "building-in", label: "Building interiors", kind: "textures", archive: 177, noun: "Set" },
       { id: "overworld-objects", label: "Characters and objects", kind: "textures", archive: 49, noun: "Object" },
       { id: "field-effects", label: "Field effects", kind: "textures", archive: 75, noun: "Effect" },
     ],
   },
   {
-    label: "Menus and screens",
+    label: "Interface",
     items: [
       { id: "ui-common", label: "Menu sprites", kind: "graphics", archive: 83 },
       { id: "ui-frames", label: "Windows and frames", kind: "graphics", archive: 5 },
-      { id: "ui-options", label: "Options screen", kind: "graphics", archive: 27 },
-      { id: "ui-bag", label: "Bag", kind: "graphics", archive: 88 },
-      { id: "ui-summary", label: "Summary screen", kind: "graphics", archive: 78 },
+      { id: "ui-options", label: "Options", kind: "graphics", archive: 27 },
+      { id: "ui-bag", label: "Bag screen", kind: "graphics", archive: 88 },
+      { id: "ui-summary", label: "Summary", kind: "graphics", archive: 78 },
       { id: "ui-dex", label: "Pokedex", kind: "graphics", archive: 159 },
       { id: "ui-cgear", label: "C-Gear skins", kind: "graphics", archive: 30 },
       { id: "ui-fieldmenu", label: "Field menu", kind: "graphics", archive: 71 },
-      { id: "ui-box", label: "Pokemon box", kind: "graphics", archive: 116 },
+      { id: "ui-box", label: "PC box", kind: "graphics", archive: 116 },
       { id: "ui-title", label: "Title and credits", kind: "graphics", archive: 26 },
       { id: "ui-startmenu", label: "Start menu", kind: "graphics", archive: 35 },
-      { id: "ui-party", label: "Party list", kind: "graphics", archive: 76 },
+      { id: "ui-party", label: "Party screen", kind: "graphics", archive: 76 },
       { id: "ui-trainercard", label: "Trainer card", kind: "graphics", archive: 40 },
       { id: "ui-shop", label: "Shop", kind: "graphics", archive: 54 },
       { id: "ui-nameentry", label: "Name entry", kind: "graphics", archive: 118 },
       { id: "ui-mail", label: "Mail", kind: "graphics", archive: 155 },
-      { id: "ui-townmap", label: "Town map pictures", kind: "graphics", archive: 85 },
+      { id: "ui-townmap", label: "Town map", kind: "graphics", archive: 85 },
       { id: "ui-weather", label: "Weather effects", kind: "graphics", archive: 56 },
     ],
   },
   {
-    label: "Sound",
+    label: "Audio",
     items: [
       { id: "music", label: "Music", kind: "sound", group: "music" },
       { id: "cries", label: "Pokemon cries", kind: "cries" },
@@ -106,7 +108,7 @@ export const GROUPS: Group[] = [
   {
     label: "Text",
     items: [
-      { id: "text-system", label: "Names and system text", kind: "text", archive: 2 },
+      { id: "text-system", label: "Names and menu text", kind: "text", archive: 2 },
       { id: "text-story", label: "Story and dialogue", kind: "text", archive: 3 },
     ],
   },
@@ -114,7 +116,7 @@ export const GROUPS: Group[] = [
     // The open mod's own settings and code, not game data.
     label: "Mod",
     items: [
-      { id: "mod-settings", label: "Mod settings", kind: "mod", view: "settings" },
+      { id: "mod-settings", label: "Settings", kind: "mod", view: "settings" },
       { id: "mod-hooks", label: "Hooks", kind: "mod", view: "hooks" },
       { id: "mod-rules", label: "Rules", kind: "mod", view: "rules" },
       { id: "mod-tables", label: "Tables", kind: "mod", view: "tables" },
@@ -124,10 +126,10 @@ export const GROUPS: Group[] = [
   },
   {
     // Every archive of the game, for what the lists above do not cover.
-    label: "Everything else",
+    label: "Other",
     items: [
-      { id: "all-graphics", label: "All pictures", kind: "graphics", archive: null },
-      { id: "files", label: "All game files", kind: "files" },
+      { id: "all-graphics", label: "All graphics", kind: "graphics", archive: null },
+      { id: "files", label: "ROM files", kind: "files" },
     ],
   },
 ];

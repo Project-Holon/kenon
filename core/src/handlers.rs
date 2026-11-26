@@ -20,6 +20,9 @@ use crate::project::Project;
 /// eidos a mod is played on may have a newer one.
 const BUNDLED: &str = include_str!("handler_params.json");
 
+/// eidos takes up to four bases on one line.
+pub const MAX_BASES: usize = 4;
+
 /// The handler kind of a content table.
 pub fn kind_of(table: &str) -> Option<&'static str> {
     match table {
@@ -216,7 +219,16 @@ pub fn set(
 ) -> Result<(), String> {
     let mut all = rows(project, kind);
     let mut out: Row = Vec::new();
-    for part in row.unwrap_or_default() {
+    let row = row.unwrap_or_default();
+    if row.len() > MAX_BASES {
+        return Err(format!("at most {MAX_BASES} bases on one line"));
+    }
+    for part in row {
+        // A base whose own line joins several bases cannot be joined again
+        // (eidos refuses it); the line's own id is the built-in one.
+        if part.base != id && all.get(&part.base).is_some_and(|r| r.len() > 1) {
+            return Err(format!("{} already works like several others", part.base));
+        }
         if out.iter().any(|p| p.base == part.base) {
             return Err(format!("{} is picked twice", part.base));
         }

@@ -18,7 +18,7 @@
 //! A trainer NPC has eventId 3000 + trainer id (5000 + id for the second
 //! of a pair): ov010/event_trainer.c:57-69. Values come from the user's ROM.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -48,6 +48,8 @@ pub struct Zone {
     pub encounters: Option<u16>,
     /// Music per season (spring, summer, autumn, winter): SDAT sequences.
     pub music: [u16; 4],
+    /// The story text bank its scripts speak from (a/0/0/3 member).
+    pub text_bank: u16,
 }
 
 /// One place a trainer stands.
@@ -98,9 +100,91 @@ pub fn zones(bridge: &Bridge) -> Result<Arc<Vec<Zone>>, Error> {
                     event_data: rd16(r, 0x16).unwrap_or(0),
                     encounters,
                     music: [0x0C, 0x0E, 0x10, 0x12].map(|o| rd16(r, o).unwrap_or(0)),
+                    text_bank: rd16(r, 0x0A).unwrap_or(0xFFFF),
                 }
             })
             .collect())
+    })
+}
+
+/// "Striaton City, Route 3 and 2 more": the places of a list, short.
+fn place_list(mut places: Vec<String>) -> String {
+    places.dedup();
+    match places.len() {
+        0 => String::new(),
+        1..=2 => places.join(", "),
+        n => format!("{}, {} and {} more", places[0], places[1], n - 2),
+    }
+}
+
+/// The places (zones) that use each value of a zone field, in zone order.
+fn places_by(
+    bridge: &Bridge,
+    key: impl Fn(&Zone) -> Vec<u16>,
+) -> Result<HashMap<u16, String>, Error> {
+    let mut by: HashMap<u16, Vec<String>> = HashMap::new();
+    for z in zones(bridge)?.iter() {
+        for k in key(z) {
+            let list = by.entry(k).or_default();
+            if !list.contains(&z.place) {
+                list.push(z.place.clone());
+            }
+        }
+    }
+    Ok(by.into_iter().map(|(k, v)| (k, place_list(v))).collect())
+}
+
+/// System text banks (a/0/0/2) kenon knows by their use (checked against
+/// the game's code and data; docs/game-data-map.md, Text).
+const SYSTEM_BANKS: &[(usize, &str)] = &[
+    (13, "Battle move messages"),
+    (53, "Item descriptions"),
+    (54, "Item names"),
+    (70, "Pokemon names"),
+    (89, "Place names"),
+    (182, "Ability names"),
+    (183, "Ability descriptions"),
+    (190, "Trainer names"),
+    (199, "Type names"),
+    (202, "Move descriptions"),
+    (203, "Move names"),
+    (235, "Pokedex entries (White)"),
+    (236, "Pokedex entries (Black)"),
+    (245, "Pokedex heights"),
+    (260, "Pokemon categories"),
+    (268, "Pokedex weights"),
+    (279, "Item names with article"),
+    (280, "Item plurals"),
+    (281, "Pokemon names with article"),
+    (284, "Pokemon names (capitals)"),
+    (285, "Ability names (capitals)"),
+    (286, "Move names (capitals)"),
+];
+
+/// A name for each text bank kenon can name: system banks by their use,
+/// story banks (a/0/0/3) by the places whose scripts speak from them.
+pub fn text_bank_names(bridge: &Bridge, arc: u16) -> Result<HashMap<usize, String>, Error> {
+    Ok(match arc {
+        2 => SYSTEM_BANKS
+            .iter()
+            .map(|&(b, n)| (b, n.to_string()))
+            .collect(),
+        3 => places_by(bridge, |z| vec![z.text_bank])?
+            .into_iter()
+            .filter(|(_, v)| !v.is_empty())
+            .map(|(k, v)| (k as usize, v))
+            .collect(),
+        _ => HashMap::new(),
+    })
+}
+
+/// Where each song plays: the places whose zone headers name the sequence
+/// in any season.
+pub fn music_places(bridge: &Bridge) -> Result<HashMap<u16, String>, Error> {
+    places_by(bridge, |z| {
+        let mut m = z.music.to_vec();
+        m.dedup();
+        m
     })
 }
 

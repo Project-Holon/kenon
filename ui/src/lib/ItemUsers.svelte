@@ -72,7 +72,7 @@
   {#if !users}
     <p class="muted">Looking...</p>
   {:else if nothing}
-    <p class="muted">Nowhere yet. Shops are not listed yet.</p>
+    <p class="muted">No locations found (shops not included).</p>
   {:else}
     {#if places.length}
       <h4>On the maps ({users.onMaps.length})</h4>
@@ -105,7 +105,7 @@
       <h4>Held by a traded Pokemon ({users.trades.length})</h4>
       <p class="muted">In-game trades {users.trades.join(", ")}</p>
     {/if}
-    <p class="muted note">Shops are not listed yet.</p>
+    <p class="muted note">Shops not included.</p>
   {/if}
 </div>
 

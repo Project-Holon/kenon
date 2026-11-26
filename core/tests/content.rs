@@ -188,6 +188,35 @@ fn a_pokemon_is_added_in_every_archive_and_removed_with_renumbering() {
     assert_eq!(catalog::text_bank(&bridge, 2, 284).unwrap()[716], "SPROUTY");
     let manifest = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
     assert!(manifest.contains("limit.species = 716"), "{manifest}");
+    // The picture screens list the new Pokemon by name: battle sprites
+    // (arc 4), icons (7) and Pokedex icons (167), each at its own member.
+    for (arc, chr) in [(4u16, 716 * 20), (7, 7 + 2 * 716), (167, 716 + 5)] {
+        let sheets = catalog::named_sheets(&bridge, arc).unwrap();
+        let sheets = sheets.as_ref().as_ref().unwrap();
+        assert!(
+            sheets
+                .iter()
+                .any(|s| s.label.starts_with("Sprouty") && s.chr == chr),
+            "arc {arc}: no Sprouty sheet at {chr}"
+        );
+    }
+    // Its front sprite can be replaced on its own, leaving Bulbasaur's.
+    let mut front = m(4, 716 * 20);
+    let last = front.len() - 1;
+    front[last] ^= 0xFF;
+    catalog::write_member(
+        &bridge,
+        Member {
+            arc: 4,
+            index: 716 * 20,
+        },
+        &front,
+    )
+    .unwrap();
+    let bridge = reopen(bridge, &dir);
+    let m = |arc: u16, i: usize| bridge.member(Member { arc, index: i }).unwrap();
+    assert_eq!(m(4, 716 * 20), front);
+    assert_ne!(m(4, 716 * 20), m(4, 20));
     // Bulbasaur's evolution points at the second new one.
     let mut evo = tables::Edit::default();
     evo.lists.insert("rows".into(), vec![vec![4, 16, 716]]);
@@ -420,10 +449,84 @@ fn an_added_ability_works_like_another_and_follows_a_removal() {
     // The same base twice is refused.
     let twice = [row(&[]), row(&[])].concat();
     assert!(handlers::set(project, "ability", &params, b, Some(twice)).is_err());
+    // Several bases: tuned Intimidate plus Drizzle (2); Levitate (26) and
+    // Truant (54) share work slot 0 and are refused together.
+    let part = |base: usize| handlers::Part {
+        base,
+        keys: Default::default(),
+    };
+    let both = [row(&[("stages", "-2")]), vec![part(2)]].concat();
+    handlers::set(project, "ability", &params, a, Some(both)).unwrap();
+    let text =
+        std::fs::read_to_string(dir.path().join("m/eidos/tables/ability_handlers.txt")).unwrap();
+    assert!(text.contains("165 = 22 stages=-2 + 2\n"), "{text}");
+    assert!(handlers::set(
+        project,
+        "ability",
+        &params,
+        b,
+        Some(vec![part(26), part(54)])
+    )
+    .is_err());
+    // A line that joins several bases cannot be a base itself.
+    assert!(handlers::set(project, "ability", &params, b, Some(vec![part(165)])).is_err());
+    // Back to plain Intimidate for the removal below.
+    handlers::set(project, "ability", &params, a, Some(row(&[]))).unwrap();
 
     // Removing the first moves the second's row down to 165.
     content::remove(&bridge, "abilities", a).unwrap();
     let rows = handlers::rows(project, "ability");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[&165], row(&[("stages", "-2")]));
+}
+
+#[test]
+fn a_tm_teaches_another_move_and_its_description_follows() {
+    use kenon_core::machines;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let file = dir.path().join("m/eidos/tables/machine_moves.txt");
+    let game = machines::moves(&bridge).unwrap();
+    // TM01 (Hone Claws, 468) becomes Flamethrower (53).
+    // Machine order: TM01..TM95, then HM01..HM06 (TM93 Wild Charge, HM01 Cut).
+    assert_eq!(
+        (game[0], game[92], game[95], game[100]),
+        (468, 528, 15, 291)
+    );
+    machines::set(&bridge, 0, 53).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert!(std::fs::read_to_string(&file)
+        .unwrap()
+        .contains("TM01 = 53\n"));
+    assert_eq!(machines::moves(&bridge).unwrap()[0], 53);
+    let items = catalog::text_bank(&bridge, 2, 53).unwrap();
+    let moves = catalog::text_bank(&bridge, 2, 202).unwrap();
+    assert_eq!(items[328], moves[53]);
+    // Back to the game's move: the line goes.
+    machines::set(&bridge, 0, 468).unwrap();
+    assert!(!file.exists());
+}
+
+#[test]
+fn an_icon_palette_is_set_for_a_game_pokemon() {
+    use kenon_core::species_add;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let file = dir.path().join("m/eidos/tables/icon_palette.txt");
+    let game = species_add::icon_palette(&bridge, 130);
+    let (male, female) = (game & 0xF, game >> 4);
+    let other = (male + 1) % 3;
+    species_add::set_icon_palette(&bridge, 130, other, female).unwrap();
+    assert!(std::fs::read_to_string(&file)
+        .unwrap()
+        .contains(&format!("130 = {other} {female}\n")));
+    assert_eq!(
+        species_add::icon_palette(&bridge, 130),
+        other | (female << 4)
+    );
+    // The game's own values remove the row.
+    species_add::set_icon_palette(&bridge, 130, male, female).unwrap();
+    assert!(!file.exists());
 }

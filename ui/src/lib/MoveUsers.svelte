@@ -62,7 +62,7 @@
     <p class="muted">Looking...</p>
   {:else}
     {#if !users.levelUp.length && !users.egg.length && !users.machineSpecies.length && !users.tutorSpecies.length}
-      <p class="muted">No Pokemon learns it yet. Add it to a learnset in Pokemon stats and moves.</p>
+      <p class="muted">No Pokemon learns this move. Add it to a learnset under Stats and moves.</p>
     {/if}
     {#if users.levelUp.length}
       <h4>By level ({users.levelUp.length})</h4>

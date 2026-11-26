@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { SvelteMap } from "svelte/reactivity";
   import { debounced } from "morphe/cache.svelte";
   import { gameText, members, saveTextBank, textBank, type MemberInfo } from "../lib/backend";
@@ -41,7 +42,17 @@
     return () => observer.disconnect();
   });
 
+  // The boxes show the game's line breaks as real ones; the display form
+  // writes them \n (and a backslash \\, which stays as it is).
+  const toBox = (s: string) => s.replace(/\\\\|\\n/g, (m) => (m === "\\n" ? "\n" : m));
+  const fromBox = (s: string) => s.replace(/\r?\n/g, "\\n");
+  // Bank names kenon knows (item names, a place's story text); others keep
+  // their number.
+  let bankNames = $state<Record<number, string>>({});
   onMount(async () => {
+    invoke<Record<number, string>>("text_bank_names", { archive })
+      .then((n) => (bankNames = n))
+      .catch(() => {});
     try {
       banks = await members(archive);
       if (banks.length) await open(banks[0].index, false);
@@ -64,7 +75,7 @@
     try {
       // Game codes show as readable tokens ([Player], [Wait]); saving turns
       // them back.
-      const fresh = (await textBank(archive, index)).map(toTokens);
+      const fresh = (await textBank(archive, index)).map(toTokens).map(toBox);
       if (my !== seq) return;
       original = fresh;
       strings = drafts.get(index) ?? fresh.slice();
@@ -116,7 +127,7 @@
     busy = true;
     error = null;
     try {
-      await saveTextBank(archive, bank, strings.map(fromTokens));
+      await saveTextBank(archive, bank, strings.map((s) => fromTokens(fromBox(s))));
       original = strings.slice();
       drafts.delete(bank);
       play("save");
@@ -131,7 +142,7 @@
   }
 
   const bankName = () => `${archiveLabel(archive)} bank ${bank}`;
-  const allText = () => strings.join("\n");
+  const allText = () => strings.map(fromBox).join("\n");
 
   // A bank in the list: saved as it was last read, or as the game file.
   function bankMenu(e: MouseEvent, index: number) {
@@ -170,7 +181,8 @@
     <div class="scroll">
       {#each banks as b (b.index)}
         <button class="row-item" data-bank={b.index} aria-current={b.index === bank} onclick={() => open(b.index)} oncontextmenu={(e) => bankMenu(e, b.index)}>
-          <span class="label">Bank {b.index}</span>
+          <span class="bnum muted">{b.index}</span>
+          <span class="label" title={bankNames[b.index] ?? ""}>{bankNames[b.index] ?? `Bank ${b.index}`}</span>
           {#if (b.index === bank ? dirty : drafts.has(b.index))}
             <span class="tag changed" title="Not saved yet">edited</span>
           {:else if b.changed}
@@ -199,7 +211,7 @@
           <span class="num muted">{i}</span>
           <div class="fields">
             <textarea
-              rows={Math.min(4, strings[i].split("\\n").length)}
+              rows={Math.min(4, strings[i].split("\n").length)}
               readonly={readOnly}
               aria-label="String {i}"
               bind:value={strings[i]}
@@ -210,7 +222,7 @@
             {/if}
             {#if focused === i && strings[i]}
               <div class="window preview">
-                <img class="px" src={gameText(preview(fromTokens(strings[i])))} alt="" />
+                <img class="px" src={gameText(preview(fromTokens(fromBox(strings[i]))))} alt="" />
               </div>
             {/if}
           </div>
@@ -221,8 +233,8 @@
       {#if shown.length > limit}<div bind:this={sentinel} class="more muted">Loading more...</div>{/if}
     </div>
     <p class="hint muted">
-      <code>\n</code> is a new line. <code>[Player]</code>, <code>[Item 1]</code>, <code>[Wait]</code> and the
-      like are game codes (names, items, numbers, colors, pauses); the number is the slot a script fills.
+      <code>[Player]</code>, <code>[Item 1]</code>, <code>[Wait]</code> and the like are game codes (names, items,
+      numbers, colors, pauses); the number is the slot a script fills.
     </p>
   </section>
 </div>
@@ -230,7 +242,7 @@
 <style>
   .text {
     display: grid;
-    grid-template-columns: 11rem minmax(0, 1fr);
+    grid-template-columns: 17rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     height: 100%;
   }
@@ -301,6 +313,26 @@
     text-align: right;
     padding-top: 0.4rem;
     font-variant-numeric: tabular-nums;
+  }
+  /* A bank row: its number, then its name (cut short with an ellipsis). */
+  .bnum {
+    flex: none;
+    width: 2.2rem;
+    text-align: right;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .banks .row-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .banks .label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .fields {
     display: flex;
