@@ -203,7 +203,7 @@ const fn n(mut x: Field, note: &'static str) -> Field {
 use Kind::*;
 
 pub const SHAPES: &[&str] = &[
-    "Point", "Sphere surface", "Circle edge", "Circle edge, even", "Sphere", "Disc",
+    "Point", "Sphere surface", "Circle edge", "Circle edge (even)", "Sphere", "Disc",
     "Cylinder surface", "Cylinder", "Hemisphere surface", "Hemisphere",
 ];
 pub const DRAW: &[&str] = &["Billboard", "Stretched billboard", "Polygon", "Directional polygon"];
@@ -214,11 +214,11 @@ pub const SCALE_DIR: &[&str] = &["Both", "Width only", "Height only"];
 pub const FIELDS: &[Field] = &[
     // Emission
     c(f("header", "shape", "Shape", "Emission", 0x00, 4, 0, 4, Choice), SHAPES),
-    c(f("header", "circleAxis", "Circle plane", "Emission", 0x00, 4, 6, 2, Choice), AXES),
+    c(f("header", "circleAxis", "Circle axis", "Emission", 0x00, 4, 6, 2, Choice), AXES),
     f("header", "posX", "Offset X", "Emission", 0x04, 4, 0, 32, Fixed),
     f("header", "posY", "Offset Y", "Emission", 0x08, 4, 0, 32, Fixed),
     f("header", "posZ", "Offset Z", "Emission", 0x0C, 4, 0, 32, Fixed),
-    n(f("header", "count", "Particles per emission", "Emission", 0x10, 4, 0, 32, Fixed), "The fraction carries over: 1.5 gives 1, 2, 1, 2."),
+    n(f("header", "count", "Particles per emission", "Emission", 0x10, 4, 0, 32, Fixed), "Fractions carry over: 1.5 emits 1, 2, 1, 2."),
     f("header", "radius", "Radius", "Emission", 0x14, 4, 0, 32, Fixed),
     f("header", "length", "Cylinder length", "Emission", 0x18, 4, 0, 32, Fixed),
     f("header", "axisX", "Axis X", "Emission", 0x1C, 2, 0, 16, Fixed),
@@ -226,111 +226,111 @@ pub const FIELDS: &[Field] = &[
     f("header", "axisZ", "Axis Z", "Emission", 0x20, 2, 0, 16, Fixed),
     n(f("header", "interval", "Emission interval (frames)", "Emission", 0x44, 1, 0, 8, Uint), "1 or more."),
     f("header", "startDelay", "Start delay (frames)", "Emission", 0x32, 2, 0, 16, Uint),
-    n(f("header", "emitterLife", "Emitter life (frames)", "Emission", 0x3C, 2, 0, 16, Uint), "0: forever."),
-    f("header", "selfMaintaining", "Ends by itself", "Emission", 0x00, 4, 14, 1, Flag),
+    n(f("header", "emitterLife", "Emitter lifetime (frames)", "Emission", 0x3C, 2, 0, 16, Uint), "0: forever."),
+    f("header", "selfMaintaining", "Auto-stop", "Emission", 0x00, 4, 14, 1, Flag),
     // Motion
-    f("header", "speedOut", "Start speed outward", "Motion", 0x24, 4, 0, 32, Fixed),
-    f("header", "speedAxis", "Start speed along axis", "Motion", 0x28, 4, 0, 32, Fixed),
-    n(f("header", "spreadSpeed", "Speed spread", "Motion", 0x42, 1, 0, 8, Uint), "0..255: random spread of both start speeds."),
-    n(f("header", "airResistance", "Air resistance", "Motion", 0x46, 1, 0, 8, Uint), "128: none. Lower slows, higher speeds up."),
-    f("header", "followEmitter", "Move with the emitter", "Motion", 0x00, 4, 15, 1, Flag),
+    f("header", "speedOut", "Initial outward speed", "Motion", 0x24, 4, 0, 32, Fixed),
+    f("header", "speedAxis", "Initial axis speed", "Motion", 0x28, 4, 0, 32, Fixed),
+    n(f("header", "spreadSpeed", "Speed spread (0-255)", "Motion", 0x42, 1, 0, 8, Uint), "Applies to both initial speeds."),
+    n(f("header", "airResistance", "Drag", "Motion", 0x46, 1, 0, 8, Uint), "128 is no drag. Lower slows, higher speeds up."),
+    f("header", "followEmitter", "Follow emitter", "Motion", 0x00, 4, 15, 1, Flag),
     // Particle
-    f("header", "life", "Particle life (frames)", "Particle", 0x3E, 2, 0, 16, Uint),
-    n(f("header", "spreadLife", "Life spread", "Particle", 0x41, 1, 0, 8, Uint), "0..255: random shortening of life."),
+    f("header", "life", "Lifetime (frames)", "Particle", 0x3E, 2, 0, 16, Uint),
+    n(f("header", "spreadLife", "Lifetime spread (0-255)", "Particle", 0x41, 1, 0, 8, Uint), "Randomly shortens lifetime."),
     n(f("header", "scale", "Size", "Particle", 0x2C, 4, 0, 32, Fixed), "The quad is 2 units across at size 1."),
-    n(f("header", "spreadScale", "Size spread", "Particle", 0x40, 1, 0, 8, Uint), "0..255: random spread of size."),
-    f("header", "aspect", "Width ratio", "Particle", 0x30, 2, 0, 16, Fixed),
+    f("header", "spreadScale", "Size spread (0-255)", "Particle", 0x40, 1, 0, 8, Uint),
+    f("header", "aspect", "Aspect ratio", "Particle", 0x30, 2, 0, 16, Fixed),
     f("header", "color", "Color", "Particle", 0x22, 2, 0, 15, Color),
     n(f("header", "alpha", "Opacity (0-31)", "Particle", 0x45, 1, 0, 8, Uint), "31: opaque. 0 hides the particle."),
-    c(f("header", "draw", "Drawn as", "Particle", 0x00, 4, 4, 2, Choice), DRAW),
+    c(f("header", "draw", "Render mode", "Particle", 0x00, 4, 4, 2, Choice), DRAW),
     f("header", "texture", "Texture", "Particle", 0x47, 1, 0, 8, Uint),
-    f("header", "tileS", "Texture repeats across (power of 2)", "Particle", 0x48, 4, 24, 2, Uint),
-    f("header", "tileT", "Texture repeats down (power of 2)", "Particle", 0x48, 4, 26, 2, Uint),
-    f("header", "flipS", "Mirror texture across", "Particle", 0x4C, 4, 0, 1, Flag),
-    f("header", "flipT", "Mirror texture down", "Particle", 0x4C, 4, 1, 1, Flag),
-    f("header", "dbbScale", "Stretch (stretched billboard)", "Particle", 0x48, 4, 8, 16, Fixed),
+    f("header", "tileS", "Tile X (power of 2)", "Particle", 0x48, 4, 24, 2, Uint),
+    f("header", "tileT", "Tile Y (power of 2)", "Particle", 0x48, 4, 26, 2, Uint),
+    f("header", "flipS", "Mirror texture X", "Particle", 0x4C, 4, 0, 1, Flag),
+    f("header", "flipT", "Mirror texture Y", "Particle", 0x4C, 4, 1, 1, Flag),
+    f("header", "dbbScale", "Billboard stretch", "Particle", 0x48, 4, 8, 16, Fixed),
     f("header", "polyX", "Quad offset X", "Particle", 0x50, 2, 0, 16, Fixed),
     f("header", "polyY", "Quad offset Y", "Particle", 0x52, 2, 0, 16, Fixed),
-    f("header", "viewSpace", "Offset applied after drawing", "Particle", 0x00, 4, 23, 1, Flag),
+    f("header", "viewSpace", "View-space offset", "Particle", 0x00, 4, 23, 1, Flag),
     // Rotation
-    f("header", "hasRotation", "Spins", "Rotation", 0x00, 4, 12, 1, Flag),
-    f("header", "minRotation", "Spin speed from", "Rotation", 0x34, 2, 0, 16, Int),
-    f("header", "maxRotation", "Spin speed to", "Rotation", 0x36, 2, 0, 16, Int),
+    f("header", "hasRotation", "Rotate", "Rotation", 0x00, 4, 12, 1, Flag),
+    f("header", "minRotation", "Min rotation speed", "Rotation", 0x34, 2, 0, 16, Int),
+    f("header", "maxRotation", "Max rotation speed", "Rotation", 0x36, 2, 0, 16, Int),
     f("header", "randomAngle", "Random start angle", "Rotation", 0x00, 4, 13, 1, Flag),
     f("header", "initAngle", "Start angle", "Rotation", 0x38, 2, 0, 16, Angle),
-    c(f("header", "polyAxis", "Polygon turns about", "Rotation", 0x00, 4, 17, 2, Choice), &["Y axis", "Diagonal"]),
+    c(f("header", "polyAxis", "Polygon rotation axis", "Rotation", 0x00, 4, 17, 2, Choice), &["Y axis", "Diagonal"]),
     c(f("header", "polyPlane", "Polygon plane", "Rotation", 0x00, 4, 19, 1, Choice), &["XY", "XZ"]),
     // Animation
     n(f("header", "loopFrames", "Loop length (frames)", "Animation", 0x48, 4, 0, 8, Uint), "1 or more."),
-    f("header", "randomLoop", "Loops out of step", "Animation", 0x00, 4, 20, 1, Flag),
-    c(f("header", "scaleDir", "Size animation acts on", "Animation", 0x48, 4, 28, 3, Choice), SCALE_DIR),
-    f("scaleAnim", "scaleStart", "Size at birth", "Size animation", 0x00, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleMid", "Size in the middle", "Size animation", 0x02, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleEnd", "Size at death", "Size animation", 0x04, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleIn", "Middle from (0-255)", "Size animation", 0x06, 1, 0, 8, Uint),
-    f("scaleAnim", "scaleOut", "Middle to (0-255)", "Size animation", 0x07, 1, 0, 8, Uint),
-    f("scaleAnim", "scaleLoop", "Loops", "Size animation", 0x08, 2, 0, 1, Flag),
-    f("colorAnim", "colorStart", "Color at birth", "Color animation", 0x00, 2, 0, 15, Color),
-    f("colorAnim", "colorEnd", "Color at death", "Color animation", 0x02, 2, 0, 15, Color),
+    f("header", "randomLoop", "Random loop phase", "Animation", 0x00, 4, 20, 1, Flag),
+    c(f("header", "scaleDir", "Size animation axes", "Animation", 0x48, 4, 28, 3, Choice), SCALE_DIR),
+    f("scaleAnim", "scaleStart", "Start size", "Size animation", 0x00, 2, 0, 16, Fixed),
+    f("scaleAnim", "scaleMid", "Mid size", "Size animation", 0x02, 2, 0, 16, Fixed),
+    f("scaleAnim", "scaleEnd", "End size", "Size animation", 0x04, 2, 0, 16, Fixed),
+    f("scaleAnim", "scaleIn", "Mid start (0-255)", "Size animation", 0x06, 1, 0, 8, Uint),
+    f("scaleAnim", "scaleOut", "Mid end (0-255)", "Size animation", 0x07, 1, 0, 8, Uint),
+    f("scaleAnim", "scaleLoop", "Loop", "Size animation", 0x08, 2, 0, 1, Flag),
+    f("colorAnim", "colorStart", "Start color", "Color animation", 0x00, 2, 0, 15, Color),
+    f("colorAnim", "colorEnd", "End color", "Color animation", 0x02, 2, 0, 15, Color),
     f("colorAnim", "colorIn", "Start color until (0-255)", "Color animation", 0x04, 1, 0, 8, Uint),
     f("colorAnim", "colorPeak", "Main color at (0-255)", "Color animation", 0x05, 1, 0, 8, Uint),
     f("colorAnim", "colorOut", "End color from (0-255)", "Color animation", 0x06, 1, 0, 8, Uint),
-    f("colorAnim", "colorRandom", "Random one of the three", "Color animation", 0x08, 2, 0, 1, Flag),
-    f("colorAnim", "colorLoop", "Loops", "Color animation", 0x08, 2, 1, 1, Flag),
-    f("colorAnim", "colorBlend", "Blends between colors", "Color animation", 0x08, 2, 2, 1, Flag),
-    f("alphaAnim", "alphaStart", "Opacity at birth (0-31)", "Opacity animation", 0x00, 2, 0, 5, Uint),
-    f("alphaAnim", "alphaMid", "Opacity in the middle", "Opacity animation", 0x00, 2, 5, 5, Uint),
-    f("alphaAnim", "alphaEnd", "Opacity at death", "Opacity animation", 0x00, 2, 10, 5, Uint),
+    f("colorAnim", "colorRandom", "Random of 3 colors", "Color animation", 0x08, 2, 0, 1, Flag),
+    f("colorAnim", "colorLoop", "Loop", "Color animation", 0x08, 2, 1, 1, Flag),
+    f("colorAnim", "colorBlend", "Blend colors", "Color animation", 0x08, 2, 2, 1, Flag),
+    f("alphaAnim", "alphaStart", "Start opacity (0-31)", "Opacity animation", 0x00, 2, 0, 5, Uint),
+    f("alphaAnim", "alphaMid", "Mid opacity (0-31)", "Opacity animation", 0x00, 2, 5, 5, Uint),
+    f("alphaAnim", "alphaEnd", "End opacity (0-31)", "Opacity animation", 0x00, 2, 10, 5, Uint),
     f("alphaAnim", "alphaFlicker", "Flicker (0-255)", "Opacity animation", 0x02, 2, 0, 8, Uint),
-    f("alphaAnim", "alphaLoop", "Loops", "Opacity animation", 0x02, 2, 8, 1, Flag),
-    f("alphaAnim", "alphaIn", "Middle from (0-255)", "Opacity animation", 0x04, 1, 0, 8, Uint),
-    f("alphaAnim", "alphaOut", "Middle to (0-255)", "Opacity animation", 0x05, 1, 0, 8, Uint),
-    f("texAnim", "frame0", "Frame 1 texture", "Texture animation", 0x00, 1, 0, 8, Uint),
-    f("texAnim", "frame1", "Frame 2 texture", "Texture animation", 0x01, 1, 0, 8, Uint),
-    f("texAnim", "frame2", "Frame 3 texture", "Texture animation", 0x02, 1, 0, 8, Uint),
-    f("texAnim", "frame3", "Frame 4 texture", "Texture animation", 0x03, 1, 0, 8, Uint),
-    f("texAnim", "frame4", "Frame 5 texture", "Texture animation", 0x04, 1, 0, 8, Uint),
-    f("texAnim", "frame5", "Frame 6 texture", "Texture animation", 0x05, 1, 0, 8, Uint),
-    f("texAnim", "frame6", "Frame 7 texture", "Texture animation", 0x06, 1, 0, 8, Uint),
-    f("texAnim", "frame7", "Frame 8 texture", "Texture animation", 0x07, 1, 0, 8, Uint),
-    n(f("texAnim", "frames", "Frames used (1-8)", "Texture animation", 0x08, 4, 0, 8, Uint), "1 to 8."),
-    n(f("texAnim", "step", "Frame length (0-255 of life)", "Texture animation", 0x08, 4, 8, 8, Uint), "In life units: 4 frames over a life use 64."),
+    f("alphaAnim", "alphaLoop", "Loop", "Opacity animation", 0x02, 2, 8, 1, Flag),
+    f("alphaAnim", "alphaIn", "Mid start (0-255)", "Opacity animation", 0x04, 1, 0, 8, Uint),
+    f("alphaAnim", "alphaOut", "Mid end (0-255)", "Opacity animation", 0x05, 1, 0, 8, Uint),
+    f("texAnim", "frame0", "Frame 1", "Texture animation", 0x00, 1, 0, 8, Uint),
+    f("texAnim", "frame1", "Frame 2", "Texture animation", 0x01, 1, 0, 8, Uint),
+    f("texAnim", "frame2", "Frame 3", "Texture animation", 0x02, 1, 0, 8, Uint),
+    f("texAnim", "frame3", "Frame 4", "Texture animation", 0x03, 1, 0, 8, Uint),
+    f("texAnim", "frame4", "Frame 5", "Texture animation", 0x04, 1, 0, 8, Uint),
+    f("texAnim", "frame5", "Frame 6", "Texture animation", 0x05, 1, 0, 8, Uint),
+    f("texAnim", "frame6", "Frame 7", "Texture animation", 0x06, 1, 0, 8, Uint),
+    f("texAnim", "frame7", "Frame 8", "Texture animation", 0x07, 1, 0, 8, Uint),
+    n(f("texAnim", "frames", "Frame count (1-8)", "Texture animation", 0x08, 4, 0, 8, Uint), "1 to 8."),
+    n(f("texAnim", "step", "Frame duration (0-255 of life)", "Texture animation", 0x08, 4, 8, 8, Uint), "In life units: 4 frames over a life use 64."),
     f("texAnim", "texRandom", "Random frame per particle", "Texture animation", 0x08, 4, 16, 1, Flag),
-    f("texAnim", "texLoop", "Loops", "Texture animation", 0x08, 4, 17, 1, Flag),
+    f("texAnim", "texLoop", "Loop", "Texture animation", 0x08, 4, 17, 1, Flag),
     // Children
-    f("child", "childLife", "Child life (frames)", "Children", 0x06, 2, 0, 16, Uint),
+    f("child", "childLife", "Lifetime (frames)", "Children", 0x06, 2, 0, 16, Uint),
     f("child", "childCount", "Children per emission", "Children", 0x0C, 1, 0, 8, Uint),
-    f("child", "childDelay", "Start after (0-255 of parent life)", "Children", 0x0D, 1, 0, 8, Uint),
+    f("child", "childDelay", "Start delay (0-255 of parent life)", "Children", 0x0D, 1, 0, 8, Uint),
     n(f("child", "childInterval", "Emission interval (frames)", "Children", 0x0E, 1, 0, 8, Uint), "1 or more."),
     f("child", "childTexture", "Texture", "Children", 0x0F, 1, 0, 8, Uint),
-    f("child", "childSpeed", "Share of parent speed (0-255)", "Children", 0x08, 1, 0, 8, Uint),
-    n(f("child", "childScale", "Size (63: parent's)", "Children", 0x09, 1, 0, 8, Uint), "Parent size * (value + 1) / 64."),
+    f("child", "childSpeed", "Inherited speed (0-255)", "Children", 0x08, 1, 0, 8, Uint),
+    n(f("child", "childScale", "Size (63 = parent)", "Children", 0x09, 1, 0, 8, Uint), "Parent size * (value + 1) / 64."),
     f("child", "childRandom", "Random speed", "Children", 0x02, 2, 0, 16, Fixed),
-    f("child", "childUseColor", "Own color", "Children", 0x00, 2, 6, 1, Flag),
+    f("child", "childUseColor", "Custom color", "Children", 0x00, 2, 6, 1, Flag),
     f("child", "childColor", "Color", "Children", 0x0A, 2, 0, 15, Color),
-    f("child", "childScaleAnim", "Shrinks or grows", "Children", 0x00, 2, 1, 1, Flag),
-    f("child", "childEndScale", "Size at death", "Children", 0x04, 2, 0, 16, Fixed),
-    f("child", "childFade", "Fades out", "Children", 0x00, 2, 2, 1, Flag),
-    f("child", "childBehaviors", "Use the behaviors", "Children", 0x00, 2, 0, 1, Flag),
+    f("child", "childScaleAnim", "Animate size", "Children", 0x00, 2, 1, 1, Flag),
+    f("child", "childEndScale", "End size", "Children", 0x04, 2, 0, 16, Fixed),
+    f("child", "childFade", "Fade out", "Children", 0x00, 2, 2, 1, Flag),
+    f("child", "childBehaviors", "Apply behaviors", "Children", 0x00, 2, 0, 1, Flag),
     c(f("child", "childRotation", "Rotation", "Children", 0x00, 2, 3, 2, Choice), &["None", "Parent's angle", "Parent's angle and spin"]),
-    f("child", "childFollow", "Move with the emitter", "Children", 0x00, 2, 5, 1, Flag),
-    c(f("child", "childDraw", "Drawn as", "Children", 0x00, 2, 7, 2, Choice), DRAW),
+    f("child", "childFollow", "Follow emitter", "Children", 0x00, 2, 5, 1, Flag),
+    c(f("child", "childDraw", "Render mode", "Children", 0x00, 2, 7, 2, Choice), DRAW),
     f("header", "childrenFirst", "Draw children first", "Children", 0x00, 4, 21, 1, Flag),
-    f("header", "hideParent", "Draw only children", "Children", 0x00, 4, 22, 1, Flag),
+    f("header", "hideParent", "Hide parent", "Children", 0x00, 4, 22, 1, Flag),
     // Behaviors
     f("gravity", "gravityX", "Gravity X", "Gravity", 0x00, 2, 0, 16, Fixed),
     f("gravity", "gravityY", "Gravity Y", "Gravity", 0x02, 2, 0, 16, Fixed),
     f("gravity", "gravityZ", "Gravity Z", "Gravity", 0x04, 2, 0, 16, Fixed),
-    f("random", "randomX", "Random push X", "Random push", 0x00, 2, 0, 16, Fixed),
-    f("random", "randomY", "Random push Y", "Random push", 0x02, 2, 0, 16, Fixed),
-    f("random", "randomZ", "Random push Z", "Random push", 0x04, 2, 0, 16, Fixed),
-    n(f("random", "randomEvery", "Every (frames)", "Random push", 0x06, 2, 0, 16, Uint), "1 or more."),
+    f("random", "randomX", "Force X", "Random force", 0x00, 2, 0, 16, Fixed),
+    f("random", "randomY", "Force Y", "Random force", 0x02, 2, 0, 16, Fixed),
+    f("random", "randomZ", "Force Z", "Random force", 0x04, 2, 0, 16, Fixed),
+    n(f("random", "randomEvery", "Interval (frames)", "Random force", 0x06, 2, 0, 16, Uint), "1 or more."),
     f("magnet", "magnetX", "Target X", "Magnet", 0x00, 4, 0, 32, Fixed),
     f("magnet", "magnetY", "Target Y", "Magnet", 0x04, 4, 0, 32, Fixed),
     f("magnet", "magnetZ", "Target Z", "Magnet", 0x08, 4, 0, 32, Fixed),
     f("magnet", "magnetForce", "Force", "Magnet", 0x0C, 2, 0, 16, Fixed),
-    f("spin", "spinAngle", "Turn per frame", "Orbit", 0x00, 2, 0, 16, Angle),
-    c(f("spin", "spinAxis", "About", "Orbit", 0x02, 2, 0, 16, Choice), &["X axis", "Y axis", "Z axis"]),
+    f("spin", "spinAngle", "Angle per frame", "Orbit", 0x00, 2, 0, 16, Angle),
+    c(f("spin", "spinAxis", "Axis", "Orbit", 0x02, 2, 0, 16, Choice), &["X axis", "Y axis", "Z axis"]),
     f("collision", "floorY", "Floor height", "Floor", 0x00, 4, 0, 32, Fixed),
     f("collision", "bounce", "Bounce", "Floor", 0x04, 2, 0, 16, Fixed),
     c(f("collision", "floorMode", "On contact", "Floor", 0x06, 2, 0, 2, Choice), &["Disappear", "Bounce"]),
@@ -506,6 +506,158 @@ pub fn problems(s: &Spa) -> Vec<String> {
         out.push(format!("Too many emitters, behaviors and textures for the battle ({work} of 1012 bytes)."));
     }
     out
+}
+
+// ---- in a project ------------------------------------------------------
+
+/// The particle archive (a/0/0/6).
+pub const ARCHIVE: u16 = 6;
+
+/// One particle file in the list.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Listed {
+    pub index: usize,
+    pub emitters: usize,
+    pub textures: usize,
+    pub changed: bool,
+    /// Moves whose animation loads it (by LoadParticles), first few.
+    pub moves: Vec<usize>,
+}
+
+/// Which moves' scripts load each particle file (command 6's key; the
+/// ball-keyed ones count for their base key).
+pub fn users(bridge: &crate::bridge::Bridge) -> std::collections::BTreeMap<usize, Vec<usize>> {
+    let mut out: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+    let count = bridge.base_archive(crate::move_anims::SCRIPTS).map_or(0, |a| a.len());
+    let last = bridge
+        .project()
+        .and_then(|p| p.last_member(crate::move_anims::SCRIPTS))
+        .map_or(count, |l| count.max(l + 1));
+    for mv in 1..last.min(0x8000) {
+        let Ok(b) = bridge.member(crate::bridge::Member { arc: crate::move_anims::SCRIPTS, index: mv }) else {
+            continue;
+        };
+        for key in crate::effscript::particle_keys(&b) {
+            let list = out.entry(key as usize).or_default();
+            if !list.contains(&mv) {
+                list.push(mv);
+            }
+        }
+    }
+    out
+}
+
+/// The particle files: the game's, then the mod's past them.
+pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
+    let base = bridge.base_archive(ARCHIVE)?.len();
+    let project = bridge.project();
+    let end = project
+        .and_then(|p| p.last_member(ARCHIVE))
+        .map_or(base, |l| base.max(l + 1));
+    let users = users(bridge);
+    let mut out = Vec::new();
+    for index in 0..end {
+        let Ok(b) = bridge.member(crate::bridge::Member { arc: ARCHIVE, index }) else {
+            continue;
+        };
+        let Ok(s) = parse(&b) else { continue };
+        out.push(Listed {
+            index,
+            emitters: s.resources.len(),
+            textures: s.textures.len(),
+            changed: project.is_some_and(|p| p.member(ARCHIVE, index).is_some()),
+            moves: users.get(&index).map(|m| m.iter().take(4).copied().collect()).unwrap_or_default(),
+        });
+    }
+    Ok(out)
+}
+
+/// A particle file of this mod.
+pub fn load(bridge: &crate::bridge::Bridge, index: usize) -> Result<Spa, Error> {
+    parse(&bridge.member(crate::bridge::Member { arc: ARCHIVE, index })?)
+}
+
+/// Writes a particle file (the game's own drops the mod's copy).
+pub fn store(bridge: &crate::bridge::Bridge, index: usize, s: &Spa) -> Result<(), Error> {
+    crate::catalog::write_member(bridge, crate::bridge::Member { arc: ARCHIVE, index }, &build(s))
+}
+
+/// A new particle file, a copy of `from`, after the last one. Returns its
+/// number, which a script's LoadParticles names.
+pub fn add(bridge: &crate::bridge::Bridge, from: usize) -> Result<usize, Error> {
+    let project = bridge.project().ok_or_else(|| bad("no project is open"))?;
+    let s = load(bridge, from)?;
+    let base = bridge.base_archive(ARCHIVE)?.len();
+    let index = project.last_member(ARCHIVE).map_or(base, |l| base.max(l + 1));
+    project
+        .write_member(ARCHIVE, index, &build(&s))
+        .map_err(|e| Error::Missing(e.to_string()))?;
+    bridge.invalidate();
+    Ok(index)
+}
+
+/// One emitter's values for the editor: every field it has, by key.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmitterView {
+    pub values: std::collections::BTreeMap<String, i64>,
+    /// The optional blocks it has.
+    pub blocks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileView {
+    pub emitters: Vec<EmitterView>,
+    pub textures: Vec<TexInfo>,
+    pub problems: Vec<String>,
+}
+
+pub fn view(s: &Spa) -> FileView {
+    FileView {
+        emitters: s
+            .resources
+            .iter()
+            .map(|r| EmitterView {
+                values: FIELDS
+                    .iter()
+                    .filter_map(|f| Some((f.key.to_string(), read(r, f)?)))
+                    .collect(),
+                blocks: r.blocks.iter().map(|(n, _)| n.clone()).collect(),
+            })
+            .collect(),
+        textures: s.textures.iter().map(|t| tex_info(t)).collect(),
+        problems: problems(s),
+    }
+}
+
+/// One edit from the editor: a field's value, or a block switched on or off.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Edit {
+    pub emitter: usize,
+    pub key: String,
+    pub value: i64,
+}
+
+/// Applies edits (blocks first, so their fields can be set), then refuses
+/// a file the game would break on.
+pub fn apply(s: &mut Spa, blocks: &[(usize, String, bool)], edits: &[Edit]) -> Result<(), Error> {
+    for (e, name, on) in blocks {
+        let r = s.resources.get_mut(*e).ok_or_else(|| bad(format!("no emitter {}", e + 1)))?;
+        set_block(r, name, *on)?;
+    }
+    for ed in edits {
+        let f = FIELDS.iter().find(|f| f.key == ed.key).ok_or_else(|| bad(format!("no field {}", ed.key)))?;
+        let r = s.resources.get_mut(ed.emitter).ok_or_else(|| bad(format!("no emitter {}", ed.emitter + 1)))?;
+        write(r, f, ed.value)?;
+    }
+    let p = problems(s);
+    if !p.is_empty() {
+        return Err(Error::BadPath(p.join(" ")));
+    }
+    Ok(())
 }
 
 // ---- textures ----------------------------------------------------------

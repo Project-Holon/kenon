@@ -792,6 +792,18 @@ impl Bridge {
                 map.height = height;
                 Ok(png(map))
             }
+            Some("spatex") if parts.len() == 3 => {
+                // A particle file's texture (crate::spa).
+                let n = |i: usize| parts[i].parse::<usize>().map_err(|_| Error::BadPath(path.to_string()));
+                let s = crate::spa::load(self, n(1)?)?;
+                let block = s.textures.get(n(2)?).ok_or_else(|| Error::Missing(path.to_string()))?;
+                let (info, pixels) = crate::spa::decode_texture(block)?;
+                Ok(png(image::Rgba {
+                    width: info.width,
+                    height: info.height,
+                    pixels,
+                }))
+            }
             Some("typeicon") if parts.len() == 2 => {
                 // A type icon with its colours (an added type's, from
                 // types.txt; crate::type_pictures).

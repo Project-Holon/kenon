@@ -262,6 +262,52 @@ fn sweep_gaps(b: &[u8], code: usize, items: &mut BTreeMap<usize, Item>) {
     }
 }
 
+/// The particle files a script loads (LoadParticles, command 6, its key):
+/// every decoded command, reached or not.
+pub fn particle_keys(b: &[u8]) -> Vec<u32> {
+    let Some(&count) = b.first() else {
+        return Vec::new();
+    };
+    let code = HEADER + count as usize * VARIANT;
+    let mut items: BTreeMap<usize, Item> = BTreeMap::new();
+    let mut work: Vec<usize> = (0..count as usize)
+        .filter_map(|v| u32_at(b, HEADER + v * VARIANT).map(|e| e as usize))
+        .collect();
+    while let Some(mut at) = work.pop() {
+        while at >= code && at < b.len() && !items.contains_key(&at) {
+            let Some(item) = decode_at(b, at) else { break };
+            let end = at + item.size();
+            let next = match &item {
+                Item::End(_) => None,
+                Item::Command { id, args } => {
+                    if let Some(k) = jump_arg(*id) {
+                        let t = end as i64 + args[k] as i32 as i64;
+                        if t >= code as i64 && (t as usize) < b.len() {
+                            work.push(t as usize);
+                        }
+                    }
+                    falls_through(*id).then_some(end)
+                }
+            };
+            items.insert(at, item);
+            match next {
+                Some(n) => at = n,
+                None => break,
+            }
+        }
+    }
+    let mut keys: Vec<u32> = items
+        .values()
+        .filter_map(|i| match i {
+            Item::Command { id: 6, args } => args.first().copied(),
+            _ => None,
+        })
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
+}
+
 /// A file's text form.
 pub fn disassemble(b: &[u8]) -> Result<String, String> {
     let count = *b.first().ok_or("empty script")? as usize;

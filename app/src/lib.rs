@@ -730,6 +730,60 @@ fn type_count(state: State<AppState>) -> Result<usize, String> {
     Ok(kenon_core::types::count(&bridge))
 }
 
+/// The particle files, with the moves that load them.
+#[tauri::command]
+async fn particle_list(state: State<'_, AppState>) -> Result<Vec<kenon_core::spa::Listed>, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::spa::list(&bridge).map_err(|e| e.to_string())
+}
+
+/// The editable fields of a particle emitter (the same for every file).
+#[tauri::command]
+fn particle_fields() -> &'static [kenon_core::spa::Field] {
+    kenon_core::spa::FIELDS
+}
+
+/// One particle file: its emitters' values, its textures, its problems.
+#[tauri::command]
+fn particle_file(state: State<AppState>, index: usize) -> Result<kenon_core::spa::FileView, String> {
+    let bridge = state.need_bridge()?;
+    let s = kenon_core::spa::load(&bridge, index).map_err(|e| e.to_string())?;
+    Ok(kenon_core::spa::view(&s))
+}
+
+/// Saves edits to a particle file: blocks switched on or off, then values.
+#[tauri::command]
+fn set_particle_file(
+    state: State<AppState>,
+    index: usize,
+    blocks: Vec<(usize, String, bool)>,
+    edits: Vec<kenon_core::spa::Edit>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let mut s = kenon_core::spa::load(&bridge, index).map_err(|e| e.to_string())?;
+    kenon_core::spa::apply(&mut s, &blocks, &edits).map_err(|e| e.to_string())?;
+    kenon_core::spa::store(&bridge, index, &s).map_err(|e| e.to_string())
+}
+
+/// A new particle file, a copy of `from`; returns its number.
+#[tauri::command]
+fn add_particle_file(state: State<AppState>, from: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::spa::add(&bridge, from).map_err(|e| e.to_string())
+}
+
+/// Replaces a particle texture from a PNG, in the texture's own format.
+#[tauri::command]
+fn import_particle_texture(state: State<AppState>, index: usize, texture: usize, path: PathBuf) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    let img = kenon_core::import::decode_png(&bytes).map_err(|e| e.to_string())?;
+    let mut s = kenon_core::spa::load(&bridge, index).map_err(|e| e.to_string())?;
+    let old = s.textures.get(texture).ok_or("no such texture")?.clone();
+    s.textures[texture] = kenon_core::spa::encode_texture(&old, img.width, img.height, &img.pixels).map_err(|e| e.to_string())?;
+    kenon_core::spa::store(&bridge, index, &s).map_err(|e| e.to_string())
+}
+
 /// Whether a table has a grid view.
 #[tauri::command]
 fn grid_supported(table: String) -> bool {
@@ -2517,6 +2571,12 @@ pub fn run() {
             remove_type,
             type_count,
             table_grid,
+            particle_list,
+            particle_fields,
+            particle_file,
+            set_particle_file,
+            add_particle_file,
+            import_particle_texture,
             grid_supported,
             set_grid_cells,
             move_users,

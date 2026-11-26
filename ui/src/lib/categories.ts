@@ -4,6 +4,7 @@
 export type Category =
   | { id: string; label: string; kind: "graphics"; archive: number | null; hint?: string }
   | { id: string; label: string; kind: "interface" }
+  | { id: string; label: string; kind: "particles" }
   | { id: string; label: string; kind: "sound"; group: "music" | "effect" | "cry" | "jingle" | "other" }
   | { id: string; label: string; kind: "text"; archive: number }
   | { id: string; label: string; kind: "table"; tables: string[] }
@@ -83,6 +84,7 @@ export const GROUPS: Group[] = [
     items: [
       { id: "battle-scenes", label: "Backgrounds", kind: "textures", archive: 11, noun: "Model" },
       { id: "battle-effects", label: "Effects", kind: "graphics", archive: 95 },
+      { id: "particles", label: "Move particles", kind: "particles" },
       { id: "battle-bag", label: "Battle bag", kind: "graphics", archive: 99 },
       { id: "battle-party", label: "Battle party list", kind: "graphics", archive: 100 },
     ],

@@ -960,3 +960,79 @@ fn a_type_icon_is_spelled_with_the_games_letters() {
     let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
     assert!(text.contains("17 = icon ") && text.contains("colors F6A5D5 9C4A7B"), "{text}");
 }
+
+#[test]
+fn every_particle_resource_reads_back_byte_for_byte() {
+    use kenon_core::spa;
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    let n = bridge.base_archive(6).unwrap().len();
+    assert_eq!(n, 733);
+    let (mut emitters, mut textures, mut flagged) = (0, 0, Vec::new());
+    for index in 0..n {
+        let b = bridge.member(Member { arc: 6, index }).unwrap();
+        let s = spa::parse(&b).unwrap_or_else(|e| panic!("6/{index}: {e}"));
+        assert_eq!(spa::build(&s), b, "6/{index} differs");
+        emitters += s.resources.len();
+        // Every texture decodes, and re-encoding keeps every pixel's alpha.
+        for (t, block) in s.textures.iter().enumerate() {
+            let (info, rgba) = spa::decode_texture(block).unwrap_or_else(|e| panic!("6/{index} texture {t}: {e}"));
+            assert_eq!(rgba.len(), info.width * info.height * 4);
+            let again = spa::encode_texture(block, info.width, info.height, &rgba).unwrap();
+            let (_, back) = spa::decode_texture(&again).unwrap();
+            let alpha_same = rgba.chunks(4).zip(back.chunks(4)).all(|(a, b)| a[3] == b[3]);
+            assert!(alpha_same, "6/{index} texture {t}: alpha changed");
+            textures += 1;
+        }
+        if !spa::problems(&s).is_empty() {
+            flagged.push(index);
+        }
+    }
+    println!("{emitters} emitters, {textures} textures; flagged by the checks: {flagged:?}");
+    // The game's own files pass kenon's checks.
+    assert!(flagged.is_empty(), "{flagged:?}");
+}
+
+#[test]
+fn a_particle_file_is_copied_and_edited() {
+    use kenon_core::spa::{self, Edit};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    // Thunderbolt (85) loads particles 249 and 250.
+    let users = spa::users(&bridge);
+    assert!(users[&249].contains(&85) && users[&250].contains(&85));
+    let list = spa::list(&bridge).unwrap();
+    assert_eq!(list.len(), 733);
+
+    // A copy of 249 becomes file 733.
+    let at = spa::add(&bridge, 249).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(at, 733);
+    assert_eq!(spa::load(&bridge, at).unwrap(), spa::load(&bridge, 249).unwrap());
+
+    // Gravity on, then pulled down; the particle life doubled.
+    let mut s = spa::load(&bridge, at).unwrap();
+    let life = spa::view(&s).emitters[0].values["life"];
+    let has_gravity = s.resources[0].blocks.iter().any(|(n, _)| n == "gravity");
+    let blocks = if has_gravity { vec![] } else { vec![(0, "gravity".to_string(), true)] };
+    let edits = vec![
+        Edit { emitter: 0, key: "gravityY".into(), value: -100 },
+        Edit { emitter: 0, key: "life".into(), value: life * 2 },
+    ];
+    spa::apply(&mut s, &blocks, &edits).unwrap();
+    spa::store(&bridge, at, &s).unwrap();
+    let back = spa::view(&spa::load(&bridge, at).unwrap());
+    assert_eq!((back.emitters[0].values["gravityY"], back.emitters[0].values["life"]), (-100, life * 2));
+    // An interval of 0 is refused.
+    let mut s = spa::load(&bridge, at).unwrap();
+    assert!(spa::apply(&mut s, &[], &[Edit { emitter: 0, key: "interval".into(), value: 0 }]).is_err());
+
+    // A texture replaced in its own format keeps its size and format.
+    let s = spa::load(&bridge, at).unwrap();
+    let (info, rgba) = spa::decode_texture(&s.textures[0]).unwrap();
+    let flipped: Vec<u8> = rgba.chunks(4).rev().flatten().copied().collect();
+    let block = spa::encode_texture(&s.textures[0], info.width, info.height, &flipped).unwrap();
+    assert_eq!(spa::tex_info(&block), info);
+}

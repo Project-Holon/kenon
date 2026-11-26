@@ -13,6 +13,7 @@
   import { clearEnums } from "../lib/tables";
   import GraphicsBrowser from "../views/GraphicsBrowser.svelte";
   import InterfaceView from "../views/InterfaceView.svelte";
+  import ParticlesView from "../views/ParticlesView.svelte";
   import SoundBrowser from "../views/SoundBrowser.svelte";
   import TextBrowser from "../views/TextBrowser.svelte";
   import FilesBrowser from "../views/FilesBrowser.svelte";
@@ -245,6 +246,8 @@
     {#key `${current.id}/${start}/${reverts}`}
       {#if current.kind === "graphics"}
         <GraphicsBrowser archive={current.archive} {start} {readOnly} {version} onSaved={saved} />
+      {:else if current.kind === "particles"}
+        <ParticlesView {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "interface"}
         <InterfaceView screen={interfaceScreen} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "sound"}
