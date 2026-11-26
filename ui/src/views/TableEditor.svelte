@@ -17,6 +17,7 @@
   import MoveAnim from "../lib/MoveAnim.svelte";
   import SpeciesForms from "../lib/SpeciesForms.svelte";
   import SpeciesPictures from "../lib/SpeciesPictures.svelte";
+  import GridView from "./GridView.svelte";
   import RegionalDex from "../lib/RegionalDex.svelte";
   import MoveUsers from "../lib/MoveUsers.svelte";
   import ItemUsers from "../lib/ItemUsers.svelte";
@@ -141,6 +142,16 @@
   }
 
   // New Pokemon (core species_add.rs): ids 715 and up.
+  // The bulk-edit grid (core grid.rs), for tables of one record per entry.
+  let gridMode = $state(false);
+  let hasGrid = $state(false);
+  $effect(() => {
+    const t = tables[0];
+    invoke<boolean>("grid_supported", { table: t })
+      .then((g) => (hasGrid = g))
+      .catch(() => (hasGrid = false));
+  });
+
   let speciesNew = $state<number[]>([]);
   let speciesForms = $state<Record<string, number[]>>({});
   let speciesDialog = $state<"add" | "remove" | null>(null);
@@ -885,11 +896,28 @@
   </span>
 {/snippet}
 
+{#if gridMode}
+  <GridView
+    table={tables[0]}
+    {readOnly}
+    {version}
+    {onSaved}
+    onClose={() => (gridMode = false)}
+    onOpen={(i) => {
+      gridMode = false;
+      open(i);
+      setTimeout(() => list?.reveal(entries.findIndex((e) => e.index === i)));
+    }}
+  />
+{:else}
 <div class="tables" class:single role="presentation" onkeydown={keys}>
   {#if !single}
   <aside class="entries" onkeydown={step} role="presentation">
     <div class="list-head">
       <input class="search" placeholder="Search {entries.length} entries" aria-label="Search entries" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
+      {#if hasGrid && !single}
+        <button class="new" disabled={dirty} onclick={() => (play("decide"), (gridMode = true))} title={dirty ? "Save or discard edits first" : "Spreadsheet view for bulk edits"}>Table</button>
+      {/if}
       {#if !readOnly && !single && tables[0] === "species"}
         <button class="new" disabled={busy} onclick={() => ((speciesDialog = "add"), play("decide"))} title="Duplicate the selected Pokemon">New</button>
       {:else if !readOnly && !single && noun && added}
@@ -1325,6 +1353,7 @@
     </div>
   </section>
 </div>
+{/if}
 
 {#if speciesDialog}
   <ContentDialog

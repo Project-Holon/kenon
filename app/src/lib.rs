@@ -676,6 +676,12 @@ fn type_count(state: State<AppState>) -> Result<usize, String> {
     Ok(kenon_core::types::count(&bridge))
 }
 
+/// Whether a table has a grid view.
+#[tauri::command]
+fn grid_supported(table: String) -> bool {
+    kenon_core::grid::supported(&table)
+}
+
 /// A table as a grid for bulk editing (None when it has no grid view).
 #[tauri::command]
 async fn table_grid(
@@ -2438,6 +2444,7 @@ pub fn run() {
             remove_type,
             type_count,
             table_grid,
+            grid_supported,
             set_grid_cells,
             move_users,
             ability_users,

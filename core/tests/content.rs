@@ -884,3 +884,26 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
     assert_eq!((chart.len(), chart[fire][grass]), (17, 4));
     assert!(!std::fs::read_to_string(dir.path().join("m/eidos_mod.txt")).unwrap().contains("limit.types"));
 }
+
+#[test]
+fn a_table_grid_edits_many_entries_at_once() {
+    use kenon_core::grid::{self, Cell};
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    assert!(grid::supported("species") && grid::supported("moves") && !grid::supported("learnsets"));
+    let g = grid::grid(&bridge, "species").unwrap();
+    let hp = g.columns.iter().position(|c| c.key == "baseHp").unwrap();
+    let pikachu = g.rows.iter().find(|r| r.index == 25).unwrap();
+    assert_eq!(pikachu.values[hp], 35);
+    assert!(g.rows.len() >= 649);
+    // Two entries in one save, and a value past the field's range clamped.
+    let cells = [
+        Cell { index: 25, key: "baseHp".into(), value: 60 },
+        Cell { index: 26, key: "baseHp".into(), value: 999 },
+    ];
+    assert_eq!(grid::set_cells(&bridge, "species", &cells).unwrap(), 2);
+    let g = grid::grid(&bridge, "species").unwrap();
+    let hp_of = |i: usize| g.rows.iter().find(|r| r.index == i).unwrap().values[hp];
+    assert_eq!((hp_of(25), hp_of(26)), (60, 255));
+}
