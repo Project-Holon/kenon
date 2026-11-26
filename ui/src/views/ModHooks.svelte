@@ -124,6 +124,7 @@
       <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
     {/if}
   </header>
+  <p class="muted purpose">Runs the mod's code around or instead of a game function.</p>
 
   {#if readOnly}
     <p class="muted pad">Open a project to edit its hooks.</p>
@@ -170,8 +171,12 @@
 <style>
   .hooks {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     height: 100%;
+  }
+  .purpose {
+    margin: 0;
+    padding: 0.4rem 1rem;
   }
   header {
     display: flex;

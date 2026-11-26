@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { archives, members, type ArchiveInfo, type MemberInfo } from "../lib/backend";
   import { archiveGroup, archiveLabel, archiveNote, kindName } from "../lib/archiveLabels";
-  import { ALL } from "../lib/categories";
+  import { ALL, INTERFACE_SCREENS } from "../lib/categories";
   import { play } from "../lib/sfx";
   import { debounced } from "morphe/cache.svelte";
   import VirtualList from "../lib/VirtualList.svelte";
@@ -94,9 +94,11 @@
   const hasChanged = $derived(items.some((m) => m.changed));
   const rows = $derived(changedOnly ? items.filter((m) => m.changed) : items);
   // The sidebar list that shows this archive properly, when there is one.
-  const home = $derived(ALL.find((c) => "archive" in c && c.archive === current));
-
-  const homeOf = (id: number) => ALL.find((c) => "archive" in c && c.archive === id);
+  // An Interface screen opens as that screen of "Menus and screens".
+  const homeOf = (id: number): { id: string; label: string } | undefined =>
+    ALL.find((c) => "archive" in c && c.archive === id) ??
+    INTERFACE_SCREENS.filter((s) => s.archive === id).map((s) => ({ id: s.id, label: s.label }))[0];
+  const home = $derived(current === null ? undefined : homeOf(current));
 
   function archiveMenu(e: MouseEvent, a: ArchiveInfo) {
     const h = homeOf(a.id);

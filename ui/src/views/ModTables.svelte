@@ -246,7 +246,10 @@
       </div>
     {:else}
       {#if error}<p class="bad pad">{error}</p>{/if}
-      <p class="muted pad">{readOnly ? "" : "Choose a table, or make a new one."}</p>
+      <p class="muted pad">
+        Number tables read by rules and code, such as level caps per badge.
+        {readOnly ? "" : "Choose a table, or make a new one."}
+      </p>
     {/if}
   </section>
 </div>

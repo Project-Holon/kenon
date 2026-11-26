@@ -250,7 +250,10 @@
       </div>
     {:else}
       {#if error}<p class="bad pad">{error}</p>{/if}
-      <p class="muted pad">{readOnly ? "" : "Choose a rule, or make a new one."}</p>
+      <p class="muted pad">
+        Event-triggered actions without code, such as deducting money on a faint.
+        {readOnly ? "" : "Choose a rule, or make a new one."}
+      </p>
     {/if}
   </section>
 </div>

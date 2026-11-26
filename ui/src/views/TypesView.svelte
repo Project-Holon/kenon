@@ -77,7 +77,6 @@
       <h2>Type chart</h2>
       <p class="muted">
         Attacking type by row, defending type by column. 2: super effective, &frac12;: not very effective, 0: no effect.
-        {#if hover}<br /><strong>{types[hover[0]]}</strong> {WORD[chart[hover[0]][hover[1]]]} <strong>{types[hover[1]]}</strong>.{/if}
       </p>
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
@@ -110,6 +109,11 @@
           {/each}
         </tbody>
       </table>
+      <!-- The hovered cell in words, under the chart; the line keeps its
+           height so the page does not move. -->
+      <p class="matchup">
+        {#if hover}<strong>{types[hover[0]]}</strong> {WORD[chart[hover[0]][hover[1]]]} <strong>{types[hover[1]]}</strong>.{/if}
+      </p>
     </div>
   </section>
 
@@ -180,6 +184,10 @@
   }
   .chart {
     border-collapse: collapse;
+  }
+  .matchup {
+    min-height: 1.5em;
+    margin: 0.6rem 0 0;
   }
   .chart th,
   .chart td {

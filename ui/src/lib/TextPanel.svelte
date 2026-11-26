@@ -14,19 +14,32 @@
   let {
     kind,
     id,
+    form = false,
     readOnly,
     onSaved,
-  }: { kind: Kind; id: number; readOnly: boolean; onSaved: () => void } = $props();
+  }: {
+    kind: Kind;
+    id: number;
+    /// The entry is a form slot of a Pokemon the mod adds.
+    form?: boolean;
+    readOnly: boolean;
+    onSaved: () => void;
+  } = $props();
 
   interface Field {
     label: string;
     bank: number;
     multi?: boolean;
     max?: number;
-    /// Banks of 727 lines (species and forms): the line of a new Pokemon
-    /// is not known yet, so only the game's own species show it.
-    gameOnly?: boolean;
+    /// A Pokedex bank of 727 lines (the game's species, then its forms).
+    /// A slot the mod adds (715 and up) is line 727 + (slot - 715), as
+    /// eidos reads it; the game's own form records have no line here.
+    dex?: boolean;
+    /// Shown for: a species (default), a form slot ("form"), or both.
+    for?: "form" | "both";
   }
+  const dexLine = (slot: number) => (slot >= 715 ? 727 + slot - 715 : slot);
+  const lineOf = (f: Field) => (f.dex ? dexLine(id) : id);
   // Lines that follow the name: [bank, lines per id, how].
   type Follow = [number, number, "caps" | "replace"];
   const FIELDS: Record<Kind, Field[]> = {
@@ -48,8 +61,9 @@
     species: [
       { label: "Name", bank: 70, max: 10 },
       { label: "Category", bank: 260, max: 16 },
-      { label: "Pokedex height", bank: 245, max: 10, gameOnly: true },
-      { label: "Pokedex weight", bank: 268, max: 12, gameOnly: true },
+      { label: "Form name", bank: 244, max: 12, dex: true, for: "form" },
+      { label: "Pokedex height", bank: 245, max: 10, dex: true, for: "both" },
+      { label: "Pokedex weight", bank: 268, max: 12, dex: true, for: "both" },
       { label: "Pokedex entry (Black)", bank: 236, multi: true },
       { label: "Pokedex entry (White)", bank: 235, multi: true },
     ],
@@ -69,7 +83,14 @@
     ],
   };
 
-  const fields = $derived(FIELDS[kind].filter((f) => !f.gameOnly || id <= 649));
+  const fields = $derived(
+    FIELDS[kind].filter(
+      (f) =>
+        (form ? f.for === "form" || f.for === "both" : f.for !== "form") &&
+        // The game's own form records (650-714) have no Pokedex line of their own.
+        (!f.dex || id <= 649 || id >= 715),
+    ),
+  );
   let values = $state<string[]>([]);
   let original = $state<string[]>([]);
   let busy = $state(false);
@@ -84,7 +105,7 @@
 
   $effect(() => {
     const at = id;
-    Promise.all(fields.map((f) => textBank(2, f.bank).then((b) => b[at] ?? "")))
+    Promise.all(fields.map((f) => textBank(2, f.bank).then((b) => b[f.dex ? dexLine(at) : at] ?? "")))
       .then((v) => {
         if (id !== at) return;
         original = v;
@@ -112,11 +133,12 @@
       const lines: [number, number, string][] = [];
       fields.forEach((f, i) => {
         const v = fromBoxAt(i, values[i]);
-        if (v !== original[i]) lines.push([f.bank, id, v]);
+        if (v !== original[i]) lines.push([f.bank, lineOf(f), v]);
       });
       const oldName = original[0];
       const newName = fromBoxAt(0, values[0]);
-      if (newName !== oldName && oldName) {
+      // A form's first field is its form name: nothing follows it.
+      if (!form && newName !== oldName && oldName) {
         for (const [bank, per, how] of FOLLOW[kind]) {
           const bankLines = await textBank(2, bank);
           for (let k = 0; k < per; k++) {

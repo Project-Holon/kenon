@@ -630,6 +630,11 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(stats(&bridge, 716)[..28], stats(&bridge, 26)[..28]);
     let names = tables::entries(&bridge, "species").unwrap();
     assert!(names.iter().any(|e| e.index == 716 && e.name == "Voltwing (form 1)"));
+    // Pokedex lines past the game's 727: Voltwing (715) at 727 with
+    // Pikachu's height, its form (716) at 728 with Raichu's.
+    let height = catalog::text_bank(&bridge, 2, 245).unwrap();
+    assert_eq!((&height[727], &height[728]), (&height[25], &height[26]));
+    assert_eq!(catalog::text_bank(&bridge, 2, 244).unwrap()[727], "");
     // The species' cry is Pikachu's; the form follows it.
     let project = bridge.project().unwrap().clone();
     assert_eq!(cries::current(&project, Key { species: 715, form: 0 }), 25);
@@ -649,6 +654,10 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(m(7, 7 + 2 * 717), m(7, 7 + 2 * 26));
     assert_eq!(m(20, 717), 715u16.to_le_bytes().to_vec());
     assert_eq!(m(20, 716), 716u16.to_le_bytes().to_vec());
+    // The Pokedex lines moved with the slots: Sprouty (716) at 728 with
+    // Bulbasaur's weight, the form (717) at 729 with Raichu's.
+    let weight = catalog::text_bank(&bridge, 2, 268).unwrap();
+    assert_eq!((&weight[728], &weight[729]), (&weight[1], &weight[26]));
 
     // Form 2 from Sprouty, then form 1 removed: form 2 becomes form 1.
     assert_eq!(species_add::add_form(&bridge, 715, 716).unwrap(), 2);
@@ -672,6 +681,10 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     let project = bridge.project().unwrap();
     assert!(project.member(16, 716).is_none() && project.member(16, 717).is_none());
     assert!(cries::all(project).is_empty());
+    // One Pokedex line past the game's: Sprouty's at 727.
+    let weight = catalog::text_bank(&bridge, 2, 268).unwrap();
+    assert_eq!(weight.len(), 728);
+    assert_eq!(weight[727], weight[1]);
 }
 
 #[test]

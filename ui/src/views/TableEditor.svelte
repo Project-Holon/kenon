@@ -1002,7 +1002,7 @@
       {#if ["moves", "items", "species", "trainers"].includes(tables[0]) && current !== null && current > 0 && only === undefined && !single}
         <!-- Kept while hidden: unsaved text survives a tab switch. -->
         <div hidden={speciesTabs ? activeTab !== TEXT_TAB : panelTabs ? panel !== "text" : tabbed && activeTab !== 0}>
-          <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
+          <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} form={tables[0] === "species" && Object.values(speciesForms).some((v) => v.includes(current!))} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
           {#if speciesTabs && (current <= 649 || speciesNew.includes(current))}
             <RegionalDex species={current} {nameOf} {version} {readOnly} {onSaved} />
           {/if}

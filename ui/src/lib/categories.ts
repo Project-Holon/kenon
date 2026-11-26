@@ -3,6 +3,7 @@
 
 export type Category =
   | { id: string; label: string; kind: "graphics"; archive: number | null; hint?: string }
+  | { id: string; label: string; kind: "interface" }
   | { id: string; label: string; kind: "sound"; group: "music" | "effect" | "cry" | "jingle" | "other" }
   | { id: string; label: string; kind: "text"; archive: number }
   | { id: string; label: string; kind: "table"; tables: string[] }
@@ -15,6 +16,29 @@ export type Category =
   | { id: string; label: string; kind: "shops" }
   | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
+
+/// The game screens whose pictures the Interface entry shows, one archive
+/// each.
+export const INTERFACE_SCREENS: { id: string; label: string; archive: number }[] = [
+  { id: "ui-common", label: "Menu sprites", archive: 83 },
+  { id: "ui-frames", label: "Windows and frames", archive: 5 },
+  { id: "ui-options", label: "Options", archive: 27 },
+  { id: "ui-bag", label: "Bag screen", archive: 88 },
+  { id: "ui-summary", label: "Summary", archive: 78 },
+  { id: "ui-dex", label: "Pokedex", archive: 159 },
+  { id: "ui-cgear", label: "C-Gear skins", archive: 30 },
+  { id: "ui-fieldmenu", label: "Field menu", archive: 71 },
+  { id: "ui-box", label: "PC box", archive: 116 },
+  { id: "ui-title", label: "Title and credits", archive: 26 },
+  { id: "ui-startmenu", label: "Start menu", archive: 35 },
+  { id: "ui-party", label: "Party screen", archive: 76 },
+  { id: "ui-trainercard", label: "Trainer card", archive: 40 },
+  { id: "ui-shop", label: "Shop", archive: 54 },
+  { id: "ui-nameentry", label: "Name entry", archive: 118 },
+  { id: "ui-mail", label: "Mail", archive: 155 },
+  { id: "ui-townmap", label: "Town map", archive: 85 },
+  { id: "ui-weather", label: "Weather effects", archive: 56 },
+];
 
 export interface Group {
   label: string;
@@ -78,24 +102,7 @@ export const GROUPS: Group[] = [
   {
     label: "Interface",
     items: [
-      { id: "ui-common", label: "Menu sprites", kind: "graphics", archive: 83 },
-      { id: "ui-frames", label: "Windows and frames", kind: "graphics", archive: 5 },
-      { id: "ui-options", label: "Options", kind: "graphics", archive: 27 },
-      { id: "ui-bag", label: "Bag screen", kind: "graphics", archive: 88 },
-      { id: "ui-summary", label: "Summary", kind: "graphics", archive: 78 },
-      { id: "ui-dex", label: "Pokedex", kind: "graphics", archive: 159 },
-      { id: "ui-cgear", label: "C-Gear skins", kind: "graphics", archive: 30 },
-      { id: "ui-fieldmenu", label: "Field menu", kind: "graphics", archive: 71 },
-      { id: "ui-box", label: "PC box", kind: "graphics", archive: 116 },
-      { id: "ui-title", label: "Title and credits", kind: "graphics", archive: 26 },
-      { id: "ui-startmenu", label: "Start menu", kind: "graphics", archive: 35 },
-      { id: "ui-party", label: "Party screen", kind: "graphics", archive: 76 },
-      { id: "ui-trainercard", label: "Trainer card", kind: "graphics", archive: 40 },
-      { id: "ui-shop", label: "Shop", kind: "graphics", archive: 54 },
-      { id: "ui-nameentry", label: "Name entry", kind: "graphics", archive: 118 },
-      { id: "ui-mail", label: "Mail", kind: "graphics", archive: 155 },
-      { id: "ui-townmap", label: "Town map", kind: "graphics", archive: 85 },
-      { id: "ui-weather", label: "Weather effects", kind: "graphics", archive: 56 },
+      { id: "interface", label: "Menus and screens", kind: "interface" },
     ],
   },
   {

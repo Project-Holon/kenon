@@ -1,7 +1,7 @@
 <script lang="ts">
   import { save } from "@tauri-apps/plugin-dialog";
   import { appStatus, closeProject, exportBw, isReady, type Status } from "../lib/backend";
-  import { ALL, GROUPS, type Category } from "../lib/categories";
+  import { ALL, GROUPS, INTERFACE_SCREENS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
   import { forget } from "morphe/cache.svelte";
   import { forgetThumbs } from "../lib/thumbs";
@@ -9,6 +9,7 @@
   import ChangesDialog from "../lib/ChangesDialog.svelte";
   import { clearEnums } from "../lib/tables";
   import GraphicsBrowser from "../views/GraphicsBrowser.svelte";
+  import InterfaceView from "../views/InterfaceView.svelte";
   import SoundBrowser from "../views/SoundBrowser.svelte";
   import TextBrowser from "../views/TextBrowser.svelte";
   import FilesBrowser from "../views/FilesBrowser.svelte";
@@ -63,7 +64,15 @@
     return () => window.removeEventListener("kenon:open", go);
   });
 
+  // The Interface screen to show first (an INTERFACE_SCREENS id), when a
+  // link names one.
+  let interfaceScreen = $state<string | undefined>(undefined);
+
   function openAt(id: string, index?: number) {
+    if (INTERFACE_SCREENS.some((s) => s.id === id)) {
+      interfaceScreen = id;
+      id = "interface";
+    }
     const c = ALL.find((x) => x.id === id);
     if (!c) return;
     play("select");
@@ -85,7 +94,7 @@
   );
   // Long groups of picture screens start folded, so the sidebar fits the
   // window; a viewer's own choice wins once made.
-  const START_FOLDED = ["Interface", "Overworld textures"];
+  const START_FOLDED = ["Overworld textures"];
   const isFolded = (label: string) => folded[label] ?? START_FOLDED.includes(label);
   function fold(label: string) {
     folded[label] = !isFolded(label);
@@ -205,6 +214,8 @@
     {#key `${current.id}/${start}/${reverts}`}
       {#if current.kind === "graphics"}
         <GraphicsBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
+      {:else if current.kind === "interface"}
+        <InterfaceView screen={interfaceScreen} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "sound"}
         <SoundBrowser group={current.group} />
       {:else if current.kind === "text"}

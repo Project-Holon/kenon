@@ -2096,18 +2096,6 @@
      "group": "AI"
     },
     {
-     "name": "aiScript13",
-     "label": "Unused",
-     "offset": 12,
-     "type": "bits",
-     "size": 4,
-     "bit": 12,
-     "width": 1,
-     "confidence": "verified",
-     "note": "Empty script with no effect.",
-     "group": "AI"
-    },
-    {
      "name": "aiScript14",
      "label": "Flee at low HP",
      "offset": 12,
@@ -2118,6 +2106,18 @@
      "confidence": "verified",
      "note": "Flees at 20% HP or below.",
      "group": "AI"
+    },
+    {
+     "name": "aiScript13",
+     "label": "Unused",
+     "offset": 12,
+     "type": "bits",
+     "size": 4,
+     "bit": 12,
+     "width": 1,
+     "confidence": "verified",
+     "note": "Empty script with no effect.",
+     "group": "Advanced"
     }
    ]
   },

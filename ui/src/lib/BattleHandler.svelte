@@ -321,7 +321,6 @@
         elsewhere in the game are not included.{#if parts.length > 1} Overlapping effects all run, in this order.{/if}
       </p>
     {/if}
-    <p class="muted note small">Requires eidos 0.2.8 or later.</p>
   {/if}
 </div>
 

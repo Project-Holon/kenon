@@ -27,10 +27,10 @@
 //! | a/1/6/7 (167)    | n + 5                | Pokedex list icon            |
 //!
 //! Text lines (a/0/0/2): 70 name, 284 name in capitals, 281 name with its
-//! article, 260 category, 235 and 236 Pokedex entry. Height and weight
-//! (banks 244, 245, 268) have 727 lines, one per species and form; how the
-//! Pokedex numbers a new species there is not known yet, so they are left
-//! alone.
+//! article, 260 category, 235 and 236 Pokedex entry. Form name, height and
+//! weight (banks 244, 245, 268) have 727 lines, the game's species then its
+//! forms; a slot the mod adds is line 727 + (slot - 715), as eidos reads it
+//! (DEX_BANKS).
 //!
 //! eidos files: `limit.species` (the last species), `icon_palette.txt` (a
 //! row per slot) and `cries.txt` (crate::cries).
@@ -217,6 +217,8 @@ struct Planned {
     src: Option<usize>,
     data: SlotData,
     palette: Vec<u32>,
+    /// Its lines in DEX_BANKS.
+    dex: Vec<String>,
 }
 
 fn planned(bridge: &Bridge, project: &Project, slot: usize) -> Planned {
@@ -228,7 +230,31 @@ fn planned(bridge: &Bridge, project: &Project, slot: usize) -> Planned {
             .get(&slot)
             .cloned()
             .unwrap_or_else(|| palette_row(icon_palette(bridge, slot))),
+        dex: dex_lines(bridge, slot),
     }
+}
+
+/// The Pokedex banks of 727 lines: the game's species 0..649, then its
+/// forms (form name, height, weight). eidos reads a slot the mod adds
+/// (715 and up) at line 727 + (slot - 715).
+const DEX_BANKS: [usize; 3] = [244, 245, 268];
+const DEX_GAME_LINES: usize = 727;
+
+/// A slot's line in the DEX_BANKS: a game species' own, a mod slot's past
+/// the game's lines.
+fn dex_line(slot: usize) -> usize {
+    if slot >= FIRST_NEW {
+        DEX_GAME_LINES + slot - FIRST_NEW
+    } else {
+        slot
+    }
+}
+
+fn dex_lines(bridge: &Bridge, slot: usize) -> Vec<String> {
+    DEX_BANKS
+        .iter()
+        .map(|&b| line(bridge, b, dex_line(slot)).unwrap_or_default())
+        .collect()
 }
 
 /// The plan for the layout as it is: every species and its forms.
@@ -312,6 +338,18 @@ fn apply(
         }
     }
     project.write_table_rows(ICON_PALETTE, &rows).map_err(io)?;
+    // The Pokedex lines: the game's 727, then one per slot in slot order.
+    for (k, &bank) in DEX_BANKS.iter().enumerate() {
+        let mut lines: BTreeMap<usize, String> = project
+            .msg_lines(TEXT_ARC, bank)
+            .into_iter()
+            .filter(|(i, _)| *i < DEX_GAME_LINES)
+            .collect();
+        for (slot, p) in &out {
+            lines.insert(dex_line(*slot), p.dex.get(k).cloned().unwrap_or_default());
+        }
+        write_lines(project, bank, &lines)?;
+    }
     set_limit(project, (count > 0).then(|| FIRST_NEW + count - 1))
 }
 
@@ -355,6 +393,12 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
             src: None,
             data,
             palette: palette_row(icon_palette(bridge, from)),
+            // The source's height and weight; a species has no form name.
+            dex: {
+                let mut d = dex_lines(bridge, from);
+                d[0].clear();
+                d
+            },
         },
         Vec::new(),
     ));
@@ -423,6 +467,8 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
         src: None,
         data,
         palette: palette_row(icon_palette(bridge, from)),
+        // The source's form name (empty for a species), height and weight.
+        dex: dex_lines(bridge, from),
     });
     let form = forms.len();
     apply(bridge, project, plan, l.end())?;
