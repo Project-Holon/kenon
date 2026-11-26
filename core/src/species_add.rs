@@ -43,8 +43,9 @@ use crate::tables;
 pub const FIRST_NEW: usize = 715;
 /// The game's last species.
 pub const LAST_GAME: usize = 649;
-/// Species ids are 11 bits in wild and trainer records.
-pub const CEILING: usize = 2047;
+/// eidos's ceiling: the Pokedex keeps the last species viewed in 10 bits
+/// (wild and trainer records hold 11).
+pub const CEILING: usize = 1023;
 const LIMIT_KEY: &str = "limit.species";
 
 /// The archives with one member (or block) per species: (archive, members
