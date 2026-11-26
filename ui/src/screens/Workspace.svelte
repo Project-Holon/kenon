@@ -1,5 +1,8 @@
 <script lang="ts">
   import { save } from "@tauri-apps/plugin-dialog";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import { lastRun } from "../lib/eidosRun";
   import { appStatus, closeProject, exportBw, isReady, type Status } from "../lib/backend";
   import { ALL, GROUPS, INTERFACE_SCREENS, type Category } from "../lib/categories";
   import { play, setSfx, sfxOn } from "../lib/sfx";
@@ -142,6 +145,32 @@
     exportTimer = setTimeout(() => (exportNote = ""), 5000);
   }
 
+  // Test in game: eidos on the mod's own test save (core preview.rs).
+  let testNote = $state("");
+  let testTimer: ReturnType<typeof setTimeout> | undefined;
+  function note(text: string) {
+    testNote = text;
+    clearTimeout(testTimer);
+    testTimer = setTimeout(() => (testNote = ""), 8000);
+  }
+  async function testInGame() {
+    play("decide");
+    try {
+      lastRun.kind = "test";
+      await invoke("test_in_game");
+      note("Starting eidos");
+    } catch (e) {
+      note(String(e));
+    }
+  }
+  $effect(() => {
+    const off = listen<string>("preview-ended", (e) => e.payload && lastRun.kind === "test" && note(`eidos stopped: ${e.payload}`));
+    return () => {
+      off.then((f) => f());
+      clearTimeout(testTimer);
+    };
+  });
+
   const changes = $derived(status.project?.changes.length ?? 0);
   const changeText = $derived(changes === 0 ? "No changes" : `${changes} change${changes === 1 ? "" : "s"}`);
 </script>
@@ -170,6 +199,8 @@
       </button>
       {#if !readOnly && status.project}
         {#if exportNote}<span class="tag" role="status">{exportNote}</span>{/if}
+        {#if testNote}<span class="tag" role="status">{testNote}</span>{/if}
+        <button onclick={testInGame} title="Launches eidos with the saved mod on a separate test save without modifying your saves.">Test in game</button>
         <button onclick={exportPackage} title="Pack this project into one .bw file">Export .bw</button>
         <button onclick={close} title="Your changes are already saved">Close project</button>
       {/if}

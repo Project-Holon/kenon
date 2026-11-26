@@ -966,14 +966,35 @@ fn preview_move(
     id: usize,
     species: Option<(usize, usize)>,
 ) -> Result<(), String> {
-    use std::io::BufRead;
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
     let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
-    let (exe, _) = kenon_core::preview::program()
-        .ok_or("eidos is not installed. Install it with the eidos launcher.")?;
     let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
     let args = kenon_core::preview::move_args(&profile, &project.root, id, species);
+    run_eidos(app, args)
+}
+
+/// Plays the mod in eidos on its own test save (eidos `--test-saves`):
+/// the profile's save is copied once, then each test continues it; the
+/// player's saves are never written. Refusals come as `preview-ended`.
+#[tauri::command]
+fn test_in_game(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
+    let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
+    let folder = kenon_core::preview::test_folder(&project.root).ok_or("no eidos user folder")?;
+    let args = kenon_core::preview::test_args(&profile, &project.root, &folder);
+    run_eidos(app, args)
+}
+
+/// Starts eidos with `args`, replacing a running preview or test. When it
+/// exits refusing (exit code not 0), the `preview-ended` event carries its
+/// message.
+fn run_eidos(app: tauri::AppHandle, args: Vec<std::ffi::OsString>) -> Result<(), String> {
+    use std::io::BufRead;
+    let (exe, _) = kenon_core::preview::program()
+        .ok_or("eidos is not installed. Install it with the eidos launcher.")?;
     let mut slot = PREVIEW.lock().unwrap();
     if let Some(mut old) = slot.take() {
         let _ = old.kill();
@@ -995,7 +1016,7 @@ fn preview_move(
         let mut last = String::new();
         if let Some(err) = stderr {
             for line in std::io::BufReader::new(err).lines().map_while(Result::ok) {
-                if line.starts_with("eidos: --preview") {
+                if line.starts_with("eidos: --preview") || line.starts_with("eidos: --test-saves") {
                     said = line;
                 } else if !line.trim().is_empty() {
                     last = line;
@@ -1030,7 +1051,7 @@ fn preview_message(line: &str) -> String {
     if rest.starts_with("--preview-move needs a save") {
         return "Start a game in eidos once first. The preview needs a save.".into();
     }
-    let rest = ["--preview-move", "--preview-species"]
+    let rest = ["--preview-move", "--preview-species", "--test-saves"]
         .iter()
         .find_map(|f| rest.strip_prefix(f))
         .map_or(rest, |r| r.trim_start_matches(':').trim_start());
@@ -2532,6 +2553,7 @@ pub fn run() {
             check_effect_script,
             set_move_anim,
             preview_move,
+            test_in_game,
             item_prices,
             icon_palette,
             set_icon_palette,

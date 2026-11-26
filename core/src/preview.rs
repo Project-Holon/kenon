@@ -125,6 +125,29 @@ pub fn move_args(
     args
 }
 
+/// Where "Test in game" keeps a mod's test save:
+/// `<eidos user folder>/kenon-tests/<mod folder name>`, so each mod keeps
+/// one playthrough across edits.
+pub fn test_folder(project: &Path) -> Option<PathBuf> {
+    let name = project.file_name()?;
+    Some(eidos_user_folder()?.join("kenon-tests").join(name))
+}
+
+/// The arguments for playing the mod on its test save (eidos
+/// `--test-saves`: the profile's save is copied there the first time and
+/// never written).
+pub fn test_args(profile: &Path, project: &Path, folder: &Path) -> Vec<OsString> {
+    vec![
+        "--profile-dir".into(),
+        profile.into(),
+        "--window".into(),
+        "--mod".into(),
+        project.into(),
+        "--test-saves".into(),
+        folder.into(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

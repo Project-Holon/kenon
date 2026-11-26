@@ -12,6 +12,7 @@
   import { debounced } from "morphe/cache.svelte";
   import { useParts } from "./parts.svelte";
   import CodeEditor from "./CodeEditor.svelte";
+  import { lastRun } from "./eidosRun";
   import { EFFECT_LANGUAGE, type Marker } from "./monaco";
 
   let {
@@ -162,6 +163,7 @@
   async function preview() {
     try {
       const custom = attacker !== ATTACKER || defender !== DEFENDER;
+      lastRun.kind = "preview";
       await invoke("preview_move", { id, species: custom ? [attacker, defender] : null });
       starting = true;
       clearTimeout(timer);
@@ -173,7 +175,7 @@
   $effect(() => {
     const off = listen<string>("preview-ended", (e) => {
       starting = false;
-      if (e.payload) toast(`Preview failed: ${e.payload}`);
+      if (e.payload && lastRun.kind === "preview") toast(`Preview failed: ${e.payload}`);
     });
     return () => {
       off.then((f) => f());
