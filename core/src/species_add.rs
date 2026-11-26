@@ -417,6 +417,12 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
     let cry = crate::cries::current(project, crate::cries::Key { species: from, form: 0 });
     crate::cries::set(project, crate::cries::Key { species: id, form: 0 }, Some(cry))
         .map_err(Error::Missing)?;
+    // Its Pokedex search shape: the source's. The letter group is left to
+    // eidos, which takes the name's first letter.
+    let key = crate::cries::Key { species: id, form: 0 };
+    let shape = crate::dex_search::current(bridge, project, crate::cries::Key { species: from, form: 0 }).shape;
+    crate::dex_search::set(bridge, project, key, crate::dex_search::Search { shape, letter: None })
+        .map_err(Error::Missing)?;
     let display = crate::msg::Display(&name.encode_utf16().collect::<Vec<_>>()).to_string();
     let old_name = line(bridge, 70, from)?;
     for &(bank, kind) in &TEXTS {
@@ -481,7 +487,24 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
         dex: dex_lines(bridge, from),
     });
     let form = forms.len();
+    // The source's search shape, when it differs from the species' (a form
+    // with no shape takes its species').
+    let source = match l.form_at(from) {
+        Some((s, f)) => crate::cries::Key { species: s, form: f },
+        None => crate::cries::Key { species: from, form: 0 },
+    };
+    let shape = crate::dex_search::current(bridge, project, source).shape;
+    let own = crate::dex_search::current(bridge, project, crate::cries::Key { species, form: 0 }).shape;
     apply(bridge, project, plan, l.end())?;
+    if shape.is_some() && shape != own {
+        crate::dex_search::set(
+            bridge,
+            project,
+            crate::cries::Key { species, form },
+            crate::dex_search::Search { shape, letter: None },
+        )
+        .map_err(Error::Missing)?;
+    }
     bridge.invalidate();
     Ok(form)
 }
@@ -528,6 +551,7 @@ pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Remov
     plan[species - FIRST_NEW].1.remove(form - 1);
     apply(bridge, project, plan, l.end())?;
     crate::cries::remove_form(project, species, form).map_err(Error::Missing)?;
+    crate::dex_search::remove_form(project, species, form).map_err(Error::Missing)?;
     bridge.invalidate();
     Ok(report)
 }
@@ -654,6 +678,7 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<Removed, Error> {
     apply(bridge, project, plan, l.end())?;
     crate::cries::remove_species(project, id).map_err(Error::Missing)?;
     crate::regional_dex::remove_species(project, id).map_err(Error::Missing)?;
+    crate::dex_search::remove_species(project, id).map_err(Error::Missing)?;
     for &(bank, _) in &TEXTS {
         let lines: BTreeMap<usize, String> = project
             .msg_lines(TEXT_ARC, bank)

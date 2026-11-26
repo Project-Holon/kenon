@@ -1140,19 +1140,57 @@ fn regional_dex(
     Ok(kenon_core::regional_dex::info(&bridge, project, species))
 }
 
-/// Sets a Pokemon's Unova Pokedex number (None: national only). Returns
-/// the other Pokemon that has that number, if any.
+/// Sets a Pokemon's place in the Unova Pokedex; returns what it shows now.
 #[tauri::command]
 fn set_regional_dex(
     state: State<AppState>,
     species: usize,
-    number: Option<u16>,
-) -> Result<Option<usize>, String> {
+    place: kenon_core::regional_dex::Place,
+) -> Result<kenon_core::regional_dex::Info, String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
-    kenon_core::regional_dex::set(&bridge, project, species, number)?;
+    kenon_core::regional_dex::set(&bridge, project, species, place)?;
     bridge.invalidate();
-    Ok(number.and_then(|n| kenon_core::regional_dex::holder(&bridge, project, n, species)))
+    Ok(kenon_core::regional_dex::info(&bridge, project, species))
+}
+
+/// A Pokemon's or form's Pokedex search shape and letter group (None: not
+/// set), and the game's.
+#[derive(Serialize)]
+struct DexSearch {
+    current: kenon_core::dex_search::Search,
+    game: kenon_core::dex_search::Search,
+    shapes: &'static [&'static str],
+}
+
+#[tauri::command]
+fn dex_search(state: State<AppState>, species: usize, form: usize) -> Result<DexSearch, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    let key = kenon_core::cries::Key { species, form };
+    Ok(DexSearch {
+        current: kenon_core::dex_search::current(&bridge, project, key),
+        game: if form == 0 {
+            kenon_core::dex_search::game(&bridge, species)
+        } else {
+            Default::default()
+        },
+        shapes: &kenon_core::dex_search::SHAPES_NAMED,
+    })
+}
+
+#[tauri::command]
+fn set_dex_search(
+    state: State<AppState>,
+    species: usize,
+    form: usize,
+    search: kenon_core::dex_search::Search,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    kenon_core::dex_search::set(&bridge, project, kenon_core::cries::Key { species, form }, search)?;
+    bridge.invalidate();
+    Ok(())
 }
 
 /// Gives a Pokemon or form a brand-new cry from a WAV file: a wave archive
@@ -2294,6 +2332,8 @@ pub fn run() {
             species_forms,
             regional_dex,
             set_regional_dex,
+            dex_search,
+            set_dex_search,
             species_add_form,
             species_remove_form,
             species_cry,

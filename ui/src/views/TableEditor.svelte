@@ -156,6 +156,14 @@
     if (tables[0] !== "species") return;
     untrack(loadSpeciesNew);
   });
+  /// The species and form (1 and up) a form slot of the mod holds.
+  function formOf(slot: number): [number, number] | null {
+    for (const [s, slots] of Object.entries(speciesForms)) {
+      const i = slots.indexOf(slot);
+      if (i >= 0) return [Number(s), i + 1];
+    }
+    return null;
+  }
   /// After forms change: the list again, then the entry to show.
   async function formsChanged(index: number) {
     loadSpeciesNew();
@@ -1005,6 +1013,9 @@
           <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} form={tables[0] === "species" && Object.values(speciesForms).some((v) => v.includes(current!))} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
           {#if speciesTabs && (current <= 649 || speciesNew.includes(current))}
             <RegionalDex species={current} {nameOf} {version} {readOnly} {onSaved} />
+          {:else if speciesTabs && formOf(current)}
+            {@const [sp, f] = formOf(current)!}
+            <RegionalDex species={sp} form={f} {nameOf} {version} {readOnly} {onSaved} />
           {/if}
         </div>
       {/if}

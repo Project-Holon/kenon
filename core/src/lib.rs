@@ -19,6 +19,7 @@ pub mod codeview;
 pub mod content;
 pub mod cries;
 pub mod data_root;
+pub mod dex_search;
 pub mod fielditems;
 pub mod g3d;
 pub mod handlers;

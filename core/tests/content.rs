@@ -702,39 +702,56 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
 
 #[test]
 fn a_new_pokemon_joins_the_unova_pokedex() {
-    use kenon_core::{regional_dex as dex, species_add};
+    use kenon_core::cries::Key;
+    use kenon_core::dex_search::{self, Search};
+    use kenon_core::regional_dex::{self as dex, Place};
+    use kenon_core::species_add;
     let Some((bridge, dir)) = bridge() else {
         return;
     };
-    let project = bridge.project().unwrap().clone();
-    // The game's numbers: Victini 0, Snivy 1, Genesect 155, Pikachu none.
-    assert_eq!(dex::game(&bridge, 494), Some(0));
-    assert_eq!(dex::game(&bridge, 495), Some(1));
-    assert_eq!(dex::game(&bridge, 649), Some(155));
-    assert_eq!(dex::game(&bridge, 25), None);
-    assert_eq!(dex::next_number(&bridge, &project), 156);
+    // The game's places: Victini 0, Snivy 1, Genesect 155, Pikachu none.
+    assert_eq!(dex::game(&bridge, 494), Place::Number(0));
+    assert_eq!(dex::game(&bridge, 495), Place::Number(1));
+    assert_eq!(dex::game(&bridge, 649), Place::Number(155));
+    assert_eq!(dex::game(&bridge, 25), Place::National);
+    // Search values: Pikachu is a quadruped (4) under P (15).
+    assert_eq!(dex_search::game(&bridge, 25), Search { shape: Some(4), letter: Some(15) });
 
     let a = species_add::add(&bridge, 25, "Voltwing").unwrap();
+    let bridge = reopen(bridge, &dir);
     let b = species_add::add(&bridge, 1, "Sprouty").unwrap();
     let bridge = reopen(bridge, &dir);
     let project = bridge.project().unwrap().clone();
-    assert_eq!(dex::current(&bridge, &project, a), None);
-    dex::set(&bridge, &project, a, Some(156)).unwrap();
-    dex::set(&bridge, &project, b, Some(157)).unwrap();
-    // Pikachu joins; Snivy leaves; Victini keeps its own (no line).
-    dex::set(&bridge, &project, 25, Some(158)).unwrap();
-    dex::set(&bridge, &project, 495, None).unwrap();
-    dex::set(&bridge, &project, 494, Some(0)).unwrap();
-    assert!(dex::set(&bridge, &project, a, Some(999)).is_err());
+    // Added: National only, with the source's shape and no letter.
+    assert_eq!(dex::current(&bridge, &project, a), Place::National);
+    assert_eq!(dex_search::current(&bridge, &project, Key { species: a, form: 0 }).shape, Some(4));
+    assert_eq!(dex_search::current(&bridge, &project, Key { species: a, form: 0 }).letter, None);
+
+    // Both in the Unova Pokedex: numbered after Genesect, in id order.
+    dex::set(&bridge, &project, a, Place::Unova).unwrap();
+    dex::set(&bridge, &project, b, Place::Unova).unwrap();
+    let n = dex::numbers(&bridge, &project);
+    assert_eq!((n[&a], n[&b]), (156, 157));
+    // Pikachu gets its own number; Snivy leaves; Victini keeps its own.
+    dex::set(&bridge, &project, 25, Place::Number(200)).unwrap();
+    dex::set(&bridge, &project, 495, Place::National).unwrap();
+    dex::set(&bridge, &project, 494, Place::Number(0)).unwrap();
+    assert!(dex::set(&bridge, &project, a, Place::Number(999)).is_err());
     let text =
         std::fs::read_to_string(dir.path().join("m/eidos/tables/regional_dex.txt")).unwrap();
-    assert!(text.contains("25 = 158\n495 = none\n715 = 156\n716 = 157\n"), "{text}");
-    assert_eq!(dex::next_number(&bridge, &project), 159);
-    assert_eq!(dex::holder(&bridge, &project, 157, a), Some(716));
+    assert!(text.contains("25 = 200\n495 = none\n715 = unova\n716 = unova\n"), "{text}");
+    let n = dex::numbers(&bridge, &project);
+    assert_eq!((n[&a], n[&b]), (201, 202));
+    // A number shared with another species is reported.
+    dex::set(&bridge, &project, b, Place::Number(200)).unwrap();
+    assert_eq!(dex::info(&bridge, &project, b).shared_with, Some(25));
 
-    // Removing Voltwing moves Sprouty's line to 715.
+    // Removing Voltwing moves Sprouty's lines to 715.
     species_add::remove(&bridge, a).unwrap();
     let all = dex::all(&project);
-    assert_eq!(all.get(&715), Some(&Some(157)));
+    assert_eq!(all.get(&715), Some(&Place::Number(200)));
     assert!(!all.contains_key(&716));
+    let s = dex_search::all(&project);
+    assert_eq!(s.get(&Key { species: 715, form: 0 }).and_then(|s| s.shape), Some(4));
+    assert!(!s.contains_key(&Key { species: 716, form: 0 }));
 }
