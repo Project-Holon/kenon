@@ -8,6 +8,7 @@
   import { loadIcons, moveIcon, speciesIcon, typeIcon } from "../lib/icons.svelte";
   import { clearEnums, enumValues } from "../lib/tables";
   import TextPanel from "../lib/TextPanel.svelte";
+  import ContentDialog from "../lib/ContentDialog.svelte";
   import { toast } from "morphe/menu.svelte";
 
   let { version, readOnly, onSaved }: { version: number; readOnly: boolean; onSaved: () => void } = $props();
@@ -62,50 +63,26 @@
       busy = false;
     }
   }
-  // A new type: its name and the type it matches up like at first.
-  let adding = $state(false);
-  let newName = $state("");
-  let newFrom = $state(0);
-  async function addType() {
-    busy = true;
-    try {
-      const id = await invoke<number>("add_type", { name: newName, from: newFrom });
-      adding = false;
-      newName = "";
-      await loadAll();
-      onSaved();
-      play("save");
-      picked = id;
-      toast(`Added ${types[id]}`);
-    } catch (e) {
-      toast(String(e));
-    } finally {
-      busy = false;
-    }
+  // New and Remove open kenon's add and remove dialog, as for Pokemon,
+  // moves, items and abilities. The dialog shows errors itself.
+  let dialog = $state<"add" | "remove" | null>(null);
+  async function addType(from: number, name: string) {
+    const id = await invoke<number>("add_type", { name, from });
+    await loadAll();
+    onSaved();
+    play("save");
+    picked = id;
+    toast(`Added ${types[id]}`);
   }
-  // Removing asks once: the menu picks the type, a second button confirms.
-  let confirmRemove = $state(false);
   async function removeType(id: number) {
-    if (!confirmRemove) {
-      confirmRemove = true;
-      return;
-    }
-    confirmRemove = false;
-    busy = true;
-    try {
-      const name = types[id];
-      const r = await invoke<{ updated: string[] }>("remove_type", { id });
-      picked = null;
-      await loadAll();
-      onSaved();
-      play("save");
-      const n = r.updated.length;
-      toast(`Removed ${name}${n ? `. ${n} record${n > 1 ? "s" : ""} now use Normal` : ""}`);
-    } catch (e) {
-      toast(String(e));
-    } finally {
-      busy = false;
-    }
+    const name = types[id];
+    const r = await invoke<{ updated: string[] }>("remove_type", { id });
+    picked = null;
+    await loadAll();
+    onSaved();
+    play("save");
+    const n = r.updated.length;
+    toast(`Removed ${name}${n ? `. ${n} record${n > 1 ? "s" : ""} now use Normal` : ""}`);
   }
   $effect(() => {
     void version;
@@ -153,30 +130,7 @@
         <h2>Type chart</h2>
         {#if !readOnly}
           <div class="acts">
-            <button class="quiet" disabled={busy} onclick={() => (adding = !adding)}>New type</button>
-            {#if count > 17}
-              <!-- The types the mod adds, removable here; the game's cannot be. -->
-              <select
-                aria-label="Remove a type"
-                value=""
-                disabled={busy || dirty}
-                title={dirty ? "Save or discard chart edits first." : ""}
-                onchange={(e) => {
-                  const id = Number(e.currentTarget.value);
-                  e.currentTarget.value = "";
-                  picked = id;
-                  confirmRemove = false;
-                  removeType(id);
-                }}
-              >
-                <option value="" disabled>Remove type...</option>
-                {#each types.slice(17) as t, k}<option value={String(17 + k)}>{t}</option>{/each}
-              </select>
-              {#if confirmRemove && picked !== null && picked >= 17}
-                <button class="primary" disabled={busy} onclick={() => removeType(picked!)}>Remove {types[picked]}</button>
-                <button class="quiet" onclick={() => (confirmRemove = false)}>Keep</button>
-              {/if}
-            {/if}
+            <button class="quiet" disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "add"), play("decide"))}>New type</button>
             <button class="quiet" disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
             <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
           </div>
@@ -186,16 +140,6 @@
         Attacking type by row, defending type by column. 2: super effective, &frac12;: not very effective, 0: no effect.
         {#if !readOnly}Click a cell to cycle effectiveness.{/if}
       </p>
-      {#if adding}
-        <form class="new" onsubmit={(e) => (e.preventDefault(), addType())}>
-          <label class="field"><span class="name">Name</span><input bind:value={newName} maxlength="8" /></label>
-          <label class="field">
-            <span class="name">Copy matchups from</span>
-            <select bind:value={newFrom}>{#each types as t, i}<option value={i}>{t}</option>{/each}</select>
-          </label>
-          <button class="primary" disabled={busy || !newName.trim() || dirty} title={dirty ? "Save or discard chart edits first." : ""}>Add</button>
-        </form>
-      {/if}
     </div>
     {#if error}<p class="bad pad">{error}</p>{/if}
     <div class="scroll">
@@ -247,7 +191,12 @@
       <p class="muted pad">Select a type to view matchups and users.</p>
     {:else}
       <div class="pad">
-        <h2>{types[picked]}</h2>
+        <div class="side-head">
+          <h2>{types[picked]}</h2>
+          {#if !readOnly && picked >= 17}
+            <button class="quiet" disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "remove"), play("decide"))}>Remove type</button>
+          {/if}
+        </div>
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
         <div class="facts">
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
@@ -275,6 +224,22 @@
     {/if}
   </aside>
 </div>
+
+{#if dialog}
+  <ContentDialog
+    mode={dialog}
+    noun="type"
+    names={types}
+    from={picked ?? 0}
+    fromLabel="Copy matchups from"
+    removing={picked !== null && picked >= 17 ? { id: picked, name: types[picked] } : null}
+    usesNote="Pokémon, moves and items of this type become Normal."
+    icon={(t) => typeIcon(t) || null}
+    onAdd={addType}
+    onRemove={removeType}
+    onClose={() => (dialog = null)}
+  />
+{/if}
 
 <style>
   .types {
@@ -306,20 +271,13 @@
     display: flex;
     gap: 0.5rem;
   }
-  .new {
+  .side-head {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 0.8rem;
-    margin-top: 0.6rem;
   }
-  .new .field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .new .name {
-    font-size: 0.85rem;
-    color: var(--muted);
+  .side-head h2 {
+    flex: 1;
   }
   .cell.editable {
     cursor: pointer;
@@ -327,9 +285,6 @@
   .cell.edited {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
-  }
-  .remove {
-    margin-top: 0.8rem;
   }
   .scroll {
     overflow: auto;

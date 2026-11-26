@@ -42,6 +42,7 @@ pub mod scripts;
 pub mod sdat;
 pub mod shops;
 pub mod sound_add;
+pub mod spa;
 pub mod source;
 pub mod species_add;
 pub mod tables;

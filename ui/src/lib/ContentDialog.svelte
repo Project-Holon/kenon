@@ -16,6 +16,8 @@
     onAdd,
     onRemove,
     onClose,
+    usesNote,
+    fromLabel = "Copy of",
   }: {
     mode: "add" | "remove";
     /// "move" or "item".
@@ -29,6 +31,10 @@
     onAdd: (from: number, name: string) => Promise<void>;
     onRemove: (id: number) => Promise<void>;
     onClose: () => void;
+    /// What becomes of the entry's uses, when not "cleared".
+    usesNote?: string;
+    /// The add form's source label, when not the default.
+    fromLabel?: string;
   } = $props();
 
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -94,16 +100,16 @@
       <p class="muted">It starts as a copy of another {noun}. Change anything after.</p>
     </header>
     <div class="field">
-      <span>Copy of</span>
-      <SearchSelect bind:value={source} options={names} {icon} label="Copy of" />
+      <span>{fromLabel}</span>
+      <SearchSelect bind:value={source} options={names} {icon} label={fromLabel} />
     </div>
     <label class="field">
       <span>Name</span>
       <input
         bind:this={nameInput}
         bind:value={name}
-        maxlength={noun === "Pokemon" ? 10 : 20}
-        placeholder={({ move: "Storm Bolt", ability: "Super Intimidate", item: "MegaHyper Potion", Pokemon: "Voltwing" } as Record<string, string>)[noun] ?? ""}
+        maxlength={noun === "Pokemon" ? 10 : noun === "type" ? 8 : 20}
+        placeholder={({ move: "Storm Bolt", ability: "Super Intimidate", item: "MegaHyper Potion", Pokemon: "Voltwing", type: "Fairy" } as Record<string, string>)[noun] ?? ""}
         onkeydown={(e) => e.key === "Enter" && add()}
       />
     </label>
@@ -119,7 +125,7 @@
       <h2>Remove {removing.name}?</h2>
       <p class="muted">
         The {noun === "ability" ? "abilities" : noun === "Pokemon" ? "Pokemon" : `${noun}s`} added after it shift down by one ID, and all references in this mod update.
-        References to {removing.name} are cleared.
+        {usesNote ?? `References to ${removing.name} are cleared.`}
       </p>
     </header>
     {#if error}<p class="bad">{error}</p>{/if}
