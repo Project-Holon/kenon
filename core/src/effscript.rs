@@ -16,8 +16,8 @@
 //! ```text
 //! variant @v0
 //! @v0:
-//!     SetupCamera 1 0 0 0 0
-//!     JumpIf 3 0 1 @l_0084
+//!     CameraToView 1 0 0 0 0
+//!     JumpIfValue 3 0 1 @l_0084
 //!     WaitFrames 10
 //! @l_0084:
 //!     end 65535
@@ -36,91 +36,88 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
-/// A command's name (without the game's `BTLV_EFFVM_Cmd`) and how many
-/// u32 arguments it reads.
+/// A command's editor name and how many u32 arguments it reads. Names
+/// say what the command does (eidos research, effect-script-args.md);
+/// several of aletheia's names do not (56 and 57 are swapped).
 pub const COMMANDS: [(&str, usize); 78] = [
-    ("SetupCamera", 5),
-    ("MoveCameraTo", 10),
-    ("RotateCameraOrbit", 6),
-    ("MoveCameraEased", 6),
-    ("SetBillboardMode", 2),
-    ("SaveCameraPosition", 0),
-    ("LoadParticleResource", 1),
-    ("StartParticleEffect", 11),
-    ("StartParticleEffectFixedPos", 15),
-    ("StartParticleEffectTargeted", 11),
-    ("StartParticleEffectForEachInstance", 10),
-    ("DeleteParticleEmitter", 1),
-    ("StartParticleEffectOffset", 11),
-    ("StartParticleEffectConstOffset", 13),
-    ("StartParticleEffectTargetedOffset", 11),
-    ("StartParticleEffectTargetedConstOffset", 13),
-    // aletheia's ParticleInitCallbackSource and ...Target: an emitter moved
-    // round the user or the target (BTLV_EFFVM_SetupEmitterCallbacks reads
-    // key, effect, anchor, radius x and z, height, steps per cycle,
-    // interval, one more value and pause frames).
-    ("StartParticleOrbitSource", 10),
-    ("StartParticleOrbitTarget", 10),
-    ("StartPokePositionTween", 7),
-    ("StartPokeShake", 9),
-    ("StartPokeBounce", 6),
-    ("StartPokeShadowScaleTween", 7),
-    ("StartPokeRotateTween", 6),
-    ("StartPokeAlphaTween", 6),
-    ("StartPokeMosaicTween", 6),
-    ("StartPokeBlink", 4),
-    ("SetPokeAnimStop", 2),
-    ("SetPokePaletteFade", 5),
-    ("SetPokeVanish", 2),
-    ("SetPokeShadowVanish", 2),
-    ("StartPokeShadowScaleTweenSecondary", 7),
-    ("DeletePokeSprites", 1),
-    ("AddPokeSprite", 5),
-    ("SetPokePosition", 8),
-    ("SetPokeAnimIndex", 2),
-    ("ReleasePokeSprite", 1),
-    ("LoadBgPalette", 1),
-    ("StartBgScroll", 6),
-    ("Nop4", 4),
-    ("Nop5", 5),
-    ("SetBgLayerEnable", 1),
-    ("SetBlendRegister", 6),
-    ("SetStageFieldTint", 5),
-    ("SetStageLayerHidden", 2),
-    ("StartFadeTask", 7),
-    ("LoadClactAtPoke", 7),
-    ("StartClactPosTween", 7),
-    ("StartClactScaleTween", 7),
-    ("SetClactAnim", 2),
-    ("FadeClactPalette", 5),
-    ("ReleaseClact", 1),
-    ("SetGaugeVisibility", 2),
-    ("PlaySe", 9),
-    ("StopSe", 1),
-    ("StartSeVolumeTween", 8),
-    ("StartSeVolumeTask", 9),
+    ("CameraToView", 5),
+    ("CameraToPoint", 10),
+    ("OrbitCamera", 6),
+    ("CameraShake", 6),
+    ("SpriteLayoutMode", 2),
+    ("SaveCamera", 0),
+    ("LoadParticles", 1),
+    ("ParticleEffect", 11),
+    ("ParticleEffectAtPoint", 15),
+    ("ParticleEffectScreenSpace", 11),
+    ("AllParticleEffects", 10),
+    ("UnloadParticles", 1),
+    ("ParticleEffectOnPath", 11),
+    ("ParticleEffectOnPathFromPoint", 13),
+    ("ParticleEffectOnPathScreenSpace", 11),
+    ("ParticleEffectOnPathFromPointScreenSpace", 13),
+    ("OrbitingParticleEffect", 10),
+    ("OrbitingParticleEffectScreenSpace", 10),
+    ("MovePokemon", 7),
+    ("ShakePokemon", 9),
+    ("BouncePokemon", 6),
+    ("ScalePokemon", 7),
+    ("RotatePokemon", 6),
+    ("FadePokemon", 6),
+    ("MosaicPokemon", 6),
+    ("PokemonEyeBlink", 4),
+    ("PausePokemonAnimation", 2),
+    ("TintPokemon", 5),
+    ("ShowOrHidePokemon", 2),
+    ("ShowOrHideShadow", 2),
+    ("ScalePokemonDrawScale", 7),
+    ("RemoveSprites", 1),
+    ("AddTrainerSprite", 5),
+    ("MoveTrainerSprite", 8),
+    ("PlaySpriteAnimation", 2),
+    ("RemoveTrainerSprite", 1),
+    ("EffectBackground", 1),
+    ("ScrollBackground", 6),
+    ("NoOp4Words", 4),
+    ("NoOp5Words", 5),
+    ("BG3Priority", 1),
+    ("BackgroundBlend", 6),
+    ("TintStage", 5),
+    ("HideStagePart", 2),
+    ("WindowWipe", 7),
+    ("CellActorAtBattler", 7),
+    ("MoveCellActor", 7),
+    ("ScaleCellActor", 7),
+    ("CellActorAnimation", 2),
+    ("TintCellActor", 5),
+    ("RemoveCellActor", 1),
+    ("HPGauges", 2),
+    ("PlaySoundEffect", 9),
+    ("StopSoundEffect", 1),
+    ("PanSoundAcross", 8),
+    ("RampSound", 9),
+    ("WaitUntilIdle", 1),
     ("WaitFrames", 1),
-    ("WaitParticles", 1),
-    ("SetResult", 1),
-    ("JumpIf", 4),
-    ("JumpIfCondCompare", 4),
-    ("JumpIfPokeLoaded", 3),
-    ("SetScriptVar", 1),
-    ("EvalCondition", 1),
-    ("SetParam", 2),
-    ("SetPokeCellFlag", 3),
-    ("CopyPokeSpriteState", 0),
-    ("StartPokeCry", 7),
-    ("SetTypeSource", 1),
-    ("LoadClactFromPoke", 6),
-    ("CallScript", 3),
-    ("ReturnScript", 0),
-    ("JumpScript", 1),
-    ("WaitForTask", 0),
-    ("JumpToArchiveScript", 1),
-    ("StartWaitTask", 1),
-    ("SetPokeSpriteAnimMode", 1),
-    ("ReleaseScriptResources", 0),
+    ("FramePacing", 1),
+    ("JumpIfValue", 4),
+    ("JumpIfValuesCompare", 4),
+    ("JumpIfSpritePresent", 3),
+    ("SetScriptVariable", 1),
+    ("ReadValueIntoScriptVariable", 1),
+    ("SetParameter", 2),
+    ("SubstituteDoll", 3),
+    ("CopyDefenderLookToAttacker", 0),
+    ("PlayCry", 7),
+    ("TypeSource", 1),
+    ("TypedCellActorAtBattler", 6),
+    ("CallEffect", 3),
+    ("Return", 0),
+    ("Jump", 1),
+    ("WaitForBattle", 0),
+    ("GoToEffect", 1),
+    ("ReleaseSideSprites", 1),
+    ("BlinkDrawOrder", 1),
+    ("EndScript", 0),
 ];
 
 const HEADER: usize = 4;
@@ -566,7 +563,7 @@ mod tests {
     use super::*;
 
     fn script() -> Vec<u8> {
-        // One variant; WaitFrames 5; JumpScript to the end; WaitFrames 1
+        // One variant; WaitUntilIdle 5; JumpScript to the end; WaitUntilIdle 1
         // (skipped); end.
         let mut b = vec![1, 0, 0, 0];
         for _ in 0..VARIANT / 4 {
@@ -586,10 +583,10 @@ mod tests {
     fn round_trip() {
         let b = script();
         let t = disassemble(&b).unwrap();
-        assert!(t.contains("WaitFrames 5"), "{t}");
-        assert!(t.contains("JumpScript @l_"), "{t}");
+        assert!(t.contains("WaitUntilIdle 5"), "{t}");
+        assert!(t.contains("Jump @l_"), "{t}");
         // The command the jump skips is decoded too.
-        assert!(t.contains("WaitFrames 1\n"), "{t}");
+        assert!(t.contains("WaitUntilIdle 1\n"), "{t}");
         assert_eq!(assemble(&t).unwrap(), b);
     }
 
@@ -597,7 +594,7 @@ mod tests {
     fn labels_follow_edits() {
         let t = disassemble(&script()).unwrap();
         // One more command before the jump target: the offset grows by 6.
-        let t2 = t.replace("    WaitFrames 5\n", "    WaitFrames 5\n    WaitFrames 2\n");
+        let t2 = t.replace("    WaitUntilIdle 5\n", "    WaitUntilIdle 5\n    WaitUntilIdle 2\n");
         let b2 = assemble(&t2).unwrap();
         let jump_off = HEADER + VARIANT + 12 + 2;
         assert_eq!(u32_at(&b2, jump_off), Some(6));

@@ -21,23 +21,11 @@ export interface Marker {
 /// `[region, address, function, events]` per hookable function.
 export type DeclaredRow = [string, string, string, string[]];
 
-export const completions: {
-  ruleNames: RuleNames | null;
-  declared: DeclaredRow[];
-  tables: string[];
-  /// Battle effect commands: name and argument count.
-  effect: [string, number][];
-} = {
+export const completions: { ruleNames: RuleNames | null; declared: DeclaredRow[]; tables: string[] } = {
   ruleNames: null,
   declared: [],
   tables: [],
-  effect: [],
 };
-
-/// The battle effect commands the script editor completes.
-export function setEffectCommands(rows: [string, number][]) {
-  completions.effect = rows;
-}
 
 /// The names the rule language completes (events, payload fields, state).
 export function setRuleNames(names: RuleNames) {

@@ -12,7 +12,7 @@
   import { debounced } from "morphe/cache.svelte";
   import { useParts } from "./parts.svelte";
   import CodeEditor from "./CodeEditor.svelte";
-  import { EFFECT_LANGUAGE, setEffectCommands, type Marker } from "./monaco";
+  import { EFFECT_LANGUAGE, type Marker } from "./monaco";
 
   let {
     id,
@@ -36,7 +36,6 @@
   let species = $state<string[]>([]);
   enumValues("move").then((n) => (names = n));
   enumValues("species").then((n) => (species = n));
-  invoke<[string, number][]>("effect_commands").then(setEffectCommands).catch(() => {});
 
   interface Saved {
     anim: number;

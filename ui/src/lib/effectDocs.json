@@ -1,0 +1,2913 @@
+[
+ {
+  "id": 0,
+  "name": "CameraToView",
+  "title": "Camera to view",
+  "old": "SetupCamera",
+  "summary": "Moves the camera to a preset view. Ignored while `cameraLocked` is set.",
+  "args": [
+   {
+    "name": "moveType",
+    "unit": "enum",
+    "allowed": "0 = jump, 1 = move over time. Other = no camera change (side effects of the view still happen)",
+    "meaning": "how to reach the view. Seen: 1, once 0"
+   },
+   {
+    "name": "view",
+    "unit": "enum",
+    "allowed": "camera view 0..21",
+    "meaning": "which view. Seen: 8, 11, 9, 17, 20, 15, 14, 16, 21, 13, 1, 0, 10"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps of the move (camera move timing). Also the duration of the sprite rescale of views 14 and 19. Seen: 0..200, mostly 16 and 24"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: always 0"
+   },
+   {
+    "name": "easeCount",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "steps before the speed halves, 0 = never. Seen: 8, 0, 12, 6..90"
+   }
+  ]
+ },
+ {
+  "id": 1,
+  "name": "CameraToPoint",
+  "title": "Camera to point",
+  "old": "MoveCameraTo",
+  "summary": "Moves the camera eye and look-at point to given coordinates. Applies the current layout mode (command 4) first.",
+  "args": [
+   {
+    "name": "moveType",
+    "unit": "enum",
+    "allowed": "0 = jump to the point, 1 = move to the point, 2 = move by the given amounts (added to the current eye and target). Other = no move",
+    "meaning": ". Seen: 2, 1, once 0"
+   },
+   {
+    "name": "eyeX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "eye x (or delta)"
+   },
+   {
+    "name": "eyeY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "eye y"
+   },
+   {
+    "name": "eyeZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "eye z"
+   },
+   {
+    "name": "targetX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "look-at x"
+   },
+   {
+    "name": "targetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "look-at y"
+   },
+   {
+    "name": "targetZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "look-at z"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps (camera move timing). Seen: 0..500"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0, 1"
+   },
+   {
+    "name": "easeCount",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "steps before half speed. Seen: 0..480"
+   }
+  ]
+ },
+ {
+  "id": 2,
+  "name": "OrbitCamera",
+  "title": "Orbit camera",
+  "old": "RotateCameraOrbit",
+  "summary": "Turns the camera eye around the look-at point.",
+  "args": [
+   {
+    "name": "moveType",
+    "unit": "enum",
+    "allowed": "0 = jump, 1 = move over time. Other = nothing",
+    "meaning": ""
+   },
+   {
+    "name": "dPitch",
+    "unit": "angle16 (signed)",
+    "allowed": "any",
+    "meaning": "added to the elevation angle (the one that sets eye height). aletheia's local name `yaw` is wrong, the camera function calls it dPitch. Seen: 0, -0x7D0"
+   },
+   {
+    "name": "dYaw",
+    "unit": "angle16 (signed)",
+    "allowed": "any",
+    "meaning": "added to the horizontal angle around the y axis. Seen: 0x2000, -0x2000, -0x3E80"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps, for moveType 1. Seen: 0, 20"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0"
+   },
+   {
+    "name": "easeCount",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "steps before half speed. Seen: 0, 10"
+   }
+  ]
+ },
+ {
+  "id": 3,
+  "name": "CameraShake",
+  "title": "Camera shake",
+  "old": "MoveCameraEased",
+  "summary": "Shakes the camera eye and target along one screen axis. The aletheia name is misleading: `BTLV_CAMERA_StartMoveWithEasing` starts a mover in kind 3 (swing both ways).",
+  "args": [
+   {
+    "name": "axis",
+    "unit": "enum",
+    "allowed": "1 = x, any other = y",
+    "meaning": "shake direction. Seen: 0, 1"
+   },
+   {
+    "name": "amplitude",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "shake distance. Seen: 0x19A..0x99A"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "passed on and ignored by the camera. Seen: 0, 0x1000, 0x333"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps per swing leg. Seen: 1, 2"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0, 1"
+   },
+   {
+    "name": "waves",
+    "unit": "int",
+    "allowed": "1 and up",
+    "meaning": "number of full waves (reversals = waves x 4). Seen: 1..18"
+   }
+  ]
+ },
+ {
+  "id": 4,
+  "name": "SpriteLayoutMode",
+  "title": "Sprite layout mode",
+  "old": "SetBillboardMode",
+  "summary": "Switches the Pokemon sprites between flat (orthographic) and 3D drawing.",
+  "args": [
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "scope 0: 1 = 3D (ortho off), other = flat (ortho on). Scope nonzero: 1 = billboard off, other = billboard on",
+    "meaning": ". Seen: 0, once 1"
+   },
+   {
+    "name": "scope",
+    "unit": "bool",
+    "allowed": "0 = all sprites (stores `layoutMode`, used by later camera commands). Nonzero = the attacker's sprite only (selector B 14)",
+    "meaning": ". Seen: 0, once 1"
+   }
+  ]
+ },
+ {
+  "id": 5,
+  "name": "SaveCamera",
+  "title": "Save camera",
+  "old": "SaveCameraPosition",
+  "summary": "Stores the current eye and target for camera view 13. No arguments.",
+  "args": []
+ },
+ {
+  "id": 6,
+  "name": "LoadParticles",
+  "title": "Load particles",
+  "old": "LoadParticleResource",
+  "summary": "Loads a particle member into a free slot (16 slots) and waits until its textures are uploaded. Loading a key that is already loaded does nothing.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "member index of `a/0/0/6` (0..732), or a typed key",
+    "meaning": "which particle file. Seen: 0..0x2DC"
+   }
+  ]
+ },
+ {
+  "id": 7,
+  "name": "ParticleEffect",
+  "title": "Particle effect",
+  "old": "StartParticleEffect",
+  "summary": "Starts one emitter of a loaded particle file at a battler, aimed at another. World space.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "a key loaded by 6",
+    "meaning": "particle file"
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. resource count - 1",
+    "meaning": "emitter block index. Seen: 0..16"
+   },
+   {
+    "name": "source",
+    "unit": "PS",
+    "allowed": "see PS",
+    "meaning": "start point. Seen: 11, 9, 0..7"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "see PD, 8 = same as source",
+    "meaning": "aim point. Seen: 8, 11, 9, 12"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added to the y of source and dest. Seen: 0x2000 mostly, -0x1000..0xA000"
+   },
+   {
+    "name": "arcAngle",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "stored, never read. Seen: 0 mostly"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "read and dropped. Seen: 0"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "radius and length multiplier. Seen: 0x1000"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "particle lifetime multiplier. Seen: 0x1000"
+   },
+   {
+    "name": "angleScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "base scale multiplier. Seen: 0x1000, 0x333..0x5000"
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "velocity multiplier. Seen: 0x1000"
+   }
+  ]
+ },
+ {
+  "id": 8,
+  "name": "ParticleEffectAtPoint",
+  "title": "Particle effect at point",
+  "old": "StartParticleEffectFixedPos",
+  "summary": "Starts one emitter between two fixed points. World space. The multi-emitter rule does not apply.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ""
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0..7"
+   },
+   {
+    "name": "srcX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start point x. Seen: 0, -0x1000"
+   },
+   {
+    "name": "srcY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start point y. Seen: 0..0xD000"
+   },
+   {
+    "name": "srcZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start point z. Seen: -0x3000..0x6000"
+   },
+   {
+    "name": "dstX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "aim point x. Seen: 0"
+   },
+   {
+    "name": "dstY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "aim point y. Seen: 0"
+   },
+   {
+    "name": "dstZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "aim point z. Seen: 0"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added to both y. Seen: 0, 0xB33, 0x1000..0x3000"
+   },
+   {
+    "name": "arcAngle",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "never read. Seen: 0"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "dropped. Seen: 0"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ". Seen: 0x800..0x1333"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "angleScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ". Seen: 0x1000"
+   }
+  ]
+ },
+ {
+  "id": 9,
+  "name": "ParticleEffectScreenSpace",
+  "title": "Particle effect (screen space)",
+  "old": "StartParticleEffectTargeted",
+  "summary": "Like 7, but positions are projected to the screen (projection mode 1) and the offset is a full vector. Sets up a screen camera for the particle system on first use.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ""
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0..4"
+   },
+   {
+    "name": "source",
+    "unit": "PS",
+    "allowed": "see PS. 13 = attacker with projection mode 2",
+    "meaning": ". Seen: 9, 11, 0, 13"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "8 = same as source",
+    "meaning": ". Seen: 8, 9"
+   },
+   {
+    "name": "offsetX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added before projection. Seen: 0 mostly"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added before projection, and to dest y. Seen: 0x2000 mostly"
+   },
+   {
+    "name": "offsetZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added before projection. Seen: 0"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ". Seen: 0x800"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "angleScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 10,
+  "name": "AllParticleEffects",
+  "title": "All particle effects",
+  "old": "StartParticleEffectForEachInstance",
+  "summary": "Starts every emitter block of the file (index 0 to count - 1), all with the same anchors.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ". Seen: 3, 29 (typed keys)"
+   },
+   {
+    "name": "source",
+    "unit": "PS",
+    "allowed": "see PS",
+    "meaning": ". Seen: 0..11"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "8 = same as source",
+    "meaning": ". Seen: 8"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0x4000 mostly"
+   },
+   {
+    "name": "arcAngle",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "never read. Seen: 0"
+   },
+   {
+    "name": "screenSpace",
+    "unit": "bool",
+    "allowed": "0 = world, nonzero = screen camera (projection mode 2)",
+    "meaning": ". Seen: 0, 0x1000"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "angleScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 11,
+  "name": "UnloadParticles",
+  "title": "Unload particles",
+  "old": "DeleteParticleEmitter",
+  "summary": "Deletes the particle system of a key and frees its slot. Live effects of that key stop.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "a loaded key. Not loaded = nothing",
+    "meaning": ". Seen: 48, 49, 29, 46, 0xEA, 0x1C8, 0x1FB"
+   }
+  ]
+ },
+ {
+  "id": 12,
+  "name": "ParticleEffectOnPath",
+  "title": "Particle effect on path",
+  "old": "StartParticleEffectOffset",
+  "summary": "Starts one emitter that travels from source to dest (world space).",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ""
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0..5"
+   },
+   {
+    "name": "motion",
+    "unit": "enum",
+    "allowed": "motion kind 0..6",
+    "meaning": "path shape. Seen: 1, 2, 6, 5"
+   },
+   {
+    "name": "source",
+    "unit": "PS",
+    "allowed": "see PS",
+    "meaning": ". Seen: 9, 11"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "see PD (8 = origin here)",
+    "meaning": ". Seen: 11, 9, 1, 0"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added to both y. Seen: 0x2000 mostly"
+   },
+   {
+    "name": "travelTime",
+    "unit": "fx32 int frames",
+    "allowed": "0x1000 and up. 0 = no travel, the emitter stays at the source",
+    "meaning": "trip length in frames, 0x1E000 = 30. Seen: 0 (42 times), 0x10000..0xB4000"
+   },
+   {
+    "name": "arcScale",
+    "unit": "fx32",
+    "allowed": "any, negative flips the arc",
+    "meaning": "arc or wave height (motion 2, 3, 5, 6). Seen: -0x1000..0x6000"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "lifetime multiplier"
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": "velocity multiplier. Seen: 0x1000"
+   },
+   {
+    "name": "wobble",
+    "unit": "fx32",
+    "allowed": "0 counts as 1/4096",
+    "meaning": "wave count for motion 5 and 6, 0x1000 = one wave. Seen: 0, 0x3000..0x5000"
+   }
+  ]
+ },
+ {
+  "id": 13,
+  "name": "ParticleEffectOnPathFromPoint",
+  "title": "Particle effect on path from point",
+  "old": "StartParticleEffectConstOffset",
+  "summary": "Like 12, but the start is a fixed point.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ""
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ""
+   },
+   {
+    "name": "motion",
+    "unit": "enum",
+    "allowed": "motion kind 0..6",
+    "meaning": ". Seen: 1, 2"
+   },
+   {
+    "name": "srcX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start x. Seen: 0"
+   },
+   {
+    "name": "srcY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start y. Seen: -0x2000..0xD000"
+   },
+   {
+    "name": "srcZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "start z. Seen: 0, 0xA000"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "see PD",
+    "meaning": ". Seen: 11"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0x2000..0x3000"
+   },
+   {
+    "name": "travelTime",
+    "unit": "fx32 int frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0x14000, 0x23000"
+   },
+   {
+    "name": "arcScale",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: -0x7000..0x5000"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "wobble",
+    "unit": "fx32",
+    "allowed": "0 counts as 1/4096",
+    "meaning": ". Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 14,
+  "name": "ParticleEffectOnPathScreenSpace",
+  "title": "Particle effect on path (screen space)",
+  "old": "StartParticleEffectTargetedOffset",
+  "summary": "Like 12 with projection mode 3 and a screen camera.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ". Seen: 0xEA"
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 2"
+   },
+   {
+    "name": "motion",
+    "unit": "enum",
+    "allowed": "motion kind 0..6",
+    "meaning": ". Seen: 2"
+   },
+   {
+    "name": "source",
+    "unit": "PS",
+    "allowed": "see PS",
+    "meaning": ". Seen: 9"
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "see PD",
+    "meaning": ". Seen: 11"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0x2000"
+   },
+   {
+    "name": "travelTime",
+    "unit": "fx32 int frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0x2D000"
+   },
+   {
+    "name": "arcScale",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0x4000"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "wobble",
+    "unit": "fx32",
+    "allowed": "0 counts as 1/4096",
+    "meaning": ". Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 15,
+  "name": "ParticleEffectOnPathFromPointScreenSpace",
+  "title": "Particle effect on path from point (screen space)",
+  "old": "StartParticleEffectTargetedConstOffset",
+  "summary": "Like 13 with projection mode 3. The last three words are in a different order than 12..14 and there is no wobble word.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ". Seen: 48, 0xA0"
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "motion",
+    "unit": "enum",
+    "allowed": "motion kind 0..6. 5 and 6 have no wave here (wobble stays 0)",
+    "meaning": ". Seen: 3, 2, 1"
+   },
+   {
+    "name": "srcX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: -0x7400..0x1000"
+   },
+   {
+    "name": "srcY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ""
+   },
+   {
+    "name": "srcZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ""
+   },
+   {
+    "name": "dest",
+    "unit": "PD",
+    "allowed": "see PD",
+    "meaning": ". Seen: 9, 2, 4, 0, 6, 1"
+   },
+   {
+    "name": "offsetY",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ""
+   },
+   {
+    "name": "travelTime",
+    "unit": "fx32 int frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0x10000..0x23000"
+   },
+   {
+    "name": "arcScale",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0, 0x3000, 0x5000"
+   },
+   {
+    "name": "alphaScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "posScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ""
+   },
+   {
+    "name": "angleScale",
+    "unit": "fx32",
+    "allowed": "0 = keep",
+    "meaning": ". Seen: 0x1000, 0x800, 0xC00"
+   }
+  ]
+ },
+ {
+  "id": 16,
+  "name": "OrbitingParticleEffect",
+  "title": "Orbiting particle effect",
+  "old": "ParticleInitCallbackSource",
+  "summary": "Starts one emitter that circles a center point in the xz plane (world space). Reads its 10 arguments through `BTLV_EFFVM_SetupEmitterCallbacks` with mode 0.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ". Seen: 0x27F, 0x2C1"
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0..4"
+   },
+   {
+    "name": "anchor",
+    "unit": "enum",
+    "allowed": "0, 1 = attacker (selector S 14). 2, 3 = defender (selector S 16). 4, 5 = world origin. Odd = turn the other way",
+    "meaning": "circle center and direction. Seen: 1, 2, 3"
+   },
+   {
+    "name": "radiusX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "circle radius on x. Seen: 0x1800, 0x2000"
+   },
+   {
+    "name": "radiusZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "circle radius on z. Seen: 0x1800, 0x2000"
+   },
+   {
+    "name": "height",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added to the center y. Seen: -0x1000, 0, 0x1000"
+   },
+   {
+    "name": "steps",
+    "unit": "int",
+    "allowed": "1 and up. 0 divides by zero",
+    "meaning": "steps per turn. Seen: 60, 120"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames waited between steps. Seen: 0"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "stored, never read. Seen: 1, 3"
+   },
+   {
+    "name": "pause",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames paused after each full turn. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 17,
+  "name": "OrbitingParticleEffectScreenSpace",
+  "title": "Orbiting particle effect (screen space)",
+  "old": "ParticleInitCallbackTarget",
+  "summary": "Same as 16 with mode 1: the orbit point is projected to the screen and a screen camera is set up. The aletheia names \"Source\" and \"Target\" do not match the behavior: the difference is the projection, not the anchor.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "loaded key",
+    "meaning": ". Seen: 0x27F, 0x2C1"
+   },
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0 .. count - 1",
+    "meaning": ". Seen: 0..4"
+   },
+   {
+    "name": "anchor",
+    "unit": "enum",
+    "allowed": "0, 1 = attacker (selector S 14). 2, 3 = defender (selector S 16). 4, 5 = world origin. Odd = turn the other way",
+    "meaning": "circle center and direction. Seen: 1, 2, 3"
+   },
+   {
+    "name": "radiusX",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "circle radius on x. Seen: 0x1800, 0x2000"
+   },
+   {
+    "name": "radiusZ",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "circle radius on z. Seen: 0x1800, 0x2000"
+   },
+   {
+    "name": "height",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "added to the center y. Seen: -0x1000, 0, 0x1000"
+   },
+   {
+    "name": "steps",
+    "unit": "int",
+    "allowed": "1 and up. 0 divides by zero",
+    "meaning": "steps per turn. Seen: 60, 120"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames waited between steps. Seen: 0"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "stored, never read. Seen: 1, 3"
+   },
+   {
+    "name": "pause",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames paused after each full turn. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 18,
+  "name": "MovePokemon",
+  "title": "Move Pokemon",
+  "old": "StartPokePositionTween",
+  "summary": "Moves each selected sprite. z is always 0 here (see 33 for a full vector).",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": "sprites to move. Seen: 16, 14, 0..13, 18"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..6",
+    "meaning": "1 = move by the offset (x mirrored on the opponent side). 0 = jump to the absolute point (x, y, 0). 5, 6 = back to the home spot. Seen: 2, 1, 5, 3"
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "offset, swing size or target x. Seen: -0x1E000..0xC000, mostly 0x333..0x1000"
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "same for y. Seen: -0x20000..0x14000"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps per leg. Seen: 0..60"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0, 1, 2"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "round trips (kind 2) or waves (kind 3). Unused by kinds 0, 1. Seen: 0..32"
+   }
+  ]
+ },
+ {
+  "id": 19,
+  "name": "ShakePokemon",
+  "title": "Shake Pokemon",
+  "old": "StartPokeShake",
+  "summary": "Moves the sprite's draw offset along a sine path in one plane, cycle after cycle. Shares the position task, so it replaces a running 18 or 20 on that sprite.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14, 16"
+   },
+   {
+    "name": "mode",
+    "unit": "bits",
+    "allowed": "bit 0: run backwards. Bits 1-2: plane, 0 = z/y, 1 = x/z, 2 = x/y",
+    "meaning": ". Seen: 2, 3, 0, 4"
+   },
+   {
+    "name": "waveStart",
+    "unit": "enum",
+    "allowed": "0..3",
+    "meaning": "which quarter of the wave starts the motion (each picks a different sin/cos offset so the sprite starts at rest). Seen: 0, 2, 1, 3"
+   },
+   {
+    "name": "amplitudeA",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "size along the first plane axis. Seen: 0..0x4000"
+   },
+   {
+    "name": "amplitudeB",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "size along the second plane axis. Seen: 0..0x4000"
+   },
+   {
+    "name": "steps",
+    "unit": "fx32 int",
+    "allowed": "1 and up. 0 divides by zero",
+    "meaning": "steps per cycle, 0xA000 = 10. Seen: 0x6000..0x28000"
+   },
+   {
+    "name": "interval",
+    "unit": "fx32 int frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0, 0x1000, 0x2000"
+   },
+   {
+    "name": "cycles",
+    "unit": "fx32 int",
+    "allowed": "1 and up. 0 = the command does nothing",
+    "meaning": "full cycles. Seen: 0x1000..0x8000"
+   },
+   {
+    "name": "pause",
+    "unit": "frames (plain int)",
+    "allowed": "0 and up",
+    "meaning": "frames paused between cycles. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 20,
+  "name": "BouncePokemon",
+  "title": "Bounce Pokemon",
+  "old": "StartPokeBounce",
+  "summary": "Moves the sprite's draw offset by amplitude x sin(phase) while phase runs from start to end, then resets the offset to 0.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 0..7, 14"
+   },
+   {
+    "name": "axisY",
+    "unit": "bool",
+    "allowed": "0 = x, nonzero = y",
+    "meaning": ". Seen: 1"
+   },
+   {
+    "name": "phaseStart",
+    "unit": "fx32 angle",
+    "allowed": "any",
+    "meaning": "start angle. Seen: 0x7FFF800 (180 degrees)"
+   },
+   {
+    "name": "phaseEnd",
+    "unit": "fx32 angle",
+    "allowed": "any",
+    "meaning": "end angle. Seen: 0xFFFF000 (360 degrees)"
+   },
+   {
+    "name": "amplitude",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "size. Seen: 0x800"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up. 0 divides by zero and never ends",
+    "meaning": "duration. Seen: 24, 32"
+   }
+  ]
+ },
+ {
+  "id": 21,
+  "name": "ScalePokemon",
+  "title": "Scale Pokemon",
+  "old": "StartPokeShadowScaleTween",
+  "summary": "Tweens the sprite field that aletheia calls `shadowScale`. `MCSS_Draw` multiplies the main sprite's x and y size by it (mcss.c near lines 1077 and 1093), so this is the usual Pokemon scale command. Whether the shadow also follows is not checked.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 16, 14, 18, 0..13"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..4",
+    "meaning": "1 = to the absolute scale, 2 = swing by the value. Seen: 2, 1, 0, 3"
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "any. 0x1000 = normal size",
+    "meaning": "target or swing size on x. Seen: -0x1000..0x1666"
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "target or swing size on y. Seen: -0x1000..0x1333"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps per leg. Seen: 0..40"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0..6"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0..40"
+   }
+  ]
+ },
+ {
+  "id": 22,
+  "name": "RotatePokemon",
+  "title": "Rotate Pokemon",
+  "old": "StartPokeRotateTween",
+  "summary": "Tweens the sprite's z rotation (screen plane).",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14, 16"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..4",
+    "meaning": "1 = to the absolute angle. 2, 3 = swing, mirrored on the opponent side. Seen: 3, 2, 1"
+   },
+   {
+    "name": "angle",
+    "unit": "fx32 angle",
+    "allowed": "any, signed",
+    "meaning": "0xAAAA00 = 15 degrees, 0xFFFF000 = full turn. Seen: plus or minus 0x71C6AB, 0xAAAA00, 0xE38D55, 0xFFFF000"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 3..80"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0..2"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0..3"
+   }
+  ]
+ },
+ {
+  "id": 23,
+  "name": "FadePokemon",
+  "title": "Fade Pokemon",
+  "old": "StartPokeAlphaTween",
+  "summary": "Tweens the sprite's polygon alpha.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14, 16, 8..13"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..4",
+    "meaning": "1 = to the absolute alpha. Seen: 1, 0, 2"
+   },
+   {
+    "name": "alpha",
+    "unit": "int",
+    "allowed": "0..31. 31 = opaque",
+    "meaning": "target or swing size. Seen: 1..31"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0..82"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 24,
+  "name": "MosaicPokemon",
+  "title": "Mosaic Pokemon",
+  "old": "StartPokeMosaicTween",
+  "summary": "Tweens the sprite's mosaic size. Every change reloads the sprite graphics.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ""
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..4",
+    "meaning": ""
+   },
+   {
+    "name": "mosaic",
+    "unit": "int",
+    "allowed": "0..15, higher is clamped to 15",
+    "meaning": ""
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ""
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ""
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 25,
+  "name": "PokemonEyeBlink",
+  "title": "Pokemon eye blink",
+  "old": "StartPokeBlink",
+  "summary": "Controls the sprite's blink layer (MCSS \"mepachi\" flag, the closed-eyes frame).",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14"
+   },
+   {
+    "name": "kind",
+    "unit": "enum",
+    "allowed": "2 = timed blinking, 3 = blink on, 4 = blink off. Other = nothing",
+    "meaning": ". Seen: 3"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "kind 2: frames between toggles. Seen: 0"
+   },
+   {
+    "name": "count",
+    "unit": "int",
+    "allowed": "0 counts as 1",
+    "meaning": "kind 2: blinks (toggles = count x 2). Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 26,
+  "name": "PausePokemonAnimation",
+  "title": "Pause Pokemon animation",
+  "old": "SetPokeAnimStop",
+  "summary": "Stops or resumes the sprite's own animation.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 16, 14, 18, 0..7"
+   },
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "0 = resume, 1 = stop, 2 = stop (always flag), 3 = resume (clear always flag). Other = resume",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 27,
+  "name": "TintPokemon",
+  "title": "Tint Pokemon",
+  "old": "SetPokePaletteFade",
+  "summary": "Blends the sprite palette toward a color, step by step.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 16, 14, 18, 0..13"
+   },
+   {
+    "name": "from",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": "start level. Seen: 0..16"
+   },
+   {
+    "name": "to",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": "end level. Seen: 0..16"
+   },
+   {
+    "name": "step",
+    "unit": "s8",
+    "allowed": "0 and up = frames between steps, one level per step. Negative n = (1 - n) levels per frame",
+    "meaning": "speed. Seen: 0..12, -1"
+   },
+   {
+    "name": "color",
+    "unit": "RGB555",
+    "allowed": "0..0x7FFF",
+    "meaning": "target color. Seen: 0x7FFF, 31, 0, 0x3FF and others"
+   }
+  ]
+ },
+ {
+  "id": 28,
+  "name": "ShowOrHidePokemon",
+  "title": "Show or hide Pokemon",
+  "old": "SetPokeVanish",
+  "summary": "",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20. Ignored by mode 5",
+    "meaning": ". Seen: 14, 16, 0..7, 18..20"
+   },
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "0 = show, 1 = hide, 2 = toggle, 3 = hide and remember whether it was already hidden, 4 = undo mode 3, 5 = restore the states saved by the battle for positions 0..7",
+    "meaning": ". Seen: 3, 4, 5"
+   }
+  ]
+ },
+ {
+  "id": 29,
+  "name": "ShowOrHideShadow",
+  "title": "Show or hide shadow",
+  "old": "SetPokeShadowVanish",
+  "summary": "",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 18, 14, 16, 0..7"
+   },
+   {
+    "name": "hide",
+    "unit": "bool",
+    "allowed": "1 = hide shadow, 0 = show",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 30,
+  "name": "ScalePokemonDrawScale",
+  "title": "Scale Pokemon (draw scale)",
+  "old": "StartPokeShadowScaleTweenSecondary",
+  "summary": "Same arguments as 21, but the task tweens the sprite's `drawScale` field, another size multiplier in `MCSS_Draw`. The start value is read from `shadowScale`, not `drawScale`.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ""
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..4",
+    "meaning": ""
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "0x1000 = normal",
+    "meaning": ""
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "0x1000 = normal",
+    "meaning": ""
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ""
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ""
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 31,
+  "name": "RemoveSprites",
+  "title": "Remove sprites",
+  "old": "DeletePokeSprites",
+  "summary": "Removes the sprites of the selected battlers.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14"
+   }
+  ]
+ },
+ {
+  "id": 32,
+  "name": "AddTrainerSprite",
+  "title": "Add trainer sprite",
+  "old": "AddPokeSprite",
+  "summary": "Adds a trainer sprite at a trainer position. The aletheia name says Pokemon, but it calls `BTLV_MCSS_AddTrainer`.",
+  "args": [
+   {
+    "name": "trainerType",
+    "unit": "int",
+    "allowed": "trainer type id. -1 = use scriptVar",
+    "meaning": "which trainer graphic. Seen: -1, 61"
+   },
+   {
+    "name": "position",
+    "unit": "selector S",
+    "allowed": "must give 8..13",
+    "meaning": "trainer spot. The code writes `pokeSprite[pos - 8]`. Seen: 8, 10, 12"
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "position. x, y, z all 0 = the spot's default position. Seen: -0x40000..-0xA000"
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: -0xB000, 0xE8000"
+   },
+   {
+    "name": "z",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: 0, -0x1000"
+   }
+  ]
+ },
+ {
+  "id": 33,
+  "name": "MoveTrainerSprite",
+  "title": "Move trainer sprite",
+  "old": "SetPokePosition",
+  "summary": "Position tween with a full xyz vector for a trainer sprite.",
+  "args": [
+   {
+    "name": "position",
+    "unit": "raw position",
+    "allowed": "8..13",
+    "meaning": "read through `BTLV_EFFECT_GetPokeSlot(pos)` = `pokeSprite[pos - 8]`, no selector. Seen: 8, 9"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..6",
+    "meaning": "as in 18. Seen: 0, 1"
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ". Seen: -0x5800..0x68000"
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ""
+   },
+   {
+    "name": "z",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": ""
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0..32"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 34,
+  "name": "PlaySpriteAnimation",
+  "title": "Play sprite animation",
+  "old": "SetPokeAnimIndex",
+  "summary": "Starts animation sequence N on a sprite and marks it pending until the sequence ends (wait mode 4).",
+  "args": [
+   {
+    "name": "position",
+    "unit": "raw position",
+    "allowed": "0..13",
+    "meaning": "no selector. Seen: 8..13"
+   },
+   {
+    "name": "anim",
+    "unit": "int",
+    "allowed": "0 .. sequence count - 1. Out of range = nothing",
+    "meaning": "animation sequence. Seen: 1, 2"
+   }
+  ]
+ },
+ {
+  "id": 35,
+  "name": "RemoveTrainerSprite",
+  "title": "Remove trainer sprite",
+  "old": "ReleasePokeSprite",
+  "summary": "Removes the sprite and frees the trainer spot.",
+  "args": [
+   {
+    "name": "position",
+    "unit": "raw position",
+    "allowed": "8..13",
+    "meaning": "no selector. Seen: 8..13"
+   }
+  ]
+ },
+ {
+  "id": 36,
+  "name": "EffectBackground",
+  "title": "Effect background",
+  "old": "LoadBgPalette",
+  "summary": "Loads an effect background into BG3 and saves the BG3 scroll. The battle graphics are reloaded when the script ends.",
+  "args": [
+   {
+    "name": "file",
+    "unit": "int",
+    "allowed": "first of a file triple in archive 0x5F (`a/0/9/5`, 165 members)",
+    "meaning": "screen map (NSCR) = file, character data (NCGR) = file + 1, palette (NCLR, loaded into the palette fade buffer) = file + 2. aletheia's `ARC_UTIL_UploadBgPaletteFromArchive` really uploads a screen (it calls `NNS_G2dGetUnpackedScreenData`). Seen: 0..126, all multiples of 3"
+   }
+  ]
+ },
+ {
+  "id": 37,
+  "name": "ScrollBackground",
+  "title": "Scroll background",
+  "old": "StartBgScroll",
+  "summary": "Scrolls BG3.",
+  "args": [
+   {
+    "name": "kind",
+    "unit": "enum",
+    "allowed": "tween kind 0..3, or 4 = constant speed",
+    "meaning": "1 = move by (x, y). 2 = swing. 4 = add (x, y) every frame, x negated when the attacker is on the opponent side. Seen: 4, 2, 1"
+   },
+   {
+    "name": "x",
+    "unit": "px",
+    "allowed": "any",
+    "meaning": "distance, swing size or per-frame speed. Seen: -0x640..0x960"
+   },
+   {
+    "name": "y",
+    "unit": "px",
+    "allowed": "any",
+    "meaning": ". Seen: -24..32"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": "steps per leg, or frames of kind 4. Seen: 1..240"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps (aletheia: phaseFrames). Seen: 0, 1"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "round trips (aletheia: cycleFrames). Seen: 0..70"
+   }
+  ]
+ },
+ {
+  "id": 38,
+  "name": "NoOp4Words",
+  "title": "No-op (4 words)",
+  "old": "Nop4",
+  "summary": "Reads and drops 4 words.",
+  "args": [
+   {
+    "name": "unused0",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused1",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused2",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused3",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   }
+  ]
+ },
+ {
+  "id": 39,
+  "name": "NoOp5Words",
+  "title": "No-op (5 words)",
+  "old": "Nop5",
+  "summary": "Reads and drops 5 words.",
+  "args": [
+   {
+    "name": "unused0",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused1",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused2",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused3",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused4",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   }
+  ]
+ },
+ {
+  "id": 40,
+  "name": "BG3Priority",
+  "title": "BG3 priority",
+  "old": "SetBgLayerEnable",
+  "summary": "Sets the BG3 draw priority. The aletheia name is misleading. Priority goes back to 0 when the script ends.",
+  "args": [
+   {
+    "name": "priority",
+    "unit": "int",
+    "allowed": "0..3 (low byte used)",
+    "meaning": "BG3 priority, 0 = front. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 41,
+  "name": "BackgroundBlend",
+  "title": "Background blend",
+  "old": "SetBlendRegister",
+  "summary": "Writes the main-screen alpha blend. Only the third word is used. Blending is reset when the script ends.",
+  "args": [
+   {
+    "name": "unused0",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused1",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "level",
+    "unit": "int",
+    "allowed": "0..31. 31 = restore the default blend",
+    "meaning": "other values: first targets 10, second targets 0x35, weight A 31, weight B = level"
+   },
+   {
+    "name": "unused3",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused4",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   },
+   {
+    "name": "unused5",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "ignored"
+   }
+  ]
+ },
+ {
+  "id": 42,
+  "name": "TintStage",
+  "title": "Tint stage",
+  "old": "SetStageFieldTint",
+  "summary": "Blends the 3D stage, the 3D field or the background palettes toward a color.",
+  "args": [
+   {
+    "name": "scope",
+    "unit": "enum",
+    "allowed": "0 = stage (platforms), 1 = field (3D background), 2 = both, 3 = BG palettes (palette fade, mask 0xFF00), 4 = all three",
+    "meaning": ". Seen: 4, 2, 3"
+   },
+   {
+    "name": "from",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": ". Seen: 0..16"
+   },
+   {
+    "name": "to",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": ". Seen: 0..16"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "stage and field: frames between steps, one level per step. BG palettes: passed as an s8 step, same rule as 27. Seen: 0..6"
+   },
+   {
+    "name": "color",
+    "unit": "RGB555",
+    "allowed": "0..0x7FFF",
+    "meaning": ". Seen: 0, 0x7FFF, 0x33FF and others"
+   }
+  ]
+ },
+ {
+  "id": 43,
+  "name": "HideStagePart",
+  "title": "Hide stage part",
+  "old": "SetStageLayerHidden",
+  "summary": "",
+  "args": [
+   {
+    "name": "layer",
+    "unit": "enum",
+    "allowed": "0 = both platforms, 1 = field (3D background), 2 = BG3 plane, 3 = platform 0, 4 = platform 1",
+    "meaning": ". Platform 0 and 1 are the two stage models, which side each is was not checked. Seen: 0..4"
+   },
+   {
+    "name": "hide",
+    "unit": "bool",
+    "allowed": "1 = hide, 0 = show",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 44,
+  "name": "WindowWipe",
+  "title": "Window wipe",
+  "old": "StartFadeTask",
+  "summary": "Opens or closes a screen window rectangle one pixel per edge per step. Hides BG1 and BG2. The aletheia name says fade, but it drives the window registers.",
+  "args": [
+   {
+    "name": "direction",
+    "unit": "enum",
+    "allowed": "0 = grow vertically (top up, bottom down), 1 = shrink vertically, 2 = grow horizontally, 3 = shrink horizontally",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "edgeX",
+    "unit": "8.8 px pair",
+    "allowed": "high byte = left, low byte = right",
+    "meaning": "start x range. Low byte 0xFF also enables window 1. Seen: 0xFF"
+   },
+   {
+    "name": "edgeY",
+    "unit": "8.8 px pair",
+    "allowed": "high byte = top, low byte = bottom",
+    "meaning": "start y range. Seen: 0x5050, 0x425E, 0x4F51"
+   },
+   {
+    "name": "layers",
+    "unit": "bits",
+    "allowed": "bits 0-5 = layers inside windows 0 and 1, bits 8-13 = layers outside",
+    "meaning": "WININ and WINOUT layer bits. Seen: 0x171F"
+   },
+   {
+    "name": "steps",
+    "unit": "int",
+    "allowed": "1 and up",
+    "meaning": "number of steps. Seen: 1, 14"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0"
+   },
+   {
+    "name": "keepWindow",
+    "unit": "bool",
+    "allowed": "0 = switch windows off at the end",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 45,
+  "name": "CellActorAtBattler",
+  "title": "Cell actor at battler",
+  "old": "LoadClactAtPoke",
+  "summary": "Loads a 2D cell actor from archive 0x5F at a battler's screen point.",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": "script actor slot. No range check"
+   },
+   {
+    "name": "file",
+    "unit": "int",
+    "allowed": "first of 4 files in archive 0x5F",
+    "meaning": "character = file, palette + 1, cell + 2, animation + 3"
+   },
+   {
+    "name": "position",
+    "unit": "selector S",
+    "allowed": "0..17",
+    "meaning": "battler"
+   },
+   {
+    "name": "dx",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "world x offset before projection"
+   },
+   {
+    "name": "dy",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "world y offset before projection"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32 [I]",
+    "allowed": "any. 0 with scaleY 0 = plain actor",
+    "meaning": "affine scale"
+   },
+   {
+    "name": "scaleY",
+    "unit": "fx32 [I]",
+    "allowed": "any",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 46,
+  "name": "MoveCellActor",
+  "title": "Move cell actor",
+  "old": "StartClactPosTween",
+  "summary": "",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": "actor slot from 45 or 69. Seen: 0"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..3",
+    "meaning": "0 = jump to screen point (x, y). 1 = move by (x, y). Seen: 1, 3"
+   },
+   {
+    "name": "x",
+    "unit": "px (s16)",
+    "allowed": "-32768..32767",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "y",
+    "unit": "px (s16)",
+    "allowed": "-32768..32767",
+    "meaning": ". Seen: -8..40"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 1..12"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0, 2"
+   }
+  ]
+ },
+ {
+  "id": 47,
+  "name": "ScaleCellActor",
+  "title": "Scale cell actor",
+  "old": "StartClactScaleTween",
+  "summary": "Scales an actor, starting from 1.0. Turns on affine mode.",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": ". Seen: 1"
+   },
+   {
+    "name": "kind",
+    "unit": "tween kind",
+    "allowed": "0..3",
+    "meaning": "1 = to the absolute scale. Seen: 0"
+   },
+   {
+    "name": "x",
+    "unit": "fx32",
+    "allowed": "0x1000 = normal",
+    "meaning": ". Seen: 0xB33"
+   },
+   {
+    "name": "y",
+    "unit": "fx32",
+    "allowed": "0x1000 = normal",
+    "meaning": ". Seen: 0x4CD"
+   },
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "wait",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "repeat",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 48,
+  "name": "CellActorAnimation",
+  "title": "Cell actor animation",
+  "old": "SetClactAnim",
+  "summary": "",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "seq",
+    "unit": "int",
+    "allowed": "0..65535 (u16), must exist in the cell animation",
+    "meaning": "animation sequence. Seen: 1..4"
+   }
+  ]
+ },
+ {
+  "id": 49,
+  "name": "TintCellActor",
+  "title": "Tint cell actor",
+  "old": "FadeClactPalette",
+  "summary": "Palette fade on the actor's palette (palette fade system, object palettes).",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "from",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": ". Seen: 0, 16"
+   },
+   {
+    "name": "to",
+    "unit": "level16",
+    "allowed": "0..16",
+    "meaning": ". Seen: 0, 8, 16"
+   },
+   {
+    "name": "step",
+    "unit": "s8",
+    "allowed": "as 27",
+    "meaning": "speed. Seen: -2, 0, 2"
+   },
+   {
+    "name": "color",
+    "unit": "RGB555",
+    "allowed": "0..0x7FFF",
+    "meaning": ". Seen: 0, 0x2529, 0x73FF"
+   }
+  ]
+ },
+ {
+  "id": 50,
+  "name": "RemoveCellActor",
+  "title": "Remove cell actor",
+  "old": "ReleaseClact",
+  "summary": "Releases the actor and marks the slot free. All slots are also released when the script ends.",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 51,
+  "name": "HPGauges",
+  "title": "HP gauges",
+  "old": "SetGaugeVisibility",
+  "summary": "Shows, hides or slides the HP gauges.",
+  "args": [
+   {
+    "name": "action",
+    "unit": "enum",
+    "allowed": "0 = hide, 1 = show, 2 = place 0x80 px off home (slid out), 3 and up = place 0x10 px off home. Offsets are negated on the opponent side",
+    "meaning": ". Seen: 1, 0, 2"
+   },
+   {
+    "name": "which",
+    "unit": "enum",
+    "allowed": "see below",
+    "meaning": ". Seen: 2, 0, 4, 1"
+   }
+  ]
+ },
+ {
+  "id": 52,
+  "name": "PlaySoundEffect",
+  "title": "Play sound effect",
+  "old": "PlaySe",
+  "summary": "Plays a sound sequence now or after a delay. Does nothing while sound effects are suppressed. All sound effects are stopped when the script ends.",
+  "args": [
+   {
+    "name": "se",
+    "unit": "int",
+    "allowed": "sound sequence id. The SE range of the sound archive is 0x546..0x81A",
+    "meaning": ". Seen: 0..0x7F4, mostly 0x54E..0x5E9"
+   },
+   {
+    "name": "slot",
+    "unit": "SE slot",
+    "allowed": "0..4, 5 = auto",
+    "meaning": "player. Seen: 1, 2, 3, 5, 0, 4"
+   },
+   {
+    "name": "pan",
+    "unit": "pan selector",
+    "allowed": "0, 1, 2, or selector S",
+    "meaning": ". Seen: 16, 14, 2, 0, 1"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 = now",
+    "meaning": "start delay. Seen: 0..320"
+   },
+   {
+    "name": "pitch",
+    "unit": "int",
+    "allowed": "signed, unit unknown",
+    "meaning": "track pitch offset (`NNS_SndHandleSetTrackPitch`). Seen: -3000..2000"
+   },
+   {
+    "name": "volume",
+    "unit": "int",
+    "allowed": "0..127",
+    "meaning": "player volume (`NNS_SndHandleSetVolume`). Vanilla often starts at 0 and raises it with 55. Seen: 0..127"
+   },
+   {
+    "name": "modDepth",
+    "unit": "int",
+    "allowed": "0..255, higher is clamped",
+    "meaning": "track modulation depth. 0 = do not touch modulation. Seen: 0, 5..200, 2000"
+   },
+   {
+    "name": "modSpeed",
+    "unit": "int",
+    "allowed": "0..255, higher is clamped",
+    "meaning": "track modulation speed, only used when modDepth is not 0. Seen: 0..127"
+   },
+   {
+    "name": "unused",
+    "unit": "none",
+    "allowed": "any",
+    "meaning": "read and dropped. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 53,
+  "name": "StopSoundEffect",
+  "title": "Stop sound effect",
+  "old": "StopSe",
+  "summary": "",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "SE slot",
+    "allowed": "0..4 = stop that player, 5 = stop all",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 54,
+  "name": "PanSoundAcross",
+  "title": "Pan sound across",
+  "old": "StartSeVolumeTween",
+  "summary": "Ramps the pan of a playing sound from one battler's side to another's. The aletheia name says volume, but the task always ramps pan (param 2).",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "SE slot",
+    "allowed": "0..4",
+    "meaning": "player to change. Seen: 1, 2, 0, 3"
+   },
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "0 = one pass, 1 = back and forth",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "from",
+    "unit": "selector S",
+    "allowed": "0..17",
+    "meaning": "start side. Odd result = pan 127, even = -128. Seen: 14, 16, 0"
+   },
+   {
+    "name": "to",
+    "unit": "selector S",
+    "allowed": "0..17",
+    "meaning": "end side, same rule. Seen: 16, 14, 1"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames before the first step. Seen: 0..131"
+   },
+   {
+    "name": "steps",
+    "unit": "int",
+    "allowed": "1 and up",
+    "meaning": "steps from start to end. Seen: 5..240"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": "frames between steps. Seen: 0"
+   },
+   {
+    "name": "passes",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "mode 1: one-way passes = passes x 2, 0 counts as 1 pass pair. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 55,
+  "name": "RampSound",
+  "title": "Ramp sound",
+  "old": "StartSeVolumeTask",
+  "summary": "Ramps the pitch, volume or pan of a playing sound between two plain values.",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "SE slot",
+    "allowed": "0..4",
+    "meaning": ". Seen: 1, 2, 3, 0, 4"
+   },
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "0 = one pass, 1 = back and forth",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "param",
+    "unit": "enum",
+    "allowed": "0 = pitch, 1 = volume, 2 = pan",
+    "meaning": ". Seen: 1, 0, 2"
+   },
+   {
+    "name": "from",
+    "unit": "int",
+    "allowed": "pitch: signed, unit unknown. Volume: 0..127. Pan: -128..127",
+    "meaning": "start value. Seen: -4000..4000"
+   },
+   {
+    "name": "to",
+    "unit": "int",
+    "allowed": "same as from",
+    "meaning": "end value. Seen: -3000..5000"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0..200"
+   },
+   {
+    "name": "steps",
+    "unit": "int",
+    "allowed": "1 and up",
+    "meaning": ". Seen: 1..200"
+   },
+   {
+    "name": "interval",
+    "unit": "frames",
+    "allowed": "0 and up",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "passes",
+    "unit": "int",
+    "allowed": "0 and up",
+    "meaning": "as in 54. Seen: 0"
+   }
+  ]
+ },
+ {
+  "id": 56,
+  "name": "WaitUntilIdle",
+  "title": "Wait until idle",
+  "old": "WaitFrames",
+  "summary": "Pauses the script until the systems of the wait mode are idle. The aletheia name is swapped with 57: this one does not count frames.",
+  "args": [
+   {
+    "name": "mode",
+    "unit": "wait mode",
+    "allowed": "0..17",
+    "meaning": "what to wait for. Seen: 0, 3, 2, 1, 16, 5, 10, 8, 11, 17, 4"
+   }
+  ]
+ },
+ {
+  "id": 57,
+  "name": "WaitFrames",
+  "title": "Wait frames",
+  "old": "WaitParticles",
+  "summary": "Pauses the script for a number of frames. The aletheia name is swapped with 56.",
+  "args": [
+   {
+    "name": "frames",
+    "unit": "frames",
+    "allowed": "1 and up. 0 acts as 1",
+    "meaning": ". Seen: 0..480"
+   }
+  ]
+ },
+ {
+  "id": 58,
+  "name": "FramePacing",
+  "title": "Frame pacing",
+  "old": "SetResult",
+  "summary": "Sets the value every later command returns.",
+  "args": [
+   {
+    "name": "yield",
+    "unit": "bool",
+    "allowed": "1 = one command per frame (default). 0 = run the next commands in the same frame",
+    "meaning": ". Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 59,
+  "name": "JumpIfValue",
+  "title": "Jump if value",
+  "old": "JumpIf",
+  "summary": "Compares a condition value with a constant and jumps.",
+  "args": [
+   {
+    "name": "cond",
+    "unit": "condition selector",
+    "allowed": "0..57",
+    "meaning": "left value. Seen: 16, 18, 19, 39, 17, 53, 37, 52 and others"
+   },
+   {
+    "name": "op",
+    "unit": "compare operator",
+    "allowed": "0..5",
+    "meaning": ". Seen: 0, 1, 2"
+   },
+   {
+    "name": "value",
+    "unit": "int",
+    "allowed": "any",
+    "meaning": "right value. Seen: 0..7, 500, 1500"
+   },
+   {
+    "name": "offset",
+    "unit": "int (bytes, signed)",
+    "allowed": "any",
+    "meaning": "jump distance from the end of this command. Seen: 6..0x66C"
+   }
+  ]
+ },
+ {
+  "id": 60,
+  "name": "JumpIfValuesCompare",
+  "title": "Jump if values compare",
+  "old": "JumpIfCondCompare",
+  "summary": "Compares two condition values and jumps.",
+  "args": [
+   {
+    "name": "condA",
+    "unit": "condition selector",
+    "allowed": "0..57",
+    "meaning": "left value. Seen: 17 (attacker)"
+   },
+   {
+    "name": "op",
+    "unit": "compare operator",
+    "allowed": "0..5",
+    "meaning": ". Seen: 0"
+   },
+   {
+    "name": "condB",
+    "unit": "condition selector",
+    "allowed": "0..57",
+    "meaning": "right value. Seen: 57 (defender)"
+   },
+   {
+    "name": "offset",
+    "unit": "int (bytes, signed)",
+    "allowed": "any",
+    "meaning": "from the end of this command. Seen: 46"
+   }
+  ]
+ },
+ {
+  "id": 61,
+  "name": "JumpIfSpritePresent",
+  "title": "Jump if sprite present",
+  "old": "JumpIfPokeLoaded",
+  "summary": "Jumps when \"a sprite is loaded at position\" equals the expected value.",
+  "args": [
+   {
+    "name": "position",
+    "unit": "raw position",
+    "allowed": "0..13",
+    "meaning": "no selector. Seen: 0..13"
+   },
+   {
+    "name": "expected",
+    "unit": "bool",
+    "allowed": "0 = jump when absent, 1 = jump when present",
+    "meaning": ". Seen: 0, once 1"
+   },
+   {
+    "name": "offset",
+    "unit": "int (bytes, signed)",
+    "allowed": "any",
+    "meaning": "from the end of this command. Seen: 6..0xB2"
+   }
+  ]
+ },
+ {
+  "id": 62,
+  "name": "SetScriptVariable",
+  "title": "Set script variable",
+  "old": "SetScriptVar",
+  "summary": "Sets `scriptVar` (condition 16, trainer type -1 of command 32).",
+  "args": [
+   {
+    "name": "value",
+    "unit": "int",
+    "allowed": "any",
+    "meaning": ". Seen: 0..3"
+   }
+  ]
+ },
+ {
+  "id": 63,
+  "name": "ReadValueIntoScriptVariable",
+  "title": "Read value into script variable",
+  "old": "EvalCondition",
+  "summary": "`scriptVar` = condition value.",
+  "args": [
+   {
+    "name": "cond",
+    "unit": "condition selector",
+    "allowed": "0..57",
+    "meaning": ". Seen: 40, 42 (trainer types)"
+   }
+  ]
+ },
+ {
+  "id": 64,
+  "name": "SetParameter",
+  "title": "Set parameter",
+  "old": "SetParam",
+  "summary": "Writes one effect parameter or flag.",
+  "args": [
+   {
+    "name": "param",
+    "unit": "parameter selector",
+    "allowed": "9..15, 53..56",
+    "meaning": ". Seen: 53, 56, 55, 54, 9"
+   },
+   {
+    "name": "value",
+    "unit": "int",
+    "allowed": "per field (u8, u16, int, or 1 bit)",
+    "meaning": ". Seen: 0, 1, 10"
+   }
+  ]
+ },
+ {
+  "id": 65,
+  "name": "SubstituteDoll",
+  "title": "Substitute doll",
+  "old": "SetPokeCellFlag",
+  "summary": "Swaps the sprite graphics to the substitute doll or back. The argument order is not target first.",
+  "args": [
+   {
+    "name": "show",
+    "unit": "bool",
+    "allowed": "0 = restore the Pokemon, nonzero = show the doll",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14"
+   },
+   {
+    "name": "setSwapped",
+    "unit": "bool",
+    "allowed": "nonzero = also set (show) or clear (restore) the swapped flag",
+    "meaning": "the swapped flag makes later move effects run the fallback script first. Seen: 0, 1"
+   }
+  ]
+ },
+ {
+  "id": 66,
+  "name": "CopyDefenderLookToAttacker",
+  "title": "Copy defender look to attacker",
+  "old": "CopyPokeSpriteState",
+  "summary": "The attacker's sprite takes the defender's graphics, adjusted for front and back views. No arguments.",
+  "args": []
+ },
+ {
+  "id": 67,
+  "name": "PlayCry",
+  "title": "Play cry",
+  "old": "StartPokeCry",
+  "summary": "Plays the Pokemon cry of each selected battler, now or after a delay. Lowers the music while the cry plays.",
+  "args": [
+   {
+    "name": "target",
+    "unit": "selector B",
+    "allowed": "0..20",
+    "meaning": ". Seen: 14, 0..7, 16"
+   },
+   {
+    "name": "pitch",
+    "unit": "int",
+    "allowed": "signed, unit unknown. 0x80000000 = auto",
+    "meaning": "added to the voice frequency (`PM_VOICE_AddFrequency`). Auto = -0xA00 when the sprite was loaded in the low-HP state, else 0. Seen: 0x80000000, -0x1400..0x8600"
+   },
+   {
+    "name": "volume",
+    "unit": "s8",
+    "allowed": "-128..127",
+    "meaning": "added to the cry volume, result clamped to 0..127. aletheia's local name `pan` is wrong. Seen: 0, 127"
+   },
+   {
+    "name": "chorusVolume",
+    "unit": "int",
+    "allowed": "signed",
+    "meaning": "volume offset of a second voice. Nonzero 3 or 4 turns the second voice on. Seen: 0, 30, 60"
+   },
+   {
+    "name": "chorusPitch",
+    "unit": "int",
+    "allowed": "signed, unit unknown",
+    "meaning": "frequency offset of the second voice. Seen: -64, 0, 16"
+   },
+   {
+    "name": "reverse",
+    "unit": "bool",
+    "allowed": "1 = play backwards",
+    "meaning": ". Seen: 0, 1"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 = now",
+    "meaning": ". Seen: 0, 12, 14, 16"
+   }
+  ]
+ },
+ {
+  "id": 68,
+  "name": "TypeSource",
+  "title": "Type source",
+  "old": "SetTypeSource",
+  "summary": "Chooses where typed particle keys take their type code. Reset to 8 at script start.",
+  "args": [
+   {
+    "name": "source",
+    "unit": "enum",
+    "allowed": "8 = effect typeCode, 9 = attacker, other = raw position 0..13",
+    "meaning": ". Seen: 9, 0..7"
+   }
+  ]
+ },
+ {
+  "id": 69,
+  "name": "TypedCellActorAtBattler",
+  "title": "Typed cell actor at battler",
+  "old": "LoadClactFromPoke",
+  "summary": "Loads a 2D cell actor whose graphics depend on the effect's type code, at a battler's screen point.",
+  "args": [
+   {
+    "name": "slot",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": "script actor slot. Seen: 0, 1"
+   },
+   {
+    "name": "position",
+    "unit": "selector S",
+    "allowed": "0..17",
+    "meaning": ". Seen: 16"
+   },
+   {
+    "name": "dx",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "world x offset. Seen: -4, 0"
+   },
+   {
+    "name": "dy",
+    "unit": "fx32",
+    "allowed": "any",
+    "meaning": "world y offset. Seen: 0x2B8, 0x2785"
+   },
+   {
+    "name": "scaleX",
+    "unit": "fx32 [I]",
+    "allowed": "0 with scaleY 0 = plain actor",
+    "meaning": ". Seen: 0x666, 0xB0A"
+   },
+   {
+    "name": "scaleY",
+    "unit": "fx32 [I]",
+    "allowed": "any",
+    "meaning": ". Seen: 0x333, 0xB0A"
+   }
+  ]
+ },
+ {
+  "id": 70,
+  "name": "CallEffect",
+  "title": "Call effect",
+  "old": "CallScript",
+  "summary": "Runs another effect script as a subroutine, then returns here at its command 71. Saves attacker, defender and scriptVar, and sets scriptVar to 0.",
+  "args": [
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "0x231 and up (member effect - 0x231 of `a/0/6/7`). Lower ids load the wrong member",
+    "meaning": "script to call, variant 0. Seen: 0x260, 0x287..0x28A"
+   },
+   {
+    "name": "attacker",
+    "unit": "raw position",
+    "allowed": "14 = keep, else the new attacker position",
+    "meaning": ". Seen: 14, 0..7"
+   },
+   {
+    "name": "defender",
+    "unit": "raw position",
+    "allowed": "16 = keep, else the new defender position",
+    "meaning": ". Seen: 14, 16, 0..7"
+   }
+  ]
+ },
+ {
+  "id": 71,
+  "name": "Return",
+  "title": "Return",
+  "old": "ReturnScript",
+  "summary": "Frees the called script and restores attacker, defender, scriptVar and the caller's script. No arguments. Only valid inside a script entered by 70.",
+  "args": []
+ },
+ {
+  "id": 72,
+  "name": "Jump",
+  "title": "Jump",
+  "old": "JumpScript",
+  "summary": "",
+  "args": [
+   {
+    "name": "offset",
+    "unit": "int (bytes, signed)",
+    "allowed": "any",
+    "meaning": "from the end of this command. Seen: -0x7E2..0x1DE"
+   }
+  ]
+ },
+ {
+  "id": 73,
+  "name": "WaitForBattle",
+  "title": "Wait for battle",
+  "old": "WaitForTask",
+  "summary": "Blocks until the battle code calls `BTLV_EFFECT_ResumeVm`. No arguments.",
+  "args": []
+ },
+ {
+  "id": 74,
+  "name": "GoToEffect",
+  "title": "Go to effect",
+  "old": "JumpToArchiveScript",
+  "summary": "Replaces the running script with another one (no return), variant 0. Resets scriptVar.",
+  "args": [
+   {
+    "name": "effect",
+    "unit": "int",
+    "allowed": "effect id. Below 0x231 = move script in `a/0/6/6`, else `a/0/6/7` member id - 0x231",
+    "meaning": ". Seen: 33..0x236"
+   }
+  ]
+ },
+ {
+  "id": 75,
+  "name": "ReleaseSideSprites",
+  "title": "Release side sprites",
+  "old": "StartWaitTask",
+  "summary": "Starts a task that, for every loaded sprite on one side, resumes its animation and shows its shadow once the sprite is idle. The script does not wait for it.",
+  "args": [
+   {
+    "name": "side",
+    "unit": "enum",
+    "allowed": "0 = even positions (player side), other = odd positions",
+    "meaning": ""
+   }
+  ]
+ },
+ {
+  "id": 76,
+  "name": "BlinkDrawOrder",
+  "title": "Blink draw order",
+  "old": "SetPokeSpriteAnimMode",
+  "summary": "Sets the \"draw blink layer last\" flag of every loaded Pokemon sprite.",
+  "args": [
+   {
+    "name": "mode",
+    "unit": "enum",
+    "allowed": "1 = set the flag on positions 3, 4 (double) or 2, 5, 6 (triple), clear it elsewhere. Other = clear on all",
+    "meaning": ". Seen: 1"
+   }
+  ]
+ },
+ {
+  "id": 77,
+  "name": "EndScript",
+  "title": "End",
+  "old": "ReleaseScriptResources",
+  "summary": "Ends the script. Frees particles, cell actors and buffers, puts sprites back on their spots, restores BG, blending and sound, then may start a pending or fallback script. No arguments.",
+  "args": []
+ }
+]

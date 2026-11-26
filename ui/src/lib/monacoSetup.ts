@@ -27,6 +27,9 @@ import "monaco-editor/editor/browser/coreCommands";
 import "monaco-editor/editor/common/standaloneStrings";
 import "../../../node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
 import { EFFECT_LANGUAGE, HOOK_LANGUAGE, RULE_LANGUAGE, TABLE_LANGUAGE, completions } from "./monaco";
+import effectDocsJson from "./effectDocs.json";
+
+const effectDocs = effectDocsJson as EffectDoc[];
 
 export { monaco };
 
@@ -305,6 +308,16 @@ function registerEffect() {
       ],
     },
   } as monaco.languages.IMonarchLanguage);
+  const byName = new Map(effectDocs.map((d) => [d.name.toLowerCase(), d]));
+  const argDoc = (a: EffectArg) => `**${a.name}** (${a.unit}): ${a.meaning}${a.allowed && a.allowed !== "any" ? `\n\nValues: ${a.allowed}` : ""}`;
+  // The command and argument under a column of a line, if any.
+  const at = (line: string, column: number): { cmd: EffectDoc; arg: number } | null => {
+    const tokens = [...line.split(";")[0].matchAll(/\S+/g)];
+    const cmd = tokens[0] && byName.get(tokens[0][0].toLowerCase());
+    if (!cmd) return null;
+    const k = tokens.findIndex((t) => column - 1 >= t.index! && column - 1 <= t.index! + t[0].length);
+    return k < 0 ? null : { cmd, arg: k - 1 };
+  };
   monaco.languages.registerCompletionItemProvider(EFFECT_LANGUAGE, {
     provideCompletionItems(model, position) {
       const before = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
@@ -312,16 +325,69 @@ function registerEffect() {
       const word = model.getWordUntilPosition(position);
       const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
       return {
-        suggestions: completions.effect.map(([name, args]) => ({
-          label: name,
+        suggestions: effectDocs.map((d) => ({
+          label: d.name,
           kind: monaco.languages.CompletionItemKind.Function,
-          detail: args === 1 ? "1 argument" : `${args} arguments`,
-          insertText: args ? `${name} ${Array(args).fill("0").join(" ")}` : name,
+          detail: d.title,
+          documentation: { value: d.summary },
+          // Each argument a placeholder named for what it is.
+          insertText: [d.name, ...d.args.map((a, i) => `\${${i + 1}:${a.name}}`)].join(" "),
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           range,
         })),
       };
     },
   });
+  monaco.languages.registerHoverProvider(EFFECT_LANGUAGE, {
+    provideHover(model, position) {
+      const hit = at(model.getLineContent(position.lineNumber), position.column);
+      if (!hit) return null;
+      const { cmd, arg } = hit;
+      if (arg < 0) {
+        const list = cmd.args.map((a, i) => `${i + 1}. ${a.name} (${a.unit})`).join("\n");
+        return { contents: [{ value: `**${cmd.title}**` }, { value: cmd.summary }, ...(list ? [{ value: list }] : [])] };
+      }
+      const a = cmd.args[arg];
+      return a ? { contents: [{ value: argDoc(a) }] } : null;
+    },
+  });
+  // Each argument's name before its value.
+  monaco.languages.registerInlayHintsProvider(EFFECT_LANGUAGE, {
+    provideInlayHints(model, range) {
+      const hints: monaco.languages.InlayHint[] = [];
+      for (let n = range.startLineNumber; n <= range.endLineNumber; n++) {
+        const line = model.getLineContent(n);
+        const tokens = [...line.split(";")[0].matchAll(/\S+/g)];
+        const cmd = tokens[0] && byName.get(tokens[0][0].toLowerCase());
+        if (!cmd) continue;
+        tokens.slice(1).forEach((t, i) => {
+          const a = cmd.args[i];
+          if (a)
+            hints.push({
+              label: `${a.name}:`,
+              position: { lineNumber: n, column: t.index! + 1 },
+              kind: monaco.languages.InlayHintKind.Parameter,
+              paddingRight: true,
+            });
+        });
+      }
+      return { hints, dispose() {} };
+    },
+  });
+}
+
+interface EffectArg {
+  name: string;
+  unit: string;
+  allowed: string;
+  meaning: string;
+}
+interface EffectDoc {
+  id: number;
+  name: string;
+  title: string;
+  summary: string;
+  args: EffectArg[];
 }
 
 function registerHooks() {

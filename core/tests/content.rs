@@ -815,7 +815,7 @@ fn a_new_move_gets_its_own_animation_script() {
     assert_eq!(anims::default_for(&project, b), b as u16);
     let text = anims::script_text(&bridge, b).unwrap().unwrap();
     assert_eq!(text, anims::script_text(&bridge, 85).unwrap().unwrap());
-    let edited = text.replacen("WaitParticles 20", "WaitParticles 30", 1);
+    let edited = text.replacen("WaitFrames 20", "WaitFrames 30", 1);
     anims::set_script(&bridge, b, &edited).unwrap();
     assert_eq!(anims::script_text(&bridge, b).unwrap().unwrap(), edited);
     assert!(anims::set_script(&bridge, b, "variant @x\n@x:\n    WaitFrames\n").is_err());

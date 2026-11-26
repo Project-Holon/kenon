@@ -899,12 +899,6 @@ fn check_effect_script(text: String) -> Option<(usize, String)> {
     Some((line, message))
 }
 
-/// The battle effect commands: name and argument count.
-#[tauri::command]
-fn effect_commands() -> Vec<(&'static str, usize)> {
-    kenon_core::effscript::COMMANDS.to_vec()
-}
-
 /// The running preview, so a new one replaces it.
 static PREVIEW: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
 
@@ -2478,7 +2472,6 @@ pub fn run() {
             drop_move_script,
             own_move_scripts,
             check_effect_script,
-            effect_commands,
             set_move_anim,
             preview_move,
             item_prices,
