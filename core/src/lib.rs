@@ -48,6 +48,7 @@ pub mod species_add;
 pub mod tables;
 pub mod trainer_mons;
 pub mod trainer_text;
+pub mod type_pictures;
 pub mod types;
 pub mod world;
 pub mod zonemap;

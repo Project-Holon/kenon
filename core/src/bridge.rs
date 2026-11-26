@@ -792,6 +792,18 @@ impl Bridge {
                 map.height = height;
                 Ok(png(map))
             }
+            Some("typeicon") if parts.len() == 2 => {
+                // A type icon with its colours (an added type's, from
+                // types.txt; crate::type_pictures).
+                let t: usize = parts[1].parse().map_err(|_| Error::BadPath(path.to_string()))?;
+                let icon = crate::type_pictures::icon_of(self, t)?;
+                let pixels = crate::type_pictures::rgba(&icon, &crate::type_pictures::palette_of(self, t));
+                Ok(png(image::Rgba {
+                    width: 32,
+                    height: 16,
+                    pixels,
+                }))
+            }
             Some("cry") if parts.len() == 2 => {
                 // A Pokemon cry: wave archive n holds its one wave
                 // (docs/game-data-map.md, pm_voice.c).

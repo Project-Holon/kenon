@@ -907,3 +907,56 @@ fn a_table_grid_edits_many_entries_at_once() {
     let hp_of = |i: usize| g.rows.iter().find(|r| r.index == i).unwrap().values[hp];
     assert_eq!((hp_of(25), hp_of(26)), (60, 255));
 }
+
+#[test]
+fn a_type_icon_is_spelled_with_the_games_letters() {
+    use kenon_core::type_pictures as pics;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    // Rebuilding the game's own icons from their names gives them back:
+    // the letters, the spacing, the centring and the shadow are the game's.
+    let names = tables::enum_values(&bridge, "type").unwrap();
+    let mut same = Vec::new();
+    for t in 0..17 {
+        let game = pics::icon_of(&bridge, t).unwrap();
+        let Ok(made) = pics::make_icon(&bridge, t, &names[t]) else {
+            continue;
+        };
+        let border = game[2 * 32];
+        let map = |v: u8| match v {
+            0 | 14 | 15 => v,
+            v if v == border => 2,
+            _ => 1,
+        };
+        if game.iter().map(|&v| map(v)).collect::<Vec<_>>() == made {
+            same.push(names[t].clone());
+        }
+    }
+    println!("rebuilt exactly: {same:?}");
+    assert!(same.iter().any(|n| n.eq_ignore_ascii_case("fire")), "{same:?}");
+
+    // Fairy from Psychic: every letter is in the game's icons.
+    assert!(pics::missing_letters(&bridge, "Fairy").unwrap().is_empty());
+    assert_eq!(pics::missing_letters(&bridge, "Jazz").unwrap(), vec!['J', 'Z']);
+    let fairy = kenon_core::types::add(&bridge, "Fairy", 13).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let look = pics::create(&bridge, fairy, 13, "Fairy", None).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(look.button.len(), 6);
+    let icon = pics::icon_of(&bridge, fairy).unwrap();
+    let png = kenon_core::image::encode_png(&kenon_core::image::Rgba {
+        width: 32,
+        height: 16,
+        pixels: pics::rgba(&icon, &pics::palette_of(&bridge, fairy)),
+    });
+    let out = std::path::Path::new("E:/dev/research/type-icons");
+    if out.parent().is_some_and(|p| p.is_dir()) {
+        std::fs::create_dir_all(out).unwrap();
+        std::fs::write(out.join("fairy.png"), png).unwrap();
+    }
+    // Pink: the colours change, the icon keeps its pixels.
+    pics::set_colors(&bridge, fairy, "F6A5D5", "9C4A7B").unwrap();
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
+    assert!(text.contains("17 = icon ") && text.contains("colors F6A5D5 9C4A7B"), "{text}");
+}

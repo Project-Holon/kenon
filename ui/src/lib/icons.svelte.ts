@@ -12,6 +12,8 @@ const state = $state({
   trainerClass: [] as number[],
   typePalette: [] as number[],
   moveType: [] as number[],
+  // Bumped when an added type's icon or colours change.
+  typeIcons: 0,
 });
 
 let started = false;
@@ -73,8 +75,15 @@ export function trainerIcon(trainer: number): string | null {
 /// A type's label picture (Normal, Fire...), from the shared UI sheet a/0/8/3:
 /// tiles 34 + type, cell bank 59, palette 33 with the type's sub-palette.
 export function typeIcon(type: number): string | null {
+  // An added type (17 and up): its own icon and colours (types.txt).
+  if (type >= 17) return asset(`typeicon/${type}`, state.typeIcons);
   const pal = state.typePalette[type];
   return pal === undefined ? null : asset(`cell/83:${34 + type}/83:33/83:59/0?paloffset=${pal}`);
+}
+
+/// After an added type's icon or colours change: their pictures again.
+export function reloadTypeIcons() {
+  state.typeIcons++;
 }
 
 /// A move's picture is its type's.

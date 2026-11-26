@@ -651,13 +651,67 @@ fn set_type_chart(state: State<AppState>, chart: Vec<Vec<u8>>) -> Result<(), Str
     kenon_core::types::set_chart(&bridge, &chart).map_err(|e| e.to_string())
 }
 
-/// Adds a type matching up like `from`; returns its id.
+/// A type added: its id, and why its pictures could not be made (a letter
+/// no game icon has), if so.
+#[derive(Serialize)]
+struct AddedType {
+    id: usize,
+    note: Option<String>,
+}
+
+/// Adds a type matching up like `from`, with its pictures made from
+/// `from`'s.
 #[tauri::command]
-fn add_type(state: State<AppState>, name: String, from: usize) -> Result<usize, String> {
+fn add_type(state: State<AppState>, name: String, from: usize) -> Result<AddedType, String> {
     let bridge = state.need_bridge()?;
     let id = kenon_core::types::add(&bridge, &name, from).map_err(|e| e.to_string())?;
     reload_project(&state)?;
-    Ok(id)
+    let bridge = state.need_bridge()?;
+    let note = kenon_core::type_pictures::create(&bridge, id, from, &name, None)
+        .err()
+        .map(|e| e.to_string());
+    reload_project(&state)?;
+    Ok(AddedType { id, note })
+}
+
+/// An added type's pictures (None: a game type, or none made yet).
+#[tauri::command]
+fn type_look(state: State<AppState>, id: usize) -> Result<Option<kenon_core::type_pictures::TypeLook>, String> {
+    let bridge = state.need_bridge()?;
+    let project = bridge.project().ok_or("no project is open")?;
+    Ok(kenon_core::type_pictures::all(project).remove(&id))
+}
+
+/// Remakes an added type's pictures from a game type (and its name).
+#[tauri::command]
+fn remake_type_pictures(state: State<AppState>, id: usize, from: usize) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let name = kenon_core::tables::enum_values(&bridge, "type")
+        .map_err(|e| e.to_string())?
+        .get(id)
+        .cloned()
+        .unwrap_or_default();
+    kenon_core::type_pictures::create(&bridge, id, from, &name, None).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Sets an added type's colours (RRGGBB).
+#[tauri::command]
+fn set_type_colors(state: State<AppState>, id: usize, fill: String, border: String) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::type_pictures::set_colors(&bridge, id, &fill, &border).map_err(|e| e.to_string())
+}
+
+/// Replaces an added type's icon from a 32 x 16 PNG.
+#[tauri::command]
+fn import_type_icon(state: State<AppState>, id: usize, path: PathBuf) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    let img = kenon_core::import::decode_png(&bytes).map_err(|e| e.to_string())?;
+    if (img.width, img.height) != (32, 16) {
+        return Err(format!("a type icon is 32 x 16 pixels; this one is {} x {}", img.width, img.height));
+    }
+    kenon_core::type_pictures::import_icon(&bridge, id, &img.pixels).map_err(|e| e.to_string())
 }
 
 /// Removes a type the mod adds; later types move down one.
@@ -2435,6 +2489,10 @@ pub fn run() {
             type_chart,
             set_type_chart,
             add_type,
+            type_look,
+            remake_type_pictures,
+            set_type_colors,
+            import_type_icon,
             remove_type,
             type_count,
             table_grid,

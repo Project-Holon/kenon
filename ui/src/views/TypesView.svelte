@@ -5,7 +5,8 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { play } from "../lib/sfx";
-  import { loadIcons, moveIcon, speciesIcon, typeIcon } from "../lib/icons.svelte";
+  import { loadIcons, moveIcon, reloadTypeIcons, speciesIcon, typeIcon } from "../lib/icons.svelte";
+  import TypePictures from "../lib/TypePictures.svelte";
   import { clearEnums, enumValues } from "../lib/tables";
   import TextPanel from "../lib/TextPanel.svelte";
   import ContentDialog from "../lib/ContentDialog.svelte";
@@ -67,12 +68,13 @@
   // moves, items and abilities. The dialog shows errors itself.
   let dialog = $state<"add" | "remove" | null>(null);
   async function addType(from: number, name: string) {
-    const id = await invoke<number>("add_type", { name, from });
+    const r = await invoke<{ id: number; note: string | null }>("add_type", { name, from });
     await loadAll();
+    reloadTypeIcons();
     onSaved();
     play("save");
-    picked = id;
-    toast(`Added ${types[id]}`);
+    picked = r.id;
+    toast(r.note ? `Added ${types[r.id]}. ${r.note}` : `Added ${types[r.id]}`);
   }
   async function removeType(id: number) {
     const name = types[id];
@@ -198,6 +200,7 @@
           {/if}
         </div>
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
+        {#if picked >= 17}<TypePictures id={picked} {types} {readOnly} {version} onChanged={() => (reloadTypeIcons(), onSaved())} />{/if}
         <div class="facts">
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>

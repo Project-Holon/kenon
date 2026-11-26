@@ -232,6 +232,7 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
         .map_err(|e| Error::Missing(e.to_string()))?;
     set_limit(project, (n - 1 > GAME_TYPES).then(|| n - 2))?;
     write_chart(bridge, project, &new)?;
+    crate::type_pictures::remove_type(project, id)?;
     bridge.invalidate();
     Ok(report)
 }
