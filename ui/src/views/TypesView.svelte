@@ -83,16 +83,14 @@
       busy = false;
     }
   }
+  // Removing asks once: the menu picks the type, a second button confirms.
   let confirmRemove = $state(false);
-  $effect(() => {
-    void picked;
-    confirmRemove = false;
-  });
   async function removeType(id: number) {
     if (!confirmRemove) {
       confirmRemove = true;
       return;
     }
+    confirmRemove = false;
     busy = true;
     try {
       const name = types[id];
@@ -156,6 +154,29 @@
         {#if !readOnly}
           <div class="acts">
             <button class="quiet" disabled={busy} onclick={() => (adding = !adding)}>New type</button>
+            {#if count > 17}
+              <!-- The types the mod adds, removable here; the game's cannot be. -->
+              <select
+                aria-label="Remove a type"
+                value=""
+                disabled={busy || dirty}
+                title={dirty ? "Save or discard chart edits first." : ""}
+                onchange={(e) => {
+                  const id = Number(e.currentTarget.value);
+                  e.currentTarget.value = "";
+                  picked = id;
+                  confirmRemove = false;
+                  removeType(id);
+                }}
+              >
+                <option value="" disabled>Remove type...</option>
+                {#each types.slice(17) as t, k}<option value={String(17 + k)}>{t}</option>{/each}
+              </select>
+              {#if confirmRemove && picked !== null && picked >= 17}
+                <button class="primary" disabled={busy} onclick={() => removeType(picked!)}>Remove {types[picked]}</button>
+                <button class="quiet" onclick={() => (confirmRemove = false)}>Keep</button>
+              {/if}
+            {/if}
             <button class="quiet" disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
             <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
           </div>
@@ -228,9 +249,6 @@
       <div class="pad">
         <h2>{types[picked]}</h2>
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
-        {#if !readOnly && picked >= 17}
-          <button class="quiet remove" disabled={busy} onclick={() => removeType(picked!)}>{confirmRemove ? "Confirm removal" : "Remove type"}</button>
-        {/if}
         <div class="facts">
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
