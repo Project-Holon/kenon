@@ -1,6 +1,7 @@
 <script lang="ts">
   // Which move each TM and HM teaches (core machines.rs; eidos
-  // machine_moves.txt). All 101 on one screen; changing one also rewrites
+  // machine_moves.txt). The game's 101 and the mod's new TMs on one screen;
+  // changing one also rewrites
   // that TM's item description to the new move's. Who can learn each one
   // stays on the Pokemon's own TMs and tutors tab.
   import { invoke } from "@tauri-apps/api/core";
@@ -45,6 +46,43 @@
       .filter(({ m, i }) => !q || m.label.toLowerCase().includes(q) || (moves[edits[i]] ?? "").toLowerCase().includes(q));
   });
 
+  // New TMs (TM96 on): one at a time, after the game's; only the last can
+  // be removed, so the numbers stay in a row.
+  async function reload() {
+    list = await invoke<Machine[]>("machines");
+    edits = list.map((m) => m.mv);
+  }
+  async function addTm() {
+    saving = true;
+    try {
+      // It starts on Pound; pick its move in its row.
+      const i = await invoke<number>("add_machine", { mv: 1 });
+      await reload();
+      onSaved();
+      play("save");
+      toast(`Added ${list[i].label}. Choose its move, then give it to Pokemon on their TMs and tutors tab.`);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      saving = false;
+    }
+  }
+  async function removeTm() {
+    saving = true;
+    try {
+      const l = await invoke<string>("remove_last_machine");
+      await reload();
+      onSaved();
+      play("save");
+      toast(`Removed ${l}`);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      saving = false;
+    }
+  }
+  const GAME_MACHINES = 101;
+
   async function save() {
     saving = true;
     try {
@@ -68,6 +106,7 @@
     <input class="search" placeholder="Search TMs or moves" aria-label="Search TMs or moves" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
     <span class="muted">Who can learn each one is on a Pokemon's TMs and tutors tab.</span>
     {#if !readOnly}
+      <button class="quiet" disabled={dirty || saving || list.length >= 128} title={dirty ? "Save or discard edits first" : "Adds the next TM after the game's"} onclick={addTm}>New TM</button>
       <div class="acts">
         <button disabled={!dirty || saving} onclick={() => (edits = list.map((m) => m.mv))}>Discard</button>
         <button class="primary" disabled={!dirty || saving} onclick={save}>{saving ? "Saving..." : "Save"}</button>
@@ -82,6 +121,9 @@
         <div class="pick">
           <SearchSelect bind:value={edits[i]} options={moves} icon={moveIcon} disabled={readOnly} label={m.label} />
         </div>
+        {#if !readOnly && i >= GAME_MACHINES && i === list.length - 1}
+          <button class="quiet x" disabled={dirty || saving} onclick={removeTm} aria-label="Remove {m.label}" title="Remove">×</button>
+        {/if}
       </div>
     {/each}
   </div>
@@ -123,6 +165,9 @@
     grid-template-columns: 3.2rem minmax(0, 1fr);
     align-items: center;
     gap: 0.5rem;
+  }
+  .row:has(.x) {
+    grid-template-columns: 3.2rem minmax(0, 1fr) auto;
   }
   .label {
     font-weight: 700;

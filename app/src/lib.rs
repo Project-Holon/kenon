@@ -1239,6 +1239,24 @@ fn set_machine(state: State<AppState>, index: usize, mv: u16) -> Result<(), Stri
     kenon_core::machines::set(&bridge, index, mv).map_err(|e| e.to_string())
 }
 
+/// Adds the next new TM (TM96 on), teaching `mv`; returns its index.
+#[tauri::command]
+fn add_machine(state: State<AppState>, mv: u16) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let i = kenon_core::machines::add(&bridge, mv).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(i)
+}
+
+/// Removes the last new TM; returns its label.
+#[tauri::command]
+fn remove_last_machine(state: State<AppState>) -> Result<String, String> {
+    let bridge = state.need_bridge()?;
+    let l = kenon_core::machines::remove_last(&bridge).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(l)
+}
+
 /// An icon's palettes: (male, female), 0 to 15 each.
 #[tauri::command]
 fn icon_palette(state: State<AppState>, icon: usize) -> Result<(u8, u8), String> {
@@ -2592,6 +2610,8 @@ pub fn run() {
             text_bank_names,
             machines,
             set_machine,
+            add_machine,
+            remove_last_machine,
             shops,
             set_shops,
             species_forms,

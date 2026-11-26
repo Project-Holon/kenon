@@ -1038,3 +1038,48 @@ fn a_particle_file_is_copied_and_edited() {
     let block = spa::encode_texture(&s.textures[0], info.width, info.height, &flipped).unwrap();
     assert_eq!(spa::tex_info(&block), info);
 }
+
+#[test]
+fn a_new_tm_is_added_learned_and_removed() {
+    use kenon_core::{machines, shops};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    // Which marts sell TMs in the game (for a new TM's shop).
+    let game = shops::game(&bridge).unwrap();
+    let tm_marts: Vec<usize> = (0..game.marts.len())
+        .filter(|&n| game.marts[n].iter().any(|&it| (328..=425).contains(&(it as usize)) || (618..=620).contains(&(it as usize))))
+        .collect();
+    println!("marts selling TMs: {tm_marts:?}");
+
+    // TM96 teaching Thunderbolt (85).
+    let i = machines::add(&bridge, 85).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!((i, machines::count(&bridge)), (101, 102));
+    let list = machines::list(&bridge).unwrap();
+    assert_eq!((list[101].label.as_str(), list[101].mv), ("TM96", 85));
+    let it = list[101].item;
+    assert_eq!(catalog::text_bank(&bridge, 2, 54).unwrap()[it], "TM96");
+    // Its description is the move's.
+    assert_eq!(catalog::text_bank(&bridge, 2, 53).unwrap()[it], catalog::text_bank(&bridge, 2, 202).unwrap()[85]);
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/machine_items.txt")).unwrap();
+    assert!(text.contains(&format!("TM96 = {it}\n")), "{text}");
+    // Pikachu learns it: bit 101 is bit 5 of tmFlags4.
+    let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
+    let w4 = u32::from_le_bytes(rec[52..56].try_into().unwrap());
+    let edit = tables::Edit {
+        values: [("tmFlags4".to_string(), (w4 | 1 << 5) as i64)].into_iter().collect(),
+        ..Default::default()
+    };
+    tables::save(&bridge, "species", 25, &edit).unwrap();
+    assert_eq!(kenon_core::battle::machine_moves(&bridge).unwrap()[101], 85);
+
+    // Removing it: the item goes and Pikachu's bit is cleared.
+    assert_eq!(machines::remove_last(&bridge).unwrap(), "TM96");
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(machines::count(&bridge), 101);
+    let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
+    assert_eq!(u32::from_le_bytes(rec[52..56].try_into().unwrap()) >> 5 & 1, 0);
+    assert!(!dir.path().join("m/eidos/tables/machine_items.txt").exists());
+    assert!(machines::remove_last(&bridge).is_err());
+}

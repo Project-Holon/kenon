@@ -353,6 +353,9 @@ pub fn remove(bridge: &Bridge, table: &str, id: usize) -> Result<Removed, Error>
             report.updated.push(format!("What {kind}s do in battle"));
         }
     }
+    if k.table == "items" && crate::machines::item_removed(project, id)? {
+        report.updated.push("New TMs' items".into());
+    }
     if k.table == "moves" && crate::move_anims::remove_id(project, id).map_err(Error::Missing)? {
         report.updated.push("Move animations".into());
     }
