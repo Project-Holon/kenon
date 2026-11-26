@@ -360,7 +360,8 @@ pub fn remove(bridge: &Bridge, table: &str, id: usize) -> Result<Removed, Error>
     if k.has_record {
         let t = tables::table(k.table)?;
         for v in id + 1..=last {
-            let bytes = bridge.member(Member {
+            // As stored: a packed record stays packed one index down.
+            let bytes = bridge.member_stored(Member {
                 arc: t.archive,
                 index: v,
             })?;

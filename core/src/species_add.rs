@@ -200,11 +200,21 @@ fn pos(arc: u16) -> usize {
     unreachable!("archive {arc} is not a species archive")
 }
 
+/// A slot's members as stored, so a copy keeps the game's packing (battle
+/// sprites and Pokedex icons are LZ packed, party icons raw). The records
+/// this module edits (stats, evolutions, base species) are raw in the game
+/// and are read unpacked.
 fn read_slot(bridge: &Bridge, slot: usize) -> SlotData {
     let mut out = Vec::new();
     for &(arc, per, base) in &ARCHIVES {
         for k in 0..per {
-            out.push(bridge.member(member(arc, per, base, slot, k)).unwrap_or_default());
+            let m = member(arc, per, base, slot, k);
+            let bytes = if matches!(arc, STATS_ARC | EVOLUTION_ARC | BASE_SPECIES_ARC) {
+                bridge.member(m)
+            } else {
+                bridge.member_stored(m)
+            };
+            out.push(bytes.unwrap_or_default());
         }
     }
     out

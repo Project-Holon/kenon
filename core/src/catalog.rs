@@ -581,11 +581,25 @@ pub fn write_member(bridge: &Bridge, m: Member, bytes: &[u8]) -> Result<(), Erro
     {
         return revert(bridge, m);
     }
-    let packed = match base.raw(m.index).ok().and_then(lz::sniff) {
-        Some((kind, _)) if lz::decompress(base.raw(m.index).unwrap()).is_ok() => {
-            lz::compress(kind, bytes)
-        }
-        _ => bytes.to_vec(),
+    // Packed as the game packs that member. Past the archive's end (a new
+    // Pokemon's sprites, a new item's icon) there is no game member: follow
+    // the mod's file there (kenon copies it packed as its source), else the
+    // archive's last member.
+    let packing = |raw: &[u8]| lz::sniff(raw).filter(|_| lz::decompress(raw).is_ok()).map(|(k, _)| k);
+    let kind = match base.raw(m.index) {
+        Ok(raw) => packing(raw),
+        Err(_) => match project.member(m.arc, m.index) {
+            Some(own) => packing(&own),
+            None => base
+                .len()
+                .checked_sub(1)
+                .and_then(|last| base.raw(last).ok())
+                .and_then(packing),
+        },
+    };
+    let packed = match kind {
+        Some(kind) => lz::compress(kind, bytes),
+        None => bytes.to_vec(),
     };
     project
         .write_member(m.arc, m.index, &packed)

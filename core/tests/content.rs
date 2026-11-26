@@ -630,6 +630,19 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(stats(&bridge, 716)[..28], stats(&bridge, 26)[..28]);
     let names = tables::entries(&bridge, "species").unwrap();
     assert!(names.iter().any(|e| e.index == 716 && e.name == "Voltwing (form 1)"));
+    // Sprites and Pokedex icons are packed as the game packs them: the
+    // battle sprite block's packed members LZ11, raw ones raw, the Pokedex
+    // icon LZ10; the form's too. Saving an edit keeps the packing.
+    let stored = |arc: u16, i: usize| bridge.member_stored(Member { arc, index: i }).unwrap();
+    for k in 0..20 {
+        assert_eq!(stored(4, 715 * 20 + k)[0], stored(4, 25 * 20 + k)[0], "slot member {k}");
+        assert_eq!(stored(4, 716 * 20 + k)[0], stored(4, 26 * 20 + k)[0], "form member {k}");
+    }
+    assert_eq!(stored(4, 715 * 20)[0], 0x11);
+    assert_eq!(stored(167, 720)[0], 0x10);
+    let front = bridge.member(Member { arc: 4, index: 715 * 20 }).unwrap();
+    catalog::write_member(&bridge, Member { arc: 4, index: 715 * 20 }, &front).unwrap();
+    assert_eq!(stored(4, 715 * 20)[0], 0x11);
     // Pokedex lines past the game's 727: Voltwing (715) at 727 with
     // Pikachu's height, its form (716) at 728 with Raichu's.
     let height = catalog::text_bank(&bridge, 2, 245).unwrap();

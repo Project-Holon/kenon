@@ -913,6 +913,20 @@ impl Bridge {
         Ok(bytes)
     }
 
+    /// A member as stored, compressed or not: the mod's file, else the
+    /// game's. For copying a member to another index without changing how
+    /// it is packed (the game reads some LZ10 or LZ11 packed, some raw).
+    pub fn member_stored(&self, m: Member) -> Result<Vec<u8>, Error> {
+        if let Some(bytes) = self.project.as_ref().and_then(|p| p.member(m.arc, m.index)) {
+            return Ok(bytes);
+        }
+        let archive = self.archive(m.arc)?;
+        archive
+            .raw(m.index)
+            .map(<[u8]>::to_vec)
+            .map_err(|e| Error::Missing(format!("{}:{}: {e}", m.arc, m.index)))
+    }
+
     /// A member without the mod's text lines: the mod's member, else the
     /// game's.
     pub fn member_base(&self, m: Member) -> Result<Vec<u8>, Error> {
