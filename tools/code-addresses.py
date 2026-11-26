@@ -45,10 +45,35 @@ TABLES = [
     # (pointers to u16 item lists, one count byte each) and the 3 Battle
     # Subway prize lists (pointers to {u32 item, u32 price} rows).
     ("shop_counts", 21, 0x021D95DE, 26, None, 0),
+    # The main clerk's list by badge count (0..8 badges, then padding).
+    ("shop_tiers", 21, 0x021D946C, 12, None, 0),
     ("shop_lists", 21, 0x021DE1A8, 26 * 4, "shop_counts", "rebase"),
     ("bp_counts", 21, 0x021D9430, 3, None, 0),
     ("bp_lists", 21, 0x021DE164, 3 * 4, "bp_counts", "rebase"),
 ]
+
+
+def pointer_table(eng, imgs, ov, addr, count, eng_counts, entry):
+    """A table of `count` pointers to lists whose contents are the same in
+    every language (shop item lists): each English list's bytes are found
+    in the target, and the table is the one run of words that points at
+    one copy of each, in order. `entry` is the bytes per list entry."""
+    ebase, edata = eng[ov]
+    base, data = imgs[ov]
+    ptrs = struct.unpack_from(f"<{count}I", edata, addr - ebase)
+    counts = edata[eng_counts - ebase:eng_counts - ebase + count]
+    # Every place each list's bytes occur in the target.
+    places = []
+    for p, n in zip(ptrs, counts):
+        body = edata[p - ebase:p - ebase + n * entry]
+        places.append({base + h for h in find_all(data, body)} if body else None)
+    # A word-aligned run whose i-th word is one of list i's places.
+    hits = []
+    for i in range(0, len(data) - count * 4, 4):
+        words = struct.unpack_from(f"<{count}I", data, i)
+        if all(pl is None or w in pl for w, pl in zip(words, places)) and any(pl for pl in places):
+            hits.append(base + i)
+    return hits[0] if len(hits) == 1 else None
 
 
 def rebased(eng, imgs, ov, addr, length, eng_near, near):
@@ -123,6 +148,11 @@ def main():
             if off == "rebase":
                 eng_near = next(a for n, o, a, *_ in TABLES if n == near)
                 guess = rebased(eng, imgs, ov, addr, length, eng_near, found[near]) if near in found else None
+                if guess is None:
+                    # Lists laid out differently (Italian, Japanese): find the
+                    # table by what its pointers point at.
+                    entry = 2 if name == "shop_lists" else 8
+                    guess = pointer_table(eng, imgs, ov, addr, length // 4, eng_near, entry)
                 if guess is not None:
                     found[name] = guess
                 else:

@@ -16,6 +16,7 @@
   "ability_handlers": "0x021F0E74",
   "item_handlers": "0x021F1EA4",
   "shop_counts": "0x021D95DE",
+  "shop_tiers": "0x021D946C",
   "shop_lists": "0x021DE1A8",
   "bp_counts": "0x021D9430",
   "bp_lists": "0x021DE164"
@@ -37,6 +38,7 @@
   "ability_handlers": "0x021F0E94",
   "item_handlers": "0x021F1EC4",
   "shop_counts": "0x021D95F6",
+  "shop_tiers": "0x021D9484",
   "shop_lists": "0x021DE1C8",
   "bp_counts": "0x021D9448",
   "bp_lists": "0x021DE184"
@@ -58,6 +60,7 @@
   "ability_handlers": "0x021F0DF4",
   "item_handlers": "0x021F1E24",
   "shop_counts": "0x021D9556",
+  "shop_tiers": "0x021D93E4",
   "shop_lists": "0x021DE128",
   "bp_counts": "0x021D93A8",
   "bp_lists": "0x021DE0E4"
@@ -79,6 +82,7 @@
   "ability_handlers": "0x021F0E14",
   "item_handlers": "0x021F1E44",
   "shop_counts": "0x021D956E",
+  "shop_tiers": "0x021D93FC",
   "shop_lists": "0x021DE128",
   "bp_counts": "0x021D93C0",
   "bp_lists": "0x021DE0E4"
@@ -100,6 +104,7 @@
   "ability_handlers": "0x021F0DB4",
   "item_handlers": "0x021F1DE4",
   "shop_counts": "0x021D9516",
+  "shop_tiers": "0x021D93A4",
   "shop_lists": "0x021DE0E8",
   "bp_counts": "0x021D9368",
   "bp_lists": "0x021DE0A4"
@@ -121,6 +126,7 @@
   "ability_handlers": "0x021F0DD4",
   "item_handlers": "0x021F1E04",
   "shop_counts": "0x021D952E",
+  "shop_tiers": "0x021D93BC",
   "shop_lists": "0x021DE0E8",
   "bp_counts": "0x021D9380",
   "bp_lists": "0x021DE0A4"
@@ -142,7 +148,10 @@
   "ability_handlers": "0x021F0D74",
   "item_handlers": "0x021F1DA4",
   "shop_counts": "0x021D94CA",
-  "bp_counts": "0x021D9318"
+  "shop_tiers": "0x021D9358",
+  "shop_lists": "0x021DE088",
+  "bp_counts": "0x021D9318",
+  "bp_lists": "0x021DE044"
  },
  "IRAI": {
   "type_palette": "0x0209FC08",
@@ -161,7 +170,10 @@
   "ability_handlers": "0x021F0D94",
   "item_handlers": "0x021F1DC4",
   "shop_counts": "0x021D94E2",
-  "bp_counts": "0x021D9330"
+  "shop_tiers": "0x021D9370",
+  "shop_lists": "0x021DE0A8",
+  "bp_counts": "0x021D9330",
+  "bp_lists": "0x021DE064"
  },
  "IRBS": {
   "type_palette": "0x0209FCA0",
@@ -180,6 +192,7 @@
   "ability_handlers": "0x021F0E34",
   "item_handlers": "0x021F1E64",
   "shop_counts": "0x021D95A2",
+  "shop_tiers": "0x021D9430",
   "shop_lists": "0x021DE168",
   "bp_counts": "0x021D93F4",
   "bp_lists": "0x021DE124"
@@ -201,6 +214,7 @@
   "ability_handlers": "0x021F0E34",
   "item_handlers": "0x021F1E64",
   "shop_counts": "0x021D959A",
+  "shop_tiers": "0x021D9428",
   "shop_lists": "0x021DE168",
   "bp_counts": "0x021D93EC",
   "bp_lists": "0x021DE124"
@@ -221,7 +235,10 @@
   "ability_handlers": "0x021F0BE4",
   "item_handlers": "0x021F1C14",
   "shop_counts": "0x021D93EA",
-  "bp_counts": "0x021D9240"
+  "shop_tiers": "0x021D9278",
+  "shop_lists": "0x021DDFA8",
+  "bp_counts": "0x021D9240",
+  "bp_lists": "0x021DDF64"
  },
  "IRAJ": {
   "type_palette": "0x0209F968",
@@ -239,6 +256,9 @@
   "ability_handlers": "0x021F0C04",
   "item_handlers": "0x021F1C34",
   "shop_counts": "0x021D9402",
-  "bp_counts": "0x021D9258"
+  "shop_tiers": "0x021D9290",
+  "shop_lists": "0x021DDFC8",
+  "bp_counts": "0x021D9258",
+  "bp_lists": "0x021DDF84"
  }
 }
