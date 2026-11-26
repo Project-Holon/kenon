@@ -71,7 +71,14 @@
       .catch(() => (rows = {}));
   });
 
-  const entryOf = (b: number) => params?.entries?.[String(b)] ?? null;
+  // Battle code eidos adds that no game entry has (core handlers.rs
+  // NAMED_BASES): listed by name in eidos's reference, numbered by kenon.
+  let named = $state<[string, number][]>([]);
+  invoke<[string, number][]>("named_bases").then((n) => (named = n)).catch(() => {});
+  const keyOf = (b: number) => named.find(([, id]) => id === b)?.[0] ?? String(b);
+  const entryOf = (b: number) => params?.entries?.[keyOf(b)] ?? null;
+  // "misty_terrain" -> "Misty Terrain".
+  const nameOfKey = (k: string) => k.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
   // Several bases at once needs an eidos that knows which ones clash: its
   // list then names each base's work slots.
   const multi = $derived(!!params?.entries && Object.values(params.entries).some((e) => "work" in e));
@@ -205,10 +212,11 @@
 
   // The base list: built-in entries by name, those with numbers marked.
   const bases = $derived(
-    names
-      .map((name, i) => ({ i, name }))
-      .filter((e) => e.i > 0 && e.i <= last && e.name)
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    [
+      ...names.map((name, i) => ({ i, name })).filter((e) => e.i > 0 && e.i <= last && e.name),
+      // Named ones, once the eidos that ran lists them.
+      ...named.filter(([k]) => params?.entries?.[k] !== undefined).map(([k, i]) => ({ i, name: nameOfKey(k) })),
+    ].sort((a, b) => a.name.localeCompare(b.name)),
   );
   const adjustable = (i: number) => Object.keys(entryOf(i)?.keys ?? {}).length > 0;
   /// Whether base b cannot go in place `at`: already picked elsewhere, or it
@@ -236,7 +244,7 @@
   const orderedKeys = (e: Entry) => Object.keys(e.keys).sort((a, b) => keyRank(a) - keyRank(b));
   /// eidos takes up to four bases on one line.
   const MAX_BASES = 4;
-  const nameOf = (b: number) => (b === id && !added ? `Itself (${names[id] ?? id})` : (names[b] ?? String(b)));
+  const nameOf = (b: number) => (b === id && !added ? `Itself (${names[id] ?? id})` : (names[b] ?? (keyOf(b) !== String(b) ? nameOfKey(keyOf(b)) : String(b))));
 </script>
 
 <div class="window block handler">
@@ -307,7 +315,7 @@
             {/each}
           </div>
         {:else}
-          <p class="muted note">{p.base === id ? "Its" : `${names[p.base] ?? p.base}'s`} handler has no editable parameters.</p>
+          <p class="muted note">{p.base === id ? "Its" : `${nameOf(p.base)}'s`} handler has no editable parameters.</p>
         {/if}
         {#if e?.notes.length}
           <p class="muted note">

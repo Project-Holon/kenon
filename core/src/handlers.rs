@@ -87,9 +87,38 @@ pub struct Part {
 /// One line: the bases it works like, in order (`a [keys] + b [keys]`).
 pub type Row = Vec<Part>;
 
+/// Battle code eidos adds that no game entry has, named in the files
+/// (eidos research new-move-bases.md). kenon numbers them past every game
+/// id so they never meet a real one; the files hold the name.
+pub const NAMED_BASES: [(&str, usize); 5] = [
+    ("misty_terrain", NAMED_FIRST),
+    ("flower_shield", NAMED_FIRST + 1),
+    ("crafty_shield", NAMED_FIRST + 2),
+    ("fairy_lock", NAMED_FIRST + 3),
+    ("geomancy", NAMED_FIRST + 4),
+];
+/// The first kenon number of a named base: past the u16 ids.
+pub const NAMED_FIRST: usize = 0x1_0000;
+
+/// A named base's name, for a kenon number from NAMED_FIRST on.
+pub fn base_name(base: usize) -> Option<&'static str> {
+    NAMED_BASES.iter().find(|(_, id)| *id == base).map(|(n, _)| *n)
+}
+
+/// How a base is written and listed: its name, or its number.
+pub fn entry_key(base: usize) -> String {
+    base_name(base).map_or_else(|| base.to_string(), str::to_string)
+}
+
+fn parse_base(word: &str) -> Option<usize> {
+    word.parse()
+        .ok()
+        .or_else(|| NAMED_BASES.iter().find(|(n, _)| *n == word).map(|(_, id)| *id))
+}
+
 fn parse_part(text: &str) -> Option<Part> {
     let mut words = text.split_whitespace();
-    let base = words.next()?.parse().ok()?;
+    let base = parse_base(words.next()?)?;
     let keys = words
         .filter_map(|w| w.split_once('='))
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -106,7 +135,7 @@ fn format_row(row: &Row) -> String {
     let parts: Vec<String> = row
         .iter()
         .map(|p| {
-            let mut s = p.base.to_string();
+            let mut s = entry_key(p.base);
             for (k, v) in &p.keys {
                 s.push_str(&format!(" {k}={v}"));
             }
@@ -194,7 +223,7 @@ fn check_value(keys: &Value, key: &str, value: &str) -> Result<String, String> {
 fn work(params: &Params, base: usize) -> Vec<u64> {
     params
         .entries
-        .get(base.to_string())
+        .get(entry_key(base))
         .and_then(|e| e.get("work"))
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(Value::as_u64).collect())
@@ -253,7 +282,7 @@ pub fn set(
         }
         let builtin = params
             .entries
-            .get(part.base.to_string())
+            .get(entry_key(part.base))
             .and_then(|e| e.get("keys"));
         let mut keys = BTreeMap::new();
         for (k, v) in &part.keys {
@@ -292,7 +321,8 @@ pub fn remove_id(project: &Project, kind: &str, id: usize) -> Result<bool, Strin
         .map(|(i, mut r)| {
             r.retain(|p| p.base != id);
             for p in &mut r {
-                if p.base > id {
+                // Named bases are not entries: they do not move.
+                if p.base > id && p.base < NAMED_FIRST {
                     p.base -= 1;
                 }
             }
@@ -319,6 +349,11 @@ mod tests {
         assert_eq!(two[1].base, 26);
         assert_eq!(format_row(&two), "22 stat=spatk + 26");
         assert!(parse_row("22 + x").is_none());
+        // Named bases read and write by name.
+        let named = parse_row("misty_terrain").unwrap();
+        assert_eq!(named[0].base, NAMED_FIRST);
+        assert_eq!(format_row(&named), "misty_terrain");
+        assert_eq!(format_row(&parse_row("13 + geomancy").unwrap()), "13 + geomancy");
     }
 
     #[test]
