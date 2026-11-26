@@ -2741,25 +2741,25 @@
  },
  {
   "id": 68,
-  "name": "TypeSource",
-  "title": "Type source",
+  "name": "BallSource",
+  "title": "Ball source",
   "old": "SetTypeSource",
-  "summary": "Chooses where typed particle keys take their type code. Reset to 8 at script start.",
+  "summary": "Chooses whose Poke Ball the ball effects show: particle keys 3, 29 and 46..49 and the ball cell actor (command 69) follow that ball. Reset to 8 at script start.",
   "args": [
    {
     "name": "source",
     "unit": "enum",
-    "allowed": "8 = effect typeCode, 9 = attacker, other = raw position 0..13",
-    "meaning": ". Seen: 9, 0..7"
+    "allowed": "8 = the ball item set by the throw, 9 = the attacker's ball, other = the ball of the Pokemon at that position (0..13)",
+    "meaning": "whose ball. Seen: 9, 0..7"
    }
   ]
  },
  {
   "id": 69,
-  "name": "TypedCellActorAtBattler",
-  "title": "Typed cell actor at battler",
+  "name": "BallCellActorAtBattler",
+  "title": "Ball cell actor at battler",
   "old": "LoadClactFromPoke",
-  "summary": "Loads a 2D cell actor whose graphics depend on the effect's type code, at a battler's screen point.",
+  "summary": "Loads the 2D cell actor of the ball chosen with BallSource (Dream Ball has its own) at a battler's screen point.",
   "args": [
    {
     "name": "slot",
