@@ -530,3 +530,35 @@ fn an_icon_palette_is_set_for_a_game_pokemon() {
     species_add::set_icon_palette(&bridge, 130, male, female).unwrap();
     assert!(!file.exists());
 }
+
+#[test]
+fn a_shop_list_is_changed_and_restored() {
+    use kenon_core::shops;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let file = dir.path().join("m/eidos/tables/shops.txt");
+    let game = shops::game(&bridge).unwrap();
+    // The main clerk with no badges sells Poke Balls (4) and Potions (17).
+    assert_eq!(game.marts.len(), 26);
+    assert_eq!(game.marts[0], vec![4, 17]);
+    assert_eq!(game.prizes.len(), 3);
+    let mut s = shops::current(&bridge).unwrap();
+    s.marts[0] = vec![1, 2, 3, 50];
+    shops::set(&bridge, &s).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .collect::<Vec<_>>(),
+        vec!["mart.0 = 1 2 3 50"]
+    );
+    assert_eq!(shops::current(&bridge).unwrap().marts[0], vec![1, 2, 3, 50]);
+    // More than 40 items is refused.
+    s.marts[1] = vec![17; 41];
+    assert!(shops::set(&bridge, &s).is_err());
+    // The game's lists again: no file.
+    shops::set(&bridge, &game).unwrap();
+    assert!(!file.exists());
+}

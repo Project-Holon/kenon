@@ -27,6 +27,7 @@ fn image(name: &str) -> Image {
     match name {
         "script_ranges" => Image::Overlay(10),
         "type_chart" | "move_handlers" | "ability_handlers" | "item_handlers" => Image::Overlay(93),
+        "shop_counts" | "shop_lists" | "bp_counts" | "bp_lists" => Image::Overlay(21),
         _ => Image::Arm9,
     }
 }

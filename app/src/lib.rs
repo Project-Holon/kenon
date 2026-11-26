@@ -820,6 +820,45 @@ fn set_trainer_mons(
     kenon_core::trainer_mons::set(project, trainer, &members).map_err(|e| e.to_string())
 }
 
+/// The shop lists (the mod's over the game's) and the game's own.
+#[tauri::command]
+async fn shops(
+    state: State<'_, AppState>,
+) -> Result<(kenon_core::shops::Shops, kenon_core::shops::Shops), String> {
+    let bridge = state.need_bridge()?;
+    let now = kenon_core::shops::current(&bridge).map_err(|e| e.to_string())?;
+    let game = kenon_core::shops::game(&bridge).map_err(|e| e.to_string())?;
+    Ok((now, game))
+}
+
+/// Every item's shop price (item data price x 10), by item id.
+#[tauri::command]
+async fn item_prices(state: State<'_, AppState>) -> Result<Vec<u32>, String> {
+    let bridge = state.need_bridge()?;
+    let count = kenon_core::tables::entries(&bridge, "items")
+        .map_err(|e| e.to_string())?
+        .len();
+    Ok((0..count)
+        .map(|index| {
+            bridge
+                .member(kenon_core::bridge::Member { arc: 24, index })
+                .ok()
+                .and_then(|b| {
+                    b.get(0..2)
+                        .map(|p| u32::from(u16::from_le_bytes([p[0], p[1]])) * 10)
+                })
+                .unwrap_or(0)
+        })
+        .collect())
+}
+
+/// Writes every shop list (eidos shops.txt).
+#[tauri::command]
+fn set_shops(state: State<AppState>, shops: kenon_core::shops::Shops) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::shops::set(&bridge, &shops).map_err(|e| e.to_string())
+}
+
 /// The 101 TMs and HMs: label, item, move (the mod's over the game's).
 #[tauri::command]
 async fn machines(
@@ -2009,6 +2048,9 @@ pub fn run() {
             text_bank_names,
             machines,
             set_machine,
+            shops,
+            set_shops,
+            item_prices,
             icon_palette,
             set_icon_palette,
             trainer_mons,

@@ -12,6 +12,7 @@ export type Category =
   | { id: string; label: string; kind: "abilities" }
   | { id: string; label: string; kind: "types" }
   | { id: string; label: string; kind: "machines" }
+  | { id: string; label: string; kind: "shops" }
   | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
@@ -50,6 +51,7 @@ export const GROUPS: Group[] = [
       { id: "trainer-sprites-back", label: "Trainer back sprites", kind: "graphics", archive: 73 },
       { id: "encounters", label: "Wild encounters", kind: "table", tables: ["encounters"] },
       { id: "trades", label: "In-game trades", kind: "table", tables: ["trades"] },
+      { id: "shops", label: "Shops", kind: "shops" },
     ],
   },
   {

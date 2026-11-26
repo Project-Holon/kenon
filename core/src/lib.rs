@@ -33,6 +33,7 @@ pub mod rig;
 pub mod romhack;
 pub mod scripts;
 pub mod sdat;
+pub mod shops;
 pub mod sound_add;
 pub mod source;
 pub mod species_add;

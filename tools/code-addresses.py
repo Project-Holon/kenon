@@ -41,7 +41,25 @@ TABLES = [
     ("move_handlers", 93, 0x021F3030, 0x102 * 8, None, 0),
     ("ability_handlers", 93, 0x021F0E74, 0x9E * 8, None, 0),
     ("item_handlers", 93, 0x021F1EA4, 0xAC * 8, None, 0),
+    # Shops (overlay 21; eidos docs/game-tables.md): the 26 Poke Mart lists
+    # (pointers to u16 item lists, one count byte each) and the 3 Battle
+    # Subway prize lists (pointers to {u32 item, u32 price} rows).
+    ("shop_counts", 21, 0x021D95DE, 26, None, 0),
+    ("shop_lists", 21, 0x021DE1A8, 26 * 4, "shop_counts", "rebase"),
+    ("bp_counts", 21, 0x021D9430, 3, None, 0),
+    ("bp_lists", 21, 0x021DE164, 3 * 4, "bp_counts", "rebase"),
 ]
+
+
+def rebased(eng, imgs, ov, addr, length, eng_near, near):
+    """A table of pointers into data that moved with a neighbour: the English
+    pointers shifted by the neighbour's move, found once in the target."""
+    delta = near - eng_near
+    words = struct.unpack_from(f"<{length // 4}I", at(eng, ov, addr, length))
+    want = struct.pack(f"<{len(words)}I", *[w + delta for w in words])
+    base, data = imgs[ov]
+    hits = find_all(data, want)
+    return base + hits[0] if len(hits) == 1 else None
 
 # game code: extraction folder in the aletheia checkout
 TARGETS = {
@@ -102,6 +120,14 @@ def main():
         imgs = images(os.path.join(root, folder))
         found = {}
         for name, ov, addr, length, near, off in TABLES:
+            if off == "rebase":
+                eng_near = next(a for n, o, a, *_ in TABLES if n == near)
+                guess = rebased(eng, imgs, ov, addr, length, eng_near, found[near]) if near in found else None
+                if guess is not None:
+                    found[name] = guess
+                else:
+                    print(f"{code}: {name} not found", file=sys.stderr)
+                continue
             want = at(eng, ov, addr, length)
             base, data = imgs[ov]
             hits = find_all(data, want)

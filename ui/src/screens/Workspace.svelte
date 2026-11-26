@@ -19,6 +19,7 @@
   import AbilitiesView from "../views/AbilitiesView.svelte";
   import TypesView from "../views/TypesView.svelte";
   import MachinesView from "../views/MachinesView.svelte";
+  import ShopsView from "../views/ShopsView.svelte";
   import ModSettings from "../views/ModSettings.svelte";
   import ModHooks from "../views/ModHooks.svelte";
   import ModRules from "../views/ModRules.svelte";
@@ -216,6 +217,8 @@
         <TypesView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "machines"}
         <MachinesView {version} {readOnly} onSaved={saved} />
+      {:else if current.kind === "shops"}
+        <ShopsView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "worldmap"}
         <WorldMap {readOnly} onOpen={openAt} onSaved={saved} />
       {:else if current.kind === "cries"}
