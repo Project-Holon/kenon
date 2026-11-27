@@ -200,6 +200,7 @@
     physical: "Physical moves",
     special: "Special moves",
     status: "Status moves",
+    one_hit: "Moves Parental Bond hits once",
   };
   const WEATHER_LABEL: Record<string, string> = { sun: "Harsh sunlight", rain: "Rain", hail: "Hail", sand: "Sandstorm" };
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

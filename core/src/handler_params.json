@@ -87,7 +87,8 @@
    "powder",
    "physical",
    "special",
-   "status"
+   "status",
+   "one_hit"
   ],
   "priority": [
    -6,
@@ -2414,7 +2415,7 @@
   "protean": {
    "keys": {},
    "notes": [
-    "eidos base: when its move goes ahead (not asleep, frozen, flinching or fully paralysed), the holder takes the move's type, after Normalize and the -ate bases, with the pop-up and Color Change's line."
+    "eidos base: when its move goes ahead (not asleep, frozen, flinching or fully paralysed), the holder takes the move's type, after Normalize and the -ate bases, with the pop-up and Color Change's line, before \"X used Y!\". A move Metronome or Sleep Talk calls counts, not the caller. Not Struggle."
    ]
   },
   "magician": {
@@ -2431,10 +2432,11 @@
   },
   "parental_bond": {
    "keys": {
-    "ratio": 0.25
+    "ratio": 0.25,
+    "kind": "one_hit"
    },
    "notes": [
-    "eidos base: the holder's damaging moves that hit once hit twice, the second hit with `ratio` of the power (1/4, Generation VII; 0.5 for Generation VI), with \"Hit 2 times!\". Not moves that hit several targets, nor Self-Destruct, Explosion, Endeavor, Fling and Final Gambit."
+    "eidos base: the holder's damaging moves that hit once hit twice, the second hit with `ratio` of the power (1/4, Generation VII; 0.5 for Generation VI), with \"Hit 2 times!\". Not moves that hit several targets, moves with a charge turn (the record's flag Sleep Talk tests), nor moves of `kind` (one_hit: Self-Destruct, Explosion, Endeavor, Fling and Final Gambit; move_kinds.txt changes the list)."
    ],
    "work": [
     0
@@ -2446,7 +2448,7 @@
     "form.2": 0
    },
    "notes": [
-    "eidos base: before a damaging move the holder takes its attack form (`form`), before King's Shield (a move whose line names kings_shield) its guard form (`form.2`), with its pop-up and \"X transformed!\". It takes the guard form again when it leaves the battle. The species needs both forms (a mod's Aegislash-style species)."
+    "eidos base: before a damaging move (\"X used Y!\") the holder takes its attack form (`form`), before King's Shield (a move whose line names kings_shield) its guard form (`form.2`), with its pop-up and \"X transformed!\". It takes the guard form again when it leaves the battle. The species needs both forms (a mod's Aegislash-style species)."
    ]
   },
   "grass_pelt": {

@@ -1,6 +1,7 @@
 //! Move kinds the later games test that Black and White's move record has no
 //! flag for (eidos `eidos/tables/move_kinds.txt`, 0.2.8): bite, pulse, ball,
-//! powder. Abilities such as Strong Jaw or Bulletproof ask for them.
+//! powder, and one_hit (moves Parental Bond hits once). Abilities such as
+//! Strong Jaw or Bulletproof ask for them.
 //!
 //! ```text
 //! <move id> = <kind> [<kind> ...]       # or none
@@ -15,10 +16,10 @@ use crate::bridge::Error;
 use crate::project::Project;
 
 const TABLE: &str = "move_kinds";
-pub const KINDS: [&str; 4] = ["bite", "pulse", "ball", "powder"];
+pub const KINDS: [&str; 5] = ["bite", "pulse", "ball", "powder", "one_hit"];
 
 /// The game's moves of each kind (later games' lists).
-const GAME: [(&str, &[usize]); 4] = [
+const GAME: [(&str, &[usize]); 5] = [
     ("bite", &[44, 242, 422, 423, 424, 305, 158]),
     ("pulse", &[352, 399, 406, 396, 505]),
     (
@@ -29,6 +30,8 @@ const GAME: [(&str, &[usize]); 4] = [
         ],
     ),
     ("powder", &[77, 78, 79, 147, 178, 476]),
+    // Self-Destruct, Explosion, Endeavor, Fling, Final Gambit.
+    ("one_hit", &[120, 153, 283, 374, 515]),
 ];
 
 /// A move's kinds without a line of the mod's.

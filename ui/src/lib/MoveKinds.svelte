@@ -11,6 +11,7 @@
     ["pulse", "Pulse move"],
     ["ball", "Ball or bomb move"],
     ["powder", "Powder move"],
+    ["one_hit", "Hits once with Parental Bond"],
   ];
   let kinds = $state<string[]>([]);
   let orig = $state("");
