@@ -949,7 +949,11 @@ fn item_heal(state: State<AppState>, item: usize) -> Result<kenon_core::item_hea
 }
 
 #[tauri::command]
-fn set_item_heal(state: State<AppState>, item: usize, heal: kenon_core::item_heal::Heal) -> Result<(), String> {
+fn set_item_heal(
+    state: State<AppState>,
+    item: usize,
+    heal: kenon_core::item_heal::Heal,
+) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     kenon_core::item_heal::set(&bridge, item, heal).map_err(|e| e.to_string())
 }
