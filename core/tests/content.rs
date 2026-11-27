@@ -1151,3 +1151,51 @@ fn a_new_type_gets_a_plate_and_a_drive() {
     let look = &type_pictures::all(bridge.project().unwrap())[&fairy];
     assert_eq!((look.plate, look.drive), (None, Some((plate, 5))));
 }
+
+#[test]
+fn arceus_and_genesect_get_a_form_their_pictures_moved_to_mod_slots() {
+    use kenon_core::species_add;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let stored = |b: &Bridge, arc: u16, index: usize| b.member_stored(Member { arc, index }).unwrap();
+    let rec = |b: &Bridge, s: usize| b.member(Member { arc: 16, index: s }).unwrap();
+    let sprite = |r: &[u8]| (u16::from_le_bytes([r[30], r[31]]) as usize, r[32], r[33]);
+    let game_palette = stored(&bridge, 4, 0x37AD);
+    let arceus_palette = stored(&bridge, 4, 493 * 20 + 18);
+    let genesect_form1 = (stored(&bridge, 4, 708 * 20), stored(&bridge, 7, 708 * 2 + 7));
+
+    // Arceus form 17 from its own colours: forms 1-16 move to 715-730.
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), 17);
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(sprite(&rec(&bridge, 493)), (715, 18, 0x87));
+    assert_eq!(stored(&bridge, 4, 715 * 20 + 18), game_palette);
+    assert_eq!(stored(&bridge, 4, 731 * 20 + 18), arceus_palette);
+    assert!(bridge.project().unwrap().member(16, 715).is_none(), "no stats record at a picture slot");
+
+    // Genesect form 5 from its form 1 (Douse): forms 1-4 move after Arceus's.
+    assert_eq!(species_add::add_game_form(&bridge, 649, 1).unwrap(), 5);
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(sprite(&rec(&bridge, 649)), (732, 6, 0x06));
+    for slot in [732, 736] {
+        assert_eq!((stored(&bridge, 4, slot * 20), stored(&bridge, 7, slot * 2 + 7)), genesect_form1);
+    }
+
+    // A new Pokemon takes 715: the moved pictures follow one slot up.
+    let volt = species_add::add(&bridge, 25, "Voltwing").unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(volt, 715);
+    assert_eq!(sprite(&rec(&bridge, 493)).0, 716);
+    assert_eq!(stored(&bridge, 4, 716 * 20 + 18), game_palette);
+    assert_eq!(sprite(&rec(&bridge, 649)).0, 733);
+    assert_eq!(stored(&bridge, 4, 737 * 20), genesect_form1.0);
+
+    // The game's forms stay; removing Arceus's added one puts it back.
+    assert!(species_add::remove_game_form(&bridge, 649, 2).is_err());
+    species_add::remove_game_form(&bridge, 493, 17).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert!(bridge.project().unwrap().member(16, 493).is_none());
+    assert_eq!(sprite(&rec(&bridge, 493)), (0, 17, 0x87));
+    assert_eq!(sprite(&rec(&bridge, 649)), (716, 6, 0x06));
+    assert_eq!(stored(&bridge, 4, 720 * 20), genesect_form1.0);
+}

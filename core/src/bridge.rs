@@ -951,6 +951,15 @@ impl Bridge {
             .map_err(|e| Error::Missing(format!("{}:{}: {e}", m.arc, m.index)))
     }
 
+    /// The game's own member, decompressed, whatever the mod holds.
+    pub fn game_member(&self, m: Member) -> Result<Vec<u8>, Error> {
+        let archive = self.archive(m.arc)?;
+        let raw = archive
+            .raw(m.index)
+            .map_err(|e| Error::Missing(format!("{}:{}: {e}", m.arc, m.index)))?;
+        Ok(lz::decompress_if_compressed(raw).into_owned())
+    }
+
     /// A member without the mod's text lines: the mod's member, else the
     /// game's.
     pub fn member_base(&self, m: Member) -> Result<Vec<u8>, Error> {
