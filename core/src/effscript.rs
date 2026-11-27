@@ -39,7 +39,7 @@ use std::fmt::Write as _;
 /// A command's editor name and how many u32 arguments it reads. Names
 /// say what the command does (eidos research, effect-script-args.md);
 /// several of aletheia's names do not (56 and 57 are swapped).
-pub const COMMANDS: [(&str, usize); 78] = [
+pub const COMMANDS: [(&str, usize); 79] = [
     ("CameraToView", 5),
     ("CameraToPoint", 10),
     ("OrbitCamera", 6),
@@ -118,6 +118,11 @@ pub const COMMANDS: [(&str, usize); 78] = [
     ("ReleaseSideSprites", 1),
     ("BlinkDrawOrder", 1),
     ("EndScript", 0),
+    // eidos's own (docs/game-tables.md, Effect script commands of eidos):
+    // a mod's sound by its `<mod>:<seq>` name, the name's offset from the
+    // command's end first (like a jump), then PlaySoundEffect's arguments
+    // without its last.
+    ("PlaySoundByName", 8),
 ];
 
 const HEADER: usize = 4;
@@ -130,9 +135,13 @@ fn jump_arg(id: u16) -> Option<usize> {
         0x3B | 0x3C => Some(3),
         0x3D => Some(2),
         0x48 => Some(0),
+        // PlaySoundByName: the offset of its name (data, not code).
+        PLAY_SOUND_BY_NAME => Some(0),
         _ => None,
     }
 }
+
+const PLAY_SOUND_BY_NAME: u16 = 78;
 
 /// Whether running falls through to the next command: not after a return,
 /// a jump or the release that ends every game script.
@@ -323,6 +332,8 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
     // Decode what runs: from each variant's start, along jumps.
     let mut items: BTreeMap<usize, Item> = BTreeMap::new();
     let mut targets: BTreeSet<usize> = BTreeSet::new();
+    // PlaySoundByName's names: text, not code.
+    let mut names: BTreeSet<usize> = BTreeSet::new();
     let mut work: Vec<usize> = entries
         .iter()
         .copied()
@@ -348,7 +359,11 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
                         let t = (end as i64 + args[k] as i32 as i64) as usize;
                         if t >= code && t < b.len() {
                             targets.insert(t);
-                            work.push(t);
+                            if *id == PLAY_SOUND_BY_NAME {
+                                names.insert(t);
+                            } else {
+                                work.push(t);
+                            }
                         }
                     }
                     falls_through(*id).then_some(end)
@@ -430,6 +445,24 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
                 at += item.size();
             }
             None => {
+                // A sound's name: printable text up to its NUL.
+                if names.contains(&at) {
+                    let len = b[at..].iter().position(|&c| c == 0);
+                    if let Some(n) = len.filter(|&n| {
+                        b[at..at + n]
+                            .iter()
+                            .all(|c| (0x20..0x7F).contains(c) && *c != b'"')
+                    }) {
+                        flush(&mut out, &mut raw);
+                        let _ = writeln!(
+                            out,
+                            "    text \"{}\"",
+                            String::from_utf8_lossy(&b[at..at + n])
+                        );
+                        at += n + 1;
+                        continue;
+                    }
+                }
                 raw.push(b[at]);
                 at += 1;
             }
@@ -508,6 +541,23 @@ pub fn assemble(text: &str) -> Result<Vec<u8>, String> {
                     .map_err(err)?,
             ),
             "bytes" => Line::Bytes(parse_hex(&words[1..], 0).map_err(err)?),
+            // A NUL-terminated name (PlaySoundByName's): `text "mod:seq"`.
+            "text" => {
+                let rest = l[4..].trim();
+                let inner = rest
+                    .strip_prefix('"')
+                    .and_then(|r| r.strip_suffix('"'))
+                    .ok_or_else(|| err("text takes a quoted name".into()))?;
+                if !inner
+                    .bytes()
+                    .all(|c| (0x20..0x7F).contains(&c) && c != b'"')
+                {
+                    return Err(err("a name is plain ASCII".into()));
+                }
+                let mut b = inner.as_bytes().to_vec();
+                b.push(0);
+                Line::Bytes(b)
+            }
             name => {
                 let id = *names
                     .get(name)
@@ -631,6 +681,30 @@ fn number(w: &str) -> Result<u32, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_named_sound_reads_back() {
+        let text = "variant @v0
+@v0:
+    PlaySoundByName @snd 1 0 0 0 127 0 0
+    EndScript
+@snd:
+    text \"mymod:boom\"
+";
+        let b = assemble(text).unwrap();
+        let code = HEADER + VARIANT;
+        // The command, then EndScript, then the name; the offset counts from the command's end.
+        assert_eq!(u16::from_le_bytes([b[code], b[code + 1]]), 78);
+        let end = code + 2 + 4 * 8;
+        let off = u32::from_le_bytes(b[code + 2..code + 6].try_into().unwrap()) as usize;
+        assert_eq!(&b[end + off..end + off + 11], b"mymod:boom ");
+        let again = disassemble(&b).unwrap();
+        assert!(
+            again.contains("PlaySoundByName @") && again.contains("text \"mymod:boom\""),
+            "{again}"
+        );
+        assert_eq!(assemble(&again).unwrap(), b);
+    }
+
     use super::*;
 
     fn script() -> Vec<u8> {
