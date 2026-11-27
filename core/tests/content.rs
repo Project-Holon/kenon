@@ -1559,3 +1559,30 @@ fn removing_a_custom_script_goes_back_to_the_earlier_animation() {
     let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
     assert!(!text.contains("# from"), "{text}");
 }
+
+#[test]
+fn ball_particle_files_are_named_after_their_ball() {
+    use kenon_core::spa;
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    let balls = spa::ball_files(&bridge);
+    let names = tables::enum_values(&bridge, "item").unwrap();
+    let at = |f: usize| {
+        balls
+            .get(&f)
+            .map(|b| (names[b.item as usize].as_str(), b.part))
+    };
+    assert_eq!(at(3), Some(("Master Ball", 1)));
+    assert_eq!(at(6), Some(("Poké Ball", 1)));
+    assert_eq!(at(84), Some(("Timer Ball", 5)));
+    // The second file: 15 balls, the Dream Ball, the rest share the Poke Ball's.
+    assert_eq!(balls.len(), 25 + 16 + 100);
+    // The shared battle effects load the ball files by their base key.
+    let effects = spa::effect_users(&bridge);
+    assert!(
+        effects.contains_key(&3) && effects.contains_key(&0x2E),
+        "{:?}",
+        effects.keys().take(20).collect::<Vec<_>>()
+    );
+}

@@ -31,6 +31,9 @@ TABLES = [
     ("packed_chars", None, 0x0209E864, 0x32 * 2, None, 0),
     ("timezone_light", None, 0x0209DF10, 20, None, 0),
     ("machine_moves", None, 0x0209EAA0, 202, None, 0),
+    # Poke Balls: 25 pairs {u16 item, u16 ball id} (sItemBallIdTable,
+    # ITEM_LookupBallIdPair); the ball id picks a ball's particle files.
+    ("ball_items", None, 0x0209E904, 25 * 4, None, 0),
     ("script_ranges", 10, 0x021701A8, 460, None, 0),
     # Battle (overlay 93): the type chart, 17 x 17 effectiveness bytes
     # (gBtlCalcTypeAffinityTable), and the handler registries that give

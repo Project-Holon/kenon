@@ -1729,6 +1729,106 @@ pub struct Listed {
     pub changed: bool,
     /// Moves whose animation loads it (by LoadParticles), first few.
     pub moves: Vec<usize>,
+    /// Shared battle effects (a/0/6/7 members) that load it, first few.
+    pub effects: Vec<usize>,
+    /// A Poke Ball's file: the ball's item and which of its six parts.
+    pub ball: Option<BallPart>,
+}
+
+/// One of a Poke Ball's particle files.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BallPart {
+    /// The ball's item (Poke Ball 4, Great Ball 3...).
+    pub item: u16,
+    /// Its ball id (1-25).
+    pub ball: u16,
+    /// 1 to 6: file 3 + ball, then 29 + ball (shared by some), then four at
+    /// 46 + 4 x ball.
+    pub part: u8,
+}
+
+/// The shared battle effects (ball throws, status, stat changes, weather).
+pub const SHARED_EFFECTS: u16 = 67;
+/// The effect player picks these files by the ball in play (25 balls).
+const BALL_THROW: usize = 3;
+const BALL_SECOND: usize = 0x1D;
+const BALL_FOUR: usize = 0x2E;
+const BALLS: u16 = 25;
+
+/// The ball files of the game: file to its ball and part. The ball's item
+/// comes from the game's item-to-ball table (addresses ball_items).
+pub fn ball_files(bridge: &crate::bridge::Bridge) -> std::collections::BTreeMap<usize, BallPart> {
+    let mut out = std::collections::BTreeMap::new();
+    let Some(table) = bridge.code().and_then(|c| {
+        c.table("ball_items", BALLS as usize * 4)
+            .map(<[u8]>::to_vec)
+    }) else {
+        return out;
+    };
+    for pair in table.as_chunks::<4>().0 {
+        let item = u16::from_le_bytes([pair[0], pair[1]]);
+        let ball = u16::from_le_bytes([pair[2], pair[3]]);
+        if ball == 0 || ball > BALLS {
+            continue;
+        }
+        let b = (ball - 1) as usize;
+        out.insert(
+            BALL_THROW + b,
+            BallPart {
+                item,
+                ball,
+                part: 1,
+            },
+        );
+        // The second file: balls 16-24 share the Poke Ball's, 25 has its own.
+        let second = if ball == 25 {
+            16
+        } else if ball >= 16 {
+            3
+        } else {
+            b
+        };
+        out.entry(BALL_SECOND + second).or_insert(BallPart {
+            item,
+            ball,
+            part: 2,
+        });
+        for k in 0..4 {
+            out.insert(
+                BALL_FOUR + 4 * b + k,
+                BallPart {
+                    item,
+                    ball,
+                    part: 3 + k as u8,
+                },
+            );
+        }
+    }
+    out
+}
+
+/// Which shared battle effects load each particle file.
+pub fn effect_users(
+    bridge: &crate::bridge::Bridge,
+) -> std::collections::BTreeMap<usize, Vec<usize>> {
+    let mut out: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+    let count = bridge.base_archive(SHARED_EFFECTS).map_or(0, |a| a.len());
+    for e in 0..count {
+        let Ok(b) = bridge.member(crate::bridge::Member {
+            arc: SHARED_EFFECTS,
+            index: e,
+        }) else {
+            continue;
+        };
+        for key in crate::effscript::particle_keys(&b) {
+            let list = out.entry(key as usize).or_default();
+            if !list.contains(&e) {
+                list.push(e);
+            }
+        }
+    }
+    out
 }
 
 /// Which moves' scripts load each particle file (command 6's key; the
@@ -1767,6 +1867,8 @@ pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
         .and_then(|p| p.last_member(ARCHIVE))
         .map_or(base, |l| base.max(l + 1));
     let users = users(bridge);
+    let effects = effect_users(bridge);
+    let balls = ball_files(bridge);
     let mut out = Vec::new();
     for index in 0..end {
         let Ok(b) = bridge.member(crate::bridge::Member {
@@ -1785,6 +1887,11 @@ pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
                 .get(&index)
                 .map(|m| m.iter().take(4).copied().collect())
                 .unwrap_or_default(),
+            effects: effects
+                .get(&index)
+                .map(|m| m.iter().take(4).copied().collect())
+                .unwrap_or_default(),
+            ball: balls.get(&index).copied(),
         });
     }
     Ok(out)
