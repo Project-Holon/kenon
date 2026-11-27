@@ -244,7 +244,7 @@
   const orderedKeys = (e: Entry) => Object.keys(e.keys).sort((a, b) => keyRank(a) - keyRank(b));
   /// eidos takes up to four bases on one line.
   const MAX_BASES = 4;
-  const nameOf = (b: number) => (b === id && !added ? `Itself (${names[id] ?? id})` : (names[b] ?? (keyOf(b) !== String(b) ? nameOfKey(keyOf(b)) : String(b))));
+  const nameOf = (b: number) => (b === id && !added ? `Its own (${names[id] ?? id})` : (names[b] ?? (keyOf(b) !== String(b) ? nameOfKey(keyOf(b)) : String(b))));
 </script>
 
 <div class="window block handler">
@@ -252,7 +252,7 @@
     <h3>In battle</h3>
     {#if !readOnly && params && !entryParts}
       <div class="acts">
-        {#if dirty}<button class="quiet" onclick={reset} disabled={saving}>Discard</button>{/if}
+        {#if dirty}<button onclick={reset} disabled={saving}>Discard</button>{/if}
         <button class="primary" onclick={() => save()} disabled={!dirty || saving}>{saving ? "Saving..." : "Save"}</button>
       </div>
     {/if}
@@ -315,25 +315,23 @@
             {/each}
           </div>
         {:else}
-          <p class="muted note">{p.base === id ? "Its" : `${nameOf(p.base)}'s`} handler has no editable parameters.</p>
+          <p class="muted note">No values to change.</p>
         {/if}
-        {#if e?.notes.length}
-          <p class="muted note">
-            {e.notes.length === 1 ? "One additional parameter is" : `${e.notes.length} additional parameters are`} computed at runtime
-            and cannot be edited.
-          </p>
+        {#if e?.notes.length && Object.keys(e.keys).length}
+          <p class="muted note">Its other values are worked out in battle.</p>
         {/if}
       </div>
     {/each}
     {#if multi && parts.length && parts.length < MAX_BASES && !readOnly}
-      <button class="quiet add" onclick={addPart}>Add handler...</button>
+      <button class="add" onclick={addPart}>Add another effect...</button>
     {/if}
-    {#if parts.some((p) => p.base !== id)}
+    {#if parts.some((p) => p.base !== id && p.base < 0x10000)}
       <p class="muted note">
-        Checks for the source {table === "abilities" ? "ability" : table === "moves" ? "move" : "item"}'s ID
-        elsewhere in the game are not included.{#if parts.length > 1} Overlapping effects all run, in this order.{/if}
+        Only the battle effect carries over: other places in the game that check for
+        {parts.filter((p) => p.base !== id && p.base < 0x10000).map((p) => nameOf(p.base)).join(" or ")} do not.
       </p>
     {/if}
+    {#if parts.length > 1}<p class="muted note">The effects run in this order.</p>{/if}
   {/if}
 </div>
 

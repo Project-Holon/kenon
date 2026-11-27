@@ -296,7 +296,7 @@ fn set_reference_rom(state: State<AppState>, path: PathBuf) -> Result<String, St
     let rom =
         kenon_core::rom::Rom::open(&path).map_err(|e| format!("could not read the ROM: {e}"))?;
     let lang = kenon_core::reference::language_of(&rom).ok_or(
-        "this ROM's language is not one eidos runs (English, French, German, Italian, Spanish)",
+        "Unsupported ROM language. eidos supports English, French, German, Italian and Spanish.",
     )?;
     let mut settings = state.settings.lock().unwrap();
     settings.reference_roms.insert(lang.to_string(), path);

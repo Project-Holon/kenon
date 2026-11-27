@@ -106,7 +106,7 @@
     <input class="search" placeholder="Search TMs or moves" aria-label="Search TMs or moves" bind:value={filter} onkeydown={(e) => e.key === "Escape" && (filter = "")} />
     <span class="muted">Who can learn each one is on a Pokemon's TMs and tutors tab.</span>
     {#if !readOnly}
-      <button class="quiet" disabled={dirty || saving || list.length >= 128} title={dirty ? "Save or discard edits first" : "Adds the next TM after the game's"} onclick={addTm}>New TM</button>
+      <button disabled={dirty || saving || list.length >= 128} title={dirty ? "Save or discard edits first" : "Adds the next TM after the game's"} onclick={addTm}>New TM</button>
       <div class="acts">
         <button disabled={!dirty || saving} onclick={() => (edits = list.map((m) => m.mv))}>Discard</button>
         <button class="primary" disabled={!dirty || saving} onclick={save}>{saving ? "Saving..." : "Save"}</button>

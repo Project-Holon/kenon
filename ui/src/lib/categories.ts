@@ -15,7 +15,7 @@ export type Category =
   | { id: string; label: string; kind: "types" }
   | { id: string; label: string; kind: "machines" }
   | { id: string; label: string; kind: "shops" }
-  | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "conflicts" }
+  | { id: string; label: string; kind: "mod"; view: "settings" | "hooks" | "rules" | "tables" | "code" | "translations" | "conflicts" }
   | { id: string; label: string; kind: "textures"; archive: number; noun: string };
 
 /// The game screens whose pictures the Interface entry shows, one archive
@@ -132,6 +132,7 @@ export const GROUPS: Group[] = [
       { id: "mod-rules", label: "Rules", kind: "mod", view: "rules" },
       { id: "mod-tables", label: "Tables", kind: "mod", view: "tables" },
       { id: "mod-code", label: "Code", kind: "mod", view: "code" },
+      { id: "mod-translations", label: "Translations", kind: "mod", view: "translations" },
       { id: "mod-conflicts", label: "Conflicts", kind: "mod", view: "conflicts" },
     ],
   },

@@ -217,7 +217,7 @@
 
 <div class="grid-view" role="presentation" onkeydown={keydown}>
   <div class="bar">
-    <button class="quiet" disabled={dirtyCount > 0} title={dirtyCount ? "Save or discard edits first" : ""} onclick={onClose}>Entries</button>
+    <button disabled={dirtyCount > 0} title={dirtyCount ? "Save or discard edits first" : "One entry at a time"} onclick={onClose}>List</button>
     <input class="search" placeholder="Search {rows.length} entries" bind:value={filter} />
     {#if groups.length > 1}
       <select bind:value={group} aria-label="Columns">
@@ -228,7 +228,7 @@
     <span class="muted hint">Shift-click to select a range. Ctrl+C/Ctrl+V to copy and paste.</span>
     <div class="spacer"></div>
     {#if !readOnly}
-      <button class="quiet" disabled={!dirtyCount || busy} onclick={() => (edits = {})}>Discard</button>
+      <button disabled={!dirtyCount || busy} onclick={() => (edits = {})}>Discard</button>
       <button class="primary" disabled={!dirtyCount || busy} onclick={save}>{dirtyCount ? `Save (${dirtyCount})` : "Save"}</button>
     {/if}
   </div>

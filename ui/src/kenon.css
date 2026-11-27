@@ -76,3 +76,15 @@ button.primary:disabled {
 .list-head .new {
   flex: none;
 }
+
+/* Every button reads as a button: morphe's text-only "quiet" style gets the
+   normal frame and fill in kenon (the user's call, 2026-11-27). Tabs keep
+   their underline (above). */
+button.quiet {
+  background: linear-gradient(var(--panel-3), var(--panel-2));
+  border-color: var(--outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+button.quiet:hover {
+  border-color: var(--accent);
+}

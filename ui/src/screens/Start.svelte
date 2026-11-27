@@ -22,6 +22,8 @@
   import { enableSfx, play, setSfx, sfxOn } from "../lib/sfx";
   import { openMenu } from "morphe/menu.svelte";
   import ThemePicker from "../lib/ThemePicker.svelte";
+  import { LANGUAGES, textLang, loadLanguages, clearReferences } from "../lib/textLang.svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import NewProjectDialog from "../lib/NewProjectDialog.svelte";
   import PatchImportDialog from "../lib/PatchImportDialog.svelte";
 
@@ -60,6 +62,27 @@
       recent = [];
     }
   }
+  async function addReference() {
+    const path = await open({ filters: [{ name: "ROM", extensions: ["nds"] }] });
+    if (typeof path !== "string") return;
+    try {
+      await invoke("set_reference_rom", { path });
+      clearReferences();
+      await loadLanguages();
+      play("save");
+    } catch (e) {
+      error = String(e);
+    }
+  }
+  async function removeReference(code: string) {
+    await invoke("clear_reference_rom", { lang: code });
+    clearReferences();
+    await loadLanguages();
+  }
+  $effect(() => {
+    if (ready) loadLanguages().catch(() => {});
+  });
+
   onMount(loadRecent);
   $effect(() => {
     void status.recent.length;
@@ -212,6 +235,16 @@
         <div class="actions">
           <button disabled={busy} onclick={chooseRom}>Change ROM</button>
           <button onclick={() => (play("decide"), onView())}>Browse game data</button>
+        </div>
+        <!-- ROMs in other languages: their text shows beside translations. -->
+        <div class="refs">
+          {#each Object.keys(textLang.references) as code}
+            <span class="badge" title={textLang.references[code]}>
+              {LANGUAGES.find(([c]) => c === code)?.[1] ?? code}
+              <button class="x" aria-label="Remove" onclick={() => removeReference(code)}>×</button>
+            </span>
+          {/each}
+          <button disabled={busy} onclick={addReference}>Add reference ROM...</button>
         </div>
         {#if legendary !== null && spriteOk}
           <img
@@ -455,6 +488,20 @@
   }
   .badge.warn {
     color: var(--gold);
+  }
+  .refs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+  }
+  .refs .x {
+    border: 0;
+    background: none;
+    padding: 0 0 0 0.3rem;
+    color: inherit;
+    cursor: pointer;
   }
   .actions {
     margin-top: auto;

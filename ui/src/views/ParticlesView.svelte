@@ -230,8 +230,8 @@
         <span class="muted used">{label(list.find((l) => l.index === current) ?? { index: 0, emitters: 0, textures: 0, changed: false, moves: [] })}</span>
         <div class="spacer"></div>
         {#if !readOnly}
-          <button class="quiet" disabled={busy || dirty} onclick={copy} title={dirty ? "Save or discard first." : "Duplicate into a new file"}>Duplicate</button>
-          <button class="quiet" disabled={!dirty || busy} onclick={discard}>Discard</button>
+          <button disabled={busy || dirty} onclick={copy} title={dirty ? "Save or discard first." : "Duplicate into a new file"}>Duplicate</button>
+          <button disabled={!dirty || busy} onclick={discard}>Discard</button>
           <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
         {/if}
       </header>
@@ -242,16 +242,16 @@
         {#each file.textures as t, i}
           <figure>
             <img class="px" src={asset(`spatex/${current}/${i}`, version)} alt="Texture {i + 1}" />
-            {#if !readOnly}<button class="quiet" onclick={() => importTexture(i)}>Import PNG...</button>{/if}
+            {#if !readOnly}<button onclick={() => importTexture(i)}>Import PNG...</button>{/if}
             <figcaption>{i + 1}: {t.width}x{t.height} {FORMATS[t.format]}</figcaption>
           </figure>
         {/each}
       </div>
-      <nav class="sec-tabs">
+      <div class="sec-tabs" role="tablist">
         {#each file.emitters as _, e}
-          <button class:on={e === emitter} onclick={() => (emitter = e)}>Emitter {e + 1}</button>
+          <button role="tab" aria-selected={e === emitter} onclick={() => (emitter = e)}>Emitter {e + 1}</button>
         {/each}
-      </nav>
+      </div>
       <div class="cards">
         {#each groups as g}
           {@const shownF = shownFields(g)}
@@ -386,14 +386,14 @@
     padding: 0 1rem;
   }
   .cards {
-    columns: 18rem 3;
-    column-gap: 1rem;
-    padding: 0.8rem 1rem;
+    columns: 17rem 4;
+    column-gap: 0.8rem;
+    padding: 0.7rem 1rem;
   }
   .card {
     break-inside: avoid;
-    margin-bottom: 1rem;
-    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.7rem;
+    padding: 0.55rem 0.8rem;
   }
   .card.off h4 {
     color: var(--muted);
@@ -414,8 +414,8 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr);
-    gap: 0.35rem 0.7rem;
+    grid-template-columns: minmax(4rem, 8.5rem) minmax(7rem, 1fr);
+    gap: 0.3rem 0.6rem;
     align-items: center;
     margin-top: 0.6rem;
   }

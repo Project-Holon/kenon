@@ -185,7 +185,7 @@
     {#if cry}
       <div class="row">
         <span class="now">{cry.slot === 0 ? "No cry" : `${cryLabel(cry)}${cry.slot === cry.default ? " (default)" : ""}`}</span>
-        {#if cry.slot !== 0}<button class="quiet" onclick={playCry}>Play</button>{/if}
+        {#if cry.slot !== 0}<button onclick={playCry}>Play</button>{/if}
         {#if !readOnly && cry.slot !== cry.default}
           <button class="quiet" disabled={busy} onclick={() => useCry(null)}>Reset</button>
         {/if}

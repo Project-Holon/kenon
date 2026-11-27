@@ -140,14 +140,16 @@
           (calls the game's function) or <code>replace</code>. The symbol is a function in the mod's code file.
           Optional: <code>sig="int (int)"</code> and <code>switch=name</code>.
         </p>
-        <h3>Problems</h3>
-        <div class="list">
-          {#each check.diagnostics as d}
-            <p class={d.severity === "error" ? "bad" : "warn"}>{d.line ? `Line ${d.line}: ` : ""}{d.message}</p>
-          {:else}
-            <p class="muted">None.</p>
-          {/each}
-        </div>
+        {#if check.diagnostics.length}
+          <h3>Problems</h3>
+          <div class="list">
+            {#each check.diagnostics as d}
+              <p class={d.severity === "error" ? "bad" : "warn"}>{d.line ? `Line ${d.line}: ` : ""}{d.message}</p>
+            {/each}
+          </div>
+        {:else}
+          <p class="muted">No problems.</p>
+        {/if}
         {#if check.rows.length}
           <h3>Functions</h3>
           <div class="list">

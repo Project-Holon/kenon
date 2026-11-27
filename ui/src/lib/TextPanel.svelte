@@ -9,6 +9,7 @@
   import { play } from "./sfx";
   import { toast } from "morphe/menu.svelte";
   import { useParts } from "./parts.svelte";
+  import { textLang, translating, referenceText } from "./textLang.svelte";
 
   type Kind = "moves" | "items" | "abilities" | "species" | "trainers" | "types";
   let {
@@ -93,7 +94,11 @@
   );
   let values = $state<string[]>([]);
   let original = $state<string[]>([]);
+  // In a translation: the line in the base language, or the game's own
+  // text in that language, shown where the translation is empty.
+  let hints = $state<string[]>([]);
   let busy = $state(false);
+  const lang = $derived(translating() ? textLang.current : null);
 
   // The display form writes a line break as \n; the boxes show real ones.
   // A packed line (trainer names) shows without its {packed} marker and is
@@ -105,11 +110,30 @@
 
   $effect(() => {
     const at = id;
-    Promise.all(fields.map((f) => textBank(2, f.bank).then((b) => b[f.dex ? dexLine(at) : at] ?? "")))
-      .then((v) => {
-        if (id !== at) return;
-        original = v;
-        values = v.map(toBox);
+    const l = lang;
+    const line = (f: Field) => (f.dex ? dexLine(at) : at);
+    const base = Promise.all(fields.map((f) => textBank(2, f.bank).then((b) => b[line(f)] ?? "")));
+    if (!l) {
+      base
+        .then((v) => {
+          if (id !== at) return;
+          original = v;
+          values = v.map(toBox);
+          hints = [];
+        })
+        .catch(() => {});
+      return;
+    }
+    Promise.all([
+      base,
+      Promise.all(fields.map((f) => invoke<Record<string, string>>("mod_lang_lines", { arc: 2, bank: f.bank, lang: l }))),
+      Promise.all(fields.map((f) => referenceText(l, 2, f.bank))),
+    ])
+      .then(([b, mine, refs]) => {
+        if (id !== at || lang !== l) return;
+        original = fields.map((f, i) => mine[i][String(line(f))] ?? "");
+        values = original.map(toBox);
+        hints = fields.map((f, i) => toBox(refs[i]?.lines[String(line(f))] ?? b[i]));
       })
       .catch(() => {});
   });
@@ -127,8 +151,42 @@
     });
   });
 
+  // A translation: its lines in that language; names in capitals follow.
+  // Lines built from the game's sentences ("X used ...!") are eidos's.
+  async function saveTranslation(l: string) {
+    const byBank = new Map<number, [number, string][]>();
+    const add = (bank: number, line: number, text: string) => byBank.set(bank, [...(byBank.get(bank) ?? []), [line, text]]);
+    fields.forEach((f, i) => {
+      const v = fromBoxAt(i, values[i]);
+      if (v !== original[i]) add(f.bank, lineOf(f), v);
+    });
+    const name = fromBoxAt(0, values[0]);
+    if (!form && name !== original[0]) {
+      for (const [bank, per, how] of FOLLOW[kind]) if (how === "caps") for (let k = 0; k < per; k++) add(bank, id * per + k, name.toUpperCase());
+    }
+    for (const [bank, lines] of byBank) await invoke("set_mod_lang_lines", { arc: 2, bank, lang: l, lines });
+  }
+
   async function save(quiet = false) {
     busy = true;
+    if (lang) {
+      try {
+        await saveTranslation(lang);
+        original = values.map((v, i) => fromBoxAt(i, v));
+        onSaved();
+        if (!quiet) {
+          play("save");
+          toast("Translation saved");
+        }
+      } catch (e) {
+        if (quiet) throw e;
+        toast(String(e));
+        play("cancel");
+      } finally {
+        busy = false;
+      }
+      return;
+    }
     try {
       const lines: [number, number, string][] = [];
       fields.forEach((f, i) => {
@@ -175,7 +233,7 @@
     <div class="top">
       <h3>Name and text</h3>
       {#if !readOnly}
-        <button class="quiet" disabled={!dirty || busy} onclick={() => (values = original.map(toBox))}>Discard</button>
+        <button disabled={!dirty || busy} onclick={() => (values = original.map(toBox))}>Discard</button>
         <button class="primary" disabled={!dirty || busy} onclick={() => save()}>Save text</button>
       {/if}
     </div>
@@ -185,9 +243,9 @@
       <label class="field" class:wide={f.multi}>
         <span class="name">{f.label}{#if f.max}{" "}<span class="muted">(up to {f.max})</span>{/if}</span>
         {#if f.multi}
-          <textarea rows="3" bind:value={values[i]} readonly={readOnly}></textarea>
+          <textarea rows="3" bind:value={values[i]} readonly={readOnly} placeholder={hints[i] ?? ""}></textarea>
         {:else}
-          <input bind:value={values[i]} maxlength={f.max} readonly={readOnly} />
+          <input bind:value={values[i]} maxlength={f.max} readonly={readOnly} placeholder={hints[i] ?? ""} />
         {/if}
       </label>
     {/each}

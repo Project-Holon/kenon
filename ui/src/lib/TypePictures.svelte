@@ -97,7 +97,7 @@
           <select bind:value={from}>{#each types.slice(0, 17) as t, i}<option value={i}>{t}</option>{/each}</select>
         </label>
         <button disabled={busy} onclick={remake}>Rebuild</button>
-        <button class="quiet" disabled={busy} onclick={importIcon} title="32 x 16 pixels">Import PNG...</button>
+        <button disabled={busy} onclick={importIcon} title="32 x 16 pixels">Import PNG...</button>
       </div>
     {/if}
   {/if}

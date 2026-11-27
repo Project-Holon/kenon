@@ -18,8 +18,7 @@
 
   let { version, readOnly, onSaved }: { version: number; readOnly: boolean; onSaved: () => void } = $props();
 
-  // One Save and Discard for the panels (Name and text, In battle), and the
-  // same tabs as moves and items.
+  // One Save and Discard for the panels (Name and text, In battle).
   const entryParts = provideParts();
   let saving = $state(false);
   async function saveAll() {
@@ -35,15 +34,6 @@
       saving = false;
     }
   }
-  type Tab = "data" | "text" | "battle" | "users";
-  const TABS: [Tab, string][] = [
-    ["data", "Data"],
-    ["text", "Name and text"],
-    ["battle", "In battle"],
-    ["users", "Used by"],
-  ];
-  let tab = $state<Tab>("data");
-
   // New abilities (core/src/content.rs ABILITIES): a name, a description,
   // and later the battle code of another ability (eidos).
   let added = $state<{ last: number; ids: number[] } | null>(null);
@@ -218,19 +208,12 @@
         </div>
       {/if}
     </div>
-    <div class="sec-tabs" role="tablist">
-      {#each TABS as [t, label]}
-        <button role="tab" aria-selected={tab === t} class:primary={tab === t} onclick={() => (tab = t)}>{label}</button>
-      {/each}
-    </div>
-    <div class="scroll body">
+    <!-- One page: each part is short, so tabs would only add clicks. -->
+    <div class="scroll body one-page">
       {#if current > 0}
-        <!-- Kept while hidden: unsaved edits survive a tab switch. -->
-        <div hidden={tab !== "text"}>
-          <TextPanel kind="abilities" id={current} {readOnly} onSaved={() => (onSaved(), reloadNames())} />
-        </div>
+        <TextPanel kind="abilities" id={current} {readOnly} onSaved={() => (onSaved(), reloadNames())} />
       {/if}
-      <div class="window block" hidden={tab !== "data"}>
+      <div class="window block what">
         <h3>What it does</h3>
         {#if checks.length}
           {#each ["battle", "outside battle"] as place}
@@ -265,11 +248,9 @@
         {/if}
       </div>
       {#if current > 0 && added}
-        <div hidden={tab !== "battle"}>
-          <BattleHandler table="abilities" id={current} last={added.last} {version} {readOnly} {onSaved} />
-        </div>
+        <BattleHandler table="abilities" id={current} last={added.last} {version} {readOnly} {onSaved} />
       {/if}
-      <div class="window block" hidden={tab !== "users"}>
+      <div class="window block users">
         <h3>Pokemon with this ability</h3>
         {#if !users}
           <p class="muted">Looking...</p>
@@ -299,6 +280,28 @@
 {/if}
 
 <style>
+  .body.one-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-flow: dense;
+    align-items: start;
+    gap: 1rem;
+  }
+  .one-page > :global(*) {
+    width: auto;
+    min-width: 0;
+  }
+  .one-page > :global(.text),
+  .one-page > .what {
+    grid-column: 1;
+  }
+  .one-page > :global(.handler) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .one-page > .users {
+    grid-column: 1 / -1;
+  }
   .tables {
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr);

@@ -49,7 +49,6 @@
 </script>
 
 <div class="window block">
-  <h3>Pictures</h3>
   {#if !shown.length}
     <p class="muted">No pictures found.</p>
   {:else}
@@ -67,9 +66,6 @@
 <style>
   .block {
     padding: 0.9rem 1rem;
-  }
-  h3 {
-    margin: 0 0 0.7rem;
   }
   .grid {
     display: grid;

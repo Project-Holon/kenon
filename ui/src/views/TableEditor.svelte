@@ -432,6 +432,8 @@
     const list: [number, string][] = allSections.map((s, i) => [i, sectionLabel(s)]);
     if (!speciesTabs) return list;
     const at = list.findIndex(([, l]) => l.startsWith("Level-up"));
+    // Short tab names, so one row fits with Forms and cry.
+    for (const t of list) t[1] = t[1].replace(/^Level-up learnsets/, "Learnset").replace(/^Experience curves/, "Experience");
     list.splice(at < 0 ? list.length : at + 1, 0, [MACHINE_TAB, "TMs and tutors"]);
     list.splice(1, 0, [TEXT_TAB, "Name and Pokedex"]);
     // Forms are for the mod's own Pokemon (and their form entries).
@@ -440,8 +442,9 @@
     list.push([PICTURES_TAB, "Pictures"]);
     return list;
   });
-  // Moves and items: the editor's parts as tabs (data, battle code, uses).
-  type Panel = "data" | "text" | "medicine" | "battle" | "users";
+  // Moves and items: Data (with the name and text on top) and In battle
+  // (its effect, animation and who uses it); short parts share a page.
+  type Panel = "data" | "medicine" | "battle";
   // An item's medicine block (healing, stat boosts, EVs, friendship): read
   // by the game only when "Has a medicine block" is 1, so it is a tab of its
   // own, shown only then. Its groups are known by their first field.
@@ -449,9 +452,9 @@
   const isMedicine = (vals: Value[]) => tables[0] === "items" && MEDICINE_FIRST.includes(vals[0]?.key ?? "");
   const hasMedicine = $derived(tables[0] === "items" && Number(fieldValue("extType") ?? 0) === 1);
   const PANELS = $derived.by((): [Panel, string][] => {
-    const list: [Panel, string][] = [["data", "Data"], ["text", "Name and text"]];
+    const list: [Panel, string][] = [["data", "Data"]];
     if (hasMedicine) list.push(["medicine", "Medicine"]);
-    list.push(["battle", "In battle"], ["users", tables[0] === "moves" ? "Used by" : "Locations"]);
+    list.push(["battle", "In battle"]);
     return list;
   });
   let panel = $state<Panel>("data");
@@ -1040,7 +1043,7 @@
       {/if}
       {#if ["moves", "items", "species", "trainers"].includes(tables[0]) && current !== null && current > 0 && only === undefined && !single}
         <!-- Kept while hidden: unsaved text survives a tab switch. -->
-        <div hidden={speciesTabs ? activeTab !== TEXT_TAB : panelTabs ? panel !== "text" : tabbed && activeTab !== 0}>
+        <div hidden={speciesTabs ? activeTab !== TEXT_TAB : panelTabs ? panel !== "data" : tabbed && activeTab !== 0}>
           <TextPanel kind={tables[0] as "moves" | "items" | "species" | "trainers"} id={current} form={tables[0] === "species" && Object.values(speciesForms).some((v) => v.includes(current!))} {readOnly} onSaved={() => (onSaved(), refreshEntries())} />
           {#if speciesTabs && (current <= 649 || speciesNew.includes(current))}
             <RegionalDex species={current} {nameOf} {version} {readOnly} {onSaved} />
@@ -1344,10 +1347,10 @@
           <button class="quiet" onclick={() => (showEmpty = true)}>Show</button>
         </div>
       {/if}
-      {#if panelTabs && panel === "users" && tables[0] === "moves" && current !== null}
+      {#if panelTabs && panel === "battle" && tables[0] === "moves" && current !== null}
         <MoveUsers id={current} {version} />
       {/if}
-      {#if panelTabs && panel === "users" && tables[0] === "items" && current !== null}
+      {#if panelTabs && panel === "battle" && tables[0] === "items" && current !== null}
         <ItemUsers id={current} {version} />
       {/if}
     </div>

@@ -80,9 +80,8 @@
     padding: 0;
     display: grid;
     place-items: center;
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
+    background: linear-gradient(var(--panel-3), var(--panel-2));
+    border-color: var(--outline);
     opacity: 0.55;
   }
   .icon:hover {

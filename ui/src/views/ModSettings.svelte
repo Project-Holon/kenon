@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { debounced } from "morphe/cache.svelte";
   import { modCheckSettings, modGetSettings, modSaveSettings, type Diagnostic, type ModSettings } from "../lib/modApi";
   import { play } from "../lib/sfx";
@@ -70,8 +71,14 @@
     }
     loaded = true;
   }
+  // The oldest eidos the mod works on: kenon sets it from what the mod
+  // uses (app mod_min_eidos, core min_eidos).
+  let minEidos = $state<{ version: number[] | null; because: string[] } | null>(null);
   onMount(() => {
     if (!readOnly) load();
+    invoke<{ version: number[] | null; because: string[] }>("mod_min_eidos")
+      .then((n) => (minEidos = n))
+      .catch(() => (minEidos = null));
   });
 
   const dirty = $derived(JSON.stringify(clean(form)) !== JSON.stringify(clean(original)));
@@ -139,7 +146,7 @@
     {/if}
     <div class="spacer"></div>
     {#if !readOnly && tab === "general"}
-      <button class="quiet" disabled={!dirty || busy} onclick={() => (form = { ...original })}>Discard</button>
+      <button disabled={!dirty || busy} onclick={() => (form = { ...original })}>Discard</button>
       <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
     {/if}
   </header>
@@ -153,7 +160,6 @@
         <label for="mod-name">Name</label>
         <div class="field">
           <input id="mod-name" bind:value={form.name} />
-          <p class="hint muted">Shown in the game's mod menu.</p>
           {#each about("name") as p}<p class="bad">{p.message}</p>{/each}
         </div>
 
@@ -171,7 +177,6 @@
         <label for="mod-version">Version</label>
         <div class="field">
           <input id="mod-version" placeholder="1.0.0" bind:value={form.version} />
-          <p class="hint muted">Three numbers, like 1.0.0.</p>
           {#each about("version") as p}<p class={p.severity === "error" ? "bad" : "warn"}>{p.message}</p>{/each}
         </div>
 
@@ -232,6 +237,16 @@
           </p>
           {#each about("game") as p}<p class="bad">{p.message}</p>{/each}
         </div>
+
+        {#if minEidos}
+          <span class="label">Required eidos version</span>
+          <div class="field">
+            <p class="value" title={minEidos.because.join(", ")}>
+              {minEidos.version ? `${minEidos.version.join(".")} or later` : "Any version"}
+            </p>
+            <p class="hint muted">Determined by mod features.</p>
+          </div>
+        {/if}
 
         <label for="mod-order">Load order</label>
         <div class="field">
@@ -371,6 +386,10 @@
   .field {
     display: grid;
     gap: 0.25rem;
+  }
+  .value {
+    margin: 0;
+    padding-top: 0.45rem;
   }
   .field input,
   .field select,

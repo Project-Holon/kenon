@@ -7,6 +7,7 @@
   import { play } from "../lib/sfx";
   import { loadIcons, moveIcon, reloadTypeIcons, speciesIcon, typeIcon } from "../lib/icons.svelte";
   import TypePictures from "../lib/TypePictures.svelte";
+  import TypeItems from "../lib/TypeItems.svelte";
   import { clearEnums, enumValues } from "../lib/tables";
   import TextPanel from "../lib/TextPanel.svelte";
   import ContentDialog from "../lib/ContentDialog.svelte";
@@ -132,8 +133,8 @@
         <h2>Type chart</h2>
         {#if !readOnly}
           <div class="acts">
-            <button class="quiet" disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "add"), play("decide"))}>New type</button>
-            <button class="quiet" disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
+            <button disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "add"), play("decide"))}>New type</button>
+            <button disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
             <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
           </div>
         {/if}
@@ -196,11 +197,12 @@
         <div class="side-head">
           <h2>{types[picked]}</h2>
           {#if !readOnly && picked >= 17}
-            <button class="quiet" disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "remove"), play("decide"))}>Remove type</button>
+            <button disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "remove"), play("decide"))}>Remove type</button>
           {/if}
         </div>
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
-        {#if picked >= 17}<TypePictures id={picked} {types} {readOnly} {version} onChanged={() => (reloadTypeIcons(), onSaved())} />{/if}
+        {#if picked >= 17}<TypePictures id={picked} {types} {readOnly} {version} onChanged={() => (reloadTypeIcons(), onSaved())} />
+          <TypeItems id={picked} {readOnly} {version} onChanged={onSaved} />{/if}
         <div class="facts">
           <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
           <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
@@ -236,7 +238,9 @@
     from={picked ?? 0}
     fromLabel="Copy matchups from"
     removing={picked !== null && picked >= 17 ? { id: picked, name: types[picked] } : null}
-    usesNote="Pokémon, moves and items of this type become Normal."
+    usesNote={users
+      ? `${users.species.length} Pokémon and ${users.moves.length} moves of this type become Normal, and items that use it too.`
+      : "Pokémon, moves and items of this type become Normal."}
     icon={(t) => typeIcon(t) || null}
     onAdd={addType}
     onRemove={removeType}

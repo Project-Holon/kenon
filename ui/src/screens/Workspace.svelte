@@ -29,6 +29,8 @@
   import ModHooks from "../views/ModHooks.svelte";
   import ModRules from "../views/ModRules.svelte";
   import ModTables from "../views/ModTables.svelte";
+  import ModTranslations from "../views/ModTranslations.svelte";
+  import { LANGUAGES, textLang, loadLanguages } from "../lib/textLang.svelte";
   import ModCode from "../views/ModCode.svelte";
   import ModConflicts from "../views/ModConflicts.svelte";
 
@@ -51,12 +53,25 @@
   // The entry a view opens on when another view sends the user there.
   let start = $state<number | undefined>(undefined);
 
+  // The ROM's language and the reference ROMs, once a game is open.
+  $effect(() => {
+    if (isReady(status)) loadLanguages().catch(() => {});
+  });
+
   function pick(c: Category) {
     if (c.id === current.id) return;
     play("select");
     start = undefined;
     current = c;
   }
+  // The open screen's row stays in view in the sidebar (a link or a saved
+  // choice can open one far down the list).
+  $effect(() => {
+    void current.id;
+    queueMicrotask(() =>
+      document.querySelector('nav.sidebar [aria-current="true"]')?.scrollIntoView({ block: "nearest" }),
+    );
+  });
 
   // Other views ask to open a category ("Open in Files" and the like).
   $effect(() => {
@@ -189,6 +204,14 @@
       {/if}
     </div>
     <div class="right">
+      {#if !readOnly && status.project}
+        <label class="lang" title="Language for mod text">
+          Text language
+          <select bind:value={textLang.current}>
+            {#each LANGUAGES as [code, name]}<option value={code}>{name}{code === textLang.base ? "" : " (translation)"}</option>{/each}
+          </select>
+        </label>
+      {/if}
       <ThemePicker gameOpen={isReady(status)} />
       <button
         class="quiet"
@@ -279,6 +302,8 @@
           <ModRules {readOnly} onSaved={saved} />
         {:else if current.view === "tables"}
           <ModTables {readOnly} onSaved={saved} />
+        {:else if current.view === "translations"}
+          <ModTranslations {readOnly} onSaved={saved} />
         {:else if current.view === "code"}
           <ModCode {readOnly} onSaved={saved} />
         {:else}

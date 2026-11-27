@@ -212,12 +212,12 @@
   <div class="bar">
     <span class="muted">{path ?? "A new file, options.txt, is made on save."}</span>
     <div class="spacer"></div>
-    <button class="quiet" disabled={optionCount >= LIMIT} onclick={() => add("option")}>Add option</button>
+    <button disabled={optionCount >= LIMIT} onclick={() => add("option")}>Add option</button>
     <button class="quiet" onclick={() => add("tab")} title="A Settings tab of its own for the rows below it">Tab</button>
     <button class="quiet" onclick={() => add("heading")}>Heading</button>
     <button class="quiet" onclick={() => add("button")} title="A row that sends setting.button to the mod's code">Button</button>
     <button class="quiet" onclick={() => add("show")} title="A row of text the mod's code sets; hidden while empty">Shown text</button>
-    <button class="quiet" disabled={!dirty || busy} onclick={() => take({ path, exists: true, options: JSON.parse(original), diagnostics: [] })}>Discard</button>
+    <button disabled={!dirty || busy} onclick={() => take({ path, exists: true, options: JSON.parse(original), diagnostics: [] })}>Discard</button>
     <button class="primary" disabled={!dirty || busy || blocked} onclick={save}>Save</button>
   </div>
 

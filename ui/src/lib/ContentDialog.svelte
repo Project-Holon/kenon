@@ -124,14 +124,14 @@
     <header>
       <h2>Remove {removing.name}?</h2>
       <p class="muted">
-        The {noun === "ability" ? "abilities" : noun === "Pokemon" ? "Pokemon" : `${noun}s`} added after it shift down by one ID, and all references in this mod update.
+        {noun === "ability" ? "Abilities" : noun === "Pokemon" ? "Pokemon" : `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`} added after it move down one number. Everything in this mod that uses them follows.
         {usesNote ?? `References to ${removing.name} are cleared.`}
       </p>
     </header>
     {#if error}<p class="bad">{error}</p>{/if}
     <footer>
       <button class="quiet" onclick={() => dialog?.close()}>Cancel</button>
-      <button class="primary" disabled={busy} aria-busy={busy} onclick={remove}>
+      <button class="danger" disabled={busy} aria-busy={busy} onclick={remove}>
         {#if busy}<span class="spin" aria-hidden="true"></span>Removing...{:else}Remove{/if}
       </button>
     </footer>
@@ -150,6 +150,11 @@
   }
   .content:not([open]) {
     display: none;
+  }
+  .danger {
+    background: #e5484d;
+    border-color: #e5484d;
+    color: #fff;
   }
   .content::backdrop {
     background: rgba(0, 0, 0, 0.55);
