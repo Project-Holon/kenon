@@ -39,11 +39,14 @@
   });
 
   const dirty = $derived(edits.some((m, i) => m !== list[i]?.mv));
+  const order = (i: number) => (i >= 95 && i < 101 ? 1000 + i : i);
   const shown = $derived.by(() => {
     const q = filter.trim().toLowerCase();
     return list
       .map((m, i) => ({ m, i }))
-      .filter(({ m, i }) => !q || m.label.toLowerCase().includes(q) || (moves[edits[i]] ?? "").toLowerCase().includes(q));
+      .filter(({ m, i }) => !q || m.label.toLowerCase().includes(q) || (moves[edits[i]] ?? "").toLowerCase().includes(q))
+      // TM01-TM95, then a mod's TM96 on, then the HMs (slots 95-100).
+      .sort((a, b) => order(a.i) - order(b.i));
   });
 
   // New TMs (TM96 on): one at a time, after the game's; only the last can
@@ -155,9 +158,9 @@
     min-height: 0;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
     align-content: start;
-    gap: 0.3rem 1.2rem;
+    gap: 0.2rem 1rem;
     padding: 0.75rem 1rem;
   }
   .row {
@@ -180,6 +183,11 @@
   }
   .pick {
     min-width: 0;
+  }
+  /* Compact rows: every TM and HM on one screen. */
+  .pick :global(.current) {
+    padding: 0.15rem 0.5rem;
+    font-size: 0.9rem;
   }
   .pad {
     padding: 1rem;

@@ -11,7 +11,7 @@
 
   // The 3D textures of an archive: the overworld's ground, buildings,
   // trees and characters are 3D, and these textures are their look.
-  let { archive, noun = "Set" }: { archive: number; noun?: string } = $props();
+  let { archive, noun = "Set", title = "" }: { archive: number; noun?: string; title?: string } = $props();
 
   interface Texture {
     block: number;
@@ -127,6 +127,7 @@
 
   <section class="body">
     <div class="head">
+      {#if title}<h2 class="title">{title}{#if current !== null}<span class="muted">&nbsp;· {noun} {current}</span>{/if}</h2>{/if}
       <input
         class="search"
         placeholder="Search {textures.length} texture{textures.length === 1 ? '' : 's'}"
@@ -203,6 +204,10 @@
     gap: 1rem;
     padding: 0.75rem 1rem;
     border-bottom: 2px solid var(--outline);
+  }
+  .title {
+    margin: 0;
+    font-size: 1.1rem;
   }
   .search {
     width: min(20rem, 100%);

@@ -19,6 +19,10 @@
     textures: number;
     changed: boolean;
     moves: number[];
+    /// Shared battle effects that load it (ball throws, status, weather...).
+    effects: number[];
+    /// A Poke Ball's file: its item and which of its six parts.
+    ball: { item: number; ball: number; part: number } | null;
   }
   interface Field {
     block: string;
@@ -60,6 +64,7 @@
   let list = $state<Listed[]>([]);
   let fields = $state<Field[]>([]);
   let moveNames = $state<string[]>([]);
+  let itemNames = $state<string[]>([]);
   let current = $state<number | null>(null);
   let file = $state<FileView | null>(null);
   let emitter = $state(0);
@@ -77,6 +82,7 @@
     loadList().catch((e) => toast(String(e)));
     invoke<Field[]>("particle_fields").then((f) => (fields = f));
     enumValues("move").then((m) => (moveNames = m));
+    enumValues("item").then((m) => (itemNames = m));
   });
   async function open(index: number) {
     if (dirty && current !== null) {
@@ -163,10 +169,17 @@
   const shown = $derived.by(() => {
     const f = filter.trim().toLowerCase();
     if (!f) return list;
-    return list.filter((l) => String(l.index) === f || l.moves.some((m) => moveNames[m]?.toLowerCase().includes(f)));
+    return list.filter((l) => String(l.index) === f || label(l).toLowerCase().includes(f));
   });
-  const label = (l: Listed) =>
-    l.moves.length ? l.moves.map((m) => moveNames[m] ?? `Move ${m}`).join(", ") : "Not used by any move";
+  // What loads the file: a Poke Ball (the effect player picks it by the
+  // ball thrown), moves, shared battle effects, else nothing the game
+  // names.
+  function label(l: Listed): string {
+    if (l.ball) return `${itemNames[l.ball.item] ?? `Ball ${l.ball.ball}`} (part ${l.ball.part} of 6)`;
+    if (l.moves.length) return l.moves.map((m) => moveNames[m] ?? `Move ${m}`).join(", ");
+    if (l.effects.length) return `Battle effect ${l.effects.join(", ")}`;
+    return "Unused";
+  }
 
   // Groups of the open emitter, in field order.
   const groups = $derived.by(() => {
@@ -208,7 +221,7 @@
 <div class="particles">
   <aside class="files">
     <div class="list-head">
-      <input class="search" placeholder="Search {list.length} files by move" bind:value={filter} />
+      <input class="search" placeholder="Search {list.length} files" bind:value={filter} />
     </div>
     <VirtualList items={shown} height={46} key={(l) => l.index} label="Particle files">
       {#snippet row(l)}
@@ -227,7 +240,7 @@
     {:else}
       <header class="head">
         <h2>Particles {current}</h2>
-        <span class="muted used">{label(list.find((l) => l.index === current) ?? { index: 0, emitters: 0, textures: 0, changed: false, moves: [] })}</span>
+        <span class="muted used">{label(list.find((l) => l.index === current) ?? { index: 0, emitters: 0, textures: 0, changed: false, moves: [], effects: [], ball: null })}</span>
         <div class="spacer"></div>
         {#if !readOnly}
           <button disabled={busy || dirty} onclick={copy} title={dirty ? "Save or discard first." : "Duplicate into a new file"}>Duplicate</button>
@@ -242,8 +255,10 @@
         {#each file.textures as t, i}
           <figure>
             <img class="px" src={asset(`spatex/${current}/${i}`, version)} alt="Texture {i + 1}" />
-            {#if !readOnly}<button onclick={() => importTexture(i)}>Import PNG...</button>{/if}
-            <figcaption>{i + 1}: {t.width}x{t.height} {FORMATS[t.format]}</figcaption>
+            <div class="tex-side">
+              <span class="cap">{i + 1}: {t.width}×{t.height} {FORMATS[t.format]}</span>
+              {#if !readOnly}<button onclick={() => importTexture(i)}>Import PNG...</button>{/if}
+            </div>
           </figure>
         {/each}
       </div>
@@ -359,34 +374,42 @@
   .textures {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.8rem;
-    padding: 0.8rem 1rem;
+    gap: 0.6rem;
+    padding: 0.5rem 1rem;
   }
   figure {
     margin: 0;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.5rem;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
     border: 1px solid var(--rim);
     border-radius: var(--radius-s);
     background: repeating-conic-gradient(#8884 0% 25%, transparent 0% 50%) 0 / 12px 12px;
   }
+  .tex-side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .tex-side button {
+    padding: 0.15rem 0.5rem;
+    font-size: 0.85rem;
+  }
   figure img {
-    width: 64px;
-    height: 64px;
+    width: 44px;
+    height: 44px;
     object-fit: contain;
     image-rendering: pixelated;
   }
-  figcaption {
+  .cap {
     font-size: 0.8rem;
   }
   .sec-tabs {
     padding: 0 1rem;
   }
   .cards {
-    columns: 17rem 4;
+    columns: 13.5rem 4;
     column-gap: 0.8rem;
     padding: 0.7rem 1rem;
   }
@@ -414,8 +437,8 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: minmax(4rem, 8.5rem) minmax(7rem, 1fr);
-    gap: 0.3rem 0.6rem;
+    grid-template-columns: minmax(4rem, 7rem) minmax(5.5rem, 1fr);
+    gap: 0.18rem 0.6rem;
     align-items: center;
     margin-top: 0.6rem;
   }
@@ -426,6 +449,16 @@
   .ctl input[type="number"],
   .ctl select {
     width: 100%;
+  }
+  /* Compact fields: an emitter's cards fit the window. */
+  .card .ctl input,
+  .card .ctl select {
+    padding: 0.12rem 0.45rem;
+    font-size: 0.88rem;
+  }
+  .card .grid .name {
+    font-size: 0.82rem;
+    line-height: 1.15;
   }
   .pad {
     padding: 1rem;

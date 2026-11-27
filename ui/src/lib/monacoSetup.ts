@@ -302,7 +302,7 @@ function registerEffect() {
       root: [
         [/;.*$/, "comment"],
         [/@[\w]+:?/, "type"],
-        [/^\s*(variant|end|bytes|pad)\b/, "keyword"],
+        [/^\s*(variant|end|bytes|pad|text)\b/, "keyword"],
         [/^\s*[A-Za-z]\w*/, "keyword"],
         [/[-+]?0[xX][0-9a-fA-F]+|[-+]?\d+/, "number"],
       ],

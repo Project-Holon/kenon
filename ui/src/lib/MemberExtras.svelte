@@ -29,7 +29,7 @@
 
   const STATS = ["HP", "Atk", "Def", "Sp. Atk", "Sp. Def", "Speed"];
   const ABILITY: [string | null, string][] = [
-    [null, "Game's"],
+    [null, "By personality"],
     ["1", "First"],
     ["2", "Second"],
     ["hidden", "Hidden"],
@@ -56,7 +56,7 @@
         <input type="number" min="0" max="31" placeholder={String(gameIv)} value={extras.ivs?.[i] ?? ""} readonly={readOnly} onchange={(e) => setStat("ivs", i, e.currentTarget.value)} />
       </label>
     {/each}
-    {#if extras.ivs && !readOnly}<button class="quiet" onclick={() => (extras = { ...extras, ivs: null })}>Game's</button>{/if}
+    {#if extras.ivs && !readOnly}<button class="quiet" onclick={() => (extras = { ...extras, ivs: null })}>Use IV strength</button>{/if}
   </div>
   <div class="row">
     <span class="head">EVs</span>
@@ -67,19 +67,19 @@
       </label>
     {/each}
     <span class="total" class:bad={evTotal > 510}>{evTotal} / 510</span>
-    {#if extras.evs && !readOnly}<button class="quiet" onclick={() => (extras = { ...extras, evs: null })}>Game's</button>{/if}
+    {#if extras.evs && !readOnly}<button class="quiet" onclick={() => (extras = { ...extras, evs: null })}>Clear</button>{/if}
   </div>
   <div class="row">
     <label class="field">
       <span>Nature</span>
       <select value={extras.nature ?? ""} disabled={readOnly} onchange={(e) => (extras = { ...extras, nature: e.currentTarget.value === "" ? null : Number(e.currentTarget.value) })}>
-        <option value="">Game's</option>
+        <option value="">By personality</option>
         {#each natures as n, i}<option value={i}>{n}</option>{/each}
       </select>
     </label>
     <label class="field small">
       <span>Friendship</span>
-      <input type="number" min="0" max="255" placeholder="Game's" value={extras.friendship ?? ""} readonly={readOnly} onchange={(e) => (extras = { ...extras, friendship: e.currentTarget.value === "" ? null : Math.min(255, Math.max(0, Number(e.currentTarget.value))) })} />
+      <input type="number" min="0" max="255" placeholder="Species' base" value={extras.friendship ?? ""} readonly={readOnly} onchange={(e) => (extras = { ...extras, friendship: e.currentTarget.value === "" ? null : Math.min(255, Math.max(0, Number(e.currentTarget.value))) })} />
     </label>
     <div class="field">
       <span>Ability</span>

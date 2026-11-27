@@ -15,6 +15,8 @@
   import { provideParts } from "../lib/parts.svelte";
   import BattleHandler from "../lib/BattleHandler.svelte";
   import MoveAnim from "../lib/MoveAnim.svelte";
+  import MoveKinds from "../lib/MoveKinds.svelte";
+  import BallCard from "../lib/BallCard.svelte";
   import SpeciesForms from "../lib/SpeciesForms.svelte";
   import SpeciesPictures from "../lib/SpeciesPictures.svelte";
   import GridView from "./GridView.svelte";
@@ -403,6 +405,50 @@
       discard: () => (memberExtras = JSON.parse(extrasOrig)),
     });
   });
+  // An item's heals (core item_heal.rs): HP from use (an amount, 1/n of
+  // max HP or full) and a held berry's fixed heal. Values past the record's
+  // byte go in item_heal.txt; the record keeps its nearest.
+  type Hp = { kind: "fixed"; value: number } | { kind: "fraction"; value: number } | { kind: "full" };
+  let heal = $state<{ hp: Hp | null; held: number | null } | null>(null);
+  let healOrig = $state("");
+  $effect(() => {
+    const at = current;
+    heal = null;
+    if (tables[0] !== "items" || at === null || at <= 0) return;
+    invoke<{ hp: Hp | null; held: number | null }>("item_heal", { item: at })
+      .then((h) => {
+        if (current !== at) return;
+        heal = h;
+        healOrig = JSON.stringify(h);
+      })
+      .catch(() => {});
+  });
+  $effect(() => {
+    if (tables[0] !== "items" || readOnly) return;
+    return entryParts.register("heal", {
+      dirty: () => heal !== null && JSON.stringify(heal) !== healOrig,
+      save: async () => {
+        if (current === null || !heal) return;
+        await invoke("set_item_heal", { item: current, heal });
+        healOrig = JSON.stringify(heal);
+      },
+      discard: () => (heal = healOrig ? JSON.parse(healOrig) : null),
+    });
+  });
+  // The record's byte for an HP heal, as core item_heal writes it.
+  const hpByte = (h: Hp | null) =>
+    !h ? 0 : h.kind === "full" ? 255 : h.kind === "fixed" ? Math.min(h.value, 252) : h.value === 2 ? 254 : h.value < 3 ? 254 : 253;
+  function setHp(v: Value, h: Hp | null) {
+    if (!heal) return;
+    heal.hp = h;
+    v.value = hpByte(h);
+  }
+  function setHeld(v: Value, n: number) {
+    if (!heal) return;
+    heal.held = n > 0 ? n : null;
+    v.value = Math.min(Math.max(n, 0), 255);
+  }
+
   function toggleExtras(rn: number) {
     const next = new Set(openExtras);
     if (next.has(rn)) next.delete(rn);
@@ -801,6 +847,16 @@
   // A card's columns: who it is first (species, level, form, item), then the
   // rest in schema order.
   const CARD_FIRST = ["species", "level", "form", "item", "heldItem"];
+  // A trainer's party member: who it is (and what it holds), then the rest.
+  const PARTY_ORDER = ["species", "item", "level", "form", "gender", "abilitySlot", "difficulty"];
+  function partyOrder(s: Extract<Section, { kind: "list" }>): number[] {
+    const idx = s.columns.map((_, i) => i);
+    const rank = (i: number) => {
+      const r = PARTY_ORDER.indexOf(s.columns[i].name);
+      return r < 0 ? PARTY_ORDER.length : r;
+    };
+    return idx.sort((a, b) => rank(a) - rank(b) || a - b);
+  }
   function cardOrder(s: Extract<Section, { kind: "list" }>): number[] {
     const idx = s.columns.map((_, i) => i);
     const rank = (i: number) => {
@@ -1070,7 +1126,11 @@
         <!-- Kept while hidden: unsaved edits survive a tab switch. -->
         <div hidden={panel !== "battle"}>
           <BattleHandler table={tables[0] as "moves" | "items"} id={current} last={added.last} {version} {readOnly} {onSaved} />
+          {#if tables[0] === "items"}
+            <BallCard id={current} {readOnly} />
+          {/if}
           {#if tables[0] === "moves"}
+            <MoveKinds id={current} {readOnly} />
             <MoveAnim id={current} {version} {readOnly} {onSaved} />
           {/if}
         </div>
@@ -1121,7 +1181,35 @@
                           {#if v.note && v.note !== sharedNote(vals)}<span class="info" use:tip={v.note}>i</span>{/if}
                           {#if v.inferred}<span class="tag" title="Meaning inferred, not confirmed in the game's code">?</span>{/if}
                         </span>
-                        {@render pick(v, "value", v.enum, v.min, v.max, readOnly || v.readonly || (tables[ri] === "trainers" && v.key === "partyType"), v.label)}
+                        {#if tables[ri] === "items" && v.key === "hpRestoreAmount" && heal}
+                          {@const h = heal.hp}
+                          <span class="heal">
+                            <select
+                              value={h?.kind ?? "none"}
+                              disabled={readOnly}
+                              onchange={(e) => {
+                                const k = e.currentTarget.value;
+                                setHp(v, k === "none" ? null : k === "full" ? { kind: "full" } : k === "fraction" ? { kind: "fraction", value: 2 } : { kind: "fixed", value: 20 });
+                              }}
+                            >
+                              <option value="none">None</option>
+                              <option value="fixed">HP</option>
+                              <option value="fraction">Share of max HP</option>
+                              <option value="full">All</option>
+                            </select>
+                            {#if h?.kind === "fixed"}
+                              <input type="number" min="1" max="65535" value={h.value} readonly={readOnly} onchange={(e) => setHp(v, { kind: "fixed", value: Math.max(1, Math.min(65535, Number(e.currentTarget.value))) })} />
+                            {:else if h?.kind === "fraction"}
+                              <select value={String(h.value)} disabled={readOnly} onchange={(e) => setHp(v, { kind: "fraction", value: Number(e.currentTarget.value) })}>
+                                {#each Array.from({ length: 15 }, (_, i) => i + 2) as n}<option value={String(n)}>1/{n}</option>{/each}
+                              </select>
+                            {/if}
+                          </span>
+                        {:else if tables[ri] === "items" && v.key === "holdEffectParam" && heal && Number(fieldValue("holdEffect")) === 1}
+                          <input type="number" min="1" max="65535" value={heal.held ?? 0} readonly={readOnly} onchange={(e) => setHeld(v, Math.min(65535, Number(e.currentTarget.value)))} />
+                        {:else}
+                          {@render pick(v, "value", v.enum, v.min, v.max, readOnly || v.readonly || (tables[ri] === "trainers" && v.key === "partyType"), v.label)}
+                        {/if}
                       </svelte:element>
                     {/each}
                   </div>
@@ -1216,12 +1304,14 @@
               {/if}
             {:else}
               {#if s.rows.length === 0}<p class="muted">Nothing here yet.</p>{/if}
-              {#if !single && s.columns.length > 6 && s.rows.length}
-                <!-- A trainer's party: one header, then two lines per member
-                     (who it is, then its moves), so six members fit. -->
-                {@const order = cardOrder(s)}
+              {#if !single && tables[ri] === "trainerParties" && s.rows.length}
+                <!-- A trainer's party, whatever its kind: one header, then
+                     per member its sprite and who it is, then its moves, so
+                     six members fit. -->
+                {@const order = partyOrder(s)}
                 {@const moves = order.filter((ci) => /^move\d$/.test(s.columns[ci].name))}
-                {@const who = order.filter((ci) => !moves.includes(ci))}
+                {@const spi = s.columns.findIndex((c) => c.name === "species")}
+                {@const who = order.filter((ci) => !moves.includes(ci) && ci !== spi)}
                 <div class="party">
                   <div class="pline phead" style:grid-template-columns={partyColumns(s, who)}>
                     {#each who as ci}<span>{s.columns[ci].label}</span>{/each}
@@ -1230,7 +1320,21 @@
                   </div>
                   {#each s.rows as row, rn}
                     {@const diff = s.columns.findIndex((c) => c.name === "difficulty")}
+                    {@const sp = Number(row[spi])}
                     <div class="member">
+                      <!-- The Pokemon: its picture and name. The list's own button
+                           lies over the tile, unseen, so a click on the tile opens
+                           the list under it. -->
+                      <div class="mon">
+                        <div class="mon-tile" aria-hidden="true">
+                          {#if sp && speciesIcon(sp)}<img class="px" src={speciesIcon(sp)} alt="" />{:else}<span class="none">?</span>{/if}
+                          <span class="mon-name">{sp ? (names.species?.[sp] ?? sp) : "Choose"}</span>
+                        </div>
+                        <div class="mon-pick">
+                          <SearchSelect bind:value={row[spi]} options={names.species ?? []} icon={speciesIcon} disabled={readOnly} label="Pokemon" />
+                        </div>
+                      </div>
+                      <div class="lines">
                       <div class="pline" style:grid-template-columns={partyColumns(s, who)}>
                         {#each who as ci}
                           {@const c = s.columns[ci]}
@@ -1256,13 +1360,16 @@
                           {/each}
                         </div>
                       {/if}
+                      </div>
                       {#if openExtras.has(rn) && memberExtras[rn]}
-                        <MemberExtras
-                          bind:extras={memberExtras[rn]}
-                          gameIv={Math.floor(((diff >= 0 ? Number(row[diff]) : 0) * 31) / 255)}
-                          natures={natureNames}
-                          {readOnly}
-                        />
+                        <div class="extras-row">
+                          <MemberExtras
+                            bind:extras={memberExtras[rn]}
+                            gameIv={Math.floor(((diff >= 0 ? Number(row[diff]) : 0) * 31) / 255)}
+                            natures={natureNames}
+                            {readOnly}
+                          />
+                        </div>
                       {/if}
                     </div>
                   {/each}
@@ -1705,6 +1812,80 @@
     width: auto;
   }
   /* A trainer's party: shared header, two lines per member. */
+  .mon {
+    grid-row: 1;
+    align-self: center;
+    position: relative;
+    width: 6.2rem;
+    height: 6.2rem;
+  }
+  .mon-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    height: 100%;
+    padding: 0.3rem;
+    color: var(--ink);
+    background: linear-gradient(var(--panel-3), var(--panel-2));
+    border: 2px solid var(--outline);
+    border-radius: var(--radius-s);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .mon:hover .mon-tile {
+    border-color: var(--accent);
+  }
+  .mon-tile img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+  .mon-name {
+    max-width: 100%;
+    font-weight: 600;
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mon-tile .none {
+    font-size: 1.6rem;
+    color: var(--muted);
+  }
+  .mon-pick {
+    position: absolute;
+    inset: 0;
+  }
+  .mon-pick :global(.search-select),
+  .mon-pick :global(.current) {
+    width: 100%;
+    height: 100%;
+  }
+  .mon-pick :global(.current) {
+    opacity: 0;
+    cursor: pointer;
+  }
+  .heal {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .heal select,
+  .heal input {
+    min-width: 0;
+  }
+  .extras-row {
+    grid-column: 2;
+  }
+  .lines {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3rem;
+    min-width: 0;
+    align-self: center;
+  }
   .party {
     display: flex;
     flex-direction: column;
@@ -1715,20 +1896,20 @@
     gap: 0.5rem;
   }
   .phead {
-    padding: 0 0 0.3rem;
+    padding: 0 0 0.3rem 6.8rem;
     font-size: 0.8rem;
     color: var(--muted);
   }
   .member {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+    display: grid;
+    grid-template-columns: 6.2rem minmax(0, 1fr);
+    column-gap: 0.6rem;
+    row-gap: 0.3rem;
     padding: 0.45rem 0;
     border-top: 1px solid var(--rim);
   }
   .pmoves {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.8rem;
-    padding-left: 1.2rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .pcell {
     min-width: 0;

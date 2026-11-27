@@ -12,6 +12,7 @@
   import TextPanel from "../lib/TextPanel.svelte";
   import ContentDialog from "../lib/ContentDialog.svelte";
   import { toast } from "morphe/menu.svelte";
+  import { provideParts } from "../lib/parts.svelte";
 
   let { version, readOnly, onSaved }: { version: number; readOnly: boolean; onSaved: () => void } = $props();
 
@@ -43,7 +44,31 @@
     void version;
     loadAll().catch((e) => (error = String(e)));
   });
-  const dirty = $derived(JSON.stringify(chart) !== JSON.stringify(saved));
+  const chartDirty = $derived(JSON.stringify(chart) !== JSON.stringify(saved));
+  // One Save and Discard for the screen: the chart, and the picked type's
+  // name and colours (their panels register as parts).
+  const parts = provideParts();
+  $effect(() => {
+    if (readOnly) return;
+    return parts.register("chart", {
+      dirty: () => chartDirty,
+      save: () => saveChart(),
+      discard: () => (chart = saved.map((r) => [...r])),
+    });
+  });
+  const dirty = $derived(parts.dirty);
+  async function saveAll() {
+    busy = true;
+    try {
+      await parts.save();
+      play("save");
+      toast("Saved");
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      busy = false;
+    }
+  }
   const NEXT: Record<number, number> = { 4: 8, 8: 2, 2: 0, 0: 4 };
   function cycle(a: number, d: number) {
     if (readOnly) return;
@@ -51,19 +76,10 @@
     chart = chart.map((r, i) => (i === a ? r.map((v, j) => (j === d ? NEXT[v] ?? 4 : v)) : r));
   }
   let busy = $state(false);
-  async function save() {
-    busy = true;
-    try {
-      await invoke("set_type_chart", { chart });
-      await loadAll();
-      onSaved();
-      play("save");
-      toast("Type chart saved");
-    } catch (e) {
-      toast(String(e));
-    } finally {
-      busy = false;
-    }
+  async function saveChart() {
+    await invoke("set_type_chart", { chart });
+    await loadAll();
+    onSaved();
   }
   // New and Remove open kenon's add and remove dialog, as for Pokemon,
   // moves, items and abilities. The dialog shows errors itself.
@@ -134,8 +150,8 @@
         {#if !readOnly}
           <div class="acts">
             <button disabled={busy || dirty} title={dirty ? "Save or discard chart edits first." : ""} onclick={() => ((dialog = "add"), play("decide"))}>New type</button>
-            <button disabled={!dirty || busy} onclick={() => (chart = saved.map((r) => [...r]))}>Discard</button>
-            <button class="primary" disabled={!dirty || busy} onclick={save}>Save</button>
+            <button disabled={!dirty || busy} onclick={() => parts.discard()}>Discard</button>
+            <button class="primary" disabled={!dirty || busy} onclick={saveAll}>Save</button>
           </div>
         {/if}
       </div>
@@ -186,6 +202,36 @@
       <p class="matchup">
         {#if hover}<strong>{types[hover[0]]}</strong> {WORD[chart[hover[0]][hover[1]]]} <strong>{types[hover[1]]}</strong>.{/if}
       </p>
+      {#if picked !== null}
+        <!-- The picked type's matchups and users, in the room under the chart. -->
+        <div class="under">
+          <div class="facts">
+            <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
+            <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
+            <div><span class="muted">Resists</span><div class="row">{#each resists as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
+            <div><span class="muted">Immune to</span><div class="row">{#each immune as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
+          </div>
+          {#if !users}
+            <p class="muted">Looking...</p>
+          {:else}
+            <div><h4>Pokemon ({users.species.length})</h4>
+            <!-- Pictures only, the name on hover, so many fit in the panel. -->
+            <div class="mons">
+              {#each users.species as sp}
+                <span class="mon" title={species[sp] ?? String(sp)}>{#if speciesIcon(sp)}<img class="px" src={speciesIcon(sp)} alt={species[sp] ?? ""} />{:else}{species[sp] ?? sp}{/if}</span>
+              {/each}
+            </div>
+            </div>
+          <div><h4>Moves ({users.moves.length})</h4>
+            <div class="chips">
+              {#each users.moves as mv}
+                <span class="chip">{#if moveIcon(mv)}<img class="px small" src={moveIcon(mv)} alt="" />{/if}{moves[mv] ?? mv}</span>
+              {/each}
+            </div>
+          </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </section>
 
@@ -203,28 +249,6 @@
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
         {#if picked >= 17}<TypePictures id={picked} {types} {readOnly} {version} onChanged={() => (reloadTypeIcons(), onSaved())} />
           <TypeItems id={picked} {readOnly} {version} onChanged={onSaved} />{/if}
-        <div class="facts">
-          <div><span class="muted">Super effective against</span><div class="row">{#each strong as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
-          <div><span class="muted">Weak to</span><div class="row">{#each weakTo as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
-          <div><span class="muted">Resists</span><div class="row">{#each resists as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
-          <div><span class="muted">Immune to</span><div class="row">{#each immune as t}{@render typeChip(t)}{:else}<span class="muted">nothing</span>{/each}</div></div>
-        </div>
-        {#if !users}
-          <p class="muted">Looking...</p>
-        {:else}
-          <h4>Pokemon ({users.species.length})</h4>
-          <div class="chips">
-            {#each users.species as sp}
-              <span class="chip">{#if speciesIcon(sp)}<img class="px" src={speciesIcon(sp)} alt="" />{/if}{species[sp] ?? sp}</span>
-            {/each}
-          </div>
-          <h4>Moves ({users.moves.length})</h4>
-          <div class="chips">
-            {#each users.moves as mv}
-              <span class="chip">{#if moveIcon(mv)}<img class="px small" src={moveIcon(mv)} alt="" />{/if}{moves[mv] ?? mv}</span>
-            {/each}
-          </div>
-        {/if}
       </div>
     {/if}
   </aside>
@@ -385,6 +409,43 @@
     margin: 0.9rem 0 0.35rem;
     font-size: 0.85rem;
     color: var(--muted);
+  }
+  .under {
+    display: grid;
+    grid-template-columns: minmax(11rem, 0.6fr) minmax(0, 1fr) minmax(0, 1.8fr);
+    gap: 0.4rem 1.2rem;
+    align-items: start;
+    margin-top: 0.1rem;
+  }
+  .under .facts {
+    grid-row: span 2;
+    gap: 0.35rem;
+  }
+  .under h4 {
+    margin: 0 0 0.35rem;
+  }
+  .under .chip {
+    font-size: 0.8rem;
+    padding: 0.05rem 0.45rem 0.05rem 0.2rem;
+  }
+  .mons {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 2.4rem);
+    gap: 0.2rem;
+  }
+  .mon {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--radius-s);
+    background: var(--panel-2);
+    border: 1px solid var(--rim);
+  }
+  .mon img {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
   }
   .chips {
     display: flex;

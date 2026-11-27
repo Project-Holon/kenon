@@ -8,6 +8,7 @@
   import { typeIcon } from "./icons.svelte";
   import { play } from "./sfx";
   import { toast } from "morphe/menu.svelte";
+  import { useParts } from "./parts.svelte";
 
   let {
     id,
@@ -56,9 +57,23 @@
     }
   }
   const hex = (c: string) => c.replace("#", "").toUpperCase();
-  function saveColors() {
-    run(() => invoke("set_type_colors", { id, fill: hex(fill), border: hex(border) }), "Colors saved");
-  }
+  // The colours save with the screen's Save (entry parts).
+  const parts = useParts();
+  $effect(() => {
+    if (!parts || readOnly) return;
+    return parts.register("colors", {
+      dirty: () => !!look && (hex(fill) !== look.colors[0] || hex(border) !== look.colors[1]),
+      save: async () => {
+        await invoke("set_type_colors", { id, fill: hex(fill), border: hex(border) });
+        await load();
+        onChanged();
+      },
+      discard: () => {
+        fill = `#${look?.colors[0] ?? "000000"}`;
+        border = `#${look?.colors[1] ?? "000000"}`;
+      },
+    });
+  });
   function remake() {
     run(() => invoke("remake_type_pictures", { id, from }), `Icon rebuilt from ${types[from]}`);
   }
@@ -89,7 +104,6 @@
       <div class="row">
         <label class="field"><span class="name">Main color</span><input type="color" bind:value={fill} /></label>
         <label class="field"><span class="name">Border color</span><input type="color" bind:value={border} /></label>
-        <button disabled={busy || (hex(fill) === look.colors[0] && hex(border) === look.colors[1])} onclick={saveColors}>Save colors</button>
       </div>
       <div class="row">
         <label class="field">

@@ -44,7 +44,10 @@
       .catch((e) => (error = String(e)));
   });
 
-  const dirty = $derived(!!shops && JSON.stringify(shops) !== original);
+  // A mart item's price is the item's own (shown and set here, saved on
+  // the item record; steps of 10).
+  let priceEdits = $state<Record<number, number>>({});
+  const dirty = $derived((!!shops && JSON.stringify(shops) !== original) || Object.keys(priceEdits).length > 0);
   const changed = (kind: "mart" | "bp", n: number) =>
     !!shops && !!game && JSON.stringify(kind === "mart" ? shops.marts[n] : shops.prizes[n]) !== JSON.stringify(kind === "mart" ? game.marts[n] : game.prizes[n]);
   const count = $derived(shops ? (current.kind === "mart" ? shops.marts[current.n].length : shops.prizes[current.n].length) : 0);
@@ -66,6 +69,11 @@
     try {
       await invoke("set_shops", { shops });
       original = JSON.stringify(shops);
+      for (const [item, price] of Object.entries(priceEdits)) {
+        await invoke("save_record", { table: "items", index: Number(item), edit: { values: { price: Math.round(price / 10) } } });
+      }
+      if (Object.keys(priceEdits).length) prices = await invoke<number[]>("item_prices");
+      priceEdits = {};
       play("save");
       toast("Saved");
       onSaved();
@@ -106,7 +114,7 @@
       </div>
       {#if !readOnly}
         <div class="acts">
-          <button disabled={!dirty || saving} onclick={() => shops && (shops = JSON.parse(original))}>Discard</button>
+          <button disabled={!dirty || saving} onclick={() => (shops && (shops = JSON.parse(original)), (priceEdits = {}))}>Discard</button>
           <button class="primary" disabled={!dirty || saving} onclick={save}>{saving ? "Saving..." : "Save"}</button>
         </div>
       {/if}
@@ -118,9 +126,22 @@
         <div class="list">
           {#if current.kind === "mart"}
             {#each shops.marts[current.n] as _, i (i)}
+              {@const item = shops.marts[current.n][i]}
               <div class="item">
                 <div class="pick"><SearchSelect bind:value={shops.marts[current.n][i]} options={items} icon={itemIcon} disabled={readOnly} label="Item {i + 1}" /></div>
-                <span class="price muted">{prices[shops.marts[current.n][i]] ?? ""}</span>
+                <label class="price" title="The item's price, wherever it sells">
+                  <span class="muted">₽</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="655350"
+                    step="10"
+                    value={priceEdits[item] ?? prices[item] ?? 0}
+                    readonly={readOnly || !item}
+                    aria-label="Price of item {i + 1}"
+                    onchange={(e) => (priceEdits = { ...priceEdits, [item]: Math.max(0, Math.min(655350, Math.round(Number(e.currentTarget.value) / 10) * 10)) })}
+                  />
+                </label>
                 {#if !readOnly}<button class="quiet x" onclick={() => remove(i)} aria-label="Remove item {i + 1}" title="Remove">×</button>{/if}
               </div>
             {/each}
@@ -219,7 +240,7 @@
   }
   .item {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 4.5rem 1.8rem;
+    grid-template-columns: minmax(0, 1fr) auto 1.8rem;
     align-items: center;
     gap: 0.5rem;
   }
@@ -227,6 +248,12 @@
     min-width: 0;
   }
   .price {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .price input {
+    width: 6rem;
     text-align: right;
     font-variant-numeric: tabular-nums;
   }

@@ -278,7 +278,7 @@
       {:else if current.kind === "text"}
         <TextBrowser archive={current.archive} {readOnly} {version} onSaved={saved} />
       {:else if current.kind === "textures"}
-        <TextureBrowser archive={current.archive} noun={current.noun} />
+        <TextureBrowser archive={current.archive} noun={current.noun} title={current.label} />
       {:else if current.kind === "abilities"}
         <AbilitiesView {version} {readOnly} onSaved={saved} />
       {:else if current.kind === "types"}

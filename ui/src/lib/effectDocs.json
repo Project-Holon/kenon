@@ -2909,5 +2909,62 @@
   "old": "ReleaseScriptResources",
   "summary": "Ends the script. Frees particles, cell actors and buffers, puts sprites back on their spots, restores BG, blending and sound, then may start a pending or fallback script. No arguments.",
   "args": []
+ },
+ {
+  "id": 78,
+  "name": "PlaySoundByName",
+  "title": "Play sound by name",
+  "old": "",
+  "summary": "Plays a mod's sound sequence by its `<mod>:<seq>` name (eidos). Put the name in the script with `text \"mod:seq\"` under a label. An unknown name plays nothing.",
+  "args": [
+   {
+    "name": "name",
+    "unit": "label",
+    "allowed": "a label on a `text` line",
+    "meaning": "the sound's name"
+   },
+   {
+    "name": "slot",
+    "unit": "SE slot",
+    "allowed": "0..4, 5 = auto",
+    "meaning": "player. Seen: 1, 2, 3, 5, 0, 4"
+   },
+   {
+    "name": "pan",
+    "unit": "pan selector",
+    "allowed": "0, 1, 2, or selector S",
+    "meaning": ". Seen: 16, 14, 2, 0, 1"
+   },
+   {
+    "name": "delay",
+    "unit": "frames",
+    "allowed": "0 = now",
+    "meaning": "start delay. Seen: 0..320"
+   },
+   {
+    "name": "pitch",
+    "unit": "int",
+    "allowed": "signed, unit unknown",
+    "meaning": "track pitch offset (`NNS_SndHandleSetTrackPitch`). Seen: -3000..2000"
+   },
+   {
+    "name": "volume",
+    "unit": "int",
+    "allowed": "0..127",
+    "meaning": "player volume (`NNS_SndHandleSetVolume`). Vanilla often starts at 0 and raises it with 55. Seen: 0..127"
+   },
+   {
+    "name": "modDepth",
+    "unit": "int",
+    "allowed": "0..255, higher is clamped",
+    "meaning": "track modulation depth. 0 = do not touch modulation. Seen: 0, 5..200, 2000"
+   },
+   {
+    "name": "modSpeed",
+    "unit": "int",
+    "allowed": "0..255, higher is clamped",
+    "meaning": "track modulation speed, only used when modDepth is not 0. Seen: 0..127"
+   }
+  ]
  }
 ]
