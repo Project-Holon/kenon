@@ -8,6 +8,7 @@
   import { loadIcons, moveIcon, reloadTypeIcons, speciesIcon, typeIcon } from "../lib/icons.svelte";
   import TypePictures from "../lib/TypePictures.svelte";
   import TypeItems from "../lib/TypeItems.svelte";
+  import TypeColor from "../lib/TypeColor.svelte";
   import { clearEnums, enumValues } from "../lib/tables";
   import TextPanel from "../lib/TextPanel.svelte";
   import ContentDialog from "../lib/ContentDialog.svelte";
@@ -247,6 +248,7 @@
           {/if}
         </div>
         <TextPanel kind="types" id={picked} {readOnly} onSaved={() => (onSaved(), clearEnums(), enumValues("type").then((t) => (types = t.slice(0, count))))} />
+        {#if picked < 17}<TypeColor id={picked} {readOnly} {version} onChanged={onSaved} />{/if}
         {#if picked >= 17}<TypePictures id={picked} {types} {readOnly} {version} onChanged={() => (reloadTypeIcons(), onSaved())} />
           <TypeItems id={picked} {readOnly} {version} onChanged={onSaved} />{/if}
       </div>

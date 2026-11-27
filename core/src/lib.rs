@@ -36,6 +36,7 @@ pub mod move_kinds;
 pub mod nanr;
 pub mod nftr;
 pub mod nsbmd;
+pub mod particle_limits;
 pub mod preview;
 pub mod project;
 pub mod props;

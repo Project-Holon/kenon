@@ -211,10 +211,77 @@ pub fn all(project: &Project) -> BTreeMap<usize, TypeLook> {
 }
 
 pub fn write_rows(project: &Project, rows: &BTreeMap<usize, TypeLook>) -> Result<(), Error> {
-    let lines = rows.iter().map(|(t, l)| (*t, format(l))).collect();
+    // A game type's line holds only its colour (its pictures are the game's).
+    let lines = rows
+        .iter()
+        .map(|(t, l)| {
+            (
+                *t,
+                if *t < GAME_TYPES {
+                    format!("color {}", l.color)
+                } else {
+                    format(l)
+                },
+            )
+        })
+        .collect();
     project
         .write_table_lines(TABLE, &lines, "<type> = name <word> [plate <item>] [drive <item> <form>] icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
         .map_err(|e| Error::Missing(e.to_string()))
+}
+
+/// The game's types (0 to 16).
+pub const GAME_TYPES: usize = 17;
+
+/// A type's colour when its line has none: a game type's battle move
+/// button base shade (eidos reads the same, a/0/1/1 row 0 colour 8), an
+/// added type's first icon colour.
+pub fn default_color(t: usize, look: Option<&TypeLook>) -> String {
+    if t < GAME_TYPES {
+        hex(BUTTONS[t][0])
+    } else {
+        look.and_then(|l| l.colors.first().cloned())
+            .unwrap_or_default()
+    }
+}
+
+/// A type's colour (UI tag, effect tint) and whether the mod sets it.
+pub fn color(project: &Project, t: usize) -> (String, bool) {
+    let rows = all(project);
+    let look = rows.get(&t);
+    match look
+        .map(|l| l.color.clone())
+        .filter(|c| from_hex(c).is_some())
+    {
+        Some(c) if c != default_color(t, look) => (c, true),
+        _ => (default_color(t, look), false),
+    }
+}
+
+/// Sets a game type's colour; None (or the default) takes its line out.
+pub fn set_game_color(project: &Project, t: usize, rgb: Option<&str>) -> Result<(), Error> {
+    if t >= GAME_TYPES {
+        return Err(Error::BadPath(format!("type {t} is not a game type")));
+    }
+    let mut rows = all(project);
+    let rgb = rgb
+        .map(str::to_uppercase)
+        .filter(|c| *c != default_color(t, None));
+    match rgb {
+        Some(c) => {
+            if from_hex(&c).is_none() {
+                return Err(Error::BadPath("a colour is RRGGBB".into()));
+            }
+            let look = rows
+                .entry(t)
+                .or_insert_with(|| parse("").expect("an empty line reads"));
+            look.color = c;
+        }
+        None => {
+            rows.remove(&t);
+        }
+    }
+    write_rows(project, &rows)
 }
 
 // ---- icon pixels -------------------------------------------------------
@@ -775,6 +842,21 @@ pub fn remove_type(project: &Project, t: usize) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_game_type_line_holds_only_its_colour() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = Project::create(&dir.path().join("m"), "Test", None).unwrap();
+        // Fire (9): the move button's base shade, no line.
+        assert_eq!(color(&project, 9), (hex(0x14DF), false));
+        set_game_color(&project, 9, Some("ff8800")).unwrap();
+        assert_eq!(color(&project, 9), ("FF8800".to_string(), true));
+        assert_eq!(project.table_lines(TABLE)[&9], "color FF8800");
+        // The default again takes the line out.
+        set_game_color(&project, 9, Some(&hex(0x14DF))).unwrap();
+        assert!(project.table_lines(TABLE).is_empty());
+        assert!(set_game_color(&project, 17, Some("FF8800")).is_err());
+    }
 
     #[test]
     fn lines_read_back() {

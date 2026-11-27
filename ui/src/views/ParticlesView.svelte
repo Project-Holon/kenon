@@ -94,11 +94,23 @@
     values = file.emitters.map((e) => ({ ...e.values }));
     blocks = file.emitters.map((e) => [...e.blocks]);
     emitter = 0;
+    limits = await invoke<Limits>("particle_limits", { index });
+    limitEdits = { ...limits };
   }
+  // How many emitters and particles may be alive at once (eidos
+  // particles.txt; the game's 24 and 200 are the least).
+  interface Limits {
+    emitters: number;
+    particles: number;
+  }
+  let limits = $state<Limits>({ emitters: 24, particles: 200 });
+  let limitEdits = $state<Limits>({ emitters: 24, particles: 200 });
+  const limitsDirty = $derived(limits.emitters !== limitEdits.emitters || limits.particles !== limitEdits.particles);
   const dirty = $derived(
     !!file &&
       (JSON.stringify(values) !== JSON.stringify(file.emitters.map((e) => e.values)) ||
-        JSON.stringify(blocks) !== JSON.stringify(file.emitters.map((e) => e.blocks))),
+        JSON.stringify(blocks) !== JSON.stringify(file.emitters.map((e) => e.blocks)) ||
+        limitsDirty),
   );
   function discard() {
     if (current !== null) {
@@ -120,7 +132,15 @@
       values.forEach((now, e) => {
         for (const [k, v] of Object.entries(now)) if (file!.emitters[e].values[k] !== v) edits.push({ emitter: e, key: k, value: v });
       });
-      await invoke("set_particle_file", { index: current, blocks: blockEdits, edits });
+      if (blockEdits.length || edits.length) await invoke("set_particle_file", { index: current, blocks: blockEdits, edits });
+      if (limitsDirty) {
+        const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(v) || lo));
+        await invoke("set_particle_limits", {
+          index: current,
+          emitters: clamp(limitEdits.emitters, 24, 1000),
+          particles: clamp(limitEdits.particles, 200, 10000),
+        });
+      }
       const at = current;
       current = null;
       await open(at);
@@ -267,6 +287,16 @@
           </figure>
         {/each}
       </div>
+      <div class="limits">
+        <label class="field" title="Emitters this file may have running at once">
+          <span class="name">Emitters at once</span>
+          <input type="number" min="24" max="1000" bind:value={limitEdits.emitters} disabled={readOnly} />
+        </label>
+        <label class="field" title="Particles this file may have alive at once">
+          <span class="name">Particles at once</span>
+          <input type="number" min="200" max="10000" step="50" bind:value={limitEdits.particles} disabled={readOnly} />
+        </label>
+      </div>
       <div class="sec-tabs" role="tablist">
         {#each file.emitters as _, e}
           <button role="tab" aria-selected={e === emitter} onclick={() => (emitter = e)}>Emitter {e + 1}</button>
@@ -320,6 +350,14 @@
 </div>
 
 <style>
+  .limits {
+    display: flex;
+    gap: 1rem;
+    padding: 0 1rem 0.6rem;
+  }
+  .limits input {
+    width: 6rem;
+  }
   .particles {
     display: grid;
     grid-template-columns: 20rem minmax(0, 1fr);

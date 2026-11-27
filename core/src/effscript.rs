@@ -36,10 +36,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
+/// The first command eidos adds (the game's end at 77, EndScript).
+pub const FIRST_EIDOS_COMMAND: usize = 78;
+
 /// A command's editor name and how many u32 arguments it reads. Names
 /// say what the command does (eidos research, effect-script-args.md);
 /// several of aletheia's names do not (56 and 57 are swapped).
-pub const COMMANDS: [(&str, usize); 79] = [
+pub const COMMANDS: [(&str, usize); 80] = [
     ("CameraToView", 5),
     ("CameraToPoint", 10),
     ("OrbitCamera", 6),
@@ -123,6 +126,10 @@ pub const COMMANDS: [(&str, usize); 79] = [
     // command's end first (like a jump), then PlaySoundEffect's arguments
     // without its last.
     ("PlaySoundByName", 8),
+    // Tints a loaded particle file's emitters (eidos): its key, the colour's
+    // source (0 BGR555, 1 the variant's type, 2 type `value`, 3 the move's
+    // type) and the value.
+    ("ParticleColor", 3),
 ];
 
 const HEADER: usize = 4;

@@ -888,7 +888,79 @@ fn type_look(
 ) -> Result<Option<kenon_core::type_pictures::TypeLook>, String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
-    Ok(kenon_core::type_pictures::all(project).remove(&id))
+    Ok(kenon_core::type_pictures::all(project)
+        .remove(&id)
+        .filter(|_| id >= kenon_core::type_pictures::GAME_TYPES))
+}
+
+/// A type's colour (RRGGBB; the interface tag and move effects' tint) and
+/// its colour without a line.
+#[tauri::command]
+fn type_color(state: State<AppState>, id: usize) -> Result<(String, String), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    let look = kenon_core::type_pictures::all(&project).remove(&id);
+    let default = kenon_core::type_pictures::default_color(id, look.as_ref());
+    Ok((kenon_core::type_pictures::color(&project, id).0, default))
+}
+
+/// How many emitters and particles a particle file may have alive at once.
+#[tauri::command]
+fn particle_limits(
+    state: State<AppState>,
+    index: usize,
+) -> Result<kenon_core::particle_limits::Limits, String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    Ok(kenon_core::particle_limits::get(&project, index))
+}
+
+#[tauri::command]
+fn set_particle_limits(
+    state: State<AppState>,
+    index: usize,
+    emitters: u32,
+    particles: u32,
+) -> Result<(), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    kenon_core::particle_limits::set(
+        &project,
+        index,
+        kenon_core::particle_limits::Limits {
+            emitters,
+            particles,
+        },
+    )
+}
+
+/// Sets a game type's colour; None goes back to the game's.
+#[tauri::command]
+fn set_type_color(state: State<AppState>, id: usize, color: Option<String>) -> Result<(), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    kenon_core::type_pictures::set_game_color(&project, id, color.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 /// Remakes an added type's pictures from a game type (and its name).
@@ -3034,6 +3106,10 @@ pub fn run() {
             item_ball,
             set_item_ball,
             set_move_kinds,
+            type_color,
+            particle_limits,
+            set_particle_limits,
+            set_type_color,
             item_heal,
             set_item_heal,
             add_type_plate,

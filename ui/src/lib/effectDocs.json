@@ -2966,5 +2966,32 @@
     "meaning": "track modulation speed, only used when modDepth is not 0. Seen: 0..127"
    }
   ]
+ },
+ {
+  "id": 79,
+  "name": "ParticleColor",
+  "title": "Tint particles",
+  "old": "",
+  "summary": "Tints every emitter of a loaded particle file, later ones too, until the file unloads or the script ends (eidos). The tint multiplies the particles' own colours.",
+  "args": [
+   {
+    "name": "key",
+    "unit": "particle key",
+    "allowed": "a key loaded by 6",
+    "meaning": "particle file"
+   },
+   {
+    "name": "source",
+    "unit": "int",
+    "allowed": "0..3",
+    "meaning": "where the colour comes from: 0 = `value` as BGR555, 1 = the type numbered by the variant (Judgment), 2 = type `value`, 3 = the playing move's type. A type's colour is its `color` in types.txt"
+   },
+   {
+    "name": "value",
+    "unit": "int",
+    "allowed": "BGR555 (source 0; 7FFF removes the tint), a type (source 2), else 0",
+    "meaning": "the colour or the type"
+   }
+  ]
  }
 ]

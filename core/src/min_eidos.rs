@@ -156,19 +156,31 @@ pub fn uses(project: &Project) -> Vec<String> {
             }
         }
     }
-    // Scripts that play a mod's sound by name (command 78), in the move
-    // scripts and the battle effect scripts.
+    // eidos's own script commands (78 on: PlaySoundByName, ParticleColor)
+    // in the move scripts and the battle effect scripts.
+    let own = &crate::effscript::COMMANDS[crate::effscript::FIRST_EIDOS_COMMAND..];
     for arc in ["0/6/6", "0/6/7"] {
-        let named = std::fs::read_dir(a.join(arc)).is_ok_and(|it| {
-            it.flatten().any(|e| {
-                std::fs::read(e.path())
+        let mut used = std::collections::BTreeSet::new();
+        if let Ok(it) = std::fs::read_dir(a.join(arc)) {
+            for e in it.flatten() {
+                let Some(text) = std::fs::read(e.path())
                     .ok()
                     .and_then(|b| crate::effscript::disassemble(&b).ok())
-                    .is_some_and(|t| t.contains("PlaySoundByName"))
-            })
-        });
-        if named {
-            out.push(format!("a/{arc} PlaySoundByName"));
+                else {
+                    continue;
+                };
+                for (name, _) in own {
+                    if text
+                        .lines()
+                        .any(|l| l.split_whitespace().next() == Some(*name))
+                    {
+                        used.insert(*name);
+                    }
+                }
+            }
+        }
+        for name in used {
+            out.push(format!("a/{arc} {name}"));
         }
     }
     // A species whose forms sit at a mod's stats slots (formStatsIndex
