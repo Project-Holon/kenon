@@ -8,8 +8,8 @@
 //! Slots 1..649 are the game's species' cries (slot n is species n), 650 is
 //! Shaymin's Sky Forme, and 651 and up are sound effects, then the wave
 //! archives a mod appends. No line: a game species and its forms play their
-//! own, a new species plays slot 1, and a new species' form plays its
-//! species' line, else slot 1. The volume stays in a/1/9/4 at the slot.
+//! own, a new species plays no cry (0 here), and a new species' form plays
+//! its species' line, else none (eidos sdk/cries.c). The volume stays in a/1/9/4 at the slot.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -97,7 +97,7 @@ pub fn default_for(project: &Project, key: Key) -> u32 {
             },
         );
     }
-    1
+    0
 }
 
 /// The slot a key plays in this mod.

@@ -27,10 +27,21 @@
     const mask = (1 << bit) >>> 0;
     f.value = (on ? (Number(f.value) | mask) : (Number(f.value) & ~mask)) >>> 0;
   }
-  const label = (slot: number) => (slot < 95 ? `TM${String(slot + 1).padStart(2, "0")}` : `HM${String(slot - 94).padStart(2, "0")}`);
+  // Slots 0-94 are TM01-TM95, 95-100 HM01-HM06, and a mod's new TMs follow
+  // from TM96 (core/src/machines.rs label). New TMs show after TM95.
+  const HM_FIRST = 95;
+  const HM_END = 101;
+  const label = (slot: number) =>
+    slot < HM_FIRST
+      ? `TM${String(slot + 1).padStart(2, "0")}`
+      : slot < HM_END
+        ? `HM${String(slot - 94).padStart(2, "0")}`
+        : `TM${String(slot - 5).padStart(2, "0")}`;
+  const order = (slot: number) => (slot >= HM_FIRST && slot < HM_END ? slot + 1000 : slot);
   const shown = $derived(
     machines
       .map((mv, slot) => ({ slot, mv }))
+      .sort((a, b) => order(a.slot) - order(b.slot))
       .filter(({ slot, mv }) => {
         const q = filter.trim().toLowerCase();
         return !q || label(slot).toLowerCase().includes(q) || (moves[mv] ?? "").toLowerCase().includes(q);

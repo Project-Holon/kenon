@@ -703,7 +703,10 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(stats(&bridge, 715)[..28], stats(&bridge, 1)[..28]);
     let project = bridge.project().unwrap();
     assert!(project.member(16, 716).is_none() && project.member(16, 717).is_none());
-    assert!(cries::all(project).is_empty());
+    // Only Sprouty's line is left (Bulbasaur's cry, copied when it was
+    // added), moved down to 715.
+    let left: Vec<(String, u32)> = cries::all(project).into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    assert_eq!(left, vec![("715".to_string(), 1)]);
     // One Pokedex line past the game's: Sprouty's at 727.
     let weight = catalog::text_bank(&bridge, 2, 268).unwrap();
     assert_eq!(weight.len(), 728);
