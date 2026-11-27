@@ -1648,3 +1648,75 @@ fn the_games_move_kinds_name_the_right_moves() {
         assert!(ball.iter().any(|b| b == n), "{n} in {ball:?}");
     }
 }
+
+#[test]
+fn a_copied_poke_ball_becomes_a_ball_of_its_own() {
+    use kenon_core::balls;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let stored =
+        |b: &Bridge, arc: u16, index: usize| b.member_stored(Member { arc, index }).unwrap();
+    // Great Ball: ball 3; its first particle file is 5, its sprite 0x87/0x88,
+    // its icon palette 0x59 and character file 0x72.
+    let great = content::add(&bridge, "items", 3, "Fairy Ball").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    let b = balls::all(&project)[&great].clone();
+    assert_eq!(
+        (
+            b.base,
+            b.ball,
+            b.particles.len(),
+            b.sprite.len(),
+            b.icon.len()
+        ),
+        (3, Some(26), 6, 2, 2)
+    );
+    assert_eq!(b.particles[0], 733);
+    assert_eq!(
+        stored(&bridge, 6, b.particles[0]).len(),
+        stored(&bridge, 6, 5).len()
+    );
+    assert_eq!(stored(&bridge, 95, b.sprite[0]), stored(&bridge, 95, 0x87));
+    assert_eq!(stored(&bridge, 83, b.icon[1]), stored(&bridge, 83, 0x72));
+
+    // A copy of the new ball takes its files and the next id.
+    let second = content::add(&bridge, "items", great, "Pixie Ball").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    let c = balls::all(&project)[&second].clone();
+    assert_eq!((c.base, c.ball), (3, Some(27)));
+    assert_eq!(
+        stored(&bridge, 95, c.sprite[0]),
+        stored(&bridge, 95, b.sprite[0])
+    );
+
+    // Tuning: the Great Ball's ratio; a key it has no place for is refused.
+    balls::set(
+        &bridge,
+        great,
+        3,
+        [("ratio".to_string(), "2.5".to_string())]
+            .into_iter()
+            .collect(),
+    )
+    .unwrap();
+    assert!(balls::set(
+        &bridge,
+        great,
+        3,
+        [("level".to_string(), "30".to_string())]
+            .into_iter()
+            .collect()
+    )
+    .is_err());
+    assert_eq!(balls::all(&project)[&great].keys["ratio"], "2.5");
+
+    // Removing the first: the second moves down to its number.
+    content::remove(&bridge, "items", great).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let rows = balls::all(bridge.project().unwrap());
+    assert_eq!(rows.keys().copied().collect::<Vec<_>>(), vec![great]);
+    assert_eq!(rows[&great].ball, Some(27));
+}

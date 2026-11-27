@@ -298,6 +298,10 @@ pub fn add(bridge: &Bridge, table: &str, from: usize, name: &str) -> Result<usiz
 
     // Its sentence lines in other languages: the source's (eidos text_from).
     crate::text_from::added(project, k.table, id, from)?;
+    // A copy of a Poke Ball is a ball of its own, with copies of its files.
+    if k.table == "items" {
+        crate::balls::item_added(bridge, id, from)?;
+    }
     // The limit last: until it is written the port ignores the new id.
     set_limit(project, k, Some(id))?;
     bridge.invalidate();
@@ -357,6 +361,9 @@ pub fn remove(bridge: &Bridge, table: &str, id: usize) -> Result<Removed, Error>
     }
     if k.table == "items" && crate::machines::item_removed(project, id)? {
         report.updated.push("New TMs' items".into());
+    }
+    if k.table == "items" && crate::balls::item_removed(project, id)? {
+        report.updated.push("Poke Balls".into());
     }
     if k.table == "moves" && crate::move_kinds::removed(project, id)? {
         report.updated.push("Move kinds".into());

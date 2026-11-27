@@ -7,6 +7,7 @@
 pub mod addresses;
 pub mod arm;
 pub mod audio_import;
+pub mod balls;
 pub mod battle;
 pub mod bridge;
 pub mod catalog;

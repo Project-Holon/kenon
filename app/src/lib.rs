@@ -981,6 +981,45 @@ fn set_item_heal(
     kenon_core::item_heal::set(&bridge, item, heal).map_err(|e| e.to_string())
 }
 
+/// An item's Poke Ball line and the keys its base takes, when it is a ball.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BallView {
+    ball: kenon_core::balls::Ball,
+    keys: Vec<&'static str>,
+    /// The game's ball items: (item, ball id).
+    bases: Vec<(u16, u16)>,
+}
+
+#[tauri::command]
+fn item_ball(state: State<AppState>, item: usize) -> Result<Option<BallView>, String> {
+    let bridge = state.need_bridge()?;
+    let Some(ball) = kenon_core::balls::get(&bridge, item) else {
+        return Ok(None);
+    };
+    let game = kenon_core::balls::game_balls(&bridge);
+    let keys = game
+        .get(&ball.base)
+        .map(|&b| kenon_core::balls::keys_for(b))
+        .unwrap_or_default();
+    Ok(Some(BallView {
+        ball,
+        keys,
+        bases: game.into_iter().collect(),
+    }))
+}
+
+#[tauri::command]
+fn set_item_ball(
+    state: State<AppState>,
+    item: usize,
+    base: u16,
+    keys: std::collections::BTreeMap<String, String>,
+) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::balls::set(&bridge, item, base, keys).map_err(|e| e.to_string())
+}
+
 /// A move's kinds (bite, pulse, ball, powder) in this mod.
 #[tauri::command]
 fn move_kinds(state: State<AppState>, id: usize) -> Result<Vec<String>, String> {
@@ -2969,6 +3008,8 @@ pub fn run() {
             add_type,
             type_look,
             move_kinds,
+            item_ball,
+            set_item_ball,
             set_move_kinds,
             item_heal,
             set_item_heal,
