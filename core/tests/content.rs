@@ -1386,9 +1386,20 @@ fn arceus_and_genesect_get_a_form_their_pictures_moved_to_mod_slots() {
     assert_eq!(sprite(&rec(&bridge, 493)), (715, 18, 0x87));
     assert_eq!(stored(&bridge, 4, 715 * 20 + 18), game_palette);
     assert_eq!(stored(&bridge, 4, 731 * 20 + 18), arceus_palette);
-    assert!(
-        bridge.project().unwrap().member(16, 715).is_none(),
-        "no stats record at a picture slot"
+    // Each form has a stats record at its slot (the Pokedex lists them):
+    // no form slots of its own, Arceus's form count, the form's type.
+    let arceus = rec(&bridge, 493);
+    assert_eq!(u16::from_le_bytes([arceus[28], arceus[29]]), 715);
+    for (form, slot) in [(1usize, 715usize), (16, 730), (17, 731)] {
+        let r = rec(&bridge, slot);
+        assert_eq!((r[6], r[7]), (form as u8, form as u8), "form {form}");
+        assert_eq!((&r[28..32], r[32]), (&[0u8, 0, 0, 0][..], 18));
+        assert_eq!(&r[8..14], &arceus[8..14], "the species' other fields");
+    }
+    assert_eq!(
+        species_add::layout(&bridge).last,
+        714,
+        "form records are not new species"
     );
 
     // Genesect form 5 from its form 1 (Douse): forms 1-4 move after Arceus's.

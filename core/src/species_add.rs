@@ -156,7 +156,20 @@ pub fn layout(bridge: &Bridge) -> Layout {
     };
     let last = limit_of(project)
         .filter(|&l| l >= FIRST_NEW)
-        .or_else(|| project.last_member(STATS_ARC).filter(|&m| m >= FIRST_NEW))
+        // Without the key: the last slot that is its own base species (form
+        // slots, the mod's and moved game ones, have stats records too).
+        .or_else(|| {
+            project
+                .members(BASE_SPECIES_ARC)
+                .into_iter()
+                .filter(|&m| {
+                    m >= FIRST_NEW
+                        && project.member(BASE_SPECIES_ARC, m).is_some_and(|b| {
+                            b.len() >= 2 && u16::from_le_bytes([b[0], b[1]]) as usize == m
+                        })
+                })
+                .max()
+        })
         .unwrap_or(FIRST_NEW - 1);
     let mut forms = BTreeMap::new();
     for s in FIRST_NEW..=last {
@@ -270,8 +283,10 @@ impl SlotKind {
     fn writes(self, arc: u16, k: usize) -> bool {
         match self {
             SlotKind::Full => true,
-            SlotKind::Pictures => arc == SPRITE_ARC || arc == ICON_ARC,
-            SlotKind::Palettes => arc == SPRITE_ARC && (k == 18 || k == 19),
+            // A game Pokemon's moved form: its pictures and its stats
+            // record (the Pokedex lists forms with records of their own).
+            SlotKind::Pictures => arc == SPRITE_ARC || arc == ICON_ARC || arc == STATS_ARC,
+            SlotKind::Palettes => (arc == SPRITE_ARC && (k == 18 || k == 19)) || arc == STATS_ARC,
         }
     }
 }
@@ -285,6 +300,8 @@ const SHARED: u8 = 0x80;
 /// (+1 shiny) (eidos sdk/form_gfx.c).
 const GAME_FORM_SLOTS: usize = 652;
 const GAME_FORM_PALETTES: usize = 0x37AD;
+/// Arceus: its form is its type (Multitype).
+const ARCEUS: usize = 493;
 
 fn planned(bridge: &Bridge, project: &Project, slot: usize) -> Planned {
     Planned {
@@ -409,8 +426,11 @@ fn apply_with(
         set_forms(&mut sp.data[pos(STATS_ARC)], first, forms.len() + 1);
         sp.data[pos(BASE_SPECIES_ARC)] = (id as u16).to_le_bytes().to_vec();
         out.push((id, sp));
+        let n = forms.len() + 1;
         for mut f in forms {
-            set_forms(&mut f.data[pos(STATS_ARC)], 0, 1);
+            // A form's record as the game's are: no form slots of its own,
+            // the species' form count.
+            set_forms(&mut f.data[pos(STATS_ARC)], 0, n);
             f.data[pos(BASE_SPECIES_ARC)] = (id as u16).to_le_bytes().to_vec();
             out.push((next, f));
             next += 1;
@@ -423,10 +443,28 @@ fn apply_with(
             arc: STATS_ARC,
             index: g,
         })?;
+        let n = forms.len() + 1;
+        // The base record without its form fields: what a form's record
+        // copies when it has none yet.
+        let mut base = rec.clone();
+        set_forms(&mut base, 0, n);
+        // formStatsIndex and formSpriteIndex both at the first slot, as for
+        // an added species (eidos lists the forms in the Pokedex).
+        rec[28..30].copy_from_slice(&(next as u16).to_le_bytes());
         rec[30..32].copy_from_slice(&(next as u16).to_le_bytes());
-        rec[32] = (forms.len() + 1) as u8;
+        rec[32] = n as u8;
         project.write_member(STATS_ARC, g, &rec).map_err(io)?;
-        for f in forms {
+        for (i, mut f) in forms.into_iter().enumerate() {
+            let stats = &mut f.data[pos(STATS_ARC)];
+            if stats.len() < 34 {
+                *stats = base.clone();
+            }
+            set_forms(stats, 0, n);
+            // Multitype: Arceus's form is its type.
+            if g == ARCEUS {
+                stats[6] = (i + 1) as u8;
+                stats[7] = (i + 1) as u8;
+            }
             out.push((next, f));
             next += 1;
         }
@@ -716,10 +754,12 @@ fn game_forms(bridge: &Bridge, g: usize) -> Result<(Vec<u8>, Vec<Planned>), Erro
             }
         } else {
             let slot = GAME_FORM_SLOTS + k;
+            let mut data = read_slot(bridge, slot);
+            data[pos(STATS_ARC)] = Vec::new();
             Planned {
                 kind: SlotKind::Pictures,
                 src: None,
-                data: read_slot(bridge, slot),
+                data,
                 palette: palette_row(icon_palette(bridge, slot)),
                 dex: game_form_dex(bridge, g, f),
             }
@@ -820,6 +860,17 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
     Ok(form)
 }
 
+/// Writes the mod's slots again as they are laid out: for a mod made
+/// before game Pokemon's moved forms had stats records of their own.
+pub fn relayout(bridge: &Bridge) -> Result<(), Error> {
+    let project = project_of(bridge)?;
+    let l = layout(bridge);
+    let plan = plan_of(bridge, project, &l);
+    apply(bridge, project, plan, l.end())?;
+    bridge.invalidate();
+    Ok(())
+}
+
 /// Removes a form the mod added to a game Pokemon (past the game's own);
 /// later ones move down. With none left, its pictures go back to the
 /// game's.
@@ -851,7 +902,7 @@ pub fn remove_game_form(bridge: &Bridge, g: usize, form: usize) -> Result<(), Er
             arc: STATS_ARC,
             index: g,
         })?;
-        rec[30..33].copy_from_slice(&game_rec[30..33]);
+        rec[28..33].copy_from_slice(&game_rec[28..33]);
         let io = |e: std::io::Error| Error::Missing(e.to_string());
         if rec == game_rec {
             project.revert_member(STATS_ARC, g).map_err(io)?;
