@@ -85,6 +85,31 @@ pub fn current(project: &Project, id: usize) -> u16 {
 }
 
 fn write(project: &Project, rows: &BTreeMap<usize, u16>) -> Result<(), String> {
+    write_with(project, rows, &sources(project))
+}
+
+/// What each move with a custom script played before it, so removing the
+/// script goes back to it: kenon's `# from <id> = <move>` comment lines.
+fn sources(project: &Project) -> BTreeMap<usize, u16> {
+    let path = project
+        .root
+        .join("eidos/tables")
+        .join(format!("{TABLE}.txt"));
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let (k, v) = l.strip_prefix("# from ")?.split_once('=')?;
+            Some((k.trim().parse().ok()?, v.trim().parse().ok()?))
+        })
+        .collect()
+}
+
+fn write_with(
+    project: &Project,
+    rows: &BTreeMap<usize, u16>,
+    from: &BTreeMap<usize, u16>,
+) -> Result<(), String> {
     let lines = rows.iter().map(|(id, v)| (*id, v.to_string())).collect();
     project
         .write_table_lines(
@@ -92,7 +117,24 @@ fn write(project: &Project, rows: &BTreeMap<usize, u16>) -> Result<(), String> {
             &lines,
             "<move id> = <the move whose animation script it plays>.",
         )
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if from.is_empty() {
+        return Ok(());
+    }
+    let path = project
+        .root
+        .join("eidos/tables")
+        .join(format!("{TABLE}.txt"));
+    let mut text = std::fs::read_to_string(&path).unwrap_or_else(|_| {
+        "# Written by kenon: <move id> = <the move whose animation script it plays>.\n".into()
+    });
+    for (id, v) in from {
+        text.push_str(&format!("# from {id} = {v}\n"));
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    eidos_mod::manifest::write_atomic(&path, text.as_bytes()).map_err(|e| e.to_string())
 }
 
 /// Sets a move's animation; None, or the default, removes the line so the
@@ -133,8 +175,23 @@ pub fn remove_id(project: &Project, id: usize) -> Result<bool, String> {
             (i, v)
         })
         .collect();
-    if shifted != old {
-        write(project, &shifted)?;
+    let old_from = sources(project);
+    let from: BTreeMap<usize, u16> = old_from
+        .iter()
+        .filter(|&(&i, &v)| i != id && v as usize != id)
+        .map(|(&i, &v)| {
+            (
+                if i > id { i - 1 } else { i },
+                if v as usize > id && v > LAST {
+                    v - 1
+                } else {
+                    v
+                },
+            )
+        })
+        .collect();
+    if shifted != old || from != old_from {
+        write_with(project, &shifted, &from)?;
         changed = true;
     }
     // The scripts: a/0/6/6 members of later added moves move down one.
@@ -200,9 +257,12 @@ pub fn copy_script(bridge: &Bridge, id: usize, from: usize) -> Result<(), Error>
     project
         .write_member(SCRIPTS, id, &bytes)
         .map_err(|e| Error::Missing(e.to_string()))?;
+    // What it played before: kept so removing the script goes back to it.
+    let mut from_map = sources(project);
+    from_map.insert(id, from as u16);
     let mut rows = all(project);
     rows.remove(&id);
-    write(project, &rows).map_err(Error::Missing)?;
+    write_with(project, &rows, &from_map).map_err(Error::Missing)?;
     bridge.invalidate();
     Ok(())
 }
@@ -215,14 +275,20 @@ pub fn drop_script(bridge: &Bridge, id: usize) -> Result<(), Error> {
     project
         .revert_member(SCRIPTS, id)
         .map_err(|e| Error::Missing(e.to_string()))?;
+    let mut from = sources(project);
+    let before = from.remove(&id);
+    let mut rows = all(project);
     // Lines that played this added move's script play their default again.
     if id > LAST as usize {
-        let rows: BTreeMap<usize, u16> = all(project)
-            .into_iter()
-            .filter(|&(_, v)| v as usize != id)
-            .collect();
-        write(project, &rows).map_err(Error::Missing)?;
+        rows.retain(|_, v| *v as usize != id);
     }
+    // The move plays what it played before the script was made.
+    if let Some(v) =
+        before.filter(|&v| playable(project, v as usize) && v != default_for(project, id))
+    {
+        rows.insert(id, v);
+    }
+    write_with(project, &rows, &from).map_err(Error::Missing)?;
     bridge.invalidate();
     Ok(())
 }

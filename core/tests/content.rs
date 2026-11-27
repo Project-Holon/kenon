@@ -1533,3 +1533,29 @@ fn heal_amounts_go_in_the_record_or_the_table() {
         Some(Hp::Fraction(2))
     );
 }
+
+#[test]
+fn removing_a_custom_script_goes_back_to_the_earlier_animation() {
+    use kenon_core::move_anims;
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let m = content::add(&bridge, "moves", 85, "Moonblast").unwrap();
+    let bridge = reopen(bridge, &dir);
+    let project = bridge.project().unwrap().clone();
+    move_anims::set(&project, m, Some(236)).unwrap();
+    move_anims::copy_script(&bridge, m, 236).unwrap();
+    assert_eq!(
+        move_anims::current(&project, m),
+        m as u16,
+        "plays its own script"
+    );
+    move_anims::drop_script(&bridge, m).unwrap();
+    assert_eq!(move_anims::current(&project, m), 236, "back to Moonlight's");
+    // A game move with a custom script made from its own goes back to its own.
+    move_anims::copy_script(&bridge, 53, 53).unwrap();
+    move_anims::drop_script(&bridge, 53).unwrap();
+    assert_eq!(move_anims::current(&project, 53), 53);
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
+    assert!(!text.contains("# from"), "{text}");
+}
