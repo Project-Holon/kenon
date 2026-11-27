@@ -386,6 +386,29 @@ fn set_mod_lang_lines(
     kenon_core::translations::set(&project, arc, bank, &lang, &lines).map_err(|e| e.to_string())
 }
 
+/// Official names in `lang` for the mod's untranslated names: (bank,
+/// line, name).
+#[tauri::command]
+fn official_names(
+    state: State<AppState>,
+    lang: String,
+) -> Result<Vec<(usize, usize, String)>, String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    Ok(kenon_core::translations::official_names(&project, &lang))
+}
+
+/// A text file a translator filled (UTF-8).
+#[tauri::command]
+fn import_text(path: PathBuf) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("could not read the file: {e}"))
+}
+
 /// Every line the mod sets, with its translation in `lang`.
 #[tauri::command]
 fn translation_rows(
@@ -2879,6 +2902,8 @@ pub fn run() {
             mod_lang_lines,
             set_mod_lang_lines,
             translation_rows,
+            official_names,
+            import_text,
             mod_min_eidos,
             import_bw,
             import_patch,

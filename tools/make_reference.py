@@ -133,9 +133,28 @@ for r in rows("item_flavor_text"):
 matched = set(game_of.values())
 unmatched = sorted({i for v in rom_items.values() for i in v} - matched)
 
+# Every official name of later games too, by its English name, so a mod's
+# new move, item, ability, type or Pokemon named as in a later game fills in
+# every language (kenon's Fill official names).
+names = {"move": {}, "item": {}, "ability": {}, "type": {}, "species": {}}
+SOURCES = [("move", "move_names", "move_id", "name"), ("item", "item_names", "item_id", "name"),
+           ("ability", "ability_names", "ability_id", "name"), ("type", "type_names", "type_id", "name"),
+           ("species", "pokemon_species_names", "pokemon_species_id", "name")]
+for kind, table, idcol, col in SOURCES:
+    by_id = {}
+    for r in rows(table):
+        lang = lang_of.get(r["local_language_id"])
+        if lang and r[col]:
+            by_id.setdefault(r[idcol], {})[lang] = r[col].replace("’", "'")
+    for row in by_id.values():
+        en = row.get("en")
+        if en:
+            names[kind][en] = {l: n for l, n in row.items() if l != "en"}
+
 data = {
     "about": "Black and White's text from PokeAPI (pokeapi.co), by bank and line; banks in later are X and Y's where PokeAPI has none of Black and White's.",
     "languages": out,
+    "names": names,
     "later": {lang: sorted(b, key=int) for lang, b in later.items()},
 }
 dest = Path(__file__).resolve().parent.parent / "core/src/reference.json.gz"
@@ -144,4 +163,5 @@ with gzip.open(dest, "wt", encoding="utf-8", compresslevel=9) as f:
 print(dest, dest.stat().st_size, "bytes")
 for lang, banks in out.items():
     print(lang, {b: len(l) for b, l in sorted(banks.items(), key=lambda x: int(x[0]))})
+print("official names", {k: len(v) for k, v in names.items()})
 print("items matched", len(matched), "unmatched", len(unmatched), unmatched[:40])

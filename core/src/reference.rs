@@ -65,6 +65,15 @@ pub fn bundled_lines(lang: &str, bank: usize) -> Option<Lines> {
     })
 }
 
+/// The official name in `lang` of a move, item, ability, type or Pokemon
+/// (`kind`: move, item, ability, type, species) named `english` in any
+/// game.
+pub fn official_name(kind: &str, english: &str, lang: &str) -> Option<String> {
+    bundled()["names"][kind][english][lang]
+        .as_str()
+        .map(str::to_string)
+}
+
 /// A reference ROM's lines of a text bank (a/0/0/2 or a/0/0/3).
 pub fn rom_lines(rom: &Bridge, arc: u16, bank: usize) -> Result<Lines, Error> {
     let lines = crate::catalog::text_bank(rom, arc, bank)?
@@ -107,5 +116,14 @@ mod tests {
             Source::BundledLater
         );
         assert!(bundled_lines("fr", 3).is_none());
+        assert_eq!(
+            official_name("move", "Moonblast", "fr").as_deref(),
+            Some("Pouvoir Lunaire")
+        );
+        assert_eq!(
+            official_name("item", "Pixie Plate", "de").as_deref(),
+            Some("Feentafel")
+        );
+        assert_eq!(official_name("move", "No Such Move", "fr"), None);
     }
 }

@@ -42,6 +42,30 @@ pub fn rows(project: &Project, lang: &str) -> Vec<Row> {
     out
 }
 
+/// Name lines (a/0/0/2 bank) and what they name.
+const NAME_BANKS: [(usize, &str); 5] = [
+    (203, "move"),
+    (54, "item"),
+    (182, "ability"),
+    (199, "type"),
+    (70, "species"),
+];
+
+/// Official names in `lang` for the mod's untranslated name lines whose
+/// English matches a name in any game (Moonblast, Pixie Plate...):
+/// (bank, line, name). The mod's own language must be English.
+pub fn official_names(project: &Project, lang: &str) -> Vec<(usize, usize, String)> {
+    rows(project, lang)
+        .into_iter()
+        .filter(|r| r.arc == 2 && r.translation.is_none())
+        .filter_map(|r| {
+            let kind = NAME_BANKS.iter().find(|(b, _)| *b == r.bank)?.1;
+            let name = crate::reference::official_name(kind, &r.text, lang)?;
+            Some((r.bank, r.line, name))
+        })
+        .collect()
+}
+
 /// How many of the mod's lines `lang` has.
 pub fn progress(project: &Project, lang: &str) -> (usize, usize) {
     let r = rows(project, lang);
