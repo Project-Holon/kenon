@@ -28,6 +28,9 @@ pub struct Settings {
     pub zig_path: Option<PathBuf>,
     /// Where the window was and how big, so it opens the same way.
     pub window: Option<WindowPlace>,
+    /// ROMs in other languages (en, fr, de, it, es), read only for their
+    /// text, shown beside translations.
+    pub reference_roms: std::collections::BTreeMap<String, PathBuf>,
 }
 
 /// The main window's size and position (logical pixels) and whether it was

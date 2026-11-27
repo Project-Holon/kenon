@@ -49,6 +49,8 @@ struct AppState {
     settings: Mutex<Settings>,
     settings_path: PathBuf,
     open: RwLock<Open>,
+    /// Reference ROMs opened for their text, by language.
+    references: Mutex<std::collections::HashMap<String, Arc<Bridge>>>,
 }
 
 impl AppState {
@@ -267,6 +269,137 @@ fn open_project(state: State<AppState>, root: PathBuf) -> Result<Status, String>
     remember(&state, &root)?;
     set_project(&state, Some(project));
     Ok(status(&state))
+}
+
+/// The open ROM's language and the reference ROMs set, by language.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Languages {
+    base: Option<&'static str>,
+    references: std::collections::BTreeMap<String, PathBuf>,
+}
+
+#[tauri::command]
+fn languages(state: State<AppState>) -> Result<Languages, String> {
+    let base = match &state.open.read().unwrap().source {
+        Some(kenon_core::source::Source::Rom(rom)) => kenon_core::reference::language_of(rom),
+        _ => None,
+    };
+    let references = state.settings.lock().unwrap().reference_roms.clone();
+    Ok(Languages { base, references })
+}
+
+/// Sets a ROM as the reference for its language (read from the ROM).
+/// Returns the language.
+#[tauri::command]
+fn set_reference_rom(state: State<AppState>, path: PathBuf) -> Result<String, String> {
+    let rom =
+        kenon_core::rom::Rom::open(&path).map_err(|e| format!("could not read the ROM: {e}"))?;
+    let lang = kenon_core::reference::language_of(&rom).ok_or(
+        "this ROM's language is not one eidos runs (English, French, German, Italian, Spanish)",
+    )?;
+    let mut settings = state.settings.lock().unwrap();
+    settings.reference_roms.insert(lang.to_string(), path);
+    state.save_settings(&settings)?;
+    state.references.lock().unwrap().remove(lang);
+    Ok(lang.to_string())
+}
+
+#[tauri::command]
+fn clear_reference_rom(state: State<AppState>, lang: String) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    settings.reference_roms.remove(&lang);
+    state.save_settings(&settings)?;
+    state.references.lock().unwrap().remove(&lang);
+    Ok(())
+}
+
+/// The game's own text of a bank in `lang`: from its reference ROM when one
+/// is set, else kenon's bundled names and descriptions.
+#[tauri::command]
+fn reference_text(
+    state: State<AppState>,
+    lang: String,
+    arc: u16,
+    bank: usize,
+) -> Result<Option<kenon_core::reference::Lines>, String> {
+    let path = state
+        .settings
+        .lock()
+        .unwrap()
+        .reference_roms
+        .get(&lang)
+        .cloned();
+    if let Some(path) = path {
+        let mut refs = state.references.lock().unwrap();
+        if !refs.contains_key(&lang) {
+            let rom = kenon_core::rom::Rom::open(&path)
+                .map_err(|e| format!("could not read the reference ROM: {e}"))?;
+            let source = kenon_core::source::Source::Rom(Arc::new(rom));
+            refs.insert(lang.clone(), Arc::new(Bridge::new(source)));
+        }
+        let bridge = refs[&lang].clone();
+        drop(refs);
+        return kenon_core::reference::rom_lines(&bridge, arc, bank)
+            .map(Some)
+            .map_err(|e| e.to_string());
+    }
+    Ok((arc == 2)
+        .then(|| kenon_core::reference::bundled_lines(&lang, bank))
+        .flatten())
+}
+
+/// The mod's lines of a bank in `lang` (`<bank>.<lang>.msg`).
+#[tauri::command]
+fn mod_lang_lines(
+    state: State<AppState>,
+    arc: u16,
+    bank: usize,
+    lang: String,
+) -> Result<std::collections::BTreeMap<usize, String>, String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    Ok(project.msg_lines_in(arc, bank, Some(&lang)))
+}
+
+/// Sets lines of a bank in `lang`; an empty text removes a line.
+#[tauri::command]
+fn set_mod_lang_lines(
+    state: State<AppState>,
+    arc: u16,
+    bank: usize,
+    lang: String,
+    lines: Vec<(usize, String)>,
+) -> Result<(), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    kenon_core::translations::set(&project, arc, bank, &lang, &lines).map_err(|e| e.to_string())
+}
+
+/// Every line the mod sets, with its translation in `lang`.
+#[tauri::command]
+fn translation_rows(
+    state: State<AppState>,
+    lang: String,
+) -> Result<Vec<kenon_core::translations::Row>, String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    Ok(kenon_core::translations::rows(&project, &lang))
 }
 
 /// Packs the open project into a `.bw` file.
@@ -2665,6 +2798,7 @@ pub fn run() {
                 settings: Mutex::new(settings),
                 settings_path,
                 open: RwLock::new(open),
+                references: Mutex::new(std::collections::HashMap::new()),
             });
             // The window is made here, already at its last size and place and
             // already maximized when it was, so it opens in one step.
@@ -2710,6 +2844,13 @@ pub fn run() {
             forget_recent,
             close_project,
             export_bw,
+            languages,
+            set_reference_rom,
+            clear_reference_rom,
+            reference_text,
+            mod_lang_lines,
+            set_mod_lang_lines,
+            translation_rows,
             mod_min_eidos,
             import_bw,
             import_patch,
