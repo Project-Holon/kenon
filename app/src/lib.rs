@@ -941,6 +941,19 @@ fn set_type_drive(
     kenon_core::type_items::set_drive(&bridge, id, drive).map_err(|e| e.to_string())
 }
 
+/// How much HP an item heals: from use and held (record and item_heal.txt).
+#[tauri::command]
+fn item_heal(state: State<AppState>, item: usize) -> Result<kenon_core::item_heal::Heal, String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::item_heal::get(&bridge, item).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_item_heal(state: State<AppState>, item: usize, heal: kenon_core::item_heal::Heal) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::item_heal::set(&bridge, item, heal).map_err(|e| e.to_string())
+}
+
 /// Sets an added type's colours (RRGGBB).
 #[tauri::command]
 fn set_type_colors(
@@ -2901,6 +2914,8 @@ pub fn run() {
             set_type_chart,
             add_type,
             type_look,
+            item_heal,
+            set_item_heal,
             add_type_plate,
             add_type_drive,
             game_form_count,
