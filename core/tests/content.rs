@@ -1222,3 +1222,32 @@ fn removing_a_type_removes_its_arceus_form() {
     let bridge = reopen(bridge, &dir);
     assert!(bridge.project().unwrap().member(16, 493).is_none());
 }
+
+#[test]
+fn heal_amounts_go_in_the_record_or_the_table() {
+    use kenon_core::item_heal::{self, Heal, Hp};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let (potion, oran) = (17usize, 155usize);
+    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fixed(20)));
+    assert_eq!(item_heal::get(&bridge, oran).unwrap().held, Some(10));
+    let table = dir.path().join("m/eidos/tables/item_heal.txt");
+
+    // Past the byte: the table, and the record's nearest.
+    item_heal::set(&bridge, potion, Heal { hp: Some(Hp::Fixed(500)), held: None }).unwrap();
+    item_heal::set(&bridge, oran, Heal { hp: None, held: Some(300) }).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(std::fs::read_to_string(&table).unwrap().lines().filter(|l| !l.starts_with('#')).collect::<Vec<_>>(), ["17 = hp=500", "155 = held_hp=300"]);
+    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fixed(500)));
+    assert_eq!(item_heal::get(&bridge, oran).unwrap().held, Some(300));
+    let rec = bridge.member(Member { arc: tables::table("items").unwrap().archive, index: potion }).unwrap();
+    assert_eq!(rec[29], 252);
+
+    // Half fits the byte: the line goes.
+    item_heal::set(&bridge, potion, Heal { hp: Some(Hp::Fraction(2)), held: None }).unwrap();
+    item_heal::set(&bridge, oran, Heal { hp: None, held: Some(10) }).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert!(!table.exists());
+    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fraction(2)));
+}

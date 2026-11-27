@@ -25,6 +25,7 @@ pub mod fielditems;
 pub mod grid;
 pub mod g3d;
 pub mod handlers;
+pub mod item_heal;
 pub mod import;
 pub mod machines;
 pub mod move_anims;
