@@ -103,13 +103,20 @@ pub struct TypeLook {
     pub button: Vec<String>,
     pub hof: (u16, u16),
     pub color: String,
+    /// The item that is the type's plate (Arceus, Judgment).
+    #[serde(default)]
+    pub plate: Option<usize>,
+    /// The item that is the type's drive and the Genesect form it gives
+    /// (5 and up; 1 to 4 are the game's drives).
+    #[serde(default)]
+    pub drive: Option<(usize, usize)>,
 }
 
 fn parse(line: &str) -> Option<TypeLook> {
     let words: Vec<&str> = line.split('#').next()?.split_whitespace().collect();
-    let mut look = TypeLook { name: None, icon: 0, colors: vec![], label: None, button: vec![], hof: (HOF[0].0, HOF[0].1), color: String::new() };
+    let mut look = TypeLook { name: None, icon: 0, colors: vec![], label: None, button: vec![], hof: (HOF[0].0, HOF[0].1), color: String::new(), plate: None, drive: None };
     let mut i = 0;
-    let keys = ["name", "icon", "colors", "label", "button", "hof", "color"];
+    let keys = ["name", "icon", "colors", "label", "button", "hof", "color", "plate", "drive"];
     while i < words.len() {
         let key = words[i];
         let vals: Vec<&str> = words[i + 1..].iter().take_while(|w| !keys.contains(w)).copied().collect();
@@ -121,6 +128,8 @@ fn parse(line: &str) -> Option<TypeLook> {
             "button" => look.button = vals.iter().map(|s| s.to_string()).collect(),
             "hof" => look.hof = (vals.first()?.parse().ok()?, vals.get(1)?.parse().ok()?),
             "color" => look.color = vals.first()?.to_string(),
+            "plate" => look.plate = Some(vals.first()?.parse().ok()?),
+            "drive" => look.drive = Some((vals.first()?.parse().ok()?, vals.get(1)?.parse().ok()?)),
             _ => return None,
         }
         i += 1 + vals.len();
@@ -138,6 +147,12 @@ fn format(l: &TypeLook) -> String {
         s += &format!(" button {}", l.button.join(" "));
     }
     s += &format!(" hof {} {} color {}", l.hof.0, l.hof.1, l.color);
+    if let Some(p) = l.plate {
+        s += &format!(" plate {p}");
+    }
+    if let Some((item, form)) = l.drive {
+        s += &format!(" drive {item} {form}");
+    }
     s
 }
 
@@ -153,7 +168,7 @@ pub fn all(project: &Project) -> BTreeMap<usize, TypeLook> {
 fn write_all(project: &Project, rows: &BTreeMap<usize, TypeLook>) -> Result<(), Error> {
     let lines = rows.iter().map(|(t, l)| (*t, format(l))).collect();
     project
-        .write_table_lines(TABLE, &lines, "<type> = name <word> icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
+        .write_table_lines(TABLE, &lines, "<type> = name <word> [plate <item>] [drive <item> <form>] icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
         .map_err(|e| Error::Missing(e.to_string()))
 }
 
@@ -481,6 +496,8 @@ pub fn create(bridge: &Bridge, t: usize, from: usize, name: &str, fill: Option<u
         button: if fill == fill_src && from < 17 { BUTTONS[from].iter().map(|&c| hex(c)).collect() } else { button_ramp(fill) },
         hof,
         color: hex(fill),
+        plate: rows.get(&t).and_then(|l| l.plate),
+        drive: rows.get(&t).and_then(|l| l.drive),
     };
     let mut rows = rows;
     rows.insert(t, look.clone());
@@ -592,6 +609,17 @@ pub fn remove_type(project: &Project, t: usize) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lines_read_back() {
+        let line = "name fairy icon 172 colors F6A5D5 9C4A7B label 113 button A B C D E F hof 47 17 color F6A5D5 plate 628 drive 629 5";
+        let l = parse(line).unwrap();
+        assert_eq!((l.name.as_deref(), l.plate, l.drive), (Some("fairy"), Some(628), Some((629, 5))));
+        assert_eq!(format(&l), line);
+        assert_eq!(key_word("Fairy", &[]), "fairy");
+        assert_eq!(key_word("Ice", &[]), "ice_2");
+        assert_eq!(key_word("3D Star", &["type_3d_star".into()]), "type_3d_star_2");
+    }
 
     #[test]
     fn lines() {

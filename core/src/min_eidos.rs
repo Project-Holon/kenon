@@ -119,13 +119,16 @@ pub fn uses(project: &Project) -> Vec<String> {
             }
         }
     }
-    // Archive folders with members: a/X/Y/Z.
+    // Archive folders with members past the game's: a/X/Y/Z. Only the
+    // move scripts (a/0/6/6) are in eidos's list; a member there counts
+    // when it is an added move's.
     let a = project.root.join("a");
     for x in 0..10 {
         for y in 0..10 {
             for z in 0..10 {
                 let d = a.join(format!("{x}/{y}/{z}"));
-                if std::fs::read_dir(&d).is_ok_and(|mut it| it.next().is_some()) {
+                let past = |name: &str| (x, y, z) != (0, 6, 6) || name.parse::<usize>().is_ok_and(|n| n > crate::move_anims::LAST as usize);
+                if std::fs::read_dir(&d).is_ok_and(|it| it.flatten().any(|e| past(&e.file_name().to_string_lossy()))) {
                     out.push(format!("a/{x}/{y}/{z}"));
                 }
             }
@@ -230,5 +233,10 @@ mod tests {
         assert_eq!(refresh(&project, &features).unwrap().because, vec!["a/0/6/6"]);
         let text = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
         assert!(text.contains("eidos = 0.2.9") && !text.contains("eidos = 0.2.8"), "{text}");
+
+        // A game move's own script (Pound, 1) is not past the game's.
+        std::fs::remove_file(root.join("a/0/6/6/560")).unwrap();
+        std::fs::write(root.join("a/0/6/6/1"), [0u8]).unwrap();
+        assert_eq!(need(&project, &features).version, Version::parse("0.2.8"));
     }
 }
