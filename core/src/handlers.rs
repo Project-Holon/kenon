@@ -101,25 +101,52 @@ pub struct Part {
 /// One line: the bases it works like, in order (`a [keys] + b [keys]`).
 pub type Row = Vec<Part>;
 
-/// Battle code eidos adds that no game entry has, named in the files
-/// (eidos research new-move-bases.md). kenon numbers them past every game
-/// id so they never meet a real one; the files hold the name.
-pub const NAMED_BASES: [(&str, usize); 5] = [
-    ("misty_terrain", NAMED_FIRST),
-    ("flower_shield", NAMED_FIRST + 1),
-    ("crafty_shield", NAMED_FIRST + 2),
-    ("fairy_lock", NAMED_FIRST + 3),
-    ("geomancy", NAMED_FIRST + 4),
+/// The first named bases, in their kenon numbers' order (the ones before
+/// eidos named more); the rest follow by name.
+const FIRST_NAMED: [&str; 5] = [
+    "misty_terrain",
+    "flower_shield",
+    "crafty_shield",
+    "fairy_lock",
+    "geomancy",
 ];
 /// The first kenon number of a named base: past the u16 ids.
 pub const NAMED_FIRST: usize = 0x1_0000;
 
+/// Battle code eidos adds that no game entry has, named in the files
+/// (`pixilate`, `geomancy`): every entry of the bundled handler_params.json
+/// that is a name, not an id, of every kind. kenon numbers them past every
+/// game id so they never meet a real one; the files hold the name.
+pub fn named_bases() -> &'static [(String, usize)] {
+    static LIST: std::sync::OnceLock<Vec<(String, usize)>> = std::sync::OnceLock::new();
+    LIST.get_or_init(|| {
+        let v = parse(BUNDLED).unwrap_or(Value::Null);
+        let mut names: Vec<String> = FIRST_NAMED.iter().map(|n| n.to_string()).collect();
+        let mut rest = std::collections::BTreeSet::new();
+        for kind in ["move", "ability", "item"] {
+            if let Some(m) = v.get(kind).and_then(Value::as_object) {
+                for k in m.keys() {
+                    if k.parse::<usize>().is_err() && !names.contains(k) {
+                        rest.insert(k.clone());
+                    }
+                }
+            }
+        }
+        names.extend(rest);
+        names
+            .into_iter()
+            .enumerate()
+            .map(|(i, n)| (n, NAMED_FIRST + i))
+            .collect()
+    })
+}
+
 /// A named base's name, for a kenon number from NAMED_FIRST on.
 pub fn base_name(base: usize) -> Option<&'static str> {
-    NAMED_BASES
+    named_bases()
         .iter()
         .find(|(_, id)| *id == base)
-        .map(|(n, _)| *n)
+        .map(|(n, _)| n.as_str())
 }
 
 /// How a base is written and listed: its name, or its number.
@@ -129,9 +156,9 @@ pub fn entry_key(base: usize) -> String {
 
 fn parse_base(word: &str) -> Option<usize> {
     word.parse().ok().or_else(|| {
-        NAMED_BASES
+        named_bases()
             .iter()
-            .find(|(n, _)| *n == word)
+            .find(|(n, _)| n == word)
             .map(|(_, id)| *id)
     })
 }
@@ -196,7 +223,7 @@ fn check_value(keys: &Value, key: &str, value: &str) -> Result<String, String> {
     let bad = || format!("{value} is not allowed for {key}");
     let value = value.trim();
     match name {
-        "stages" | "chance" => {
+        "stages" | "chance" | "turns" | "damage" | "power" | "accuracy" | "priority" => {
             let n: i64 = value.parse().map_err(|_| bad())?;
             let (lo, hi) = (
                 allowed[0].as_i64().unwrap_or(0),
@@ -254,6 +281,8 @@ fn same(builtin: &Value, value: &str) -> bool {
     match builtin {
         Value::String(s) => s == value,
         Value::Number(n) => n.as_f64() == value.parse::<f64>().ok(),
+        // A building block's key with no default: not set.
+        Value::Null => value.trim().is_empty(),
         _ => false,
     }
 }

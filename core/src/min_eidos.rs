@@ -27,6 +27,12 @@ use crate::project::Project;
 /// The manifest key.
 pub const KEY: &str = "eidos";
 const BUNDLED: &str = include_str!("features.json");
+/// The game's ball sprites (a/0/9/5) and item icons (a/0/8/3): members
+/// from these on are a new ball's.
+const GAME_BALL_SPRITES: usize = 165;
+const GAME_ITEM_ICONS: usize = 172;
+/// The first stats slot of a mod's own (eidos docs/game-tables.md).
+const FIRST_MOD_SLOT: usize = 715;
 
 /// An eidos version, compared number by number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -124,19 +130,23 @@ pub fn uses(project: &Project) -> Vec<String> {
             }
         }
     }
-    // Archive folders with members past the game's: a/X/Y/Z. Only the
-    // move scripts (a/0/6/6) are in eidos's list; a member there counts
-    // when it is an added move's.
+    // Archive folders with members past the game's: a/X/Y/Z. A member of
+    // the move scripts (a/0/6/6) counts when it is an added move's, one of
+    // the ball sprites (a/0/9/5) or the item icons (a/0/8/3) when it is
+    // past the game's members (a new ball's files).
     let a = project.root.join("a");
     for x in 0..10 {
         for y in 0..10 {
             for z in 0..10 {
                 let d = a.join(format!("{x}/{y}/{z}"));
+                let first_new = match (x, y, z) {
+                    (0, 6, 6) => Some(crate::move_anims::LAST as usize + 1),
+                    (0, 9, 5) => Some(GAME_BALL_SPRITES),
+                    (0, 8, 3) => Some(GAME_ITEM_ICONS),
+                    _ => None,
+                };
                 let past = |name: &str| {
-                    (x, y, z) != (0, 6, 6)
-                        || name
-                            .parse::<usize>()
-                            .is_ok_and(|n| n > crate::move_anims::LAST as usize)
+                    first_new.is_none_or(|f| name.parse::<usize>().is_ok_and(|n| n >= f))
                 };
                 if std::fs::read_dir(&d)
                     .is_ok_and(|it| it.flatten().any(|e| past(&e.file_name().to_string_lossy())))
@@ -144,6 +154,85 @@ pub fn uses(project: &Project) -> Vec<String> {
                     out.push(format!("a/{x}/{y}/{z}"));
                 }
             }
+        }
+    }
+    // Scripts that play a mod's sound by name (command 78), in the move
+    // scripts and the battle effect scripts.
+    for arc in ["0/6/6", "0/6/7"] {
+        let named = std::fs::read_dir(a.join(arc)).is_ok_and(|it| {
+            it.flatten().any(|e| {
+                std::fs::read(e.path())
+                    .ok()
+                    .and_then(|b| crate::effscript::disassemble(&b).ok())
+                    .is_some_and(|t| t.contains("PlaySoundByName"))
+            })
+        });
+        if named {
+            out.push(format!("a/{arc} PlaySoundByName"));
+        }
+    }
+    // A species whose forms sit at a mod's stats slots (formStatsIndex
+    // from 715): the Pokedex lists its forms.
+    let forms = std::fs::read_dir(a.join("0/1/6")).is_ok_and(|it| {
+        it.flatten().any(|e| {
+            std::fs::read(e.path()).is_ok_and(|r| {
+                r.len() > 32
+                    && r[32] > 1
+                    && u16::from_le_bytes([r[28], r[29]]) as usize >= FIRST_MOD_SLOT
+            })
+        })
+    });
+    if forms {
+        out.push("a/0/1/6 forms".into());
+    }
+    // The mod's own words: strings files and the interface's words per
+    // language, at the mod's root.
+    for l in std::iter::once("").chain(crate::project::LANGUAGES.iter().copied()) {
+        let dot = if l.is_empty() {
+            String::new()
+        } else {
+            format!(".{l}")
+        };
+        if project.root.join(format!("strings{dot}.txt")).is_file() {
+            out.push(format!("strings{dot}.txt"));
+        }
+        if !l.is_empty() && crate::translations::ui_text_path(project, Some(l)).is_file() {
+            out.push(format!("ui_text.{l}.txt"));
+        }
+    }
+    // `@key` in the settings file and in rule files, and code that asks
+    // for the mod's strings.
+    let (mut settings, mut rules, mut code) = (Vec::new(), Vec::new(), Vec::new());
+    for line in &project.manifest.other {
+        let body = line.split('#').next().unwrap_or("");
+        if let Some((k, v)) = body.split_once('=') {
+            match k.trim() {
+                "settings" => settings.push(project.root.join(v.trim())),
+                // `rule = <event> <file>`
+                "rule" => rules.extend(v.split_whitespace().nth(1).map(|f| project.root.join(f))),
+                "code" => code.push(project.root.join(v.trim())),
+                _ => {}
+            }
+        }
+    }
+    if settings.iter().any(|p| has_key_word(p)) {
+        out.push("settings @key".into());
+    }
+    if rules.iter().any(|p| has_key_word(p)) {
+        out.push("rules @key".into());
+    }
+    // A wasm module names its imports; a native mod's C sources name the
+    // services it calls.
+    let mut sources: Vec<std::path::PathBuf> = code
+        .into_iter()
+        .filter(|p| p.extension().is_some_and(|e| e == "wasm"))
+        .collect();
+    sources.extend(c_sources(&project.root));
+    for name in ["string_get", "string_language"] {
+        if sources.iter().any(|p| {
+            std::fs::read(p).is_ok_and(|b| b.windows(name.len()).any(|w| w == name.as_bytes()))
+        }) {
+            out.push(format!("api {name}"));
         }
     }
     // Text in a language of its own (`<bank>.<lang>.msg`).
@@ -157,6 +246,47 @@ pub fn uses(project: &Project) -> Vec<String> {
     }
     out.sort();
     out.dedup();
+    out
+}
+
+/// Whether a settings or rule file uses a strings key (`@key`) as a text:
+/// a word starting with `@`, or `@key(` in a rule, outside comments.
+fn has_key_word(p: &Path) -> bool {
+    std::fs::read_to_string(p).is_ok_and(|t| {
+        t.lines().any(|l| {
+            !l.trim_start().starts_with('#')
+                && l.split(|c: char| c.is_whitespace() || matches!(c, '|' | '(' | ',' | '"'))
+                    .any(|w| {
+                        w.len() > 1
+                            && w.starts_with('@')
+                            && w[1..].starts_with(|c: char| c.is_ascii_alphanumeric())
+                    })
+        })
+    })
+}
+
+/// A code mod's C sources (`.c`, `.h`) anywhere in the mod but its game
+/// folders.
+fn c_sources(root: &Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let mut work = vec![root.to_path_buf()];
+    while let Some(d) = work.pop() {
+        let Ok(it) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in it.flatten() {
+            let p = e.path();
+            let name = e.file_name().to_string_lossy().to_string();
+            if p.is_dir() {
+                if d == root && (name == "a" || name == "eidos" || name.starts_with('.')) {
+                    continue;
+                }
+                work.push(p);
+            } else if p.extension().is_some_and(|x| x == "c" || x == "h") {
+                out.push(p);
+            }
+        }
+    }
     out
 }
 
@@ -318,5 +448,66 @@ mod lang_tests {
         assert_eq!(project.msg_lines_in(2, 199, Some("fr"))[&17], "Fée");
         assert!(uses(&project).contains(&"a/0/0/2 lang".to_string()));
         assert!(project.members(2).is_empty(), "a line file is not a member");
+    }
+
+    #[test]
+    fn strings_sounds_forms_and_ball_files_are_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("m");
+        let project = Project::create(&root, "Test", None).unwrap();
+        let has = |p: &Project, k: &str| uses(p).iter().any(|u| u == k);
+        // Nothing yet.
+        for k in [
+            "strings.txt",
+            "settings @key",
+            "rules @key",
+            "a/0/1/6 forms",
+            "a/0/9/5",
+        ] {
+            assert!(!has(&project, k), "{k}");
+        }
+        std::fs::write(root.join("strings.txt"), "a.b = Hi\n").unwrap();
+        std::fs::write(root.join("strings.fr.txt"), "a.b = Salut\n").unwrap();
+        std::fs::write(root.join("ui_text.de.txt"), "Run over = Aus\n").unwrap();
+        std::fs::write(root.join("menu.txt"), "# @not.this\nbutton a.b \"@a.b\"\n").unwrap();
+        std::fs::create_dir_all(root.join("rules")).unwrap();
+        std::fs::write(
+            root.join("rules/x.rule"),
+            "rule x on battle.faint\n    do message @a.b(1)\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("mod.c"),
+            "void f(void) { svc->string_get(\"a.b\", buf, 8); }\n",
+        )
+        .unwrap();
+        // Ball sprites: a game member is a replacement, 165 on is new.
+        std::fs::create_dir_all(root.join("a/0/9/5")).unwrap();
+        std::fs::write(root.join("a/0/9/5/3"), [0u8]).unwrap();
+        // A species with 18 forms from slot 715.
+        let mut rec = vec![0u8; 76];
+        rec[28..30].copy_from_slice(&715u16.to_le_bytes());
+        rec[32] = 18;
+        std::fs::create_dir_all(root.join("a/0/1/6")).unwrap();
+        std::fs::write(root.join("a/0/1/6/493"), &rec).unwrap();
+        let mut text = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
+        text.push_str("settings = menu.txt\nrule = battle.faint rules/x.rule\n");
+        std::fs::write(root.join("eidos_mod.txt"), text).unwrap();
+        let project = Project::open(&root).unwrap();
+        for k in [
+            "strings.txt",
+            "strings.fr.txt",
+            "ui_text.de.txt",
+            "settings @key",
+            "rules @key",
+            "api string_get",
+            "a/0/1/6 forms",
+        ] {
+            assert!(has(&project, k), "{k}: {:?}", uses(&project));
+        }
+        assert!(!has(&project, "a/0/9/5"), "a replaced game sprite");
+        assert!(!has(&project, "api string_language"));
+        std::fs::write(root.join("a/0/9/5/165"), [0u8]).unwrap();
+        assert!(has(&project, "a/0/9/5"));
     }
 }

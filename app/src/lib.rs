@@ -1533,8 +1533,8 @@ fn preview_message(line: &str) -> String {
 
 /// Battle code eidos adds that no game entry has: (name, kenon number).
 #[tauri::command]
-fn named_bases() -> Vec<(&'static str, usize)> {
-    kenon_core::handlers::NAMED_BASES.to_vec()
+fn named_bases() -> Vec<(String, usize)> {
+    kenon_core::handlers::named_bases().to_vec()
 }
 
 /// The mod's handler rows for a table: id to {base, keys}.

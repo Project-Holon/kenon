@@ -71,9 +71,18 @@ pub fn rows(project: &Project, lang: &str) -> Vec<Row> {
         }
     }
     // Strings files and interface words.
-    for (source, plain) in [("strings", "strings"), ("ui", "ui_text")] {
-        let base = kv_lines(&project.root.join(format!("{plain}.txt")));
-        let theirs = kv_lines(&project.root.join(format!("{plain}.{lang}.txt")));
+    for source in ["strings", "ui"] {
+        let (base, theirs) = if source == "ui" {
+            (
+                kv_lines(&ui_text_path(project, None)),
+                kv_lines(&ui_text_path(project, Some(lang))),
+            )
+        } else {
+            (
+                kv_lines(&project.root.join("strings.txt")),
+                kv_lines(&project.root.join(format!("strings.{lang}.txt"))),
+            )
+        };
         for (key, text) in base {
             // An interface word's plain line may be empty: the word is its own text.
             let text = if text.is_empty() && source == "ui" {
@@ -98,6 +107,27 @@ pub fn rows(project: &Project, lang: &str) -> Vec<Row> {
         }
     }
     out
+}
+
+/// The interface words' file (eidos docs/mod-strings.md): the one the
+/// manifest's `ui_text` line names, else `ui_text.txt` at the mod's root;
+/// a language's file is the same name with `.<lang>` before its extension.
+pub fn ui_text_path(project: &Project, lang: Option<&str>) -> std::path::PathBuf {
+    let named = project.manifest.other.iter().rev().find_map(|l| {
+        let (k, v) = l.split('#').next()?.split_once('=')?;
+        (k.trim() == "ui_text" && !v.trim().is_empty()).then(|| v.trim().to_string())
+    });
+    let plain = project.root.join(named.as_deref().unwrap_or("ui_text.txt"));
+    let Some(lang) = lang else { return plain };
+    let stem = plain
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let name = match plain.extension() {
+        Some(e) => format!("{stem}.{lang}.{}", e.to_string_lossy()),
+        None => format!("{stem}.{lang}"),
+    };
+    plain.with_file_name(name)
 }
 
 /// A `key = text` file's lines in order (strings, ui_text), comments left out.
@@ -186,7 +216,7 @@ pub fn set_one(
             fresh.save_meta().map_err(|e| Error::Missing(e.to_string()))
         }
         "strings" => set_kv_line(&project.root.join(format!("strings.{lang}.txt")), key, text),
-        "ui" => set_kv_line(&project.root.join(format!("ui_text.{lang}.txt")), key, text),
+        "ui" => set_kv_line(&ui_text_path(project, Some(lang)), key, text),
         _ => Err(Error::BadPath(format!("no translations in {source}"))),
     }
 }

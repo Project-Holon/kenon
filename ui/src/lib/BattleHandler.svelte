@@ -28,7 +28,7 @@
     onSaved: () => void;
   } = $props();
 
-  type Builtin = string | number;
+  type Builtin = string | number | null;
   interface Entry {
     keys: Record<string, Builtin>;
     notes: string[];
@@ -89,7 +89,7 @@
 
   function editOf(p: Part): Edit {
     const values: Record<string, string> = {};
-    for (const [k, b] of Object.entries(entryOf(p.base)?.keys ?? {})) values[k] = p.keys[k] ?? String(b);
+    for (const [k, b] of Object.entries(entryOf(p.base)?.keys ?? {})) values[k] = p.keys[k] ?? (b === null ? "" : String(b));
     return { base: p.base, values };
   }
   function reset() {
@@ -104,7 +104,8 @@
     untrack(reset);
   });
 
-  const isSame = (b: Builtin | undefined, v: string) => b !== undefined && (String(b) === v || (typeof b === "number" && Number(v) === b));
+  const isSame = (b: Builtin | undefined, v: string) =>
+    b !== undefined && (b === null ? v === "" : String(b) === v || (typeof b === "number" && v !== "" && Number(v) === b));
   function changed(e: Edit): Part {
     const builtin = entryOf(e.base)?.keys ?? {};
     return { base: e.base, keys: Object.fromEntries(Object.entries(e.values).filter(([k, v]) => !isSame(builtin[k], v))) };
@@ -171,6 +172,12 @@
     chance: "Chance (%)",
     ratio: "Multiplier",
     hp: "HP amount",
+    kind: "Moves",
+    turns: "Turns",
+    damage: "Damage (HP)",
+    power: "Power",
+    accuracy: "Accuracy (%)",
+    priority: "Priority",
   };
   const STAT_LABEL: Record<string, string> = {
     atk: "Attack",
@@ -180,6 +187,18 @@
     speed: "Speed",
     accuracy: "Accuracy",
     evasion: "Evasion",
+  };
+  const KIND_LABEL: Record<string, string> = {
+    contact: "Contact moves",
+    punch: "Punching moves",
+    sound: "Sound moves",
+    bite: "Biting moves",
+    pulse: "Pulse moves",
+    ball: "Ball and bomb moves",
+    powder: "Powder moves",
+    physical: "Physical moves",
+    special: "Special moves",
+    status: "Status moves",
   };
   const WEATHER_LABEL: Record<string, string> = { sun: "Harsh sunlight", rain: "Rain", hail: "Hail", sand: "Sandstorm" };
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -193,7 +212,8 @@
     const allowed = params?.keys[name] ?? [];
     if (name === "stat") return allowed.map((s) => [String(s), STAT_LABEL[String(s)] ?? String(s)]);
     if (name === "weather") return allowed.map((s) => [String(s), WEATHER_LABEL[String(s)] ?? cap(String(s))]);
-    if (name === "status" || name === "type") return allowed.map((s) => [String(s), cap(String(s))]);
+    if (name === "kind") return allowed.map((s) => [String(s), KIND_LABEL[String(s)] ?? cap(String(s))]);
+    if (allowed.every((s) => typeof s === "string")) return allowed.map((s) => [String(s), cap(String(s))]);
     if (name === "stages") {
       const out: [string, string][] = [];
       for (let n = Number(allowed[0] ?? -6); n <= Number(allowed[1] ?? 6); n++) if (n) out.push([String(n), n > 0 ? `+${n}` : String(n)]);
@@ -206,9 +226,17 @@
     }
     return [];
   }
-  const numeric = (k: string) => ["chance", "ratio"].includes(k.split(".")[0]);
+  // A [low, high] key other than the ones with their own lists.
+  const numeric = (k: string) => {
+    const name = k.split(".")[0];
+    const a = params?.keys[name] ?? [];
+    return !["stages", "hp"].includes(name) && a.length === 2 && a.every((x) => typeof x === "number");
+  };
+  // Keys with no default (building blocks) may stay unset.
+  const optional = (e: Entry, k: string) => e.keys[k] === null;
   const range = (k: string) => (params?.keys[k.split(".")[0]] ?? [0, 100]).map(Number);
-  const builtinLabel = (e: Entry, k: string) => choices(k).find(([v]) => v === String(e.keys[k]))?.[1] ?? String(e.keys[k]);
+  const builtinLabel = (e: Entry, k: string) =>
+    e.keys[k] === null ? "Not set" : (choices(k).find(([v]) => v === String(e.keys[k]))?.[1] ?? String(e.keys[k]));
 
   // The base list: built-in entries by name, those with numbers marked.
   const bases = $derived(
@@ -235,7 +263,7 @@
   }
   // Number boxes in reading order: what changes, then by how much and how
   // often.
-  const KEY_ORDER = ["stat", "stages", "status", "type", "weather", "chance", "ratio", "hp"];
+  const KEY_ORDER = ["kind", "stat", "stages", "status", "type", "weather", "chance", "ratio", "power", "damage", "accuracy", "priority", "turns", "hp"];
   const keyRank = (k: string) => {
     const [name, n] = k.split(".");
     const r = KEY_ORDER.indexOf(name);
@@ -299,12 +327,14 @@
                     min={range(k)[0]}
                     max={range(k)[1]}
                     step={k.startsWith("ratio") ? 0.05 : 1}
+                    placeholder={optional(e, k) ? "Not set" : undefined}
                     value={p.values[k]}
                     disabled={readOnly}
                     oninput={(ev) => setValue(i, k, ev.currentTarget.value)}
                   />
                 {:else}
                   <select value={p.values[k]} disabled={readOnly} onchange={(ev) => setValue(i, k, ev.currentTarget.value)}>
+                    {#if optional(e, k)}<option value="">Not set</option>{/if}
                     {#each choices(k) as [v, l]}<option value={v}>{l}</option>{/each}
                   </select>
                 {/if}
