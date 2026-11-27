@@ -61,6 +61,21 @@ pub fn default_for(project: &Project, id: usize) -> u16 {
         .map_or(1, |b| b as u16)
 }
 
+/// After a move's battle effect changed: a move with no line that played
+/// `before` and now falls back to Pound (its new base is an effect eidos
+/// adds by name, or no game move) keeps `before` as its own line.
+pub fn keep_after_handler_change(project: &Project, id: usize, before: u16) -> Result<(), String> {
+    let mut rows = all(project);
+    if rows.contains_key(&id) || playable(project, id) {
+        return Ok(());
+    }
+    if default_for(project, id) == 1 && before != 1 {
+        rows.insert(id, before);
+        write(project, &rows)?;
+    }
+    Ok(())
+}
+
 /// The animation a move plays in this mod.
 pub fn current(project: &Project, id: usize) -> u16 {
     all(project)

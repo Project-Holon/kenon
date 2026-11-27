@@ -608,6 +608,14 @@ fn a_move_animation_follows_its_default_and_a_removal() {
     let all = move_anims::all(project);
     assert_eq!(all.len(), 2);
     assert_eq!((all[&53], all[&560]), (85, 236));
+
+    // A move playing its base's animation keeps it when its effect becomes
+    // a named one, which has no animation (else it would play Pound's).
+    move_anims::set(project, 560, None).unwrap();
+    handlers::set(project, "move", &params, 560, like(85)).unwrap();
+    assert!(!move_anims::all(project).contains_key(&560));
+    handlers::set(project, "move", &params, 560, like(handlers::NAMED_FIRST)).unwrap();
+    assert_eq!(move_anims::current(project, 560), 85);
 }
 
 #[test]

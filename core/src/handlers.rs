@@ -305,7 +305,14 @@ pub fn set(
     } else {
         all.insert(id, out);
     }
-    write(project, kind, &all)
+    // A move that played its old base's animation keeps it when the new
+    // base has none of its own (a named effect).
+    let anim_before = (kind == "move").then(|| crate::move_anims::current(project, id));
+    write(project, kind, &all)?;
+    match anim_before {
+        Some(before) => crate::move_anims::keep_after_handler_change(project, id, before),
+        None => Ok(()),
+    }
 }
 
 /// After an added entry is removed: its row goes and the later ids move
