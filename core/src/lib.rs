@@ -49,6 +49,7 @@ pub mod source;
 pub mod spa;
 pub mod species_add;
 pub mod tables;
+pub mod text_from;
 pub mod trainer_mons;
 pub mod trainer_text;
 pub mod translations;

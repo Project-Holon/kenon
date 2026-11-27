@@ -407,8 +407,18 @@ fn translation_rows(
 fn export_bw(state: State<AppState>, path: PathBuf) -> Result<(), String> {
     let project = state.open.read().unwrap().project.clone();
     let project = project.ok_or_else(|| "open a project first".to_string())?;
+    set_mod_language(&state, &project)?;
     refresh_min_eidos(&project)?;
     kenon_core::package::pack(&project.root, &path).map_err(|e| e.to_string())
+}
+
+/// The mod's `lang` line: the language of the ROM its text was made on.
+fn set_mod_language(state: &AppState, project: &Project) -> Result<(), String> {
+    let lang = match &state.open.read().unwrap().source {
+        Some(kenon_core::source::Source::Rom(rom)) => kenon_core::reference::language_of(rom),
+        _ => None,
+    };
+    kenon_core::text_from::set_language(project, lang).map_err(|e| e.to_string())
 }
 
 /// Writes the mod's `eidos = ` line for what it uses (crate min_eidos).
@@ -1314,6 +1324,7 @@ fn test_in_game(app: tauri::AppHandle, state: State<AppState>) -> Result<(), Str
         .unwrap_or_default();
     let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
     let folder = kenon_core::preview::test_folder(&project.root).ok_or("no eidos user folder")?;
+    set_mod_language(&state, project)?;
     refresh_min_eidos(project)?;
     let args = kenon_core::preview::test_args(&profile, &project.root, &folder);
     run_eidos(app, args)

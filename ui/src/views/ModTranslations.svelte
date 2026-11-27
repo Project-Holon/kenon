@@ -33,7 +33,7 @@
   // Lines a translation needs nothing for: names in capitals (written with
   // the name) and sentences eidos builds from the game's own in each
   // language ("X used ...!", "a ...").
-  const AUTO = new Set([13, 279, 281, 284, 285, 286]);
+  const AUTO = new Set([13, 279, 280, 281, 284, 285, 286]);
   // What a line is, by its bank (a/0/0/2; TextPanel's fields).
   const WHAT: Record<number, string> = {
     70: "Pokemon name",

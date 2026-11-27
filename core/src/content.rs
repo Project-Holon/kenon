@@ -296,6 +296,8 @@ pub fn add(bridge: &Bridge, table: &str, from: usize, name: &str) -> Result<usiz
             .map_err(|e| Error::Missing(e.to_string()))?;
     }
 
+    // Its sentence lines in other languages: the source's (eidos text_from).
+    crate::text_from::added(project, k.table, id, from)?;
     // The limit last: until it is written the port ignores the new id.
     set_limit(project, k, Some(id))?;
     bridge.invalidate();
@@ -355,6 +357,9 @@ pub fn remove(bridge: &Bridge, table: &str, id: usize) -> Result<Removed, Error>
     }
     if k.table == "items" && crate::machines::item_removed(project, id)? {
         report.updated.push("New TMs' items".into());
+    }
+    if crate::text_from::removed(project, k.table, id)? {
+        report.updated.push("Sentence line sources".into());
     }
     if k.table == "items" && crate::item_heal::item_removed(project, id)? {
         report.updated.push("Heal amounts".into());
