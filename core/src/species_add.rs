@@ -302,6 +302,9 @@ const GAME_FORM_SLOTS: usize = 652;
 const GAME_FORM_PALETTES: usize = 0x37AD;
 /// Arceus: its form is its type (Multitype).
 const ARCEUS: usize = 493;
+/// The most forms a species has, its own included (eidos lists 64 in the
+/// Pokedex and takes `<species>.<form>` up to 63).
+pub const MAX_FORMS: usize = 64;
 
 fn planned(bridge: &Bridge, project: &Project, slot: usize) -> Planned {
     Planned {
@@ -669,8 +672,10 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
     let mut data = read_slot(bridge, from);
     data[pos(EVOLUTION_ARC)] = vec![0u8; 42];
     let forms = &mut plan[species - FIRST_NEW].1;
-    if forms.len() >= 254 {
-        return Err(Error::BadPath("a Pokemon has at most 255 forms".into()));
+    if forms.len() + 1 >= MAX_FORMS {
+        return Err(Error::BadPath(format!(
+            "a Pokemon has at most {MAX_FORMS} forms"
+        )));
     }
     forms.push(Planned {
         kind: SlotKind::Full,
@@ -827,8 +832,10 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
         }
     };
     let forms = &mut game[at].1;
-    if forms.len() >= 254 {
-        return Err(Error::BadPath("a Pokemon has at most 255 forms".into()));
+    if forms.len() + 1 >= MAX_FORMS {
+        return Err(Error::BadPath(format!(
+            "a Pokemon has at most {MAX_FORMS} forms"
+        )));
     }
     let kind = forms[0].kind;
     let new_form = forms.len() + 1;
