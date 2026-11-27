@@ -981,6 +981,31 @@ fn set_item_heal(
     kenon_core::item_heal::set(&bridge, item, heal).map_err(|e| e.to_string())
 }
 
+/// A move's kinds (bite, pulse, ball, powder) in this mod.
+#[tauri::command]
+fn move_kinds(state: State<AppState>, id: usize) -> Result<Vec<String>, String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    Ok(kenon_core::move_kinds::kinds(&project, id))
+}
+
+#[tauri::command]
+fn set_move_kinds(state: State<AppState>, id: usize, kinds: Vec<String>) -> Result<(), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    kenon_core::move_kinds::set(&project, id, &kinds).map_err(|e| e.to_string())
+}
+
 /// Sets an added type's colours (RRGGBB).
 #[tauri::command]
 fn set_type_colors(
@@ -2943,6 +2968,8 @@ pub fn run() {
             set_type_chart,
             add_type,
             type_look,
+            move_kinds,
+            set_move_kinds,
             item_heal,
             set_item_heal,
             add_type_plate,

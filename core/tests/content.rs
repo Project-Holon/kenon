@@ -1586,3 +1586,65 @@ fn ball_particle_files_are_named_after_their_ball() {
         effects.keys().take(20).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn the_games_move_kinds_name_the_right_moves() {
+    use kenon_core::move_kinds;
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    let names = tables::enum_values(&bridge, "move").unwrap();
+    let of = |kind: &str| -> Vec<String> {
+        (1..560)
+            .filter(|&m| move_kinds::game_kinds(m).iter().any(|k| k == kind))
+            .map(|m| names[m].clone())
+            .collect()
+    };
+    assert_eq!(
+        of("bite"),
+        [
+            "Bite",
+            "Hyper Fang",
+            "Crunch",
+            "Poison Fang",
+            "Thunder Fang",
+            "Ice Fang",
+            "Fire Fang"
+        ]
+    );
+    assert_eq!(
+        of("pulse"),
+        [
+            "Water Pulse",
+            "Aura Sphere",
+            "Dark Pulse",
+            "Dragon Pulse",
+            "Heal Pulse"
+        ]
+    );
+    assert_eq!(
+        of("powder"),
+        [
+            "PoisonPowder",
+            "Stun Spore",
+            "Sleep Powder",
+            "Spore",
+            "Cotton Spore",
+            "Rage Powder"
+        ]
+    );
+    let ball = of("ball");
+    assert_eq!(ball.len(), 21);
+    for n in [
+        "Barrage",
+        "Shadow Ball",
+        "Weather Ball",
+        "Searing Shot",
+        "Acid Spray",
+        "Rock Wrecker",
+        "Octazooka",
+        "Zap Cannon",
+    ] {
+        assert!(ball.iter().any(|b| b == n), "{n} in {ball:?}");
+    }
+}

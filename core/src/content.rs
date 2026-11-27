@@ -358,6 +358,9 @@ pub fn remove(bridge: &Bridge, table: &str, id: usize) -> Result<Removed, Error>
     if k.table == "items" && crate::machines::item_removed(project, id)? {
         report.updated.push("New TMs' items".into());
     }
+    if k.table == "moves" && crate::move_kinds::removed(project, id)? {
+        report.updated.push("Move kinds".into());
+    }
     if crate::text_from::removed(project, k.table, id)? {
         report.updated.push("Sentence line sources".into());
     }
