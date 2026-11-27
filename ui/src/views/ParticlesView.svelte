@@ -192,6 +192,11 @@
     return out;
   });
   const has = (b: string | null) => !b || blocks[emitter]?.includes(b);
+  // An emitter's groups in two halves, each one screen: how particles start
+  // and look, then what changes over their life and their children.
+  const FIRST_HALF = new Set(["Emission", "Motion", "Particle", "Rotation", "Animation"]);
+  let half = $state<0 | 1>(0);
+  const shownGroups = $derived(groups.filter((g) => FIRST_HALF.has(g.name) === (half === 0)));
   // Switching a part on or off saves at once (with the other edits), so a
   // new part's fields show with their starting values.
   function toggle(b: string, on: boolean) {
@@ -266,9 +271,12 @@
         {#each file.emitters as _, e}
           <button role="tab" aria-selected={e === emitter} onclick={() => (emitter = e)}>Emitter {e + 1}</button>
         {/each}
+        <span class="tab-gap"></span>
+        <button role="tab" aria-selected={half === 0} onclick={() => (half = 0)}>Emission and look</button>
+        <button role="tab" aria-selected={half === 1} onclick={() => (half = 1)}>Over time and children</button>
       </div>
       <div class="cards">
-        {#each groups as g}
+        {#each shownGroups as g}
           {@const shownF = shownFields(g)}
           <div class="window card" class:off={!has(g.block)}>
             <div class="card-head">
@@ -407,6 +415,12 @@
   }
   .sec-tabs {
     padding: 0 1rem;
+  }
+  .tab-gap {
+    width: 1px;
+    align-self: stretch;
+    margin: 0.4rem 0.4rem;
+    background: var(--rim);
   }
   .cards {
     columns: 13.5rem 4;
