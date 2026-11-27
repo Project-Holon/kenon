@@ -165,7 +165,7 @@ pub fn all(project: &Project) -> BTreeMap<usize, TypeLook> {
         .collect()
 }
 
-fn write_all(project: &Project, rows: &BTreeMap<usize, TypeLook>) -> Result<(), Error> {
+pub fn write_rows(project: &Project, rows: &BTreeMap<usize, TypeLook>) -> Result<(), Error> {
     let lines = rows.iter().map(|(t, l)| (*t, format(l))).collect();
     project
         .write_table_lines(TABLE, &lines, "<type> = name <word> [plate <item>] [drive <item> <form>] icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
@@ -501,7 +501,7 @@ pub fn create(bridge: &Bridge, t: usize, from: usize, name: &str, fill: Option<u
     };
     let mut rows = rows;
     rows.insert(t, look.clone());
-    write_all(project, &rows)?;
+    write_rows(project, &rows)?;
     bridge.invalidate();
     Ok(look)
 }
@@ -551,7 +551,7 @@ pub fn set_colors(bridge: &Bridge, t: usize, fill: &str, border: &str) -> Result
     look.colors = vec![fill.to_uppercase(), border.to_uppercase()];
     look.button = button_ramp(f);
     look.color = fill.to_uppercase();
-    write_all(project, &rows)?;
+    write_rows(project, &rows)?;
     bridge.invalidate();
     Ok(())
 }
@@ -603,7 +603,7 @@ pub fn remove_type(project: &Project, t: usize) -> Result<(), Error> {
         }
     }
     let shifted = rows.into_iter().map(|(k, l)| (if k > t { k - 1 } else { k }, l)).collect();
-    write_all(project, &shifted)
+    write_rows(project, &shifted)
 }
 
 #[cfg(test)]

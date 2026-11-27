@@ -1117,3 +1117,37 @@ fn a_new_tm_is_added_learned_and_removed() {
     assert!(!dir.path().join("m/eidos/tables/machine_items.txt").exists());
     assert!(machines::remove_last(&bridge).is_err());
 }
+
+#[test]
+fn a_new_type_gets_a_plate_and_a_drive() {
+    use kenon_core::{handlers, type_items, type_pictures, types};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let fairy = types::add(&bridge, "Fairy", 13).unwrap();
+    let bridge = reopen(bridge, &dir);
+    type_pictures::create(&bridge, fairy, 13, "Fairy", None).unwrap();
+    let params = handlers::params("item", None).unwrap();
+    let plate = type_items::add_plate(&bridge, fairy, &params).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let drive = type_items::add_drive(&bridge, fairy, 5).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!((plate, drive), (627, 628));
+    let names = tables::enum_values(&bridge, "item").unwrap();
+    assert_eq!((names[plate].as_str(), names[drive].as_str()), ("Fairy Plate", "Fairy Drive"));
+    let desc = catalog::text_bank(&bridge, 2, 53).unwrap();
+    assert!(desc[plate].contains("Fairy") && !desc[plate].contains("Fire"), "{}", desc[plate]);
+    assert!(desc[drive].contains("Fairy") && !desc[drive].contains("Water"), "{}", desc[drive]);
+    let project = bridge.project().unwrap().clone();
+    let row = &handlers::rows(&project, "item")[&plate];
+    assert_eq!((row[0].base, row[0].keys["type"].as_str()), (298, "fairy"));
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
+    assert!(text.contains(&format!("plate {plate} drive {drive} 5")), "{text}");
+    assert!(type_items::set_drive(&bridge, fairy, Some((drive, 4))).is_err());
+
+    // Removing the plate: the drive moves down to its number.
+    content::remove(&bridge, "items", plate).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let look = &type_pictures::all(bridge.project().unwrap())[&fairy];
+    assert_eq!((look.plate, look.drive), (None, Some((plate, 5))));
+}
