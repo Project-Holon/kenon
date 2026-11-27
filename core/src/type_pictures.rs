@@ -39,9 +39,18 @@ const WHITE: u8 = 15;
 /// The game's per-type palette rows of a/0/8/3 member 0x21 (rows 0..2),
 /// with the body colours each icon uses (eidos research 2.3).
 const ICON_PALETTE: [[u16; 16]; 3] = [
-    [0x0000, 0x62B5, 0x2E97, 0x2EDA, 0x1B1F, 0x4A95, 0x0D4E, 0x256E, 0x18E9, 0x1D54, 0x048E, 0x195E, 0x5F18, 0x227F, 0x294A, 0x7FFF],
-    [0x0000, 0x51DF, 0x5176, 0x28E9, 0x598C, 0x7AB3, 0x4948, 0x7E67, 0x732B, 0x1CED, 0x55CA, 0x6ED2, 0x7F78, 0x7C1F, 0x294A, 0x7FFF],
-    [0x0000, 0x718F, 0x48E9, 0x2544, 0x4A8D, 0x1DA8, 0x2B2F, 0x12F5, 0x7C1F, 0x7C1F, 0x7C1F, 0x7C1F, 0x7C1F, 0x7C1F, 0x294A, 0x7FFF],
+    [
+        0x0000, 0x62B5, 0x2E97, 0x2EDA, 0x1B1F, 0x4A95, 0x0D4E, 0x256E, 0x18E9, 0x1D54, 0x048E,
+        0x195E, 0x5F18, 0x227F, 0x294A, 0x7FFF,
+    ],
+    [
+        0x0000, 0x51DF, 0x5176, 0x28E9, 0x598C, 0x7AB3, 0x4948, 0x7E67, 0x732B, 0x1CED, 0x55CA,
+        0x6ED2, 0x7F78, 0x7C1F, 0x294A, 0x7FFF,
+    ],
+    [
+        0x0000, 0x718F, 0x48E9, 0x2544, 0x4A8D, 0x1DA8, 0x2B2F, 0x12F5, 0x7C1F, 0x7C1F, 0x7C1F,
+        0x7C1F, 0x7C1F, 0x7C1F, 0x294A, 0x7FFF,
+    ],
 ];
 const ICON_ROW: [usize; 17] = [0, 0, 1, 1, 0, 0, 2, 1, 0, 0, 1, 2, 0, 1, 1, 2, 0];
 /// The battle move button's six shades per game type (a/0/1/1 row 0,
@@ -67,9 +76,23 @@ const BUTTONS: [[u16; 6]; 17] = [
 ];
 /// Hall of Fame particle and palette members of a/2/1/6 per game type.
 const HOF: [(u16, u16); 17] = [
-    (0x2D, 0x03), (0x26, 0x09), (0x28, 0x0B), (0x2E, 0x10), (0x2B, 0x0E), (0x30, 0x12),
-    (0x22, 0x05), (0x29, 0x0C), (0x31, 0x13), (0x27, 0x0A), (0x32, 0x14), (0x2A, 0x0D),
-    (0x25, 0x08), (0x2F, 0x11), (0x2C, 0x0F), (0x24, 0x07), (0x23, 0x06),
+    (0x2D, 0x03),
+    (0x26, 0x09),
+    (0x28, 0x0B),
+    (0x2E, 0x10),
+    (0x2B, 0x0E),
+    (0x30, 0x12),
+    (0x22, 0x05),
+    (0x29, 0x0C),
+    (0x31, 0x13),
+    (0x27, 0x0A),
+    (0x32, 0x14),
+    (0x2A, 0x0D),
+    (0x25, 0x08),
+    (0x2F, 0x11),
+    (0x2C, 0x0F),
+    (0x24, 0x07),
+    (0x23, 0x06),
 ];
 
 /// A colour as RRGGBB.
@@ -78,7 +101,9 @@ fn hex(c: u16) -> String {
     format!("{:02X}{:02X}{:02X}", f(c), f(c >> 5), f(c >> 10))
 }
 fn from_hex(s: &str) -> Option<u16> {
-    let v = u32::from_str_radix(s.trim_start_matches('#'), 16).ok().filter(|_| s.trim_start_matches('#').len() == 6)?;
+    let v = u32::from_str_radix(s.trim_start_matches('#'), 16)
+        .ok()
+        .filter(|_| s.trim_start_matches('#').len() == 6)?;
     let c = |sh: u32| ((v >> sh) & 0xFF) as u16 >> 3;
     Some(c(16) | c(8) << 5 | c(0) << 10)
 }
@@ -114,12 +139,28 @@ pub struct TypeLook {
 
 fn parse(line: &str) -> Option<TypeLook> {
     let words: Vec<&str> = line.split('#').next()?.split_whitespace().collect();
-    let mut look = TypeLook { name: None, icon: 0, colors: vec![], label: None, button: vec![], hof: (HOF[0].0, HOF[0].1), color: String::new(), plate: None, drive: None };
+    let mut look = TypeLook {
+        name: None,
+        icon: 0,
+        colors: vec![],
+        label: None,
+        button: vec![],
+        hof: (HOF[0].0, HOF[0].1),
+        color: String::new(),
+        plate: None,
+        drive: None,
+    };
     let mut i = 0;
-    let keys = ["name", "icon", "colors", "label", "button", "hof", "color", "plate", "drive"];
+    let keys = [
+        "name", "icon", "colors", "label", "button", "hof", "color", "plate", "drive",
+    ];
     while i < words.len() {
         let key = words[i];
-        let vals: Vec<&str> = words[i + 1..].iter().take_while(|w| !keys.contains(w)).copied().collect();
+        let vals: Vec<&str> = words[i + 1..]
+            .iter()
+            .take_while(|w| !keys.contains(w))
+            .copied()
+            .collect();
         match key {
             "name" => look.name = Some(vals.first()?.to_string()),
             "icon" => look.icon = vals.first()?.parse().ok()?,
@@ -138,7 +179,11 @@ fn parse(line: &str) -> Option<TypeLook> {
 }
 
 fn format(l: &TypeLook) -> String {
-    let mut s = l.name.as_ref().map(|n| format!("name {n} ")).unwrap_or_default();
+    let mut s = l
+        .name
+        .as_ref()
+        .map(|n| format!("name {n} "))
+        .unwrap_or_default();
     s += &format!("icon {} colors {}", l.icon, l.colors.join(" "));
     if let Some(m) = l.label {
         s += &format!(" label {m}");
@@ -213,7 +258,10 @@ pub fn icon_of(bridge: &Bridge, t: usize) -> Result<Icon, Error> {
             .and_then(|p| all(p).get(&t).map(|l| l.icon))
             .ok_or_else(|| Error::Missing(format!("type {t} has no icon")))?
     };
-    let b = bridge.member(Member { arc: ICONS, index: member })?;
+    let b = bridge.member(Member {
+        arc: ICONS,
+        index: member,
+    })?;
     let g = crate::ncgr::Ncgr::parse(&b).map_err(|e| Error::Format(e.to_string()))?;
     Ok(tiles_to_icon(&g.data))
 }
@@ -261,7 +309,15 @@ fn letters(bridge: &Bridge) -> Result<HashMap<char, Glyph>, Error> {
     let mut words = Vec::new();
     for t in 0..17 {
         let icon = icon_of(bridge, t)?;
-        let word: Vec<char> = names.get(t).map(|n| n.to_uppercase().chars().filter(|c| !c.is_whitespace()).collect()).unwrap_or_default();
+        let word: Vec<char> = names
+            .get(t)
+            .map(|n| {
+                n.to_uppercase()
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect()
+            })
+            .unwrap_or_default();
         // Columns holding white text, in runs: one run per letter, or
         // several letters whose white touches.
         let white = |x: usize| (TEXT_TOP..TEXT_TOP + TEXT_ROWS).any(|y| icon[y * W + x] == WHITE);
@@ -292,7 +348,10 @@ fn letters(bridge: &Bridge) -> Result<HashMap<char, Glyph>, Error> {
                 }
             }
         }
-        Glyph { width: e - s, pixels }
+        Glyph {
+            width: e - s,
+            pixels,
+        }
     };
     let mut found: HashMap<char, Vec<Glyph>> = HashMap::new();
     // First the words whose letters all stand apart.
@@ -353,7 +412,11 @@ fn letters(bridge: &Bridge) -> Result<HashMap<char, Glyph>, Error> {
 /// The letters a name needs that no game icon has.
 pub fn missing_letters(bridge: &Bridge, name: &str) -> Result<Vec<char>, Error> {
     let lib = letters(bridge)?;
-    let mut out: Vec<char> = name.to_uppercase().chars().filter(|c| !c.is_whitespace() && !lib.contains_key(c)).collect();
+    let mut out: Vec<char> = name
+        .to_uppercase()
+        .chars()
+        .filter(|c| !c.is_whitespace() && !lib.contains_key(c))
+        .collect();
     out.dedup();
     Ok(out)
 }
@@ -362,7 +425,11 @@ pub fn missing_letters(bridge: &Bridge, name: &str) -> Result<Vec<char>, Error> 
 /// in the game's letters and shadow. Body indices: 1 fill, 2 border.
 pub fn make_icon(bridge: &Bridge, from: usize, name: &str) -> Result<Icon, Error> {
     let lib = letters(bridge)?;
-    let word: Vec<char> = name.to_uppercase().chars().filter(|c| !c.is_whitespace()).collect();
+    let word: Vec<char> = name
+        .to_uppercase()
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
     if let Some(c) = word.iter().find(|c| !lib.contains_key(c)) {
         return Err(Error::BadPath(format!(
             "No built-in type icon has the letter {c}. Import a 32x16 PNG instead."
@@ -374,8 +441,7 @@ pub fn make_icon(bridge: &Bridge, from: usize, name: &str) -> Result<Icon, Error
     let border_idx = src[2 * W];
     let mut icon: Icon = src
         .iter()
-        .enumerate()
-        .map(|(_, &v)| match v {
+        .map(|&v| match v {
             0 => 0,
             OUTLINE | WHITE => 1, // text pixels become fill, then redrawn
             v if v == border_idx => 2,
@@ -397,11 +463,15 @@ pub fn make_icon(bridge: &Bridge, from: usize, name: &str) -> Result<Icon, Error
     // letters (the game's usual spacing), else the shadow alone when that
     // would not fit, centred. The game spaced a few words by hand, so a
     // rebuilt game icon can sit a pixel apart from the original.
-    let width = |gap: usize| word.iter().map(|c| lib[c].width).sum::<usize>() + gap * word.len().saturating_sub(1) + 1;
+    let width = |gap: usize| {
+        word.iter().map(|c| lib[c].width).sum::<usize>() + gap * word.len().saturating_sub(1) + 1
+    };
     let gap = if width(2) <= W - 4 { 2 } else { 1 };
     let total = width(gap);
     if total > W - 2 {
-        return Err(Error::BadPath(format!("\"{name}\" is too long for a type icon.")));
+        return Err(Error::BadPath(format!(
+            "\"{name}\" is too long for a type icon."
+        )));
     }
     let mut x0 = (W - total) / 2;
     // Shadows first, then the white over them: a letter's white is never
@@ -409,7 +479,12 @@ pub fn make_icon(bridge: &Bridge, from: usize, name: &str) -> Result<Icon, Error
     let mut placed: Vec<(usize, usize, u8)> = Vec::new();
     for c in &word {
         let glyph = &lib[c];
-        placed.extend(glyph.pixels.iter().map(|&(dx, dy, v)| (x0 + dx, TEXT_TOP + dy, v)));
+        placed.extend(
+            glyph
+                .pixels
+                .iter()
+                .map(|&(dx, dy, v)| (x0 + dx, TEXT_TOP + dy, v)),
+        );
         x0 += glyph.width + gap;
     }
     for pass in [OUTLINE, WHITE] {
@@ -424,21 +499,31 @@ pub fn make_icon(bridge: &Bridge, from: usize, name: &str) -> Result<Icon, Error
 
 /// Six button shades from a colour, light to dark, as the game's ramps go.
 fn button_ramp(fill: u16) -> Vec<String> {
-    [1.0, 0.88, 0.76, 0.64, 0.52, 0.40].iter().map(|&k| hex(scale(fill, k))).collect()
+    [1.0, 0.88, 0.76, 0.64, 0.52, 0.40]
+        .iter()
+        .map(|&k| hex(scale(fill, k)))
+        .collect()
 }
 
 /// The icon file: a copy of the game's icon RGCN (member 0x22) with new
 /// pixels.
 fn icon_file(bridge: &Bridge, icon: &Icon) -> Result<Vec<u8>, Error> {
-    let template = bridge.member(Member { arc: ICONS, index: 0x22 })?;
-    crate::ncgr::Ncgr::with_data(&template, &icon_to_tiles(icon)).map_err(|e| Error::Format(e.to_string()))
+    let template = bridge.member(Member {
+        arc: ICONS,
+        index: 0x22,
+    })?;
+    crate::ncgr::Ncgr::with_data(&template, &icon_to_tiles(icon))
+        .map_err(|e| Error::Format(e.to_string()))
 }
 
 /// The label file: six labels, each the icon (one word in every language
 /// until the user draws them), as a copy of the game's label sheet layout:
 /// 48 tiles in one row of 4x2-tile cells, 1D.
 fn label_file(bridge: &Bridge, icon: &Icon) -> Result<Vec<u8>, Error> {
-    let template = bridge.member(Member { arc: ICONS, index: 0x22 })?;
+    let template = bridge.member(Member {
+        arc: ICONS,
+        index: 0x22,
+    })?;
     let tiles = icon_to_tiles(icon);
     let data: Vec<u8> = (0..6).flat_map(|_| tiles.clone()).collect();
     // The icon RGCN's header with six times the tiles.
@@ -456,7 +541,12 @@ fn label_file(bridge: &Bridge, icon: &Icon) -> Result<Vec<u8>, Error> {
 }
 
 /// The first free member past an archive's end and the mod's own members.
-fn free_member(bridge: &Bridge, project: &Project, arc: u16, taken: &[usize]) -> Result<usize, Error> {
+fn free_member(
+    bridge: &Bridge,
+    project: &Project,
+    arc: u16,
+    taken: &[usize],
+) -> Result<usize, Error> {
     let base = bridge.base_archive(arc)?.len();
     let mut m = base.max(project.last_member(arc).map_or(0, |l| l + 1));
     while taken.contains(&m) {
@@ -467,33 +557,80 @@ fn free_member(bridge: &Bridge, project: &Project, arc: u16, taken: &[usize]) ->
 
 /// Makes type `t`'s pictures: its icon from `from`'s with its name, the
 /// labels, the button shades from `fill`, the Hall of Fame of `from`.
-pub fn create(bridge: &Bridge, t: usize, from: usize, name: &str, fill: Option<u16>) -> Result<TypeLook, Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+pub fn create(
+    bridge: &Bridge,
+    t: usize,
+    from: usize,
+    name: &str,
+    fill: Option<u16>,
+) -> Result<TypeLook, Error> {
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     let pal = palette_of(bridge, from);
     let src = icon_of(bridge, from)?;
     let border_src = pal[src[2 * W] as usize & 15];
     let fill_src = pal[src[3 * W + 1] as usize & 15];
     let fill = fill.unwrap_or(fill_src);
     // The border keeps the source's darkness relative to its fill.
-    let border = if fill == fill_src { border_src } else { scale(fill, 0.6) };
+    let border = if fill == fill_src {
+        border_src
+    } else {
+        scale(fill, 0.6)
+    };
     let icon = make_icon(bridge, from, name)?;
     let rows = all(project);
-    let taken_icons: Vec<usize> = rows.iter().filter(|(k, _)| **k != t).map(|(_, l)| l.icon).collect();
-    let taken_labels: Vec<usize> = rows.iter().filter(|(k, _)| **k != t).filter_map(|(_, l)| l.label).collect();
-    let icon_m = rows.get(&t).map(|l| l.icon).unwrap_or(free_member(bridge, project, ICONS, &taken_icons)?);
-    let label_m = rows.get(&t).and_then(|l| l.label).unwrap_or(free_member(bridge, project, LABELS, &taken_labels)?);
+    let taken_icons: Vec<usize> = rows
+        .iter()
+        .filter(|(k, _)| **k != t)
+        .map(|(_, l)| l.icon)
+        .collect();
+    let taken_labels: Vec<usize> = rows
+        .iter()
+        .filter(|(k, _)| **k != t)
+        .filter_map(|(_, l)| l.label)
+        .collect();
+    let icon_m =
+        rows.get(&t)
+            .map(|l| l.icon)
+            .unwrap_or(free_member(bridge, project, ICONS, &taken_icons)?);
+    let label_m = rows.get(&t).and_then(|l| l.label).unwrap_or(free_member(
+        bridge,
+        project,
+        LABELS,
+        &taken_labels,
+    )?);
     let io = |e: std::io::Error| Error::Missing(e.to_string());
-    project.write_member(ICONS, icon_m, &icon_file(bridge, &icon)?).map_err(io)?;
-    project.write_member(LABELS, label_m, &label_file(bridge, &icon)?).map_err(io)?;
-    let hof = if from < 17 { HOF[from] } else { rows.get(&from).map(|l| l.hof).unwrap_or(HOF[0]) };
-    let taken_names: Vec<String> = rows.iter().filter(|(k, _)| **k != t).filter_map(|(_, l)| l.name.clone()).collect();
+    project
+        .write_member(ICONS, icon_m, &icon_file(bridge, &icon)?)
+        .map_err(io)?;
+    project
+        .write_member(LABELS, label_m, &label_file(bridge, &icon)?)
+        .map_err(io)?;
+    let hof = if from < 17 {
+        HOF[from]
+    } else {
+        rows.get(&from).map(|l| l.hof).unwrap_or(HOF[0])
+    };
+    let taken_names: Vec<String> = rows
+        .iter()
+        .filter(|(k, _)| **k != t)
+        .filter_map(|(_, l)| l.name.clone())
+        .collect();
     let look = TypeLook {
-        name: rows.get(&t).and_then(|l| l.name.clone()).or_else(|| Some(key_word(name, &taken_names))),
+        name: rows
+            .get(&t)
+            .and_then(|l| l.name.clone())
+            .or_else(|| Some(key_word(name, &taken_names))),
         icon: icon_m,
         colors: vec![hex(fill), hex(border)],
         label: Some(label_m),
         // The source's own shades when the colour is the source's.
-        button: if fill == fill_src && from < 17 { BUTTONS[from].iter().map(|&c| hex(c)).collect() } else { button_ramp(fill) },
+        button: if fill == fill_src && from < 17 {
+            BUTTONS[from].iter().map(|&c| hex(c)).collect()
+        } else {
+            button_ramp(fill)
+        },
         hof,
         color: hex(fill),
         plate: rows.get(&t).and_then(|l| l.plate),
@@ -512,7 +649,13 @@ pub fn key_word(display: &str, taken: &[String]) -> String {
     let mut w: String = display
         .chars()
         .flat_map(char::to_lowercase)
-        .map(|c| if c.is_ascii_lowercase() || c.is_ascii_digit() { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     w = w.trim_matches('_').to_string();
     if w.is_empty() {
@@ -525,29 +668,39 @@ pub fn key_word(display: &str, taken: &[String]) -> String {
     if !used(&w) {
         return w;
     }
-    (2..).map(|n| format!("{w}_{n}")).find(|x| !used(x)).unwrap()
+    (2..)
+        .map(|n| format!("{w}_{n}"))
+        .find(|x| !used(x))
+        .unwrap()
 }
 
 /// The game's 17 type words in eidos files.
 pub const GAME_TYPE_WORDS: [&str; 17] = [
-    "normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel", "fire", "water", "grass",
-    "electric", "psychic", "ice", "dragon", "dark",
+    "normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel", "fire",
+    "water", "grass", "electric", "psychic", "ice", "dragon", "dark",
 ];
 
 /// The added types' words, by type.
 pub fn key_names(project: &Project) -> Vec<(usize, String)> {
-    all(project).into_iter().filter_map(|(t, l)| Some((t, l.name?))).collect()
+    all(project)
+        .into_iter()
+        .filter_map(|(t, l)| Some((t, l.name?)))
+        .collect()
 }
 
 /// Sets an added type's colours (fill and border) and the button shades
 /// that follow the fill.
 pub fn set_colors(bridge: &Bridge, t: usize, fill: &str, border: &str) -> Result<(), Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     let (Some(f), Some(_)) = (from_hex(fill), from_hex(border)) else {
         return Err(Error::BadPath("colours are RRGGBB".into()));
     };
     let mut rows = all(project);
-    let look = rows.get_mut(&t).ok_or_else(|| Error::Missing(format!("type {t} has no pictures")))?;
+    let look = rows
+        .get_mut(&t)
+        .ok_or_else(|| Error::Missing(format!("type {t} has no pictures")))?;
     look.colors = vec![fill.to_uppercase(), border.to_uppercase()];
     look.button = button_ramp(f);
     look.color = fill.to_uppercase();
@@ -559,7 +712,9 @@ pub fn set_colors(bridge: &Bridge, t: usize, fill: &str, border: &str) -> Result
 /// Replaces an added type's icon from RGBA pixels (32x16): clear stays
 /// clear, the rest takes the nearest of fill, border, outline and white.
 pub fn import_icon(bridge: &Bridge, t: usize, rgba_px: &[u8]) -> Result<(), Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     if rgba_px.len() != W * H * 4 {
         return Err(Error::BadPath("a type icon is 32 x 16 pixels".into()));
     }
@@ -576,16 +731,24 @@ pub fn import_icon(bridge: &Bridge, t: usize, rgba_px: &[u8]) -> Result<(), Erro
                 .min_by_key(|&&i| {
                     let c = pal[i];
                     let f = |v: u16| (v & 31) as i32 * 255 / 31;
-                    (f(c) - p[0] as i32).pow(2) + (f(c >> 5) - p[1] as i32).pow(2) + (f(c >> 10) - p[2] as i32).pow(2)
+                    (f(c) - p[0] as i32).pow(2)
+                        + (f(c >> 5) - p[1] as i32).pow(2)
+                        + (f(c >> 10) - p[2] as i32).pow(2)
                 })
                 .unwrap() as u8
         })
         .collect();
-    let look = all(project).remove(&t).ok_or_else(|| Error::Missing(format!("type {t} has no pictures")))?;
+    let look = all(project)
+        .remove(&t)
+        .ok_or_else(|| Error::Missing(format!("type {t} has no pictures")))?;
     let io = |e: std::io::Error| Error::Missing(e.to_string());
-    project.write_member(ICONS, look.icon, &icon_file(bridge, &icon)?).map_err(io)?;
+    project
+        .write_member(ICONS, look.icon, &icon_file(bridge, &icon)?)
+        .map_err(io)?;
     if let Some(l) = look.label {
-        project.write_member(LABELS, l, &label_file(bridge, &icon)?).map_err(io)?;
+        project
+            .write_member(LABELS, l, &label_file(bridge, &icon)?)
+            .map_err(io)?;
     }
     bridge.invalidate();
     Ok(())
@@ -602,7 +765,10 @@ pub fn remove_type(project: &Project, t: usize) -> Result<(), Error> {
             project.revert_member(LABELS, m).map_err(io)?;
         }
     }
-    let shifted = rows.into_iter().map(|(k, l)| (if k > t { k - 1 } else { k }, l)).collect();
+    let shifted = rows
+        .into_iter()
+        .map(|(k, l)| (if k > t { k - 1 } else { k }, l))
+        .collect();
     write_rows(project, &shifted)
 }
 
@@ -614,11 +780,17 @@ mod tests {
     fn lines_read_back() {
         let line = "name fairy icon 172 colors F6A5D5 9C4A7B label 113 button A B C D E F hof 47 17 color F6A5D5 plate 628 drive 629 5";
         let l = parse(line).unwrap();
-        assert_eq!((l.name.as_deref(), l.plate, l.drive), (Some("fairy"), Some(628), Some((629, 5))));
+        assert_eq!(
+            (l.name.as_deref(), l.plate, l.drive),
+            (Some("fairy"), Some(628), Some((629, 5)))
+        );
         assert_eq!(format(&l), line);
         assert_eq!(key_word("Fairy", &[]), "fairy");
         assert_eq!(key_word("Ice", &[]), "ice_2");
-        assert_eq!(key_word("3D Star", &["type_3d_star".into()]), "type_3d_star_2");
+        assert_eq!(
+            key_word("3D Star", &["type_3d_star".into()]),
+            "type_3d_star_2"
+        );
     }
 
     #[test]

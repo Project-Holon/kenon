@@ -49,7 +49,8 @@ pub struct Cell {
 
 /// Whether a table can show as a grid: one record of fields per entry.
 pub fn supported(id: &str) -> bool {
-    tables::table(id).is_ok_and(|t| t.layout.is_none() && !t.fields.is_empty() && tables::editable(t))
+    tables::table(id)
+        .is_ok_and(|t| t.layout.is_none() && !t.fields.is_empty() && tables::editable(t))
 }
 
 /// The table as a grid (entry 0, the game's blank, left out).
@@ -87,7 +88,10 @@ pub fn grid(bridge: &Bridge, id: &str) -> Result<Grid, Error> {
         rows.push(Row {
             index: e.index,
             name: e.name.clone(),
-            values: columns.iter().map(|c| by.get(c.key.as_str()).copied().unwrap_or(0)).collect(),
+            values: columns
+                .iter()
+                .map(|c| by.get(c.key.as_str()).copied().unwrap_or(0))
+                .collect(),
             changed: rec.changed,
         });
     }
@@ -99,7 +103,10 @@ pub fn grid(bridge: &Bridge, id: &str) -> Result<Grid, Error> {
 pub fn set_cells(bridge: &Bridge, id: &str, cells: &[Cell]) -> Result<usize, Error> {
     let mut by: BTreeMap<usize, Edit> = BTreeMap::new();
     for c in cells {
-        by.entry(c.index).or_default().values.insert(c.key.clone(), c.value);
+        by.entry(c.index)
+            .or_default()
+            .values
+            .insert(c.key.clone(), c.value);
     }
     for (index, edit) in &by {
         tables::save(bridge, id, *index, edit)?;

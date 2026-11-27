@@ -208,7 +208,9 @@ pub fn check(b: &[u8]) -> (bool, BTreeSet<u16>, usize) {
                     break;
                 }
                 Some(item @ Item::Command { .. }) => {
-                    let Item::Command { id, args } = &item else { unreachable!() };
+                    let Item::Command { id, args } = &item else {
+                        unreachable!()
+                    };
                     let end = at + item.size();
                     decoded += item.size();
                     if let Some(k) = jump_arg(*id) {
@@ -321,14 +323,21 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
     // Decode what runs: from each variant's start, along jumps.
     let mut items: BTreeMap<usize, Item> = BTreeMap::new();
     let mut targets: BTreeSet<usize> = BTreeSet::new();
-    let mut work: Vec<usize> = entries.iter().copied().filter(|&e| e >= code && e < b.len()).collect();
+    let mut work: Vec<usize> = entries
+        .iter()
+        .copied()
+        .filter(|&e| e >= code && e < b.len())
+        .collect();
     while let Some(mut at) = work.pop() {
         while at >= code && at < b.len() && !items.contains_key(&at) {
             let Some(item) = decode_at(b, at) else { break };
             let end = at + item.size();
             // Overlapping another decoded item: leave this one as bytes.
             if items.range(at..end).next().is_some()
-                || items.range(..at).next_back().is_some_and(|(o, i)| o + i.size() > at)
+                || items
+                    .range(..at)
+                    .next_back()
+                    .is_some_and(|(o, i)| o + i.size() > at)
             {
                 break;
             }
@@ -364,10 +373,16 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
     let mut out = String::from("; kenon battle effect script\n");
     for (v, &e) in entries.iter().enumerate() {
         let name = labels.get(&e).cloned().unwrap_or_else(|| format!("{e}"));
-        let at = if labels.contains_key(&e) { format!("@{name}") } else { format!("{e}") };
+        let at = if labels.contains_key(&e) {
+            format!("@{name}")
+        } else {
+            format!("{e}")
+        };
         // The game writes the offset in all 14 words of the record.
         let extra = &b[HEADER + v * VARIANT + 4..HEADER + (v + 1) * VARIANT];
-        let repeated: Vec<u8> = (0..(VARIANT - 4) / 4).flat_map(|_| (e as u32).to_le_bytes()).collect();
+        let repeated: Vec<u8> = (0..(VARIANT - 4) / 4)
+            .flat_map(|_| (e as u32).to_le_bytes())
+            .collect();
         if extra == &repeated[..] {
             let _ = writeln!(out, "variant {at}");
         } else {
@@ -425,7 +440,10 @@ pub fn disassemble(b: &[u8]) -> Result<String, String> {
 }
 
 fn hex(b: &[u8]) -> String {
-    b.iter().map(|x| format!("{x:02x}")).collect::<Vec<_>>().join(" ")
+    b.iter()
+        .map(|x| format!("{x:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// A text form's binary, or the first error with its line number.
@@ -471,7 +489,9 @@ pub fn assemble(text: &str) -> Result<Vec<u8>, String> {
         let words: Vec<&str> = l.split_whitespace().collect();
         let item = match words[0].to_ascii_lowercase().as_str() {
             "variant" => {
-                let at = words.get(1).ok_or_else(|| err("variant needs a label".into()))?;
+                let at = words
+                    .get(1)
+                    .ok_or_else(|| err("variant needs a label".into()))?;
                 // No extra: the offset repeated, as the game writes it.
                 let extra = match words.get(2) {
                     Some(&"extra") => parse_hex(&words[3..], VARIANT - 4).map_err(err)?,
@@ -577,7 +597,10 @@ pub fn assemble(text: &str) -> Result<Vec<u8>, String> {
             }
             Line::End(id) => {
                 if (*id as usize) < COMMANDS.len() {
-                    return Err(format!("line {no}: an end id is {} or more", COMMANDS.len()));
+                    return Err(format!(
+                        "line {no}: an end id is {} or more",
+                        COMMANDS.len()
+                    ));
                 }
                 out.extend_from_slice(&id.to_le_bytes());
             }
@@ -595,7 +618,9 @@ fn number(w: &str) -> Result<u32, String> {
         return u32::from_str_radix(h, 16).map_err(|_| bad());
     }
     if let Some(h) = w.strip_prefix("-0x") {
-        return u32::from_str_radix(h, 16).map(|v| (v as i32).wrapping_neg() as u32).map_err(|_| bad());
+        return u32::from_str_radix(h, 16)
+            .map(|v| (v as i32).wrapping_neg() as u32)
+            .map_err(|_| bad());
     }
     w.parse::<i64>()
         .ok()
@@ -640,11 +665,18 @@ mod tests {
     fn labels_follow_edits() {
         let t = disassemble(&script()).unwrap();
         // One more command before the jump target: the offset grows by 6.
-        let t2 = t.replace("    WaitUntilIdle 5\n", "    WaitUntilIdle 5\n    WaitUntilIdle 2\n");
+        let t2 = t.replace(
+            "    WaitUntilIdle 5\n",
+            "    WaitUntilIdle 5\n    WaitUntilIdle 2\n",
+        );
         let b2 = assemble(&t2).unwrap();
         let jump_off = HEADER + VARIANT + 12 + 2;
         assert_eq!(u32_at(&b2, jump_off), Some(6));
-        assert!(assemble("variant @x\n@x:\n    WaitFrames\n").unwrap_err().contains("line 3"));
-        assert!(assemble("variant @x\n@x:\n    Nope 1\n").unwrap_err().contains("unknown command"));
+        assert!(assemble("variant @x\n@x:\n    WaitFrames\n")
+            .unwrap_err()
+            .contains("line 3"));
+        assert!(assemble("variant @x\n@x:\n    Nope 1\n")
+            .unwrap_err()
+            .contains("unknown command"));
     }
 }

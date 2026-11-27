@@ -179,10 +179,16 @@ pub fn layout(bridge: &Bridge) -> Layout {
         if project.member(STATS_ARC, g).is_none() {
             continue;
         }
-        let Ok(rec) = bridge.member(Member { arc: STATS_ARC, index: g }) else {
+        let Ok(rec) = bridge.member(Member {
+            arc: STATS_ARC,
+            index: g,
+        }) else {
             continue;
         };
-        let (sprite, n) = (u16::from_le_bytes([rec[30], rec[31]]) as usize, rec[32] as usize);
+        let (sprite, n) = (
+            u16::from_le_bytes([rec[30], rec[31]]) as usize,
+            rec[32] as usize,
+        );
         if n > 1 && sprite > last {
             game.insert(g, (sprite..sprite + n - 1).collect());
         }
@@ -361,9 +367,27 @@ fn game_plan_of(bridge: &Bridge, project: &Project, l: &Layout) -> Vec<(usize, V
     l.game
         .iter()
         .map(|(&g, slots)| {
-            let shared = bridge.member(Member { arc: STATS_ARC, index: g }).map_or(false, |r| r[33] & SHARED != 0);
-            let kind = if shared { SlotKind::Palettes } else { SlotKind::Pictures };
-            (g, slots.iter().map(|&s| Planned { kind, ..planned(bridge, project, s) }).collect())
+            let shared = bridge
+                .member(Member {
+                    arc: STATS_ARC,
+                    index: g,
+                })
+                .is_ok_and(|r| r[33] & SHARED != 0);
+            let kind = if shared {
+                SlotKind::Palettes
+            } else {
+                SlotKind::Pictures
+            };
+            (
+                g,
+                slots
+                    .iter()
+                    .map(|&s| Planned {
+                        kind,
+                        ..planned(bridge, project, s)
+                    })
+                    .collect(),
+            )
         })
         .collect()
 }
@@ -395,7 +419,10 @@ fn apply_with(
     // Game Pokemon's moved form pictures follow; their record points at
     // the first (formSpriteIndex) and counts them.
     for (g, forms) in game {
-        let mut rec = bridge.member(Member { arc: STATS_ARC, index: g })?;
+        let mut rec = bridge.member(Member {
+            arc: STATS_ARC,
+            index: g,
+        })?;
         rec[30..32].copy_from_slice(&(next as u16).to_le_bytes());
         rec[32] = (forms.len() + 1) as u8;
         project.write_member(STATS_ARC, g, &rec).map_err(io)?;
@@ -415,7 +442,7 @@ fn apply_with(
         for &(arc, per, base) in &ARCHIVES {
             for k in 0..per {
                 let bytes = &p.data[at];
-                if p.kind.writes(arc, k) && same.as_ref().map_or(true, |s| &s[at] != bytes) {
+                if p.kind.writes(arc, k) && same.as_ref().is_none_or(|s| &s[at] != bytes) {
                     project
                         .write_member(arc, base + slot * per + k, bytes)
                         .map_err(io)?;
@@ -430,7 +457,9 @@ fn apply_with(
     for slot in next..old_end {
         for &(arc, per, base) in &ARCHIVES {
             for k in 0..per {
-                project.revert_member(arc, base + slot * per + k).map_err(io)?;
+                project
+                    .revert_member(arc, base + slot * per + k)
+                    .map_err(io)?;
             }
         }
     }
@@ -502,15 +531,47 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
     ));
     apply(bridge, project, plan, l.end())?;
     // Its cry: the source's.
-    let cry = crate::cries::current(project, crate::cries::Key { species: from, form: 0 });
-    crate::cries::set(project, crate::cries::Key { species: id, form: 0 }, Some(cry))
-        .map_err(Error::Missing)?;
+    let cry = crate::cries::current(
+        project,
+        crate::cries::Key {
+            species: from,
+            form: 0,
+        },
+    );
+    crate::cries::set(
+        project,
+        crate::cries::Key {
+            species: id,
+            form: 0,
+        },
+        Some(cry),
+    )
+    .map_err(Error::Missing)?;
     // Its Pokedex search shape: the source's. The letter group is left to
     // eidos, which takes the name's first letter.
-    let key = crate::cries::Key { species: id, form: 0 };
-    let shape = crate::dex_search::current(bridge, project, crate::cries::Key { species: from, form: 0 }).shape;
-    crate::dex_search::set(bridge, project, key, crate::dex_search::Search { shape, letter: None })
-        .map_err(Error::Missing)?;
+    let key = crate::cries::Key {
+        species: id,
+        form: 0,
+    };
+    let shape = crate::dex_search::current(
+        bridge,
+        project,
+        crate::cries::Key {
+            species: from,
+            form: 0,
+        },
+    )
+    .shape;
+    crate::dex_search::set(
+        bridge,
+        project,
+        key,
+        crate::dex_search::Search {
+            shape,
+            letter: None,
+        },
+    )
+    .map_err(Error::Missing)?;
     let display = crate::msg::Display(&name.encode_utf16().collect::<Vec<_>>()).to_string();
     let old_name = line(bridge, 70, from)?;
     for &(bank, kind) in &TEXTS {
@@ -537,7 +598,12 @@ pub fn add(bridge: &Bridge, from: usize, name: &str) -> Result<usize, Error> {
 }
 
 /// The tables whose records name a species and its form.
-const FORM_TABLES: [&str; 4] = ["encounters", "trainerParties", "battleFacilityMons", "trades"];
+const FORM_TABLES: [&str; 4] = [
+    "encounters",
+    "trainerParties",
+    "battleFacilityMons",
+    "trades",
+];
 
 /// Adds a form to a species the mod adds, made from `from`: a game
 /// species (its base form) or any slot the mod uses (a species or a
@@ -551,7 +617,8 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
             "{species} is not a Pokemon the mod adds"
         )));
     }
-    let mod_slot = from >= FIRST_NEW && from < l.end() && (from <= l.last || l.form_at(from).is_some());
+    let mod_slot =
+        from >= FIRST_NEW && from < l.end() && (from <= l.last || l.form_at(from).is_some());
     if from == 0 || !(from <= LAST_GAME || mod_slot) {
         return Err(Error::BadPath(
             "start from a Pokemon of the game or a Pokemon or form the mod adds".into(),
@@ -579,18 +646,28 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
     // The source's search shape, when it differs from the species' (a form
     // with no shape takes its species').
     let source = match l.form_at(from) {
-        Some((s, f)) => crate::cries::Key { species: s, form: f },
-        None => crate::cries::Key { species: from, form: 0 },
+        Some((s, f)) => crate::cries::Key {
+            species: s,
+            form: f,
+        },
+        None => crate::cries::Key {
+            species: from,
+            form: 0,
+        },
     };
     let shape = crate::dex_search::current(bridge, project, source).shape;
-    let own = crate::dex_search::current(bridge, project, crate::cries::Key { species, form: 0 }).shape;
+    let own =
+        crate::dex_search::current(bridge, project, crate::cries::Key { species, form: 0 }).shape;
     apply(bridge, project, plan, l.end())?;
     if shape.is_some() && shape != own {
         crate::dex_search::set(
             bridge,
             project,
             crate::cries::Key { species, form },
-            crate::dex_search::Search { shape, letter: None },
+            crate::dex_search::Search {
+                shape,
+                letter: None,
+            },
         )
         .map_err(Error::Missing)?;
     }
@@ -602,11 +679,19 @@ pub fn add_form(bridge: &Bridge, species: usize, from: usize) -> Result<usize, E
 /// pictures, ready to move to mod slots: per form, its battle sprites and
 /// party icon (or, when they share the species' sprite, its two palettes).
 fn game_forms(bridge: &Bridge, g: usize) -> Result<(Vec<u8>, Vec<Planned>), Error> {
-    let rec = bridge.member(Member { arc: STATS_ARC, index: g })?;
+    let rec = bridge.member(Member {
+        arc: STATS_ARC,
+        index: g,
+    })?;
     if u16::from_le_bytes([rec[28], rec[29]]) != 0 {
-        return Err(Error::BadPath(format!("Pokemon {g}'s forms have stats of their own")));
+        return Err(Error::BadPath(format!(
+            "Pokemon {g}'s forms have stats of their own"
+        )));
     }
-    let (sprite, n) = (u16::from_le_bytes([rec[30], rec[31]]) as usize, rec[32] as usize);
+    let (sprite, n) = (
+        u16::from_le_bytes([rec[30], rec[31]]) as usize,
+        rec[32] as usize,
+    );
     if n < 2 {
         return Err(Error::BadPath(format!("Pokemon {g} has no forms")));
     }
@@ -617,10 +702,18 @@ fn game_forms(bridge: &Bridge, g: usize) -> Result<(Vec<u8>, Vec<Planned>), Erro
         let p = if shared {
             let mut data = read_slot(bridge, g);
             for shiny in 0..2 {
-                data[pos(SPRITE_ARC) + 18 + shiny] =
-                    bridge.member_stored(Member { arc: SPRITE_ARC, index: GAME_FORM_PALETTES + 2 * k + shiny })?;
+                data[pos(SPRITE_ARC) + 18 + shiny] = bridge.member_stored(Member {
+                    arc: SPRITE_ARC,
+                    index: GAME_FORM_PALETTES + 2 * k + shiny,
+                })?;
             }
-            Planned { kind: SlotKind::Palettes, src: None, data, palette: Vec::new(), dex: Vec::new() }
+            Planned {
+                kind: SlotKind::Palettes,
+                src: None,
+                data,
+                palette: Vec::new(),
+                dex: Vec::new(),
+            }
         } else {
             let slot = GAME_FORM_SLOTS + k;
             Planned {
@@ -666,10 +759,24 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
     let kind = forms[0].kind;
     let copy = if from == 0 {
         let data = read_slot(bridge, g);
-        Planned { kind, src: None, data, palette: palette_row(icon_palette(bridge, g)), dex: Vec::new() }
+        Planned {
+            kind,
+            src: None,
+            data,
+            palette: palette_row(icon_palette(bridge, g)),
+            dex: Vec::new(),
+        }
     } else {
-        let f = forms.get(from - 1).ok_or_else(|| Error::BadPath(format!("Pokemon {g} has no form {from}")))?;
-        Planned { kind, src: None, data: f.data.clone(), palette: f.palette.clone(), dex: Vec::new() }
+        let f = forms
+            .get(from - 1)
+            .ok_or_else(|| Error::BadPath(format!("Pokemon {g} has no form {from}")))?;
+        Planned {
+            kind,
+            src: None,
+            data: f.data.clone(),
+            palette: f.palette.clone(),
+            dex: Vec::new(),
+        }
     };
     forms.push(copy);
     let form = forms.len();
@@ -684,7 +791,10 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
 pub fn remove_game_form(bridge: &Bridge, g: usize, form: usize) -> Result<(), Error> {
     let project = project_of(bridge)?;
     let l = layout(bridge);
-    let game_rec = bridge.game_member(Member { arc: STATS_ARC, index: g })?;
+    let game_rec = bridge.game_member(Member {
+        arc: STATS_ARC,
+        index: g,
+    })?;
     let game_n = game_rec[32] as usize;
     if form < game_n {
         return Err(Error::BadPath(format!("form {form} is the game's own")));
@@ -699,10 +809,13 @@ pub fn remove_game_form(bridge: &Bridge, g: usize, form: usize) -> Result<(), Er
         return Err(Error::BadPath(format!("Pokemon {g} has no form {form}")));
     }
     game[at].1.remove(form - 1);
-    if game[at].1.len() + 1 <= game_n {
+    if game[at].1.len() < game_n {
         // Back to the game's: its record's form fields as the game has them.
         game.remove(at);
-        let mut rec = bridge.member(Member { arc: STATS_ARC, index: g })?;
+        let mut rec = bridge.member(Member {
+            arc: STATS_ARC,
+            index: g,
+        })?;
         rec[30..33].copy_from_slice(&game_rec[30..33]);
         let io = |e: std::io::Error| Error::Missing(e.to_string());
         if rec == game_rec {
@@ -725,7 +838,9 @@ pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Remov
     let l = layout(bridge);
     let count = l.forms.get(&species).map_or(0, Vec::len);
     if !(FIRST_NEW..=l.last).contains(&species) || form == 0 || form > count {
-        return Err(Error::BadPath(format!("Pokemon {species} has no form {form}")));
+        return Err(Error::BadPath(format!(
+            "Pokemon {species} has no form {form}"
+        )));
     }
     let mut report = Removed::default();
     // References first, read with the old form numbers.

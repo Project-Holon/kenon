@@ -38,9 +38,16 @@ impl Hp {
             return Some(Hp::Full);
         }
         if let Some(n) = s.strip_prefix("1/") {
-            return n.parse().ok().filter(|n| (2..=16).contains(n)).map(Hp::Fraction);
+            return n
+                .parse()
+                .ok()
+                .filter(|n| (2..=16).contains(n))
+                .map(Hp::Fraction);
         }
-        s.parse().ok().filter(|n| (1..=65535).contains(n)).map(Hp::Fixed)
+        s.parse()
+            .ok()
+            .filter(|n| (1..=65535).contains(n))
+            .map(Hp::Fixed)
     }
 
     fn word(self) -> String {
@@ -110,14 +117,23 @@ fn items_arc() -> Result<u16, Error> {
 
 /// An item's heals: the table's values over the record's.
 pub fn get(bridge: &Bridge, item: usize) -> Result<Heal, Error> {
-    let rec = bridge.member(Member { arc: items_arc()?, index: item })?;
+    let rec = bridge.member(Member {
+        arc: items_arc()?,
+        index: item,
+    })?;
     let line = bridge
         .project()
         .and_then(|p| p.table_lines(TABLE).get(&item).map(|l| parse_line(l)))
         .unwrap_or_default();
-    let held = rec.get(HELD_BYTE).copied().filter(|&b| b > 0).map(u32::from);
+    let held = rec
+        .get(HELD_BYTE)
+        .copied()
+        .filter(|&b| b > 0)
+        .map(u32::from);
     Ok(Heal {
-        hp: line.hp.or_else(|| rec.get(HP_BYTE).copied().and_then(Hp::of_byte)),
+        hp: line
+            .hp
+            .or_else(|| rec.get(HP_BYTE).copied().and_then(Hp::of_byte)),
         held: line.held.or(held),
     })
 }
@@ -125,17 +141,23 @@ pub fn get(bridge: &Bridge, item: usize) -> Result<Heal, Error> {
 /// Sets an item's heals: the record's bytes, and a table line for what
 /// they cannot hold.
 pub fn set(bridge: &Bridge, item: usize, heal: Heal) -> Result<(), Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     if let Some(Hp::Fixed(0) | Hp::Fraction(0..=1 | 17..)) = heal.hp {
         return Err(Error::BadPath("HP is 1 to 65535, or 1/2 to 1/16".into()));
     }
-    if heal.hp.is_some_and(|h| matches!(h, Hp::Fixed(n) if n > 65535)) || heal.held.is_some_and(|n| n == 0 || n > 65535) {
+    if heal
+        .hp
+        .is_some_and(|h| matches!(h, Hp::Fixed(n) if n > 65535))
+        || heal.held.is_some_and(|n| n == 0 || n > 65535)
+    {
         return Err(Error::BadPath("HP is 1 to 65535".into()));
     }
     let arc = items_arc()?;
     let mut rec = bridge.member(Member { arc, index: item })?;
     let (hp_byte, hp_fits) = heal.hp.map_or((0, true), Hp::byte);
-    let held_fits = heal.held.map_or(true, |n| n <= 255);
+    let held_fits = heal.held.is_none_or(|n| n <= 255);
     rec[HP_BYTE] = hp_byte;
     rec[HELD_BYTE] = heal.held.map_or(0, |n| n.min(255) as u8);
     crate::catalog::write_member(bridge, Member { arc, index: item }, &rec)?;
@@ -150,7 +172,11 @@ pub fn set(bridge: &Bridge, item: usize, heal: Heal) -> Result<(), Error> {
         rows.insert(item, format_line(&line));
     }
     project
-        .write_table_lines(TABLE, &rows, "<item> = [hp=<1..65535 | 1/2..1/16 | full>] [held_hp=<1..65535>]")
+        .write_table_lines(
+            TABLE,
+            &rows,
+            "<item> = [hp=<1..65535 | 1/2..1/16 | full>] [held_hp=<1..65535>]",
+        )
         .map_err(|e| Error::Missing(e.to_string()))?;
     bridge.invalidate();
     Ok(())
@@ -168,7 +194,11 @@ pub fn item_removed(project: &crate::project::Project, id: usize) -> Result<bool
         .map(|(i, l)| (if i > id { i - 1 } else { i }, l))
         .collect();
     project
-        .write_table_lines(TABLE, &shifted, "<item> = [hp=<1..65535 | 1/2..1/16 | full>] [held_hp=<1..65535>]")
+        .write_table_lines(
+            TABLE,
+            &shifted,
+            "<item> = [hp=<1..65535 | 1/2..1/16 | full>] [held_hp=<1..65535>]",
+        )
         .map_err(|e| Error::Missing(e.to_string()))?;
     Ok(true)
 }
@@ -179,8 +209,20 @@ mod tests {
 
     #[test]
     fn words_and_bytes() {
-        assert_eq!(parse_line("hp=1/3 held_hp=300"), Heal { hp: Some(Hp::Fraction(3)), held: Some(300) });
-        assert_eq!(format_line(&Heal { hp: Some(Hp::Full), held: None }), "hp=full");
+        assert_eq!(
+            parse_line("hp=1/3 held_hp=300"),
+            Heal {
+                hp: Some(Hp::Fraction(3)),
+                held: Some(300)
+            }
+        );
+        assert_eq!(
+            format_line(&Heal {
+                hp: Some(Hp::Full),
+                held: None
+            }),
+            "hp=full"
+        );
         assert_eq!(Hp::Fixed(500).byte(), (252, false));
         assert_eq!(Hp::Fraction(4).byte(), (253, true));
         assert_eq!(Hp::Fraction(3).byte(), (253, false));

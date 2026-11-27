@@ -108,10 +108,15 @@ fn write_chart(bridge: &Bridge, project: &Project, chart: &[Vec<u8>]) -> Result<
     let mut rows: BTreeMap<usize, String> = BTreeMap::new();
     for (a, row) in chart.iter().enumerate() {
         if row.len() != n || row.iter().any(|v| !VALUES.contains(v)) {
-            return Err(Error::BadPath("chart values are 0, 2, 4 or 8, one per type".into()));
+            return Err(Error::BadPath(
+                "chart values are 0, 2, 4 or 8, one per type".into(),
+            ));
         }
         if *row != game[a] {
-            rows.insert(a, row.iter().map(u8::to_string).collect::<Vec<_>>().join(" "));
+            rows.insert(
+                a,
+                row.iter().map(u8::to_string).collect::<Vec<_>>().join(" "),
+            );
         }
     }
     project
@@ -127,7 +132,10 @@ fn write_chart(bridge: &Bridge, project: &Project, chart: &[Vec<u8>]) -> Result<
 pub fn set_chart(bridge: &Bridge, chart: &[Vec<u8>]) -> Result<(), Error> {
     let project = project_of(bridge)?;
     if chart.len() != count(bridge) {
-        return Err(Error::BadPath(format!("the chart has {} types", count(bridge))));
+        return Err(Error::BadPath(format!(
+            "the chart has {} types",
+            count(bridge)
+        )));
     }
     write_chart(bridge, project, chart)?;
     bridge.invalidate();
@@ -150,11 +158,14 @@ pub fn add(bridge: &Bridge, name: &str, from: usize) -> Result<usize, Error> {
         return Err(Error::BadPath(format!("there is no type {from}")));
     }
     let old = chart(bridge)?;
-    let mut new: Vec<Vec<u8>> = old.iter().map(|r| {
-        let mut r = r.clone();
-        r.push(r[from]);
-        r
-    }).collect();
+    let mut new: Vec<Vec<u8>> = old
+        .iter()
+        .map(|r| {
+            let mut r = r.clone();
+            r.push(r[from]);
+            r
+        })
+        .collect();
     let mut row = new[from].clone();
     row[id] = old[from][from];
     new.push(row);
@@ -203,7 +214,9 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
             // Types, and items' Natural Gift type (31 is none: past every
             // type, so it stays).
             for kind in ["type", "naturalGiftType"] {
-                if let Some(bytes) = crate::tables::remap_member(bridge, &t.id, index, kind, &remap)? {
+                if let Some(bytes) =
+                    crate::tables::remap_member(bridge, &t.id, index, kind, &remap)?
+                {
                     crate::catalog::write_member(
                         bridge,
                         crate::bridge::Member {
@@ -222,7 +235,13 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
         .iter()
         .enumerate()
         .filter(|(a, _)| *a != id)
-        .map(|(_, r)| r.iter().enumerate().filter(|(d, _)| *d != id).map(|(_, v)| *v).collect())
+        .map(|(_, r)| {
+            r.iter()
+                .enumerate()
+                .filter(|(d, _)| *d != id)
+                .map(|(_, v)| *v)
+                .collect()
+        })
         .collect();
     let lines: BTreeMap<usize, String> = project
         .msg_lines(2, NAMES)
@@ -235,13 +254,18 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
         .map_err(|e| Error::Missing(e.to_string()))?;
     set_limit(project, (n - 1 > GAME_TYPES).then(|| n - 2))?;
     write_chart(bridge, project, &new)?;
-    let word = crate::type_pictures::all(project).get(&id).and_then(|l| l.name.clone());
+    let word = crate::type_pictures::all(project)
+        .get(&id)
+        .and_then(|l| l.name.clone());
     if crate::handlers::remove_type_keys(project, word.as_deref(), id).map_err(Error::Missing)? {
         report.updated.push("Battle effects".into());
     }
     crate::type_pictures::remove_type(project, id)?;
     // Arceus's form for it goes; later types' forms move down with them.
-    let arceus = bridge.member(crate::bridge::Member { arc: 16, index: ARCEUS })?;
+    let arceus = bridge.member(crate::bridge::Member {
+        arc: 16,
+        index: ARCEUS,
+    })?;
     if arceus.get(32).is_some_and(|&n| n as usize > id) {
         crate::species_add::remove_game_form(bridge, ARCEUS, id)?;
         report.updated.push("Arceus's forms".into());

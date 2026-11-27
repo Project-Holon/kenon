@@ -918,7 +918,13 @@ pub fn remap_forms(
                 remap_form_fields(&mut out, base, &t.fields, species, map);
                 for g in t.groups.iter().flatten() {
                     for i in 0..g.count {
-                        remap_form_fields(&mut out, base + g.offset + i * g.stride, &g.fields, species, map);
+                        remap_form_fields(
+                            &mut out,
+                            base + g.offset + i * g.stride,
+                            &g.fields,
+                            species,
+                            map,
+                        );
                     }
                 }
             }
@@ -935,7 +941,10 @@ fn remap_form_fields(
     species: i64,
     map: &dyn Fn(i64) -> Remap,
 ) {
-    let Some(sp) = fields.iter().find(|f| f.enum_name.as_deref() == Some("species")) else {
+    let Some(sp) = fields
+        .iter()
+        .find(|f| f.enum_name.as_deref() == Some("species"))
+    else {
         return;
     };
     let Some(form) = fields.iter().find(|f| f.name == "form") else {

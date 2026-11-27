@@ -599,8 +599,7 @@ fn a_move_animation_follows_its_default_and_a_removal() {
     move_anims::set(project, a, Some(53)).unwrap();
     move_anims::set(project, b, Some(236)).unwrap();
     assert!(move_anims::set(project, b, Some(560)).is_err());
-    let text =
-        std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
     assert!(text.contains("53 = 85\n560 = 53\n561 = 236\n"), "{text}");
 
     // Removing the first moves the second's line down to 560.
@@ -639,19 +638,42 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!((u16_of(&s, 28), u16_of(&s, 30), s[32]), (716, 716, 2));
     assert_eq!(stats(&bridge, 716)[..28], stats(&bridge, 26)[..28]);
     let names = tables::entries(&bridge, "species").unwrap();
-    assert!(names.iter().any(|e| e.index == 716 && e.name == "Voltwing (form 1)"));
+    assert!(names
+        .iter()
+        .any(|e| e.index == 716 && e.name == "Voltwing (form 1)"));
     // Sprites and Pokedex icons are packed as the game packs them: the
     // battle sprite block's packed members LZ11, raw ones raw, the Pokedex
     // icon LZ10; the form's too. Saving an edit keeps the packing.
     let stored = |arc: u16, i: usize| bridge.member_stored(Member { arc, index: i }).unwrap();
     for k in 0..20 {
-        assert_eq!(stored(4, 715 * 20 + k)[0], stored(4, 25 * 20 + k)[0], "slot member {k}");
-        assert_eq!(stored(4, 716 * 20 + k)[0], stored(4, 26 * 20 + k)[0], "form member {k}");
+        assert_eq!(
+            stored(4, 715 * 20 + k)[0],
+            stored(4, 25 * 20 + k)[0],
+            "slot member {k}"
+        );
+        assert_eq!(
+            stored(4, 716 * 20 + k)[0],
+            stored(4, 26 * 20 + k)[0],
+            "form member {k}"
+        );
     }
     assert_eq!(stored(4, 715 * 20)[0], 0x11);
     assert_eq!(stored(167, 720)[0], 0x10);
-    let front = bridge.member(Member { arc: 4, index: 715 * 20 }).unwrap();
-    catalog::write_member(&bridge, Member { arc: 4, index: 715 * 20 }, &front).unwrap();
+    let front = bridge
+        .member(Member {
+            arc: 4,
+            index: 715 * 20,
+        })
+        .unwrap();
+    catalog::write_member(
+        &bridge,
+        Member {
+            arc: 4,
+            index: 715 * 20,
+        },
+        &front,
+    )
+    .unwrap();
     assert_eq!(stored(4, 715 * 20)[0], 0x11);
     // Pokedex lines past the game's 727: Voltwing (715) at 727 with
     // Pikachu's height, its form (716) at 728 with Raichu's.
@@ -660,8 +682,26 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(catalog::text_bank(&bridge, 2, 244).unwrap()[727], "");
     // The species' cry is Pikachu's; the form follows it.
     let project = bridge.project().unwrap().clone();
-    assert_eq!(cries::current(&project, Key { species: 715, form: 0 }), 25);
-    assert_eq!(cries::current(&project, Key { species: 715, form: 1 }), 25);
+    assert_eq!(
+        cries::current(
+            &project,
+            Key {
+                species: 715,
+                form: 0
+            }
+        ),
+        25
+    );
+    assert_eq!(
+        cries::current(
+            &project,
+            Key {
+                species: 715,
+                form: 1
+            }
+        ),
+        25
+    );
 
     // A second species takes 716; the form moves to 717.
     let b = species_add::add(&bridge, 1, "Sprouty").unwrap();
@@ -686,14 +726,31 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert_eq!(species_add::add_form(&bridge, 715, 716).unwrap(), 2);
     let bridge = reopen(bridge, &dir);
     let project = bridge.project().unwrap().clone();
-    cries::set(&project, Key { species: 715, form: 2 }, Some(7)).unwrap();
+    cries::set(
+        &project,
+        Key {
+            species: 715,
+            form: 2,
+        },
+        Some(7),
+    )
+    .unwrap();
     species_add::remove_form(&bridge, 715, 1).unwrap();
     let bridge = reopen(bridge, &dir);
     let l = species_add::layout(&bridge);
     assert_eq!(l.forms[&715], vec![717]);
     assert_eq!(stats(&bridge, 717)[..28], stats(&bridge, 1)[..28]);
     let project = bridge.project().unwrap().clone();
-    assert_eq!(cries::current(&project, Key { species: 715, form: 1 }), 7);
+    assert_eq!(
+        cries::current(
+            &project,
+            Key {
+                species: 715,
+                form: 1
+            }
+        ),
+        7
+    );
 
     // Removing Voltwing: Sprouty becomes 715, no forms, slots past it go.
     species_add::remove(&bridge, 715).unwrap();
@@ -705,7 +762,10 @@ fn a_new_pokemon_gets_forms_that_move_with_the_species() {
     assert!(project.member(16, 716).is_none() && project.member(16, 717).is_none());
     // Only Sprouty's line is left (Bulbasaur's cry, copied when it was
     // added), moved down to 715.
-    let left: Vec<(String, u32)> = cries::all(project).into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    let left: Vec<(String, u32)> = cries::all(project)
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
     assert_eq!(left, vec![("715".to_string(), 1)]);
     // One Pokedex line past the game's: Sprouty's at 727.
     let weight = catalog::text_bank(&bridge, 2, 268).unwrap();
@@ -728,7 +788,13 @@ fn a_new_pokemon_joins_the_unova_pokedex() {
     assert_eq!(dex::game(&bridge, 649), Place::Number(155));
     assert_eq!(dex::game(&bridge, 25), Place::National);
     // Search values: Pikachu is a quadruped (4) under P (15).
-    assert_eq!(dex_search::game(&bridge, 25), Search { shape: Some(4), letter: Some(15) });
+    assert_eq!(
+        dex_search::game(&bridge, 25),
+        Search {
+            shape: Some(4),
+            letter: Some(15)
+        }
+    );
 
     let a = species_add::add(&bridge, 25, "Voltwing").unwrap();
     let bridge = reopen(bridge, &dir);
@@ -737,8 +803,30 @@ fn a_new_pokemon_joins_the_unova_pokedex() {
     let project = bridge.project().unwrap().clone();
     // Added: National only, with the source's shape and no letter.
     assert_eq!(dex::current(&bridge, &project, a), Place::National);
-    assert_eq!(dex_search::current(&bridge, &project, Key { species: a, form: 0 }).shape, Some(4));
-    assert_eq!(dex_search::current(&bridge, &project, Key { species: a, form: 0 }).letter, None);
+    assert_eq!(
+        dex_search::current(
+            &bridge,
+            &project,
+            Key {
+                species: a,
+                form: 0
+            }
+        )
+        .shape,
+        Some(4)
+    );
+    assert_eq!(
+        dex_search::current(
+            &bridge,
+            &project,
+            Key {
+                species: a,
+                form: 0
+            }
+        )
+        .letter,
+        None
+    );
 
     // Both in the Unova Pokedex: numbered after Genesect, in id order.
     dex::set(&bridge, &project, a, Place::Unova).unwrap();
@@ -750,9 +838,11 @@ fn a_new_pokemon_joins_the_unova_pokedex() {
     dex::set(&bridge, &project, 495, Place::National).unwrap();
     dex::set(&bridge, &project, 494, Place::Number(0)).unwrap();
     assert!(dex::set(&bridge, &project, a, Place::Number(999)).is_err());
-    let text =
-        std::fs::read_to_string(dir.path().join("m/eidos/tables/regional_dex.txt")).unwrap();
-    assert!(text.contains("25 = 200\n495 = none\n715 = unova\n716 = unova\n"), "{text}");
+    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/regional_dex.txt")).unwrap();
+    assert!(
+        text.contains("25 = 200\n495 = none\n715 = unova\n716 = unova\n"),
+        "{text}"
+    );
     let n = dex::numbers(&bridge, &project);
     assert_eq!((n[&a], n[&b]), (201, 202));
     // A number shared with another species is reported.
@@ -765,8 +855,18 @@ fn a_new_pokemon_joins_the_unova_pokedex() {
     assert_eq!(all.get(&715), Some(&Place::Number(200)));
     assert!(!all.contains_key(&716));
     let s = dex_search::all(&project);
-    assert_eq!(s.get(&Key { species: 715, form: 0 }).and_then(|s| s.shape), Some(4));
-    assert!(!s.contains_key(&Key { species: 716, form: 0 }));
+    assert_eq!(
+        s.get(&Key {
+            species: 715,
+            form: 0
+        })
+        .and_then(|s| s.shape),
+        Some(4)
+    );
+    assert!(!s.contains_key(&Key {
+        species: 716,
+        form: 0
+    }));
 }
 
 #[test]
@@ -784,7 +884,8 @@ fn every_battle_effect_script_reads_back_byte_for_byte() {
         for index in 0..n {
             let b = bridge.member(Member { arc, index }).unwrap();
             let text = effscript::disassemble(&b).unwrap_or_else(|e| panic!("{arc}/{index}: {e}"));
-            let back = effscript::assemble(&text).unwrap_or_else(|e| panic!("{arc}/{index}: {e}\n{text}"));
+            let back =
+                effscript::assemble(&text).unwrap_or_else(|e| panic!("{arc}/{index}: {e}\n{text}"));
             assert_eq!(back, b, "{arc}/{index} differs:\n{text}");
             let (ok, e, raw) = effscript::check(&b);
             // The 360-byte fillers after the last move (560..600) hold no
@@ -834,7 +935,8 @@ fn a_new_move_gets_its_own_animation_script() {
     assert!(anims::set_script(&bridge, b, "variant @x\n@x:\n    WaitFrames\n").is_err());
     // Spark Burst plays Moonblast's script.
     anims::set(&project, a, Some(b as u16)).unwrap();
-    let text_file = std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
+    let text_file =
+        std::fs::read_to_string(dir.path().join("m/eidos/tables/move_anims.txt")).unwrap();
     assert!(text_file.contains("560 = 561\n"), "{text_file}");
 
     // Removing Spark Burst moves Moonblast's script to 560.
@@ -865,7 +967,11 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
     types::set_chart(&bridge, &chart).unwrap();
     let file = dir.path().join("m/eidos/tables/type_chart.txt");
     let text = std::fs::read_to_string(&file).unwrap();
-    assert_eq!(text.lines().filter(|l| !l.starts_with('#')).count(), 1, "{text}");
+    assert_eq!(
+        text.lines().filter(|l| !l.starts_with('#')).count(),
+        1,
+        "{text}"
+    );
     assert!(text.contains("9 = "), "{text}");
 
     // Fairy, matching up like Psychic.
@@ -878,7 +984,10 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
     assert_eq!(chart[fairy][..17], chart[psychic][..17]);
     assert_eq!(chart[fire][fairy], chart[fire][psychic]);
     assert_eq!(chart[fire][grass], 4);
-    assert_eq!(tables::enum_values(&bridge, "type").unwrap()[fairy], "Fairy");
+    assert_eq!(
+        tables::enum_values(&bridge, "type").unwrap()[fairy],
+        "Fairy"
+    );
     let manifest = std::fs::read_to_string(dir.path().join("m/eidos_mod.txt")).unwrap();
     assert!(manifest.contains("limit.types = 17"), "{manifest}");
 
@@ -901,12 +1010,32 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
     let mut params = handlers::params("move", None).unwrap();
     let part = |keys: &[(&str, &str)]| handlers::Part {
         base: handlers::NAMED_FIRST + 1,
-        keys: keys.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        keys: keys
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
     };
-    assert!(handlers::set(&project, "move", &params, 45, Some(vec![part(&[("type", "fairy")])])).is_err());
+    assert!(handlers::set(
+        &project,
+        "move",
+        &params,
+        45,
+        Some(vec![part(&[("type", "fairy")])])
+    )
+    .is_err());
     params.add_types(&["fairy".to_string()]);
-    handlers::set(&project, "move", &params, 45, Some(vec![part(&[("type", "fairy")])])).unwrap();
-    assert_eq!(handlers::rows(&project, "move")[&45][0].keys["type"], "fairy");
+    handlers::set(
+        &project,
+        "move",
+        &params,
+        45,
+        Some(vec![part(&[("type", "fairy")])]),
+    )
+    .unwrap();
+    assert_eq!(
+        handlers::rows(&project, "move")[&45][0].keys["type"],
+        "fairy"
+    );
 
     types::remove(&bridge, fairy).unwrap();
     let bridge = reopen(bridge, &dir);
@@ -918,7 +1047,9 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
     assert_eq!(rec[6], 0);
     let chart = types::chart(&bridge).unwrap();
     assert_eq!((chart.len(), chart[fire][grass]), (17, 4));
-    assert!(!std::fs::read_to_string(dir.path().join("m/eidos_mod.txt")).unwrap().contains("limit.types"));
+    assert!(!std::fs::read_to_string(dir.path().join("m/eidos_mod.txt"))
+        .unwrap()
+        .contains("limit.types"));
 }
 
 #[test]
@@ -927,7 +1058,9 @@ fn a_table_grid_edits_many_entries_at_once() {
     let Some((bridge, _dir)) = bridge() else {
         return;
     };
-    assert!(grid::supported("species") && grid::supported("moves") && !grid::supported("learnsets"));
+    assert!(
+        grid::supported("species") && grid::supported("moves") && !grid::supported("learnsets")
+    );
     let g = grid::grid(&bridge, "species").unwrap();
     let hp = g.columns.iter().position(|c| c.key == "baseHp").unwrap();
     let pikachu = g.rows.iter().find(|r| r.index == 25).unwrap();
@@ -935,8 +1068,16 @@ fn a_table_grid_edits_many_entries_at_once() {
     assert!(g.rows.len() >= 649);
     // Two entries in one save, and a value past the field's range clamped.
     let cells = [
-        Cell { index: 25, key: "baseHp".into(), value: 60 },
-        Cell { index: 26, key: "baseHp".into(), value: 999 },
+        Cell {
+            index: 25,
+            key: "baseHp".into(),
+            value: 60,
+        },
+        Cell {
+            index: 26,
+            key: "baseHp".into(),
+            value: 999,
+        },
     ];
     assert_eq!(grid::set_cells(&bridge, "species", &cells).unwrap(), 2);
     let g = grid::grid(&bridge, "species").unwrap();
@@ -970,11 +1111,17 @@ fn a_type_icon_is_spelled_with_the_games_letters() {
         }
     }
     println!("rebuilt exactly: {same:?}");
-    assert!(same.iter().any(|n| n.eq_ignore_ascii_case("fire")), "{same:?}");
+    assert!(
+        same.iter().any(|n| n.eq_ignore_ascii_case("fire")),
+        "{same:?}"
+    );
 
     // Fairy from Psychic: every letter is in the game's icons.
     assert!(pics::missing_letters(&bridge, "Fairy").unwrap().is_empty());
-    assert_eq!(pics::missing_letters(&bridge, "Jazz").unwrap(), vec!['J', 'Z']);
+    assert_eq!(
+        pics::missing_letters(&bridge, "Jazz").unwrap(),
+        vec!['J', 'Z']
+    );
     let fairy = kenon_core::types::add(&bridge, "Fairy", 13).unwrap();
     let bridge = reopen(bridge, &dir);
     let look = pics::create(&bridge, fairy, 13, "Fairy", None).unwrap();
@@ -994,7 +1141,10 @@ fn a_type_icon_is_spelled_with_the_games_letters() {
     // Pink: the colours change, the icon keeps its pixels.
     pics::set_colors(&bridge, fairy, "F6A5D5", "9C4A7B").unwrap();
     let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
-    assert!(text.contains("17 = name fairy icon ") && text.contains("colors F6A5D5 9C4A7B"), "{text}");
+    assert!(
+        text.contains("17 = name fairy icon ") && text.contains("colors F6A5D5 9C4A7B"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -1013,11 +1163,15 @@ fn every_particle_resource_reads_back_byte_for_byte() {
         emitters += s.resources.len();
         // Every texture decodes, and re-encoding keeps every pixel's alpha.
         for (t, block) in s.textures.iter().enumerate() {
-            let (info, rgba) = spa::decode_texture(block).unwrap_or_else(|e| panic!("6/{index} texture {t}: {e}"));
+            let (info, rgba) =
+                spa::decode_texture(block).unwrap_or_else(|e| panic!("6/{index} texture {t}: {e}"));
             assert_eq!(rgba.len(), info.width * info.height * 4);
             let again = spa::encode_texture(block, info.width, info.height, &rgba).unwrap();
             let (_, back) = spa::decode_texture(&again).unwrap();
-            let alpha_same = rgba.chunks(4).zip(back.chunks(4)).all(|(a, b)| a[3] == b[3]);
+            let alpha_same = rgba
+                .chunks(4)
+                .zip(back.chunks(4))
+                .all(|(a, b)| a[3] == b[3]);
             assert!(alpha_same, "6/{index} texture {t}: alpha changed");
             textures += 1;
         }
@@ -1046,24 +1200,54 @@ fn a_particle_file_is_copied_and_edited() {
     let at = spa::add(&bridge, 249).unwrap();
     let bridge = reopen(bridge, &dir);
     assert_eq!(at, 733);
-    assert_eq!(spa::load(&bridge, at).unwrap(), spa::load(&bridge, 249).unwrap());
+    assert_eq!(
+        spa::load(&bridge, at).unwrap(),
+        spa::load(&bridge, 249).unwrap()
+    );
 
     // Gravity on, then pulled down; the particle life doubled.
     let mut s = spa::load(&bridge, at).unwrap();
     let life = spa::view(&s).emitters[0].values["life"];
     let has_gravity = s.resources[0].blocks.iter().any(|(n, _)| n == "gravity");
-    let blocks = if has_gravity { vec![] } else { vec![(0, "gravity".to_string(), true)] };
+    let blocks = if has_gravity {
+        vec![]
+    } else {
+        vec![(0, "gravity".to_string(), true)]
+    };
     let edits = vec![
-        Edit { emitter: 0, key: "gravityY".into(), value: -100 },
-        Edit { emitter: 0, key: "life".into(), value: life * 2 },
+        Edit {
+            emitter: 0,
+            key: "gravityY".into(),
+            value: -100,
+        },
+        Edit {
+            emitter: 0,
+            key: "life".into(),
+            value: life * 2,
+        },
     ];
     spa::apply(&mut s, &blocks, &edits).unwrap();
     spa::store(&bridge, at, &s).unwrap();
     let back = spa::view(&spa::load(&bridge, at).unwrap());
-    assert_eq!((back.emitters[0].values["gravityY"], back.emitters[0].values["life"]), (-100, life * 2));
+    assert_eq!(
+        (
+            back.emitters[0].values["gravityY"],
+            back.emitters[0].values["life"]
+        ),
+        (-100, life * 2)
+    );
     // An interval of 0 is refused.
     let mut s = spa::load(&bridge, at).unwrap();
-    assert!(spa::apply(&mut s, &[], &[Edit { emitter: 0, key: "interval".into(), value: 0 }]).is_err());
+    assert!(spa::apply(
+        &mut s,
+        &[],
+        &[Edit {
+            emitter: 0,
+            key: "interval".into(),
+            value: 0
+        }]
+    )
+    .is_err());
 
     // A texture replaced in its own format keeps its size and format.
     let s = spa::load(&bridge, at).unwrap();
@@ -1082,7 +1266,11 @@ fn a_new_tm_is_added_learned_and_removed() {
     // Which marts sell TMs in the game (for a new TM's shop).
     let game = shops::game(&bridge).unwrap();
     let tm_marts: Vec<usize> = (0..game.marts.len())
-        .filter(|&n| game.marts[n].iter().any(|&it| (328..=425).contains(&(it as usize)) || (618..=620).contains(&(it as usize))))
+        .filter(|&n| {
+            game.marts[n].iter().any(|&it| {
+                (328..=425).contains(&(it as usize)) || (618..=620).contains(&(it as usize))
+            })
+        })
         .collect();
     println!("marts selling TMs: {tm_marts:?}");
 
@@ -1095,14 +1283,20 @@ fn a_new_tm_is_added_learned_and_removed() {
     let it = list[101].item;
     assert_eq!(catalog::text_bank(&bridge, 2, 54).unwrap()[it], "TM96");
     // Its description is the move's.
-    assert_eq!(catalog::text_bank(&bridge, 2, 53).unwrap()[it], catalog::text_bank(&bridge, 2, 202).unwrap()[85]);
-    let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/machine_items.txt")).unwrap();
+    assert_eq!(
+        catalog::text_bank(&bridge, 2, 53).unwrap()[it],
+        catalog::text_bank(&bridge, 2, 202).unwrap()[85]
+    );
+    let text =
+        std::fs::read_to_string(dir.path().join("m/eidos/tables/machine_items.txt")).unwrap();
     assert!(text.contains(&format!("TM96 = {it}\n")), "{text}");
     // Pikachu learns it: bit 101 is bit 5 of tmFlags4.
     let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
     let w4 = u32::from_le_bytes(rec[52..56].try_into().unwrap());
     let edit = tables::Edit {
-        values: [("tmFlags4".to_string(), (w4 | 1 << 5) as i64)].into_iter().collect(),
+        values: [("tmFlags4".to_string(), (w4 | 1 << 5) as i64)]
+            .into_iter()
+            .collect(),
         ..Default::default()
     };
     tables::save(&bridge, "species", 25, &edit).unwrap();
@@ -1113,7 +1307,10 @@ fn a_new_tm_is_added_learned_and_removed() {
     let bridge = reopen(bridge, &dir);
     assert_eq!(machines::count(&bridge), 101);
     let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
-    assert_eq!(u32::from_le_bytes(rec[52..56].try_into().unwrap()) >> 5 & 1, 0);
+    assert_eq!(
+        u32::from_le_bytes(rec[52..56].try_into().unwrap()) >> 5 & 1,
+        0
+    );
     assert!(!dir.path().join("m/eidos/tables/machine_items.txt").exists());
     assert!(machines::remove_last(&bridge).is_err());
 }
@@ -1134,15 +1331,29 @@ fn a_new_type_gets_a_plate_and_a_drive() {
     let bridge = reopen(bridge, &dir);
     assert_eq!((plate, drive), (627, 628));
     let names = tables::enum_values(&bridge, "item").unwrap();
-    assert_eq!((names[plate].as_str(), names[drive].as_str()), ("Fairy Plate", "Fairy Drive"));
+    assert_eq!(
+        (names[plate].as_str(), names[drive].as_str()),
+        ("Fairy Plate", "Fairy Drive")
+    );
     let desc = catalog::text_bank(&bridge, 2, 53).unwrap();
-    assert!(desc[plate].contains("Fairy") && !desc[plate].contains("Fire"), "{}", desc[plate]);
-    assert!(desc[drive].contains("Fairy") && !desc[drive].contains("Water"), "{}", desc[drive]);
+    assert!(
+        desc[plate].contains("Fairy") && !desc[plate].contains("Fire"),
+        "{}",
+        desc[plate]
+    );
+    assert!(
+        desc[drive].contains("Fairy") && !desc[drive].contains("Water"),
+        "{}",
+        desc[drive]
+    );
     let project = bridge.project().unwrap().clone();
     let row = &handlers::rows(&project, "item")[&plate];
     assert_eq!((row[0].base, row[0].keys["type"].as_str()), (298, "fairy"));
     let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
-    assert!(text.contains(&format!("plate {plate} drive {drive} 5")), "{text}");
+    assert!(
+        text.contains(&format!("plate {plate} drive {drive} 5")),
+        "{text}"
+    );
     assert!(type_items::set_drive(&bridge, fairy, Some((drive, 4))).is_err());
 
     // Removing the plate: the drive moves down to its number.
@@ -1158,12 +1369,16 @@ fn arceus_and_genesect_get_a_form_their_pictures_moved_to_mod_slots() {
     let Some((bridge, dir)) = bridge() else {
         return;
     };
-    let stored = |b: &Bridge, arc: u16, index: usize| b.member_stored(Member { arc, index }).unwrap();
+    let stored =
+        |b: &Bridge, arc: u16, index: usize| b.member_stored(Member { arc, index }).unwrap();
     let rec = |b: &Bridge, s: usize| b.member(Member { arc: 16, index: s }).unwrap();
     let sprite = |r: &[u8]| (u16::from_le_bytes([r[30], r[31]]) as usize, r[32], r[33]);
     let game_palette = stored(&bridge, 4, 0x37AD);
     let arceus_palette = stored(&bridge, 4, 493 * 20 + 18);
-    let genesect_form1 = (stored(&bridge, 4, 708 * 20), stored(&bridge, 7, 708 * 2 + 7));
+    let genesect_form1 = (
+        stored(&bridge, 4, 708 * 20),
+        stored(&bridge, 7, 708 * 2 + 7),
+    );
 
     // Arceus form 17 from its own colours: forms 1-16 move to 715-730.
     assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), 17);
@@ -1171,14 +1386,23 @@ fn arceus_and_genesect_get_a_form_their_pictures_moved_to_mod_slots() {
     assert_eq!(sprite(&rec(&bridge, 493)), (715, 18, 0x87));
     assert_eq!(stored(&bridge, 4, 715 * 20 + 18), game_palette);
     assert_eq!(stored(&bridge, 4, 731 * 20 + 18), arceus_palette);
-    assert!(bridge.project().unwrap().member(16, 715).is_none(), "no stats record at a picture slot");
+    assert!(
+        bridge.project().unwrap().member(16, 715).is_none(),
+        "no stats record at a picture slot"
+    );
 
     // Genesect form 5 from its form 1 (Douse): forms 1-4 move after Arceus's.
     assert_eq!(species_add::add_game_form(&bridge, 649, 1).unwrap(), 5);
     let bridge = reopen(bridge, &dir);
     assert_eq!(sprite(&rec(&bridge, 649)), (732, 6, 0x06));
     for slot in [732, 736] {
-        assert_eq!((stored(&bridge, 4, slot * 20), stored(&bridge, 7, slot * 2 + 7)), genesect_form1);
+        assert_eq!(
+            (
+                stored(&bridge, 4, slot * 20),
+                stored(&bridge, 7, slot * 2 + 7)
+            ),
+            genesect_form1
+        );
     }
 
     // A new Pokemon takes 715: the moved pictures follow one slot up.
@@ -1216,7 +1440,12 @@ fn removing_a_type_removes_its_arceus_form() {
     let bridge = reopen(bridge, &dir);
     types::remove(&bridge, fairy).unwrap();
     let bridge = reopen(bridge, &dir);
-    let rec = bridge.member(Member { arc: 16, index: 493 }).unwrap();
+    let rec = bridge
+        .member(Member {
+            arc: 16,
+            index: 493,
+        })
+        .unwrap();
     assert_eq!(rec[32], 18, "Light's form is now form 17");
     types::remove(&bridge, fairy).unwrap();
     let bridge = reopen(bridge, &dir);
@@ -1230,24 +1459,77 @@ fn heal_amounts_go_in_the_record_or_the_table() {
         return;
     };
     let (potion, oran) = (17usize, 155usize);
-    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fixed(20)));
+    assert_eq!(
+        item_heal::get(&bridge, potion).unwrap().hp,
+        Some(Hp::Fixed(20))
+    );
     assert_eq!(item_heal::get(&bridge, oran).unwrap().held, Some(10));
     let table = dir.path().join("m/eidos/tables/item_heal.txt");
 
     // Past the byte: the table, and the record's nearest.
-    item_heal::set(&bridge, potion, Heal { hp: Some(Hp::Fixed(500)), held: None }).unwrap();
-    item_heal::set(&bridge, oran, Heal { hp: None, held: Some(300) }).unwrap();
+    item_heal::set(
+        &bridge,
+        potion,
+        Heal {
+            hp: Some(Hp::Fixed(500)),
+            held: None,
+        },
+    )
+    .unwrap();
+    item_heal::set(
+        &bridge,
+        oran,
+        Heal {
+            hp: None,
+            held: Some(300),
+        },
+    )
+    .unwrap();
     let bridge = reopen(bridge, &dir);
-    assert_eq!(std::fs::read_to_string(&table).unwrap().lines().filter(|l| !l.starts_with('#')).collect::<Vec<_>>(), ["17 = hp=500", "155 = held_hp=300"]);
-    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fixed(500)));
+    assert_eq!(
+        std::fs::read_to_string(&table)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .collect::<Vec<_>>(),
+        ["17 = hp=500", "155 = held_hp=300"]
+    );
+    assert_eq!(
+        item_heal::get(&bridge, potion).unwrap().hp,
+        Some(Hp::Fixed(500))
+    );
     assert_eq!(item_heal::get(&bridge, oran).unwrap().held, Some(300));
-    let rec = bridge.member(Member { arc: tables::table("items").unwrap().archive, index: potion }).unwrap();
+    let rec = bridge
+        .member(Member {
+            arc: tables::table("items").unwrap().archive,
+            index: potion,
+        })
+        .unwrap();
     assert_eq!(rec[29], 252);
 
     // Half fits the byte: the line goes.
-    item_heal::set(&bridge, potion, Heal { hp: Some(Hp::Fraction(2)), held: None }).unwrap();
-    item_heal::set(&bridge, oran, Heal { hp: None, held: Some(10) }).unwrap();
+    item_heal::set(
+        &bridge,
+        potion,
+        Heal {
+            hp: Some(Hp::Fraction(2)),
+            held: None,
+        },
+    )
+    .unwrap();
+    item_heal::set(
+        &bridge,
+        oran,
+        Heal {
+            hp: None,
+            held: Some(10),
+        },
+    )
+    .unwrap();
     let bridge = reopen(bridge, &dir);
     assert!(!table.exists());
-    assert_eq!(item_heal::get(&bridge, potion).unwrap().hp, Some(Hp::Fraction(2)));
+    assert_eq!(
+        item_heal::get(&bridge, potion).unwrap().hp,
+        Some(Hp::Fraction(2))
+    );
 }

@@ -11,9 +11,9 @@
 //! also rewrites that item's description to the move's.
 //!
 //! New TMs (eidos research new-tms.md): TM96 to TM122 are machines 101 to
-//! 127, after the HMs, in the order of a Pokemon's TM bits (bit = TM number
-//! + 5; bits 101..127 are free in every record, past them is the tutor
-//! word). Each is an item the mod adds, a copy of TM95's, named in
+//! 127, after the HMs, in the order of a Pokemon's TM bits (the bit is the
+//! TM number plus 5; bits 101..127 are free in every record, past them is
+//! the tutor word). Each is an item the mod adds, a copy of TM95's, named in
 //! `eidos/tables/machine_items.txt`:
 //!
 //! ```text
@@ -74,7 +74,12 @@ fn read_lines(bridge: &Bridge, file: &str) -> BTreeMap<usize, usize> {
         .collect()
 }
 
-fn write_lines(project: &crate::project::Project, file: &str, rows: &BTreeMap<usize, usize>, header: &str) -> Result<(), Error> {
+fn write_lines(
+    project: &crate::project::Project,
+    file: &str,
+    rows: &BTreeMap<usize, usize>,
+    header: &str,
+) -> Result<(), Error> {
     let path = project.root.join(file);
     if rows.is_empty() {
         if path.is_file() {
@@ -89,12 +94,16 @@ fn write_lines(project: &crate::project::Project, file: &str, rows: &BTreeMap<us
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| Error::Missing(e.to_string()))?;
     }
-    eidos_mod::manifest::write_atomic(&path, text.as_bytes()).map_err(|e| Error::Missing(e.to_string()))
+    eidos_mod::manifest::write_atomic(&path, text.as_bytes())
+        .map_err(|e| Error::Missing(e.to_string()))
 }
 
 /// The mod's new TMs: machine index to item.
 pub fn new_items(bridge: &Bridge) -> BTreeMap<usize, usize> {
-    read_lines(bridge, ITEMS).into_iter().filter(|(i, _)| *i >= COUNT).collect()
+    read_lines(bridge, ITEMS)
+        .into_iter()
+        .filter(|(i, _)| *i >= COUNT)
+        .collect()
 }
 
 /// How many machines this mod has: the game's and its new TMs.
@@ -151,7 +160,10 @@ fn game(bridge: &Bridge) -> Result<Vec<u16>, Error> {
 
 /// The mod's lines: machine to move.
 fn lines(bridge: &Bridge) -> BTreeMap<usize, u16> {
-    read_lines(bridge, FILE).into_iter().map(|(k, v)| (k, v as u16)).collect()
+    read_lines(bridge, FILE)
+        .into_iter()
+        .map(|(k, v)| (k, v as u16))
+        .collect()
 }
 
 /// The move each machine teaches in this mod: the game's machines, then
@@ -200,13 +212,21 @@ pub fn set(bridge: &Bridge, i: usize, mv: u16) -> Result<(), Error> {
         return Err(Error::BadPath(format!("no machine {i}")));
     }
     let game = game(bridge)?;
-    let mut rows: BTreeMap<usize, usize> = lines(bridge).into_iter().map(|(k, v)| (k, v as usize)).collect();
+    let mut rows: BTreeMap<usize, usize> = lines(bridge)
+        .into_iter()
+        .map(|(k, v)| (k, v as usize))
+        .collect();
     if game.get(i) == Some(&mv) {
         rows.remove(&i);
     } else {
         rows.insert(i, mv as usize);
     }
-    write_lines(project, FILE, &rows, "<TM or HM> = <move id> (eidos docs/game-tables.md).")?;
+    write_lines(
+        project,
+        FILE,
+        &rows,
+        "<TM or HM> = <move id> (eidos docs/game-tables.md).",
+    )?;
     // The TM item's description (bank 53) becomes the move's (bank 202).
     let desc = crate::catalog::text_bank(bridge, 2, 202)?
         .get(mv as usize)
@@ -234,7 +254,12 @@ pub fn add(bridge: &Bridge, mv: u16) -> Result<usize, Error> {
     let it = crate::content::add(bridge, "items", TM95_ITEM, &label(i))?;
     let mut items = new_items(bridge);
     items.insert(i, it);
-    write_lines(&project, ITEMS, &items, "<new TM> = <its item> (eidos research new-tms.md).")?;
+    write_lines(
+        &project,
+        ITEMS,
+        &items,
+        "<new TM> = <its item> (eidos research new-tms.md).",
+    )?;
     bridge.invalidate();
     set(bridge, i, mv)?;
     Ok(i)
@@ -258,7 +283,9 @@ pub fn remove_last(bridge: &Bridge) -> Result<String, Error> {
     for index in project.members(t.archive) {
         let rec = crate::tables::record(bridge, "species", index, 0)?;
         let v = rec.sections.iter().find_map(|s| match s {
-            crate::tables::Section::Fields { values, .. } => values.iter().find(|v| v.key == word).map(|v| v.value),
+            crate::tables::Section::Fields { values, .. } => {
+                values.iter().find(|v| v.key == word).map(|v| v.value)
+            }
             _ => None,
         });
         if let Some(v) = v.filter(|v| v >> (i % 32) & 1 == 1) {
@@ -269,12 +296,25 @@ pub fn remove_last(bridge: &Bridge) -> Result<String, Error> {
             crate::tables::save(bridge, "species", index, &edit)?;
         }
     }
-    let mut moves: BTreeMap<usize, usize> = lines(bridge).into_iter().map(|(k, v)| (k, v as usize)).collect();
+    let mut moves: BTreeMap<usize, usize> = lines(bridge)
+        .into_iter()
+        .map(|(k, v)| (k, v as usize))
+        .collect();
     moves.remove(&i);
-    write_lines(&project, FILE, &moves, "<TM or HM> = <move id> (eidos docs/game-tables.md).")?;
+    write_lines(
+        &project,
+        FILE,
+        &moves,
+        "<TM or HM> = <move id> (eidos docs/game-tables.md).",
+    )?;
     let mut items = new_items(bridge);
     items.remove(&i);
-    write_lines(&project, ITEMS, &items, "<new TM> = <its item> (eidos research new-tms.md).")?;
+    write_lines(
+        &project,
+        ITEMS,
+        &items,
+        "<new TM> = <its item> (eidos research new-tms.md).",
+    )?;
     bridge.invalidate();
     crate::content::remove(bridge, "items", it)?;
     Ok(label(i))
@@ -302,7 +342,12 @@ pub fn item_removed(project: &crate::project::Project, id: usize) -> Result<bool
     if new == rows {
         return Ok(false);
     }
-    write_lines(project, ITEMS, &new, "<new TM> = <its item> (eidos research new-tms.md).")?;
+    write_lines(
+        project,
+        ITEMS,
+        &new,
+        "<new TM> = <its item> (eidos research new-tms.md).",
+    )?;
     Ok(true)
 }
 

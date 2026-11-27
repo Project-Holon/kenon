@@ -93,7 +93,8 @@ pub fn parse(b: &[u8]) -> Result<Spa, Error> {
     }
     let mut textures = Vec::new();
     for t in 0..tex_count {
-        let size = rd32(b, at + 0x1C).ok_or_else(|| bad(format!("texture {t} is cut short")))? as usize;
+        let size =
+            rd32(b, at + 0x1C).ok_or_else(|| bad(format!("texture {t} is cut short")))? as usize;
         let block = b
             .get(at..at + size)
             .filter(|_| size >= TEX_HEADER)
@@ -102,7 +103,10 @@ pub fn parse(b: &[u8]) -> Result<Spa, Error> {
         at += size;
     }
     if at != b.len() {
-        return Err(bad(format!("{} bytes after the last texture", b.len() - at)));
+        return Err(bad(format!(
+            "{} bytes after the last texture",
+            b.len() - at
+        )));
     }
     Ok(Spa {
         magic: b[..8].to_vec(),
@@ -178,6 +182,7 @@ pub struct Field {
     pub note: &'static str,
 }
 
+#[allow(clippy::too_many_arguments)] // one table row per call
 const fn f(
     block: &'static str,
     key: &'static str,
@@ -189,7 +194,19 @@ const fn f(
     width: u32,
     kind: Kind,
 ) -> Field {
-    Field { block, key, label, group, at, size, bit, width, kind, choices: &[], note: "" }
+    Field {
+        block,
+        key,
+        label,
+        group,
+        at,
+        size,
+        bit,
+        width,
+        kind,
+        choices: &[],
+        note: "",
+    }
 }
 const fn c(mut x: Field, choices: &'static [&'static str]) -> Field {
     x.choices = choices;
@@ -203,141 +220,1292 @@ const fn n(mut x: Field, note: &'static str) -> Field {
 use Kind::*;
 
 pub const SHAPES: &[&str] = &[
-    "Point", "Sphere surface", "Circle edge", "Circle edge (even)", "Sphere", "Disc",
-    "Cylinder surface", "Cylinder", "Hemisphere surface", "Hemisphere",
+    "Point",
+    "Sphere surface",
+    "Circle edge",
+    "Circle edge (even)",
+    "Sphere",
+    "Disc",
+    "Cylinder surface",
+    "Cylinder",
+    "Hemisphere surface",
+    "Hemisphere",
 ];
-pub const DRAW: &[&str] = &["Billboard", "Stretched billboard", "Polygon", "Directional polygon"];
+pub const DRAW: &[&str] = &[
+    "Billboard",
+    "Stretched billboard",
+    "Polygon",
+    "Directional polygon",
+];
 pub const AXES: &[&str] = &["Z axis", "Y axis", "X axis", "Emitter axis"];
 pub const SCALE_DIR: &[&str] = &["Both", "Width only", "Height only"];
 
 /// Every field kenon edits, from the research doc.
 pub const FIELDS: &[Field] = &[
     // Emission
-    c(f("header", "shape", "Shape", "Emission", 0x00, 4, 0, 4, Choice), SHAPES),
-    c(f("header", "circleAxis", "Circle axis", "Emission", 0x00, 4, 6, 2, Choice), AXES),
-    f("header", "posX", "Offset X", "Emission", 0x04, 4, 0, 32, Fixed),
-    f("header", "posY", "Offset Y", "Emission", 0x08, 4, 0, 32, Fixed),
-    f("header", "posZ", "Offset Z", "Emission", 0x0C, 4, 0, 32, Fixed),
-    n(f("header", "count", "Particles per emission", "Emission", 0x10, 4, 0, 32, Fixed), "Fractions carry over: 1.5 emits 1, 2, 1, 2."),
-    f("header", "radius", "Radius", "Emission", 0x14, 4, 0, 32, Fixed),
-    f("header", "length", "Cylinder length", "Emission", 0x18, 4, 0, 32, Fixed),
-    f("header", "axisX", "Axis X", "Emission", 0x1C, 2, 0, 16, Fixed),
-    f("header", "axisY", "Axis Y", "Emission", 0x1E, 2, 0, 16, Fixed),
-    f("header", "axisZ", "Axis Z", "Emission", 0x20, 2, 0, 16, Fixed),
-    n(f("header", "interval", "Emission interval (frames)", "Emission", 0x44, 1, 0, 8, Uint), "1 or more."),
-    f("header", "startDelay", "Start delay (frames)", "Emission", 0x32, 2, 0, 16, Uint),
-    n(f("header", "emitterLife", "Emitter lifetime (frames)", "Emission", 0x3C, 2, 0, 16, Uint), "0: forever."),
-    f("header", "selfMaintaining", "Auto-stop", "Emission", 0x00, 4, 14, 1, Flag),
+    c(
+        f(
+            "header", "shape", "Shape", "Emission", 0x00, 4, 0, 4, Choice,
+        ),
+        SHAPES,
+    ),
+    c(
+        f(
+            "header",
+            "circleAxis",
+            "Circle axis",
+            "Emission",
+            0x00,
+            4,
+            6,
+            2,
+            Choice,
+        ),
+        AXES,
+    ),
+    f(
+        "header", "posX", "Offset X", "Emission", 0x04, 4, 0, 32, Fixed,
+    ),
+    f(
+        "header", "posY", "Offset Y", "Emission", 0x08, 4, 0, 32, Fixed,
+    ),
+    f(
+        "header", "posZ", "Offset Z", "Emission", 0x0C, 4, 0, 32, Fixed,
+    ),
+    n(
+        f(
+            "header",
+            "count",
+            "Particles per emission",
+            "Emission",
+            0x10,
+            4,
+            0,
+            32,
+            Fixed,
+        ),
+        "Fractions carry over: 1.5 emits 1, 2, 1, 2.",
+    ),
+    f(
+        "header", "radius", "Radius", "Emission", 0x14, 4, 0, 32, Fixed,
+    ),
+    f(
+        "header",
+        "length",
+        "Cylinder length",
+        "Emission",
+        0x18,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "header", "axisX", "Axis X", "Emission", 0x1C, 2, 0, 16, Fixed,
+    ),
+    f(
+        "header", "axisY", "Axis Y", "Emission", 0x1E, 2, 0, 16, Fixed,
+    ),
+    f(
+        "header", "axisZ", "Axis Z", "Emission", 0x20, 2, 0, 16, Fixed,
+    ),
+    n(
+        f(
+            "header",
+            "interval",
+            "Emission interval (frames)",
+            "Emission",
+            0x44,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "1 or more.",
+    ),
+    f(
+        "header",
+        "startDelay",
+        "Start delay (frames)",
+        "Emission",
+        0x32,
+        2,
+        0,
+        16,
+        Uint,
+    ),
+    n(
+        f(
+            "header",
+            "emitterLife",
+            "Emitter lifetime (frames)",
+            "Emission",
+            0x3C,
+            2,
+            0,
+            16,
+            Uint,
+        ),
+        "0: forever.",
+    ),
+    f(
+        "header",
+        "selfMaintaining",
+        "Auto-stop",
+        "Emission",
+        0x00,
+        4,
+        14,
+        1,
+        Flag,
+    ),
     // Motion
-    f("header", "speedOut", "Initial outward speed", "Motion", 0x24, 4, 0, 32, Fixed),
-    f("header", "speedAxis", "Initial axis speed", "Motion", 0x28, 4, 0, 32, Fixed),
-    n(f("header", "spreadSpeed", "Speed spread (0-255)", "Motion", 0x42, 1, 0, 8, Uint), "Applies to both initial speeds."),
-    n(f("header", "airResistance", "Drag", "Motion", 0x46, 1, 0, 8, Uint), "128 is no drag. Lower slows, higher speeds up."),
-    f("header", "followEmitter", "Follow emitter", "Motion", 0x00, 4, 15, 1, Flag),
+    f(
+        "header",
+        "speedOut",
+        "Initial outward speed",
+        "Motion",
+        0x24,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "header",
+        "speedAxis",
+        "Initial axis speed",
+        "Motion",
+        0x28,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    n(
+        f(
+            "header",
+            "spreadSpeed",
+            "Speed spread (0-255)",
+            "Motion",
+            0x42,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "Applies to both initial speeds.",
+    ),
+    n(
+        f(
+            "header",
+            "airResistance",
+            "Drag",
+            "Motion",
+            0x46,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "128 is no drag. Lower slows, higher speeds up.",
+    ),
+    f(
+        "header",
+        "followEmitter",
+        "Follow emitter",
+        "Motion",
+        0x00,
+        4,
+        15,
+        1,
+        Flag,
+    ),
     // Particle
-    f("header", "life", "Lifetime (frames)", "Particle", 0x3E, 2, 0, 16, Uint),
-    n(f("header", "spreadLife", "Lifetime spread (0-255)", "Particle", 0x41, 1, 0, 8, Uint), "Randomly shortens lifetime."),
-    n(f("header", "scale", "Size", "Particle", 0x2C, 4, 0, 32, Fixed), "The quad is 2 units across at size 1."),
-    f("header", "spreadScale", "Size spread (0-255)", "Particle", 0x40, 1, 0, 8, Uint),
-    f("header", "aspect", "Aspect ratio", "Particle", 0x30, 2, 0, 16, Fixed),
-    f("header", "color", "Color", "Particle", 0x22, 2, 0, 15, Color),
-    n(f("header", "alpha", "Opacity (0-31)", "Particle", 0x45, 1, 0, 8, Uint), "31: opaque. 0 hides the particle."),
-    c(f("header", "draw", "Render mode", "Particle", 0x00, 4, 4, 2, Choice), DRAW),
-    f("header", "texture", "Texture", "Particle", 0x47, 1, 0, 8, Uint),
-    f("header", "tileS", "Tile X (power of 2)", "Particle", 0x48, 4, 24, 2, Uint),
-    f("header", "tileT", "Tile Y (power of 2)", "Particle", 0x48, 4, 26, 2, Uint),
-    f("header", "flipS", "Mirror texture X", "Particle", 0x4C, 4, 0, 1, Flag),
-    f("header", "flipT", "Mirror texture Y", "Particle", 0x4C, 4, 1, 1, Flag),
-    f("header", "dbbScale", "Billboard stretch", "Particle", 0x48, 4, 8, 16, Fixed),
-    f("header", "polyX", "Quad offset X", "Particle", 0x50, 2, 0, 16, Fixed),
-    f("header", "polyY", "Quad offset Y", "Particle", 0x52, 2, 0, 16, Fixed),
-    f("header", "viewSpace", "View-space offset", "Particle", 0x00, 4, 23, 1, Flag),
+    f(
+        "header",
+        "life",
+        "Lifetime (frames)",
+        "Particle",
+        0x3E,
+        2,
+        0,
+        16,
+        Uint,
+    ),
+    n(
+        f(
+            "header",
+            "spreadLife",
+            "Lifetime spread (0-255)",
+            "Particle",
+            0x41,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "Randomly shortens lifetime.",
+    ),
+    n(
+        f("header", "scale", "Size", "Particle", 0x2C, 4, 0, 32, Fixed),
+        "The quad is 2 units across at size 1.",
+    ),
+    f(
+        "header",
+        "spreadScale",
+        "Size spread (0-255)",
+        "Particle",
+        0x40,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "header",
+        "aspect",
+        "Aspect ratio",
+        "Particle",
+        0x30,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "header", "color", "Color", "Particle", 0x22, 2, 0, 15, Color,
+    ),
+    n(
+        f(
+            "header",
+            "alpha",
+            "Opacity (0-31)",
+            "Particle",
+            0x45,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "31: opaque. 0 hides the particle.",
+    ),
+    c(
+        f(
+            "header",
+            "draw",
+            "Render mode",
+            "Particle",
+            0x00,
+            4,
+            4,
+            2,
+            Choice,
+        ),
+        DRAW,
+    ),
+    f(
+        "header", "texture", "Texture", "Particle", 0x47, 1, 0, 8, Uint,
+    ),
+    f(
+        "header",
+        "tileS",
+        "Tile X (power of 2)",
+        "Particle",
+        0x48,
+        4,
+        24,
+        2,
+        Uint,
+    ),
+    f(
+        "header",
+        "tileT",
+        "Tile Y (power of 2)",
+        "Particle",
+        0x48,
+        4,
+        26,
+        2,
+        Uint,
+    ),
+    f(
+        "header",
+        "flipS",
+        "Mirror texture X",
+        "Particle",
+        0x4C,
+        4,
+        0,
+        1,
+        Flag,
+    ),
+    f(
+        "header",
+        "flipT",
+        "Mirror texture Y",
+        "Particle",
+        0x4C,
+        4,
+        1,
+        1,
+        Flag,
+    ),
+    f(
+        "header",
+        "dbbScale",
+        "Billboard stretch",
+        "Particle",
+        0x48,
+        4,
+        8,
+        16,
+        Fixed,
+    ),
+    f(
+        "header",
+        "polyX",
+        "Quad offset X",
+        "Particle",
+        0x50,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "header",
+        "polyY",
+        "Quad offset Y",
+        "Particle",
+        0x52,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "header",
+        "viewSpace",
+        "View-space offset",
+        "Particle",
+        0x00,
+        4,
+        23,
+        1,
+        Flag,
+    ),
     // Rotation
-    f("header", "hasRotation", "Rotate", "Rotation", 0x00, 4, 12, 1, Flag),
-    f("header", "minRotation", "Min rotation speed", "Rotation", 0x34, 2, 0, 16, Int),
-    f("header", "maxRotation", "Max rotation speed", "Rotation", 0x36, 2, 0, 16, Int),
-    f("header", "randomAngle", "Random start angle", "Rotation", 0x00, 4, 13, 1, Flag),
-    f("header", "initAngle", "Start angle", "Rotation", 0x38, 2, 0, 16, Angle),
-    c(f("header", "polyAxis", "Polygon rotation axis", "Rotation", 0x00, 4, 17, 2, Choice), &["Y axis", "Diagonal"]),
-    c(f("header", "polyPlane", "Polygon plane", "Rotation", 0x00, 4, 19, 1, Choice), &["XY", "XZ"]),
+    f(
+        "header",
+        "hasRotation",
+        "Rotate",
+        "Rotation",
+        0x00,
+        4,
+        12,
+        1,
+        Flag,
+    ),
+    f(
+        "header",
+        "minRotation",
+        "Min rotation speed",
+        "Rotation",
+        0x34,
+        2,
+        0,
+        16,
+        Int,
+    ),
+    f(
+        "header",
+        "maxRotation",
+        "Max rotation speed",
+        "Rotation",
+        0x36,
+        2,
+        0,
+        16,
+        Int,
+    ),
+    f(
+        "header",
+        "randomAngle",
+        "Random start angle",
+        "Rotation",
+        0x00,
+        4,
+        13,
+        1,
+        Flag,
+    ),
+    f(
+        "header",
+        "initAngle",
+        "Start angle",
+        "Rotation",
+        0x38,
+        2,
+        0,
+        16,
+        Angle,
+    ),
+    c(
+        f(
+            "header",
+            "polyAxis",
+            "Polygon rotation axis",
+            "Rotation",
+            0x00,
+            4,
+            17,
+            2,
+            Choice,
+        ),
+        &["Y axis", "Diagonal"],
+    ),
+    c(
+        f(
+            "header",
+            "polyPlane",
+            "Polygon plane",
+            "Rotation",
+            0x00,
+            4,
+            19,
+            1,
+            Choice,
+        ),
+        &["XY", "XZ"],
+    ),
     // Animation
-    n(f("header", "loopFrames", "Loop length (frames)", "Animation", 0x48, 4, 0, 8, Uint), "1 or more."),
-    f("header", "randomLoop", "Random loop phase", "Animation", 0x00, 4, 20, 1, Flag),
-    c(f("header", "scaleDir", "Size animation axes", "Animation", 0x48, 4, 28, 3, Choice), SCALE_DIR),
-    f("scaleAnim", "scaleStart", "Start size", "Size animation", 0x00, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleMid", "Mid size", "Size animation", 0x02, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleEnd", "End size", "Size animation", 0x04, 2, 0, 16, Fixed),
-    f("scaleAnim", "scaleIn", "Mid start (0-255)", "Size animation", 0x06, 1, 0, 8, Uint),
-    f("scaleAnim", "scaleOut", "Mid end (0-255)", "Size animation", 0x07, 1, 0, 8, Uint),
-    f("scaleAnim", "scaleLoop", "Loop", "Size animation", 0x08, 2, 0, 1, Flag),
-    f("colorAnim", "colorStart", "Start color", "Color animation", 0x00, 2, 0, 15, Color),
-    f("colorAnim", "colorEnd", "End color", "Color animation", 0x02, 2, 0, 15, Color),
-    f("colorAnim", "colorIn", "Start color until (0-255)", "Color animation", 0x04, 1, 0, 8, Uint),
-    f("colorAnim", "colorPeak", "Main color at (0-255)", "Color animation", 0x05, 1, 0, 8, Uint),
-    f("colorAnim", "colorOut", "End color from (0-255)", "Color animation", 0x06, 1, 0, 8, Uint),
-    f("colorAnim", "colorRandom", "Random of 3 colors", "Color animation", 0x08, 2, 0, 1, Flag),
-    f("colorAnim", "colorLoop", "Loop", "Color animation", 0x08, 2, 1, 1, Flag),
-    f("colorAnim", "colorBlend", "Blend colors", "Color animation", 0x08, 2, 2, 1, Flag),
-    f("alphaAnim", "alphaStart", "Start opacity (0-31)", "Opacity animation", 0x00, 2, 0, 5, Uint),
-    f("alphaAnim", "alphaMid", "Mid opacity (0-31)", "Opacity animation", 0x00, 2, 5, 5, Uint),
-    f("alphaAnim", "alphaEnd", "End opacity (0-31)", "Opacity animation", 0x00, 2, 10, 5, Uint),
-    f("alphaAnim", "alphaFlicker", "Flicker (0-255)", "Opacity animation", 0x02, 2, 0, 8, Uint),
-    f("alphaAnim", "alphaLoop", "Loop", "Opacity animation", 0x02, 2, 8, 1, Flag),
-    f("alphaAnim", "alphaIn", "Mid start (0-255)", "Opacity animation", 0x04, 1, 0, 8, Uint),
-    f("alphaAnim", "alphaOut", "Mid end (0-255)", "Opacity animation", 0x05, 1, 0, 8, Uint),
-    f("texAnim", "frame0", "Frame 1", "Texture animation", 0x00, 1, 0, 8, Uint),
-    f("texAnim", "frame1", "Frame 2", "Texture animation", 0x01, 1, 0, 8, Uint),
-    f("texAnim", "frame2", "Frame 3", "Texture animation", 0x02, 1, 0, 8, Uint),
-    f("texAnim", "frame3", "Frame 4", "Texture animation", 0x03, 1, 0, 8, Uint),
-    f("texAnim", "frame4", "Frame 5", "Texture animation", 0x04, 1, 0, 8, Uint),
-    f("texAnim", "frame5", "Frame 6", "Texture animation", 0x05, 1, 0, 8, Uint),
-    f("texAnim", "frame6", "Frame 7", "Texture animation", 0x06, 1, 0, 8, Uint),
-    f("texAnim", "frame7", "Frame 8", "Texture animation", 0x07, 1, 0, 8, Uint),
-    n(f("texAnim", "frames", "Frame count (1-8)", "Texture animation", 0x08, 4, 0, 8, Uint), "1 to 8."),
-    n(f("texAnim", "step", "Frame duration (0-255 of life)", "Texture animation", 0x08, 4, 8, 8, Uint), "In life units: 4 frames over a life use 64."),
-    f("texAnim", "texRandom", "Random frame per particle", "Texture animation", 0x08, 4, 16, 1, Flag),
-    f("texAnim", "texLoop", "Loop", "Texture animation", 0x08, 4, 17, 1, Flag),
+    n(
+        f(
+            "header",
+            "loopFrames",
+            "Loop length (frames)",
+            "Animation",
+            0x48,
+            4,
+            0,
+            8,
+            Uint,
+        ),
+        "1 or more.",
+    ),
+    f(
+        "header",
+        "randomLoop",
+        "Random loop phase",
+        "Animation",
+        0x00,
+        4,
+        20,
+        1,
+        Flag,
+    ),
+    c(
+        f(
+            "header",
+            "scaleDir",
+            "Size animation axes",
+            "Animation",
+            0x48,
+            4,
+            28,
+            3,
+            Choice,
+        ),
+        SCALE_DIR,
+    ),
+    f(
+        "scaleAnim",
+        "scaleStart",
+        "Start size",
+        "Size animation",
+        0x00,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "scaleAnim",
+        "scaleMid",
+        "Mid size",
+        "Size animation",
+        0x02,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "scaleAnim",
+        "scaleEnd",
+        "End size",
+        "Size animation",
+        0x04,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "scaleAnim",
+        "scaleIn",
+        "Mid start (0-255)",
+        "Size animation",
+        0x06,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "scaleAnim",
+        "scaleOut",
+        "Mid end (0-255)",
+        "Size animation",
+        0x07,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "scaleAnim",
+        "scaleLoop",
+        "Loop",
+        "Size animation",
+        0x08,
+        2,
+        0,
+        1,
+        Flag,
+    ),
+    f(
+        "colorAnim",
+        "colorStart",
+        "Start color",
+        "Color animation",
+        0x00,
+        2,
+        0,
+        15,
+        Color,
+    ),
+    f(
+        "colorAnim",
+        "colorEnd",
+        "End color",
+        "Color animation",
+        0x02,
+        2,
+        0,
+        15,
+        Color,
+    ),
+    f(
+        "colorAnim",
+        "colorIn",
+        "Start color until (0-255)",
+        "Color animation",
+        0x04,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "colorAnim",
+        "colorPeak",
+        "Main color at (0-255)",
+        "Color animation",
+        0x05,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "colorAnim",
+        "colorOut",
+        "End color from (0-255)",
+        "Color animation",
+        0x06,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "colorAnim",
+        "colorRandom",
+        "Random of 3 colors",
+        "Color animation",
+        0x08,
+        2,
+        0,
+        1,
+        Flag,
+    ),
+    f(
+        "colorAnim",
+        "colorLoop",
+        "Loop",
+        "Color animation",
+        0x08,
+        2,
+        1,
+        1,
+        Flag,
+    ),
+    f(
+        "colorAnim",
+        "colorBlend",
+        "Blend colors",
+        "Color animation",
+        0x08,
+        2,
+        2,
+        1,
+        Flag,
+    ),
+    f(
+        "alphaAnim",
+        "alphaStart",
+        "Start opacity (0-31)",
+        "Opacity animation",
+        0x00,
+        2,
+        0,
+        5,
+        Uint,
+    ),
+    f(
+        "alphaAnim",
+        "alphaMid",
+        "Mid opacity (0-31)",
+        "Opacity animation",
+        0x00,
+        2,
+        5,
+        5,
+        Uint,
+    ),
+    f(
+        "alphaAnim",
+        "alphaEnd",
+        "End opacity (0-31)",
+        "Opacity animation",
+        0x00,
+        2,
+        10,
+        5,
+        Uint,
+    ),
+    f(
+        "alphaAnim",
+        "alphaFlicker",
+        "Flicker (0-255)",
+        "Opacity animation",
+        0x02,
+        2,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "alphaAnim",
+        "alphaLoop",
+        "Loop",
+        "Opacity animation",
+        0x02,
+        2,
+        8,
+        1,
+        Flag,
+    ),
+    f(
+        "alphaAnim",
+        "alphaIn",
+        "Mid start (0-255)",
+        "Opacity animation",
+        0x04,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "alphaAnim",
+        "alphaOut",
+        "Mid end (0-255)",
+        "Opacity animation",
+        0x05,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame0",
+        "Frame 1",
+        "Texture animation",
+        0x00,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame1",
+        "Frame 2",
+        "Texture animation",
+        0x01,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame2",
+        "Frame 3",
+        "Texture animation",
+        0x02,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame3",
+        "Frame 4",
+        "Texture animation",
+        0x03,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame4",
+        "Frame 5",
+        "Texture animation",
+        0x04,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame5",
+        "Frame 6",
+        "Texture animation",
+        0x05,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame6",
+        "Frame 7",
+        "Texture animation",
+        0x06,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "texAnim",
+        "frame7",
+        "Frame 8",
+        "Texture animation",
+        0x07,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    n(
+        f(
+            "texAnim",
+            "frames",
+            "Frame count (1-8)",
+            "Texture animation",
+            0x08,
+            4,
+            0,
+            8,
+            Uint,
+        ),
+        "1 to 8.",
+    ),
+    n(
+        f(
+            "texAnim",
+            "step",
+            "Frame duration (0-255 of life)",
+            "Texture animation",
+            0x08,
+            4,
+            8,
+            8,
+            Uint,
+        ),
+        "In life units: 4 frames over a life use 64.",
+    ),
+    f(
+        "texAnim",
+        "texRandom",
+        "Random frame per particle",
+        "Texture animation",
+        0x08,
+        4,
+        16,
+        1,
+        Flag,
+    ),
+    f(
+        "texAnim",
+        "texLoop",
+        "Loop",
+        "Texture animation",
+        0x08,
+        4,
+        17,
+        1,
+        Flag,
+    ),
     // Children
-    f("child", "childLife", "Lifetime (frames)", "Children", 0x06, 2, 0, 16, Uint),
-    f("child", "childCount", "Children per emission", "Children", 0x0C, 1, 0, 8, Uint),
-    f("child", "childDelay", "Start delay (0-255 of parent life)", "Children", 0x0D, 1, 0, 8, Uint),
-    n(f("child", "childInterval", "Emission interval (frames)", "Children", 0x0E, 1, 0, 8, Uint), "1 or more."),
-    f("child", "childTexture", "Texture", "Children", 0x0F, 1, 0, 8, Uint),
-    f("child", "childSpeed", "Inherited speed (0-255)", "Children", 0x08, 1, 0, 8, Uint),
-    n(f("child", "childScale", "Size (63 = parent)", "Children", 0x09, 1, 0, 8, Uint), "Parent size * (value + 1) / 64."),
-    f("child", "childRandom", "Random speed", "Children", 0x02, 2, 0, 16, Fixed),
-    f("child", "childUseColor", "Custom color", "Children", 0x00, 2, 6, 1, Flag),
-    f("child", "childColor", "Color", "Children", 0x0A, 2, 0, 15, Color),
-    f("child", "childScaleAnim", "Animate size", "Children", 0x00, 2, 1, 1, Flag),
-    f("child", "childEndScale", "End size", "Children", 0x04, 2, 0, 16, Fixed),
-    f("child", "childFade", "Fade out", "Children", 0x00, 2, 2, 1, Flag),
-    f("child", "childBehaviors", "Apply behaviors", "Children", 0x00, 2, 0, 1, Flag),
-    c(f("child", "childRotation", "Rotation", "Children", 0x00, 2, 3, 2, Choice), &["None", "Parent's angle", "Parent's angle and spin"]),
-    f("child", "childFollow", "Follow emitter", "Children", 0x00, 2, 5, 1, Flag),
-    c(f("child", "childDraw", "Render mode", "Children", 0x00, 2, 7, 2, Choice), DRAW),
-    f("header", "childrenFirst", "Draw children first", "Children", 0x00, 4, 21, 1, Flag),
-    f("header", "hideParent", "Hide parent", "Children", 0x00, 4, 22, 1, Flag),
+    f(
+        "child",
+        "childLife",
+        "Lifetime (frames)",
+        "Children",
+        0x06,
+        2,
+        0,
+        16,
+        Uint,
+    ),
+    f(
+        "child",
+        "childCount",
+        "Children per emission",
+        "Children",
+        0x0C,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "child",
+        "childDelay",
+        "Start delay (0-255 of parent life)",
+        "Children",
+        0x0D,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    n(
+        f(
+            "child",
+            "childInterval",
+            "Emission interval (frames)",
+            "Children",
+            0x0E,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "1 or more.",
+    ),
+    f(
+        "child",
+        "childTexture",
+        "Texture",
+        "Children",
+        0x0F,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    f(
+        "child",
+        "childSpeed",
+        "Inherited speed (0-255)",
+        "Children",
+        0x08,
+        1,
+        0,
+        8,
+        Uint,
+    ),
+    n(
+        f(
+            "child",
+            "childScale",
+            "Size (63 = parent)",
+            "Children",
+            0x09,
+            1,
+            0,
+            8,
+            Uint,
+        ),
+        "Parent size * (value + 1) / 64.",
+    ),
+    f(
+        "child",
+        "childRandom",
+        "Random speed",
+        "Children",
+        0x02,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "child",
+        "childUseColor",
+        "Custom color",
+        "Children",
+        0x00,
+        2,
+        6,
+        1,
+        Flag,
+    ),
+    f(
+        "child",
+        "childColor",
+        "Color",
+        "Children",
+        0x0A,
+        2,
+        0,
+        15,
+        Color,
+    ),
+    f(
+        "child",
+        "childScaleAnim",
+        "Animate size",
+        "Children",
+        0x00,
+        2,
+        1,
+        1,
+        Flag,
+    ),
+    f(
+        "child",
+        "childEndScale",
+        "End size",
+        "Children",
+        0x04,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "child",
+        "childFade",
+        "Fade out",
+        "Children",
+        0x00,
+        2,
+        2,
+        1,
+        Flag,
+    ),
+    f(
+        "child",
+        "childBehaviors",
+        "Apply behaviors",
+        "Children",
+        0x00,
+        2,
+        0,
+        1,
+        Flag,
+    ),
+    c(
+        f(
+            "child",
+            "childRotation",
+            "Rotation",
+            "Children",
+            0x00,
+            2,
+            3,
+            2,
+            Choice,
+        ),
+        &["None", "Parent's angle", "Parent's angle and spin"],
+    ),
+    f(
+        "child",
+        "childFollow",
+        "Follow emitter",
+        "Children",
+        0x00,
+        2,
+        5,
+        1,
+        Flag,
+    ),
+    c(
+        f(
+            "child",
+            "childDraw",
+            "Render mode",
+            "Children",
+            0x00,
+            2,
+            7,
+            2,
+            Choice,
+        ),
+        DRAW,
+    ),
+    f(
+        "header",
+        "childrenFirst",
+        "Draw children first",
+        "Children",
+        0x00,
+        4,
+        21,
+        1,
+        Flag,
+    ),
+    f(
+        "header",
+        "hideParent",
+        "Hide parent",
+        "Children",
+        0x00,
+        4,
+        22,
+        1,
+        Flag,
+    ),
     // Behaviors
-    f("gravity", "gravityX", "Gravity X", "Gravity", 0x00, 2, 0, 16, Fixed),
-    f("gravity", "gravityY", "Gravity Y", "Gravity", 0x02, 2, 0, 16, Fixed),
-    f("gravity", "gravityZ", "Gravity Z", "Gravity", 0x04, 2, 0, 16, Fixed),
-    f("random", "randomX", "Force X", "Random force", 0x00, 2, 0, 16, Fixed),
-    f("random", "randomY", "Force Y", "Random force", 0x02, 2, 0, 16, Fixed),
-    f("random", "randomZ", "Force Z", "Random force", 0x04, 2, 0, 16, Fixed),
-    n(f("random", "randomEvery", "Interval (frames)", "Random force", 0x06, 2, 0, 16, Uint), "1 or more."),
-    f("magnet", "magnetX", "Target X", "Magnet", 0x00, 4, 0, 32, Fixed),
-    f("magnet", "magnetY", "Target Y", "Magnet", 0x04, 4, 0, 32, Fixed),
-    f("magnet", "magnetZ", "Target Z", "Magnet", 0x08, 4, 0, 32, Fixed),
-    f("magnet", "magnetForce", "Force", "Magnet", 0x0C, 2, 0, 16, Fixed),
-    f("spin", "spinAngle", "Angle per frame", "Orbit", 0x00, 2, 0, 16, Angle),
-    c(f("spin", "spinAxis", "Axis", "Orbit", 0x02, 2, 0, 16, Choice), &["X axis", "Y axis", "Z axis"]),
-    f("collision", "floorY", "Floor height", "Floor", 0x00, 4, 0, 32, Fixed),
-    f("collision", "bounce", "Bounce", "Floor", 0x04, 2, 0, 16, Fixed),
-    c(f("collision", "floorMode", "On contact", "Floor", 0x06, 2, 0, 2, Choice), &["Disappear", "Bounce"]),
-    f("convergence", "pullX", "Target X", "Pull", 0x00, 4, 0, 32, Fixed),
-    f("convergence", "pullY", "Target Y", "Pull", 0x04, 4, 0, 32, Fixed),
-    f("convergence", "pullZ", "Target Z", "Pull", 0x08, 4, 0, 32, Fixed),
-    f("convergence", "pullForce", "Force", "Pull", 0x0C, 2, 0, 16, Fixed),
+    f(
+        "gravity",
+        "gravityX",
+        "Gravity X",
+        "Gravity",
+        0x00,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "gravity",
+        "gravityY",
+        "Gravity Y",
+        "Gravity",
+        0x02,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "gravity",
+        "gravityZ",
+        "Gravity Z",
+        "Gravity",
+        0x04,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "random",
+        "randomX",
+        "Force X",
+        "Random force",
+        0x00,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "random",
+        "randomY",
+        "Force Y",
+        "Random force",
+        0x02,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "random",
+        "randomZ",
+        "Force Z",
+        "Random force",
+        0x04,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    n(
+        f(
+            "random",
+            "randomEvery",
+            "Interval (frames)",
+            "Random force",
+            0x06,
+            2,
+            0,
+            16,
+            Uint,
+        ),
+        "1 or more.",
+    ),
+    f(
+        "magnet", "magnetX", "Target X", "Magnet", 0x00, 4, 0, 32, Fixed,
+    ),
+    f(
+        "magnet", "magnetY", "Target Y", "Magnet", 0x04, 4, 0, 32, Fixed,
+    ),
+    f(
+        "magnet", "magnetZ", "Target Z", "Magnet", 0x08, 4, 0, 32, Fixed,
+    ),
+    f(
+        "magnet",
+        "magnetForce",
+        "Force",
+        "Magnet",
+        0x0C,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    f(
+        "spin",
+        "spinAngle",
+        "Angle per frame",
+        "Orbit",
+        0x00,
+        2,
+        0,
+        16,
+        Angle,
+    ),
+    c(
+        f("spin", "spinAxis", "Axis", "Orbit", 0x02, 2, 0, 16, Choice),
+        &["X axis", "Y axis", "Z axis"],
+    ),
+    f(
+        "collision",
+        "floorY",
+        "Floor height",
+        "Floor",
+        0x00,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "collision",
+        "bounce",
+        "Bounce",
+        "Floor",
+        0x04,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
+    c(
+        f(
+            "collision",
+            "floorMode",
+            "On contact",
+            "Floor",
+            0x06,
+            2,
+            0,
+            2,
+            Choice,
+        ),
+        &["Disappear", "Bounce"],
+    ),
+    f(
+        "convergence",
+        "pullX",
+        "Target X",
+        "Pull",
+        0x00,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "convergence",
+        "pullY",
+        "Target Y",
+        "Pull",
+        0x04,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "convergence",
+        "pullZ",
+        "Target Z",
+        "Pull",
+        0x08,
+        4,
+        0,
+        32,
+        Fixed,
+    ),
+    f(
+        "convergence",
+        "pullForce",
+        "Force",
+        "Pull",
+        0x0C,
+        2,
+        0,
+        16,
+        Fixed,
+    ),
 ];
 
 fn word(b: &[u8], at: usize, size: usize) -> u32 {
@@ -364,7 +1532,11 @@ pub fn read(r: &Resource, field: &Field) -> Option<i64> {
         &r.blocks.iter().find(|(n, _)| n == field.block)?.1
     };
     let w = word(bytes, field.at, field.size);
-    let mask = if field.width == 32 { u32::MAX } else { (1u32 << field.width) - 1 };
+    let mask = if field.width == 32 {
+        u32::MAX
+    } else {
+        (1u32 << field.width) - 1
+    };
     let raw = (w >> field.bit) & mask;
     Some(match field.kind {
         Int | Fixed if field.width < 64 => {
@@ -387,7 +1559,11 @@ pub fn write(r: &mut Resource, field: &Field, v: i64) -> Result<(), Error> {
             .ok_or_else(|| bad(format!("this emitter has no {}", field.block)))?
             .1
     };
-    let mask = if field.width == 32 { u32::MAX } else { (1u32 << field.width) - 1 };
+    let mask = if field.width == 32 {
+        u32::MAX
+    } else {
+        (1u32 << field.width) - 1
+    };
     let w = word(bytes, field.at, field.size);
     let new = (w & !(mask << field.bit)) | (((v as u32) & mask) << field.bit);
     put_word(bytes, field.at, field.size, new);
@@ -397,7 +1573,8 @@ pub fn write(r: &mut Resource, field: &Field, v: i64) -> Result<(), Error> {
 /// Adds or removes an optional block (and its flag bit). A new block starts
 /// with sensible values: animations that do nothing, an interval of 1.
 pub fn set_block(r: &mut Resource, name: &str, on: bool) -> Result<(), Error> {
-    let order: Vec<(&str, u32, usize)> = SUBBLOCKS.iter().chain(BEHAVIORS.iter()).copied().collect();
+    let order: Vec<(&str, u32, usize)> =
+        SUBBLOCKS.iter().chain(BEHAVIORS.iter()).copied().collect();
     let &(_, bit, size) = order
         .iter()
         .find(|(n, _, _)| *n == name)
@@ -442,7 +1619,11 @@ pub fn set_block(r: &mut Resource, name: &str, on: bool) -> Result<(), Error> {
         }
         // Keep the file order.
         let rank = |n: &str| order.iter().position(|(x, _, _)| *x == n).unwrap();
-        let at = r.blocks.iter().position(|(n, _)| rank(n) > rank(name)).unwrap_or(r.blocks.len());
+        let at = r
+            .blocks
+            .iter()
+            .position(|(n, _)| rank(n) > rank(name))
+            .unwrap_or(r.blocks.len());
         r.blocks.insert(at, (name.to_string(), b));
         flags |= 1 << bit;
     } else {
@@ -463,35 +1644,53 @@ pub fn problems(s: &Spa) -> Vec<String> {
         let e = i + 1;
         let get = |k: &str| read(r, field(k));
         if get("interval") == Some(0) {
-            out.push(format!("Emitter {e}: the emission interval must be 1 or more."));
+            out.push(format!(
+                "Emitter {e}: the emission interval must be 1 or more."
+            ));
         }
         if get("loopFrames") == Some(0) {
             out.push(format!("Emitter {e}: the loop length must be 1 or more."));
         }
         if get("texture").is_some_and(|t| t >= tex) {
-            out.push(format!("Emitter {e}: texture {} does not exist.", get("texture").unwrap()));
+            out.push(format!(
+                "Emitter {e}: texture {} does not exist.",
+                get("texture").unwrap()
+            ));
         }
         if let Some(n) = get("frames") {
             if !(1..=8).contains(&n) {
-                out.push(format!("Emitter {e}: a texture animation has 1 to 8 frames."));
+                out.push(format!(
+                    "Emitter {e}: a texture animation has 1 to 8 frames."
+                ));
             }
             for k in 0..n.clamp(0, 8) {
                 if get(&format!("frame{k}")).is_some_and(|t| t >= tex) {
-                    out.push(format!("Emitter {e}: animation frame {} uses a missing texture.", k + 1));
+                    out.push(format!(
+                        "Emitter {e}: animation frame {} uses a missing texture.",
+                        k + 1
+                    ));
                 }
             }
         }
         if get("childInterval") == Some(0) {
-            out.push(format!("Emitter {e}: the children's interval must be 1 or more."));
+            out.push(format!(
+                "Emitter {e}: the children's interval must be 1 or more."
+            ));
         }
         if get("childLife") == Some(0) {
-            out.push(format!("Emitter {e}: the children's life must be 1 or more."));
+            out.push(format!(
+                "Emitter {e}: the children's life must be 1 or more."
+            ));
         }
         if get("childTexture").is_some_and(|t| t >= tex) {
-            out.push(format!("Emitter {e}: the children's texture does not exist."));
+            out.push(format!(
+                "Emitter {e}: the children's texture does not exist."
+            ));
         }
         if get("randomEvery") == Some(0) {
-            out.push(format!("Emitter {e}: the random push needs an interval of 1 or more."));
+            out.push(format!(
+                "Emitter {e}: the random push needs an interval of 1 or more."
+            ));
         }
     }
     // The battle's work buffer (eidos research 5.1): 32 bytes per emitter,
@@ -499,11 +1698,18 @@ pub fn problems(s: &Spa) -> Vec<String> {
     let behaviors: usize = s
         .resources
         .iter()
-        .map(|r| r.blocks.iter().filter(|(n, _)| BEHAVIORS.iter().any(|(b, _, _)| b == n)).count())
+        .map(|r| {
+            r.blocks
+                .iter()
+                .filter(|(n, _)| BEHAVIORS.iter().any(|(b, _, _)| b == n))
+                .count()
+        })
         .sum();
     let work = 32 * s.resources.len() + 8 * behaviors + 20 * s.textures.len();
     if work > 1012 {
-        out.push(format!("Too many emitters, behaviors and textures for the battle ({work} of 1012 bytes)."));
+        out.push(format!(
+            "Too many emitters, behaviors and textures for the battle ({work} of 1012 bytes)."
+        ));
     }
     out
 }
@@ -529,13 +1735,18 @@ pub struct Listed {
 /// ball-keyed ones count for their base key).
 pub fn users(bridge: &crate::bridge::Bridge) -> std::collections::BTreeMap<usize, Vec<usize>> {
     let mut out: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
-    let count = bridge.base_archive(crate::move_anims::SCRIPTS).map_or(0, |a| a.len());
+    let count = bridge
+        .base_archive(crate::move_anims::SCRIPTS)
+        .map_or(0, |a| a.len());
     let last = bridge
         .project()
         .and_then(|p| p.last_member(crate::move_anims::SCRIPTS))
         .map_or(count, |l| count.max(l + 1));
     for mv in 1..last.min(0x8000) {
-        let Ok(b) = bridge.member(crate::bridge::Member { arc: crate::move_anims::SCRIPTS, index: mv }) else {
+        let Ok(b) = bridge.member(crate::bridge::Member {
+            arc: crate::move_anims::SCRIPTS,
+            index: mv,
+        }) else {
             continue;
         };
         for key in crate::effscript::particle_keys(&b) {
@@ -558,7 +1769,10 @@ pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
     let users = users(bridge);
     let mut out = Vec::new();
     for index in 0..end {
-        let Ok(b) = bridge.member(crate::bridge::Member { arc: ARCHIVE, index }) else {
+        let Ok(b) = bridge.member(crate::bridge::Member {
+            arc: ARCHIVE,
+            index,
+        }) else {
             continue;
         };
         let Ok(s) = parse(&b) else { continue };
@@ -567,7 +1781,10 @@ pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
             emitters: s.resources.len(),
             textures: s.textures.len(),
             changed: project.is_some_and(|p| p.member(ARCHIVE, index).is_some()),
-            moves: users.get(&index).map(|m| m.iter().take(4).copied().collect()).unwrap_or_default(),
+            moves: users
+                .get(&index)
+                .map(|m| m.iter().take(4).copied().collect())
+                .unwrap_or_default(),
         });
     }
     Ok(out)
@@ -575,12 +1792,22 @@ pub fn list(bridge: &crate::bridge::Bridge) -> Result<Vec<Listed>, Error> {
 
 /// A particle file of this mod.
 pub fn load(bridge: &crate::bridge::Bridge, index: usize) -> Result<Spa, Error> {
-    parse(&bridge.member(crate::bridge::Member { arc: ARCHIVE, index })?)
+    parse(&bridge.member(crate::bridge::Member {
+        arc: ARCHIVE,
+        index,
+    })?)
 }
 
 /// Writes a particle file (the game's own drops the mod's copy).
 pub fn store(bridge: &crate::bridge::Bridge, index: usize, s: &Spa) -> Result<(), Error> {
-    crate::catalog::write_member(bridge, crate::bridge::Member { arc: ARCHIVE, index }, &build(s))
+    crate::catalog::write_member(
+        bridge,
+        crate::bridge::Member {
+            arc: ARCHIVE,
+            index,
+        },
+        &build(s),
+    )
 }
 
 /// A new particle file, a copy of `from`, after the last one. Returns its
@@ -589,7 +1816,9 @@ pub fn add(bridge: &crate::bridge::Bridge, from: usize) -> Result<usize, Error> 
     let project = bridge.project().ok_or_else(|| bad("no project is open"))?;
     let s = load(bridge, from)?;
     let base = bridge.base_archive(ARCHIVE)?.len();
-    let index = project.last_member(ARCHIVE).map_or(base, |l| base.max(l + 1));
+    let index = project
+        .last_member(ARCHIVE)
+        .map_or(base, |l| base.max(l + 1));
     project
         .write_member(ARCHIVE, index, &build(&s))
         .map_err(|e| Error::Missing(e.to_string()))?;
@@ -645,12 +1874,21 @@ pub struct Edit {
 /// a file the game would break on.
 pub fn apply(s: &mut Spa, blocks: &[(usize, String, bool)], edits: &[Edit]) -> Result<(), Error> {
     for (e, name, on) in blocks {
-        let r = s.resources.get_mut(*e).ok_or_else(|| bad(format!("no emitter {}", e + 1)))?;
+        let r = s
+            .resources
+            .get_mut(*e)
+            .ok_or_else(|| bad(format!("no emitter {}", e + 1)))?;
         set_block(r, name, *on)?;
     }
     for ed in edits {
-        let f = FIELDS.iter().find(|f| f.key == ed.key).ok_or_else(|| bad(format!("no field {}", ed.key)))?;
-        let r = s.resources.get_mut(ed.emitter).ok_or_else(|| bad(format!("no emitter {}", ed.emitter + 1)))?;
+        let f = FIELDS
+            .iter()
+            .find(|f| f.key == ed.key)
+            .ok_or_else(|| bad(format!("no field {}", ed.key)))?;
+        let r = s
+            .resources
+            .get_mut(ed.emitter)
+            .ok_or_else(|| bad(format!("no emitter {}", ed.emitter + 1)))?;
         write(r, f, ed.value)?;
     }
     let p = problems(s);
@@ -672,7 +1910,16 @@ pub struct TexInfo {
     pub colors: usize,
 }
 
-pub const FORMAT_NAMES: [&str; 8] = ["none", "A3I5", "4 colors", "16 colors", "256 colors", "4x4 compressed", "A5I3", "direct"];
+pub const FORMAT_NAMES: [&str; 8] = [
+    "none",
+    "A3I5",
+    "4 colors",
+    "16 colors",
+    "256 colors",
+    "4x4 compressed",
+    "A5I3",
+    "direct",
+];
 
 fn bpp(format: u32) -> usize {
     match format {
@@ -703,13 +1950,17 @@ fn rgb(c: u16) -> [u8; 3] {
 pub fn decode_texture(block: &[u8]) -> Result<(TexInfo, Vec<u8>), Error> {
     let info = tex_info(block);
     let size = rd32(block, 8).unwrap_or(0) as usize;
-    let texels = block.get(TEX_HEADER..TEX_HEADER + size).ok_or_else(|| bad("texture is cut short"))?;
+    let texels = block
+        .get(TEX_HEADER..TEX_HEADER + size)
+        .ok_or_else(|| bad("texture is cut short"))?;
     let pal_at = rd32(block, 0x0C).unwrap_or(0) as usize;
     let pal: Vec<u16> = block
         .get(pal_at..pal_at + info.colors * 2)
         .unwrap_or(&[])
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes(*c))
         .collect();
     let color0_clear = rd32(block, 4).unwrap_or(0) & (1 << 16) != 0;
     let n = info.width * info.height;
@@ -720,17 +1971,28 @@ pub fn decode_texture(block: &[u8]) -> Result<(TexInfo, Vec<u8>), Error> {
     };
     let bits = bpp(info.format);
     if bits == 0 {
-        return Err(bad(format!("texture format {} is not supported", FORMAT_NAMES[info.format as usize & 7])));
+        return Err(bad(format!(
+            "texture format {} is not supported",
+            FORMAT_NAMES[info.format as usize & 7]
+        )));
     }
     for k in 0..n {
         match info.format {
             1 => {
                 let t = texels.get(k).copied().unwrap_or(0);
-                px((t & 31) as usize, ((t >> 5) as u32 * 255 / 7) as u8, &mut out);
+                px(
+                    (t & 31) as usize,
+                    ((t >> 5) as u32 * 255 / 7) as u8,
+                    &mut out,
+                );
             }
             6 => {
                 let t = texels.get(k).copied().unwrap_or(0);
-                px((t & 7) as usize, ((t >> 3) as u32 * 255 / 31) as u8, &mut out);
+                px(
+                    (t & 7) as usize,
+                    ((t >> 3) as u32 * 255 / 31) as u8,
+                    &mut out,
+                );
             }
             7 => {
                 let c = rd16(texels, k * 2).unwrap_or(0);
@@ -740,7 +2002,11 @@ pub fn decode_texture(block: &[u8]) -> Result<(TexInfo, Vec<u8>), Error> {
             _ => {
                 let byte = texels.get(k * bits / 8).copied().unwrap_or(0);
                 let i = (byte >> ((k * bits) % 8)) & ((1u16 << bits) - 1) as u8;
-                px(i as usize, if color0_clear && i == 0 { 0 } else { 255 }, &mut out);
+                px(
+                    i as usize,
+                    if color0_clear && i == 0 { 0 } else { 255 },
+                    &mut out,
+                );
             }
         }
     }
@@ -749,7 +2015,8 @@ pub fn decode_texture(block: &[u8]) -> Result<(TexInfo, Vec<u8>), Error> {
 
 /// Up to `max` colors for the opaque pixels (median cut on RGB555).
 fn quantize(pixels: &[[u8; 3]], max: usize) -> Vec<u16> {
-    let c555 = |p: &[u8; 3]| (p[0] as u16 >> 3) | (p[1] as u16 >> 3) << 5 | (p[2] as u16 >> 3) << 10;
+    let c555 =
+        |p: &[u8; 3]| (p[0] as u16 >> 3) | (p[1] as u16 >> 3) << 5 | (p[2] as u16 >> 3) << 10;
     let mut boxes: Vec<Vec<[u8; 3]>> = vec![pixels.to_vec()];
     let mut uniq: Vec<u16> = pixels.iter().map(c555).collect();
     uniq.sort_unstable();
@@ -800,7 +2067,9 @@ fn nearest(pal: &[u16], p: [u8; 3]) -> usize {
         .enumerate()
         .min_by_key(|(_, &c)| {
             let q = rgb(c);
-            (0..3).map(|i| (q[i] as i32 - p[i] as i32).pow(2)).sum::<i32>()
+            (0..3)
+                .map(|i| (q[i] as i32 - p[i] as i32).pow(2))
+                .sum::<i32>()
         })
         .map_or(0, |(i, _)| i)
 }
@@ -809,10 +2078,17 @@ fn nearest(pal: &[u16], p: [u8; 3]) -> usize {
 /// A5I3, 4, 16 or 256 colors, or direct) at the image's size, which must be
 /// 8 << n wide and high (8 to 1024). The param word's other bits (repeat,
 /// flip, color 0 clear) are kept.
-pub fn encode_texture(old: &[u8], width: usize, height: usize, rgba: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn encode_texture(
+    old: &[u8],
+    width: usize,
+    height: usize,
+    rgba: &[u8],
+) -> Result<Vec<u8>, Error> {
     let shift = |v: usize| (0..8u32).find(|&s| 8 << s == v);
     let (Some(s), Some(t)) = (shift(width), shift(height)) else {
-        return Err(bad("a texture is 8, 16, 32, 64, 128... pixels wide and high"));
+        return Err(bad(
+            "a texture is 8, 16, 32, 64, 128... pixels wide and high",
+        ));
     };
     let info = tex_info(old);
     let param = (rd32(old, 4).unwrap() & !0xFFF) | info.format | s << 4 | t << 8;
@@ -836,7 +2112,7 @@ pub fn encode_texture(old: &[u8], width: usize, height: usize, rgba: &[u8]) -> R
                 .collect();
             (tx, pal)
         }
-        2 | 3 | 4 => {
+        2..=4 => {
             let bits = bpp(info.format);
             let cap = 1usize << bits;
             // Color 0 stays the transparent slot.
@@ -868,10 +2144,15 @@ pub fn encode_texture(old: &[u8], width: usize, height: usize, rgba: &[u8]) -> R
                 .collect();
             (tx, Vec::new())
         }
-        f => return Err(bad(format!("texture format {} cannot be written", FORMAT_NAMES[f as usize & 7]))),
+        f => {
+            return Err(bad(format!(
+                "texture format {} cannot be written",
+                FORMAT_NAMES[f as usize & 7]
+            )))
+        }
     };
     let mut pal_bytes: Vec<u8> = pal.iter().flat_map(|c| c.to_le_bytes()).collect();
-    while pal_bytes.len() % 4 != 0 {
+    while !pal_bytes.len().is_multiple_of(4) {
         pal_bytes.push(0);
     }
     let size = TEX_HEADER + texels.len() + pal_bytes.len();

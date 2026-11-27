@@ -45,7 +45,11 @@ fn parse(v: &str) -> Option<Place> {
     match v.split('#').next()?.trim() {
         "none" => Some(Place::National),
         "unova" => Some(Place::Unova),
-        n => n.parse::<u16>().ok().filter(|&n| n < NONE).map(Place::Number),
+        n => n
+            .parse::<u16>()
+            .ok()
+            .filter(|&n| n < NONE)
+            .map(Place::Number),
     }
 }
 
@@ -64,8 +68,10 @@ fn game_table(bridge: &Bridge) -> Vec<u16> {
         .ok()
         .and_then(|a| a.raw(GAME_TABLE.index).ok().map(<[u8]>::to_vec))
         .map(|b| {
-            b.chunks_exact(2)
-                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            b.as_chunks::<2>()
+                .0
+                .iter()
+                .map(|c| u16::from_le_bytes(*c))
                 .collect()
         })
         .unwrap_or_default()

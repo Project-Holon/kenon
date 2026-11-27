@@ -65,7 +65,10 @@ impl Features {
             .ok_or("features.json: no features")?
             .iter()
             .map(|(k, v)| {
-                let ver = v.as_str().and_then(Version::parse).ok_or_else(|| format!("features.json: {k}: bad version"))?;
+                let ver = v
+                    .as_str()
+                    .and_then(Version::parse)
+                    .ok_or_else(|| format!("features.json: {k}: bad version"))?;
                 Ok((k.clone(), ver))
             })
             .collect::<Result<_, String>>()?;
@@ -109,7 +112,9 @@ pub fn uses(project: &Project) -> Vec<String> {
             let text = std::fs::read_to_string(e.path()).unwrap_or_default();
             for line in text.lines() {
                 let body = line.split('#').next().unwrap_or("");
-                let Some((_, value)) = body.split_once('=') else { continue };
+                let Some((_, value)) = body.split_once('=') else {
+                    continue;
+                };
                 for word in value.split(|c: char| c.is_whitespace() || c == '+') {
                     let w = word.split('=').next().unwrap_or("");
                     if !w.is_empty() {
@@ -127,8 +132,15 @@ pub fn uses(project: &Project) -> Vec<String> {
         for y in 0..10 {
             for z in 0..10 {
                 let d = a.join(format!("{x}/{y}/{z}"));
-                let past = |name: &str| (x, y, z) != (0, 6, 6) || name.parse::<usize>().is_ok_and(|n| n > crate::move_anims::LAST as usize);
-                if std::fs::read_dir(&d).is_ok_and(|it| it.flatten().any(|e| past(&e.file_name().to_string_lossy()))) {
+                let past = |name: &str| {
+                    (x, y, z) != (0, 6, 6)
+                        || name
+                            .parse::<usize>()
+                            .is_ok_and(|n| n > crate::move_anims::LAST as usize)
+                };
+                if std::fs::read_dir(&d)
+                    .is_ok_and(|it| it.flatten().any(|e| past(&e.file_name().to_string_lossy())))
+                {
                     out.push(format!("a/{x}/{y}/{z}"));
                 }
             }
@@ -148,12 +160,18 @@ pub struct Need {
 }
 
 pub fn need(project: &Project, features: &Features) -> Need {
-    let found: Vec<(String, Version)> =
-        uses(project).into_iter().filter_map(|u| features.0.get(&u).map(|v| (u, *v))).collect();
+    let found: Vec<(String, Version)> = uses(project)
+        .into_iter()
+        .filter_map(|u| features.0.get(&u).map(|v| (u, *v)))
+        .collect();
     let version = found.iter().map(|(_, v)| *v).max();
     Need {
         version,
-        because: found.into_iter().filter(|(_, v)| Some(*v) == version).map(|(u, _)| u).collect(),
+        because: found
+            .into_iter()
+            .filter(|(_, v)| Some(*v) == version)
+            .map(|(u, _)| u)
+            .collect(),
     }
 }
 
@@ -167,15 +185,27 @@ pub fn refresh(project: &Project, features: &Features) -> Result<Need, String> {
         .manifest
         .other
         .iter()
-        .filter(|l| l.split('#').next().unwrap_or("").split_once('=').map(|(k, _)| k.trim()) == Some(KEY))
+        .filter(|l| {
+            l.split('#')
+                .next()
+                .unwrap_or("")
+                .split_once('=')
+                .map(|(k, _)| k.trim())
+                == Some(KEY)
+        })
         .collect();
-    if current.len() == line.iter().count() && current.first().map(|s| s.trim()) == line.as_deref() {
+    if current.len() == line.iter().count() && current.first().map(|s| s.trim()) == line.as_deref()
+    {
         return Ok(n);
     }
-    fresh
-        .manifest
-        .other
-        .retain(|l| l.split('#').next().unwrap_or("").split_once('=').map(|(k, _)| k.trim()) != Some(KEY));
+    fresh.manifest.other.retain(|l| {
+        l.split('#')
+            .next()
+            .unwrap_or("")
+            .split_once('=')
+            .map(|(k, _)| k.trim())
+            != Some(KEY)
+    });
     if let Some(l) = line {
         fresh.manifest.other.push(l);
     }
@@ -216,13 +246,28 @@ mod tests {
         assert_eq!(refresh(&project, &features).unwrap().version, None);
 
         std::fs::create_dir_all(root.join("eidos/tables")).unwrap();
-        std::fs::write(root.join("eidos/tables/types.txt"), "17 = icon 172 colors F6A5D5\n").unwrap();
+        std::fs::write(
+            root.join("eidos/tables/types.txt"),
+            "17 = icon 172 colors F6A5D5\n",
+        )
+        .unwrap();
         assert_eq!(need(&project, &features).version, Version::parse("0.2.7"));
-        std::fs::write(root.join("eidos/tables/types.txt"), "# name in a comment\n17 = name fairy icon 172\n").unwrap();
-        std::fs::write(root.join("eidos/tables/move_handlers.txt"), "45 = flower_shield type=fairy + 1\n").unwrap();
+        std::fs::write(
+            root.join("eidos/tables/types.txt"),
+            "# name in a comment\n17 = name fairy icon 172\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("eidos/tables/move_handlers.txt"),
+            "45 = flower_shield type=fairy + 1\n",
+        )
+        .unwrap();
         let n = refresh(&project, &features).unwrap();
         assert_eq!(n.version, Version::parse("0.2.8"));
-        assert_eq!(n.because, vec!["tables/move_handlers.txt type", "tables/types.txt name"]);
+        assert_eq!(
+            n.because,
+            vec!["tables/move_handlers.txt type", "tables/types.txt name"]
+        );
         let text = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
         assert_eq!(text.matches("eidos = 0.2.8").count(), 1, "{text}");
 
@@ -230,9 +275,15 @@ mod tests {
         std::fs::create_dir_all(root.join("a/0/6/6")).unwrap();
         std::fs::write(root.join("a/0/6/6/560"), [0u8]).unwrap();
         let project = Project::open(&root).unwrap();
-        assert_eq!(refresh(&project, &features).unwrap().because, vec!["a/0/6/6"]);
+        assert_eq!(
+            refresh(&project, &features).unwrap().because,
+            vec!["a/0/6/6"]
+        );
         let text = std::fs::read_to_string(root.join("eidos_mod.txt")).unwrap();
-        assert!(text.contains("eidos = 0.2.9") && !text.contains("eidos = 0.2.8"), "{text}");
+        assert!(
+            text.contains("eidos = 0.2.9") && !text.contains("eidos = 0.2.8"),
+            "{text}"
+        );
 
         // A game move's own script (Pound, 1) is not past the game's.
         std::fs::remove_file(root.join("a/0/6/6/560")).unwrap();

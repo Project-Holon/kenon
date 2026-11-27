@@ -230,7 +230,8 @@ fn a_new_cry_is_its_own_wave_archive() {
     let sdat = bridge.sdat().unwrap();
     let (waves, files) = (sdat.count(Kind::WaveArc), sdat.file_count());
     let template = sdat.wave_archive_file(1).unwrap().to_vec();
-    let (slot, summary) = kenon_core::sound_add::add_cry(&bridge, "Voltwing", &sine(0.8, 22050)).unwrap();
+    let (slot, summary) =
+        kenon_core::sound_add::add_cry(&bridge, "Voltwing", &sine(0.8, 22050)).unwrap();
     assert_eq!(slot, waves);
     assert_eq!(summary.format, "PCM8");
     let sdat = bridge.sdat().unwrap();

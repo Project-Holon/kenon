@@ -586,7 +586,9 @@ pub fn add_cry(
     let file_id = sdat.file_count() as usize;
     let wave_id = sdat.count(Kind::WaveArc);
     if wave_id > 0xFFFE {
-        return Err(bad("the sound archive has no room for another wave archive"));
+        return Err(bad(
+            "the sound archive has no room for another wave archive",
+        ));
     }
     let entries = [Entry {
         kind: Kind::WaveArc,

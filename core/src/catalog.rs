@@ -585,7 +585,11 @@ pub fn write_member(bridge: &Bridge, m: Member, bytes: &[u8]) -> Result<(), Erro
     // Pokemon's sprites, a new item's icon) there is no game member: follow
     // the mod's file there (kenon copies it packed as its source), else the
     // archive's last member.
-    let packing = |raw: &[u8]| lz::sniff(raw).filter(|_| lz::decompress(raw).is_ok()).map(|(k, _)| k);
+    let packing = |raw: &[u8]| {
+        lz::sniff(raw)
+            .filter(|_| lz::decompress(raw).is_ok())
+            .map(|(k, _)| k)
+    };
     let kind = match base.raw(m.index) {
         Ok(raw) => packing(raw),
         Err(_) => match project.member(m.arc, m.index) {
@@ -774,7 +778,10 @@ fn make_named_sheets(bridge: &Bridge, arc: u16) -> Result<Option<Vec<NamedSheet>
         651 => "Manaphy Egg".to_string(),
         n => match layout.form_at(n) {
             // A form of a Pokemon the mod adds.
-            Some((s, f)) => format!("{} (form {f})", named(s).unwrap_or_else(|| format!("Pokemon {s}"))),
+            Some((s, f)) => format!(
+                "{} (form {f})",
+                named(s).unwrap_or_else(|| format!("Pokemon {s}"))
+            ),
             None => named(n).unwrap_or_else(|| format!("Form {}", n.saturating_sub(651))),
         },
     };

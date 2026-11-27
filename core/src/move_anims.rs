@@ -125,7 +125,11 @@ pub fn remove_id(project: &Project, id: usize) -> Result<bool, String> {
         .filter(|&(&i, &v)| i != id && v as usize != id)
         .map(|(&i, &v)| {
             let i = if i > id { i - 1 } else { i };
-            let v = if v as usize > id && v > LAST { v - 1 } else { v };
+            let v = if v as usize > id && v > LAST {
+                v - 1
+            } else {
+                v
+            };
             (i, v)
         })
         .collect();
@@ -185,7 +189,9 @@ pub fn copy_script(bridge: &Bridge, id: usize, from: usize) -> Result<(), Error>
         .project()
         .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     if !playable(project, from) {
-        return Err(Error::BadPath(format!("move {from} has no animation to copy")));
+        return Err(Error::BadPath(format!(
+            "move {from} has no animation to copy"
+        )));
     }
     let bytes = bridge.member_stored(Member {
         arc: SCRIPTS,

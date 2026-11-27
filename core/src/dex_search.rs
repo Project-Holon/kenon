@@ -100,7 +100,10 @@ pub fn all(project: &Project) -> BTreeMap<Key, Search> {
 
 fn write(project: &Project, rows: &BTreeMap<Key, Search>) -> Result<(), String> {
     let path = project.root.join(FILE);
-    let rows: Vec<_> = rows.iter().filter(|(_, s)| **s != Search::default()).collect();
+    let rows: Vec<_> = rows
+        .iter()
+        .filter(|(_, s)| **s != Search::default())
+        .collect();
     if rows.is_empty() {
         if path.is_file() {
             std::fs::remove_file(&path).map_err(|e| e.to_string())?;
@@ -110,7 +113,9 @@ fn write(project: &Project, rows: &BTreeMap<Key, Search>) -> Result<(), String> 
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    let mut text = String::from("# Written by kenon: <species>[.<form>] = shape <0-13> letter <A 0 .. Z 25>.\n");
+    let mut text = String::from(
+        "# Written by kenon: <species>[.<form>] = shape <0-13> letter <A 0 .. Z 25>.\n",
+    );
     for (k, s) in rows {
         text.push_str(&format!("{k} = {}\n", format(*s)));
     }
@@ -136,19 +141,28 @@ pub fn game(bridge: &Bridge, species: usize) -> Search {
 
 /// A key's values in this mod: the line, else the game's.
 pub fn current(bridge: &Bridge, project: &Project, key: Key) -> Search {
-    all(project)
-        .get(&key)
-        .copied()
-        .unwrap_or_else(|| if key.form == 0 { game(bridge, key.species) } else { Search::default() })
+    all(project).get(&key).copied().unwrap_or_else(|| {
+        if key.form == 0 {
+            game(bridge, key.species)
+        } else {
+            Search::default()
+        }
+    })
 }
 
 /// Sets a key's values; the game's own drop the line.
 pub fn set(bridge: &Bridge, project: &Project, key: Key, s: Search) -> Result<(), String> {
-    if s.shape.is_some_and(|n| n as usize >= SHAPES_NAMED.len()) || s.letter.is_some_and(|n| n >= 26) {
+    if s.shape.is_some_and(|n| n as usize >= SHAPES_NAMED.len())
+        || s.letter.is_some_and(|n| n >= 26)
+    {
         return Err("shape is 0 to 13 and letter 0 (A) to 25 (Z)".into());
     }
     let mut rows = all(project);
-    let base = if key.form == 0 { game(bridge, key.species) } else { Search::default() };
+    let base = if key.form == 0 {
+        game(bridge, key.species)
+    } else {
+        Search::default()
+    };
     if s == base {
         rows.remove(&key);
     } else {
@@ -194,12 +208,36 @@ mod tests {
 
     #[test]
     fn lines() {
-        assert_eq!(parse("shape 3 letter 21"), Some(Search { shape: Some(3), letter: Some(21) }));
-        assert_eq!(parse("shape 5"), Some(Search { shape: Some(5), letter: None }));
+        assert_eq!(
+            parse("shape 3 letter 21"),
+            Some(Search {
+                shape: Some(3),
+                letter: Some(21)
+            })
+        );
+        assert_eq!(
+            parse("shape 5"),
+            Some(Search {
+                shape: Some(5),
+                letter: None
+            })
+        );
         assert_eq!(parse("shape 14"), None);
         assert_eq!(parse("letter 26"), None);
         assert_eq!(parse("size 1"), None);
-        assert_eq!(format(Search { shape: Some(3), letter: Some(21) }), "shape 3 letter 21");
-        assert_eq!(parse_key("716.1"), Some(Key { species: 716, form: 1 }));
+        assert_eq!(
+            format(Search {
+                shape: Some(3),
+                letter: Some(21)
+            }),
+            "shape 3 letter 21"
+        );
+        assert_eq!(
+            parse_key("716.1"),
+            Some(Key {
+                species: 716,
+                form: 1
+            })
+        );
     }
 }

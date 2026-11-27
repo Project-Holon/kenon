@@ -20,9 +20,13 @@ const PLURAL: usize = 280;
 const DESCRIPTION: usize = 53;
 
 fn update(bridge: &Bridge, t: usize, f: impl FnOnce(&mut TypeLook)) -> Result<(), Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     let mut rows = type_pictures::all(project);
-    let look = rows.get_mut(&t).ok_or_else(|| Error::Missing(format!("type {t} has no pictures yet")))?;
+    let look = rows
+        .get_mut(&t)
+        .ok_or_else(|| Error::Missing(format!("type {t} has no pictures yet")))?;
     f(look);
     type_pictures::write_rows(project, &rows)?;
     bridge.invalidate();
@@ -63,7 +67,9 @@ pub fn set_plate(bridge: &Bridge, t: usize, item: Option<usize>) -> Result<(), E
 pub fn set_drive(bridge: &Bridge, t: usize, drive: Option<(usize, usize)>) -> Result<(), Error> {
     if let Some((_, form)) = drive {
         if form < FIRST_DRIVE_FORM {
-            return Err(Error::BadPath(format!("a new drive's Genesect form is {FIRST_DRIVE_FORM} or more")));
+            return Err(Error::BadPath(format!(
+                "a new drive's Genesect form is {FIRST_DRIVE_FORM} or more"
+            )));
         }
     }
     update(bridge, t, |l| l.drive = drive)
@@ -71,7 +77,9 @@ pub fn set_drive(bridge: &Bridge, t: usize, drive: Option<(usize, usize)>) -> Re
 
 /// The type's name and its word in eidos files.
 fn names(bridge: &Bridge, t: usize) -> Result<(String, String), Error> {
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     let name = crate::tables::enum_values(bridge, "type")?
         .get(t)
         .cloned()
@@ -84,23 +92,43 @@ fn names(bridge: &Bridge, t: usize) -> Result<(String, String), Error> {
 }
 
 /// The copy's texts: the source's with its type's name swapped for this one.
-fn retext(bridge: &Bridge, from: usize, to: usize, from_type: &str, name: &str, item_name: &str) -> Result<(), Error> {
+fn retext(
+    bridge: &Bridge,
+    from: usize,
+    to: usize,
+    from_type: &str,
+    name: &str,
+    item_name: &str,
+) -> Result<(), Error> {
     let line = |bank: usize| -> Result<String, Error> {
-        Ok(crate::catalog::text_bank(bridge, 2, bank)?.get(from).cloned().unwrap_or_default())
+        Ok(crate::catalog::text_bank(bridge, 2, bank)?
+            .get(from)
+            .cloned()
+            .unwrap_or_default())
     };
     let plural = format!("{item_name}s");
     let description = line(DESCRIPTION)?.replace(from_type, name);
-    crate::catalog::set_text_lines(bridge, 2, &[(PLURAL, to, plural), (DESCRIPTION, to, description)])
+    crate::catalog::set_text_lines(
+        bridge,
+        2,
+        &[(PLURAL, to, plural), (DESCRIPTION, to, description)],
+    )
 }
 
 /// Adds "<Type> Plate", a copy of the Flame Plate that boosts the type's
 /// moves, and makes it the type's plate. Returns its item id.
-pub fn add_plate(bridge: &Bridge, t: usize, params: &crate::handlers::Params) -> Result<usize, Error> {
+pub fn add_plate(
+    bridge: &Bridge,
+    t: usize,
+    params: &crate::handlers::Params,
+) -> Result<usize, Error> {
     let (name, word) = names(bridge, t)?;
     let item_name = format!("{name} Plate");
     let id = crate::content::add(bridge, "items", PLATE_FROM, &item_name)?;
     retext(bridge, PLATE_FROM, id, "Fire", &name, &item_name)?;
-    let project = bridge.project().ok_or_else(|| Error::BadPath("no project is open".into()))?;
+    let project = bridge
+        .project()
+        .ok_or_else(|| Error::BadPath("no project is open".into()))?;
     let mut params = params.clone();
     params.add_types(std::slice::from_ref(&word));
     let part = crate::handlers::Part {
@@ -116,7 +144,9 @@ pub fn add_plate(bridge: &Bridge, t: usize, params: &crate::handlers::Params) ->
 /// drive giving Genesect `form`. Returns its item id.
 pub fn add_drive(bridge: &Bridge, t: usize, form: usize) -> Result<usize, Error> {
     if form < FIRST_DRIVE_FORM {
-        return Err(Error::BadPath(format!("a new drive's Genesect form is {FIRST_DRIVE_FORM} or more")));
+        return Err(Error::BadPath(format!(
+            "a new drive's Genesect form is {FIRST_DRIVE_FORM} or more"
+        )));
     }
     let (name, _) = names(bridge, t)?;
     let item_name = format!("{name} Drive");

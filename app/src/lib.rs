@@ -280,7 +280,8 @@ fn export_bw(state: State<AppState>, path: PathBuf) -> Result<(), String> {
 
 /// Writes the mod's `eidos = ` line for what it uses (crate min_eidos).
 fn refresh_min_eidos(project: &Project) -> Result<kenon_core::min_eidos::Need, String> {
-    let features = kenon_core::min_eidos::Features::load(kenon_core::data_root::eidos_features().as_deref())?;
+    let features =
+        kenon_core::min_eidos::Features::load(kenon_core::data_root::eidos_features().as_deref())?;
     kenon_core::min_eidos::refresh(project, &features)
 }
 
@@ -693,7 +694,10 @@ fn add_type(state: State<AppState>, name: String, from: usize) -> Result<AddedTy
 
 /// An added type's pictures (None: a game type, or none made yet).
 #[tauri::command]
-fn type_look(state: State<AppState>, id: usize) -> Result<Option<kenon_core::type_pictures::TypeLook>, String> {
+fn type_look(
+    state: State<AppState>,
+    id: usize,
+) -> Result<Option<kenon_core::type_pictures::TypeLook>, String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
     Ok(kenon_core::type_pictures::all(project).remove(&id))
@@ -716,11 +720,15 @@ fn remake_type_pictures(state: State<AppState>, id: usize, from: usize) -> Resul
 #[tauri::command]
 fn add_type_plate(state: State<AppState>, id: usize) -> Result<usize, String> {
     let bridge = state.need_bridge()?;
-    let mut params = kenon_core::handlers::params("item", kenon_core::data_root::eidos_handler_params().as_deref())?;
+    let mut params = kenon_core::handlers::params(
+        "item",
+        kenon_core::data_root::eidos_handler_params().as_deref(),
+    )?;
     if let Some(project) = bridge.project() {
         params.add_types(&mod_type_words(project));
     }
-    let item = kenon_core::type_items::add_plate(&bridge, id, &params).map_err(|e| e.to_string())?;
+    let item =
+        kenon_core::type_items::add_plate(&bridge, id, &params).map_err(|e| e.to_string())?;
     reload_project(&state)?;
     Ok(item)
 }
@@ -730,7 +738,8 @@ fn add_type_plate(state: State<AppState>, id: usize) -> Result<usize, String> {
 #[tauri::command]
 fn add_type_drive(state: State<AppState>, id: usize) -> Result<usize, String> {
     let bridge = state.need_bridge()?;
-    let form = kenon_core::species_add::add_game_form(&bridge, GENESECT, 1).map_err(|e| e.to_string())?;
+    let form =
+        kenon_core::species_add::add_game_form(&bridge, GENESECT, 1).map_err(|e| e.to_string())?;
     reload_project(&state)?;
     let bridge = state.need_bridge()?;
     let item = kenon_core::type_items::add_drive(&bridge, id, form).map_err(|e| e.to_string())?;
@@ -746,7 +755,10 @@ const GENESECT: usize = 649;
 fn game_form_count(state: State<AppState>, species: usize) -> Result<usize, String> {
     let bridge = state.need_bridge()?;
     let rec = bridge
-        .member(kenon_core::bridge::Member { arc: 16, index: species })
+        .member(kenon_core::bridge::Member {
+            arc: 16,
+            index: species,
+        })
         .map_err(|e| e.to_string())?;
     Ok(rec.get(32).copied().unwrap_or(1) as usize)
 }
@@ -758,9 +770,12 @@ fn add_arceus_form(state: State<AppState>, id: usize) -> Result<usize, String> {
     let bridge = state.need_bridge()?;
     let count = game_form_count(state.clone(), ARCEUS)?;
     if count != id {
-        return Err(format!("Arceus has {count} forms: add the forms of the types before this one first"));
+        return Err(format!(
+            "Arceus has {count} forms: add the forms of the types before this one first"
+        ));
     }
-    let form = kenon_core::species_add::add_game_form(&bridge, ARCEUS, 0).map_err(|e| e.to_string())?;
+    let form =
+        kenon_core::species_add::add_game_form(&bridge, ARCEUS, 0).map_err(|e| e.to_string())?;
     reload_project(&state)?;
     Ok(form)
 }
@@ -774,14 +789,23 @@ fn set_type_plate(state: State<AppState>, id: usize, item: Option<usize>) -> Res
 
 /// Sets or clears an added type's drive (an item and a Genesect form).
 #[tauri::command]
-fn set_type_drive(state: State<AppState>, id: usize, drive: Option<(usize, usize)>) -> Result<(), String> {
+fn set_type_drive(
+    state: State<AppState>,
+    id: usize,
+    drive: Option<(usize, usize)>,
+) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     kenon_core::type_items::set_drive(&bridge, id, drive).map_err(|e| e.to_string())
 }
 
 /// Sets an added type's colours (RRGGBB).
 #[tauri::command]
-fn set_type_colors(state: State<AppState>, id: usize, fill: String, border: String) -> Result<(), String> {
+fn set_type_colors(
+    state: State<AppState>,
+    id: usize,
+    fill: String,
+    border: String,
+) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     kenon_core::type_pictures::set_colors(&bridge, id, &fill, &border).map_err(|e| e.to_string())
 }
@@ -793,7 +817,10 @@ fn import_type_icon(state: State<AppState>, id: usize, path: PathBuf) -> Result<
     let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
     let img = kenon_core::import::decode_png(&bytes).map_err(|e| e.to_string())?;
     if (img.width, img.height) != (32, 16) {
-        return Err(format!("a type icon is 32 x 16 pixels; this one is {} x {}", img.width, img.height));
+        return Err(format!(
+            "a type icon is 32 x 16 pixels; this one is {} x {}",
+            img.width, img.height
+        ));
     }
     kenon_core::type_pictures::import_icon(&bridge, id, &img.pixels).map_err(|e| e.to_string())
 }
@@ -829,7 +856,10 @@ fn particle_fields() -> &'static [kenon_core::spa::Field] {
 
 /// One particle file: its emitters' values, its textures, its problems.
 #[tauri::command]
-fn particle_file(state: State<AppState>, index: usize) -> Result<kenon_core::spa::FileView, String> {
+fn particle_file(
+    state: State<AppState>,
+    index: usize,
+) -> Result<kenon_core::spa::FileView, String> {
     let bridge = state.need_bridge()?;
     let s = kenon_core::spa::load(&bridge, index).map_err(|e| e.to_string())?;
     Ok(kenon_core::spa::view(&s))
@@ -858,13 +888,19 @@ fn add_particle_file(state: State<AppState>, from: usize) -> Result<usize, Strin
 
 /// Replaces a particle texture from a PNG, in the texture's own format.
 #[tauri::command]
-fn import_particle_texture(state: State<AppState>, index: usize, texture: usize, path: PathBuf) -> Result<(), String> {
+fn import_particle_texture(
+    state: State<AppState>,
+    index: usize,
+    texture: usize,
+    path: PathBuf,
+) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     let bytes = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
     let img = kenon_core::import::decode_png(&bytes).map_err(|e| e.to_string())?;
     let mut s = kenon_core::spa::load(&bridge, index).map_err(|e| e.to_string())?;
     let old = s.textures.get(texture).ok_or("no such texture")?.clone();
-    s.textures[texture] = kenon_core::spa::encode_texture(&old, img.width, img.height, &img.pixels).map_err(|e| e.to_string())?;
+    s.textures[texture] = kenon_core::spa::encode_texture(&old, img.width, img.height, &img.pixels)
+        .map_err(|e| e.to_string())?;
     kenon_core::spa::store(&bridge, index, &s).map_err(|e| e.to_string())
 }
 
@@ -884,7 +920,9 @@ async fn table_grid(
     if !kenon_core::grid::supported(&table) {
         return Ok(None);
     }
-    kenon_core::grid::grid(&bridge, &table).map(Some).map_err(|e| e.to_string())
+    kenon_core::grid::grid(&bridge, &table)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 /// Saves edited grid cells; returns how many entries changed.
@@ -997,7 +1035,10 @@ fn content_remove(
 /// The battle handler reference for a table (moves, items, abilities): the
 /// copy the last eidos run left, else the bundled one.
 #[tauri::command]
-fn handler_params(state: State<AppState>, table: String) -> Result<kenon_core::handlers::Params, String> {
+fn handler_params(
+    state: State<AppState>,
+    table: String,
+) -> Result<kenon_core::handlers::Params, String> {
     let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
     let mut params = kenon_core::handlers::params(
         kind,
@@ -1011,7 +1052,10 @@ fn handler_params(state: State<AppState>, table: String) -> Result<kenon_core::h
 
 /// The mod's added types' words for `type=` keys.
 fn mod_type_words(project: &kenon_core::project::Project) -> Vec<String> {
-    kenon_core::type_pictures::key_names(project).into_iter().map(|(_, w)| w).collect()
+    kenon_core::type_pictures::key_names(project)
+        .into_iter()
+        .map(|(_, w)| w)
+        .collect()
 }
 
 /// A move's animation: the one it plays and the one it would play with no
@@ -1115,7 +1159,10 @@ fn preview_move(
 ) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
-    let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
+    let code = bridge
+        .code()
+        .map(|c| c.game_code().to_string())
+        .unwrap_or_default();
     let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
     let args = kenon_core::preview::move_args(&profile, &project.root, id, species);
     run_eidos(app, args)
@@ -1128,7 +1175,10 @@ fn preview_move(
 fn test_in_game(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
-    let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
+    let code = bridge
+        .code()
+        .map(|c| c.game_code().to_string())
+        .unwrap_or_default();
     let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
     let folder = kenon_core::preview::test_folder(&project.root).ok_or("no eidos user folder")?;
     refresh_min_eidos(project)?;
@@ -1153,7 +1203,9 @@ fn run_eidos(app: tauri::AppHandle, args: Vec<std::ffi::OsString>) -> Result<(),
     if let Some(dir) = exe.parent() {
         cmd.current_dir(dir);
     }
-    let mut child = cmd.spawn().map_err(|e| format!("eidos did not start: {e}"))?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("eidos did not start: {e}"))?;
     let stderr = child.stderr.take();
     let pid = child.id();
     *slot = Some(child);
@@ -1446,8 +1498,8 @@ fn species_remove_form(
     form: usize,
 ) -> Result<kenon_core::content::Removed, String> {
     let bridge = state.need_bridge()?;
-    let r = kenon_core::species_add::remove_form(&bridge, species, form)
-        .map_err(|e| e.to_string())?;
+    let r =
+        kenon_core::species_add::remove_form(&bridge, species, form).map_err(|e| e.to_string())?;
     reload_project(&state)?;
     Ok(r)
 }
@@ -1471,7 +1523,10 @@ fn species_cry(state: State<AppState>, species: usize, form: usize) -> Result<Cr
     let slot = kenon_core::cries::current(project, key);
     let name = bridge
         .sdat()
-        .and_then(|s| s.name(kenon_core::sdat::Kind::WaveArc, slot).map(str::to_string))
+        .and_then(|s| {
+            s.name(kenon_core::sdat::Kind::WaveArc, slot)
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     Ok(CryChoice {
         slot,
@@ -1555,7 +1610,12 @@ fn set_dex_search(
 ) -> Result<(), String> {
     let bridge = state.need_bridge()?;
     let project = bridge.project().ok_or("no project is open")?;
-    kenon_core::dex_search::set(&bridge, project, kenon_core::cries::Key { species, form }, search)?;
+    kenon_core::dex_search::set(
+        &bridge,
+        project,
+        kenon_core::cries::Key { species, form },
+        search,
+    )?;
     bridge.invalidate();
     Ok(())
 }
@@ -1575,7 +1635,11 @@ async fn import_new_cry(
     let wav = std::fs::read(&path).map_err(|e| format!("could not read the file: {e}"))?;
     let (slot, summary) =
         kenon_core::sound_add::add_cry(&bridge, &name, &wav).map_err(|e| e.to_string())?;
-    kenon_core::cries::set(&project, kenon_core::cries::Key { species, form }, Some(slot))?;
+    kenon_core::cries::set(
+        &project,
+        kenon_core::cries::Key { species, form },
+        Some(slot),
+    )?;
     bridge.invalidate();
     Ok(summary)
 }

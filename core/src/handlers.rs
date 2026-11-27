@@ -116,7 +116,10 @@ pub const NAMED_FIRST: usize = 0x1_0000;
 
 /// A named base's name, for a kenon number from NAMED_FIRST on.
 pub fn base_name(base: usize) -> Option<&'static str> {
-    NAMED_BASES.iter().find(|(_, id)| *id == base).map(|(n, _)| *n)
+    NAMED_BASES
+        .iter()
+        .find(|(_, id)| *id == base)
+        .map(|(n, _)| *n)
 }
 
 /// How a base is written and listed: its name, or its number.
@@ -125,9 +128,12 @@ pub fn entry_key(base: usize) -> String {
 }
 
 fn parse_base(word: &str) -> Option<usize> {
-    word.parse()
-        .ok()
-        .or_else(|| NAMED_BASES.iter().find(|(n, _)| *n == word).map(|(_, id)| *id))
+    word.parse().ok().or_else(|| {
+        NAMED_BASES
+            .iter()
+            .find(|(n, _)| *n == word)
+            .map(|(_, id)| *id)
+    })
 }
 
 fn parse_part(text: &str) -> Option<Part> {
@@ -283,7 +289,10 @@ pub fn set(
         // copy would do nothing (eidos research abilities.md: no registry
         // row, checked against the ROM).
         if kind == "ability" && part.base != id && NO_ABILITY_CODE.contains(&part.base) {
-            return Err(format!("ability {} has no battle code of its own to copy", part.base));
+            return Err(format!(
+                "ability {} has no battle code of its own to copy",
+                part.base
+            ));
         }
         // Bases that keep a counter in the same work slot (Slow Start's
         // turns, Flash Fire's flag) would overwrite each other.
@@ -410,7 +419,10 @@ mod tests {
         let named = parse_row("misty_terrain").unwrap();
         assert_eq!(named[0].base, NAMED_FIRST);
         assert_eq!(format_row(&named), "misty_terrain");
-        assert_eq!(format_row(&parse_row("13 + geomancy").unwrap()), "13 + geomancy");
+        assert_eq!(
+            format_row(&parse_row("13 + geomancy").unwrap()),
+            "13 + geomancy"
+        );
     }
 
     #[test]

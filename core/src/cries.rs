@@ -158,9 +158,28 @@ mod tests {
 
     #[test]
     fn keys() {
-        assert_eq!(parse_key("715"), Some(Key { species: 715, form: 0 }));
-        assert_eq!(parse_key(" 715.2 "), Some(Key { species: 715, form: 2 }));
-        assert_eq!(Key { species: 715, form: 2 }.to_string(), "715.2");
+        assert_eq!(
+            parse_key("715"),
+            Some(Key {
+                species: 715,
+                form: 0
+            })
+        );
+        assert_eq!(
+            parse_key(" 715.2 "),
+            Some(Key {
+                species: 715,
+                form: 2
+            })
+        );
+        assert_eq!(
+            Key {
+                species: 715,
+                form: 2
+            }
+            .to_string(),
+            "715.2"
+        );
         assert!(parse_key("x").is_none());
     }
 }
