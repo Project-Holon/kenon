@@ -302,9 +302,10 @@ const GAME_FORM_SLOTS: usize = 652;
 const GAME_FORM_PALETTES: usize = 0x37AD;
 /// Arceus: its form is its type (Multitype).
 const ARCEUS: usize = 493;
-/// The most forms a species has, its own included (eidos lists 64 in the
-/// Pokedex and takes `<species>.<form>` up to 63).
-pub const MAX_FORMS: usize = 64;
+/// The most forms a species has, its own included: the form count is a
+/// byte at 0x20 (eidos holds forms up to 255 in play, the wild tables up
+/// to 31).
+pub const MAX_FORMS: usize = 256;
 
 fn planned(bridge: &Bridge, project: &Project, slot: usize) -> Planned {
     Planned {
