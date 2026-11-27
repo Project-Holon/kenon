@@ -412,7 +412,13 @@ fn other_field(bridge: &Bridge, link: &TableField, index: usize) -> Result<i64, 
 pub fn record(bridge: &Bridge, id: &str, index: usize, season: usize) -> Result<Record, Error> {
     let t = table(id)?;
     let bytes = bridge.member(member(t, index))?;
-    record_of(bridge, id, index, &bytes, season)
+    let mut r = record_of(bridge, id, index, &bytes, season)?;
+    if id == "encounters" {
+        if let Some(p) = bridge.project() {
+            crate::wild_forms::overlay(p, index, season, &mut r);
+        }
+    }
+    Ok(r)
 }
 
 /// A record read from given member bytes (the game's or the mod's).
@@ -537,6 +543,19 @@ pub fn save(bridge: &Bridge, id: &str, index: usize, edit: &Edit) -> Result<(), 
         return Err(Error::BadPath(format!("{} cannot be saved yet", t.label)));
     }
     let old = bridge.member(member(t, index))?;
+    // Wild forms past the form field go to eidos's wild_forms table.
+    let mut split;
+    let edit = if id == "encounters" {
+        split = edit.clone();
+        let seasons = t
+            .seasons
+            .as_ref()
+            .map_or(1, |s| (old.len() / s.block_size).max(1));
+        crate::wild_forms::store(bridge, index, seasons, &mut split)?;
+        &split
+    } else {
+        edit
+    };
     // A trainer's party kind sets the layout of its party members: change
     // the party with it, or the game reads the members wrong.
     if id == "trainers" {

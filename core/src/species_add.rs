@@ -902,6 +902,7 @@ pub fn remove_game_form(bridge: &Bridge, g: usize, form: usize) -> Result<(), Er
     if form > game[at].1.len() {
         return Err(Error::BadPath(format!("Pokemon {g} has no form {form}")));
     }
+    remap_form_refs(bridge, project, g, form)?;
     game[at].1.remove(form - 1);
     if game[at].1.len() < game_n {
         // Back to the game's: its record's form fields as the game has them.
@@ -924,20 +925,16 @@ pub fn remove_game_form(bridge: &Bridge, g: usize, form: usize) -> Result<(), Er
     Ok(())
 }
 
-/// Removes form `form` (1 and up) of a species the mod adds. Its later
-/// forms move down one, in the mod's records too (wild Pokemon, trainer
-/// parties, trades): a record with the removed form gets the base form.
-pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Removed, Error> {
-    let project = project_of(bridge)?;
-    let l = layout(bridge);
-    let count = l.forms.get(&species).map_or(0, Vec::len);
-    if !(FIRST_NEW..=l.last).contains(&species) || form == 0 || form > count {
-        return Err(Error::BadPath(format!(
-            "Pokemon {species} has no form {form}"
-        )));
-    }
+/// Renumbers the mod's references to the forms of `species` after form
+/// `form` goes (wild Pokemon and their wild_forms lines, trainer parties,
+/// trades): later forms move down one, the removed one becomes form 0.
+fn remap_form_refs(
+    bridge: &Bridge,
+    project: &Project,
+    species: usize,
+    form: usize,
+) -> Result<Removed, Error> {
     let mut report = Removed::default();
-    // References first, read with the old form numbers.
     let map = |v: i64| -> tables::Remap {
         let v = v as usize;
         if v == form {
@@ -948,6 +945,10 @@ pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Remov
             tables::Remap::Keep
         }
     };
+    // The lines first: they find their slots by the records' species.
+    if crate::wild_forms::remap(bridge, species as i64, &map)? {
+        report.updated.push("Wild forms".into());
+    }
     for id in FORM_TABLES {
         let t = tables::table(id)?;
         for index in project.members(t.archive) {
@@ -964,6 +965,23 @@ pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Remov
             }
         }
     }
+    Ok(report)
+}
+
+/// Removes form `form` (1 and up) of a species the mod adds. Its later
+/// forms move down one, in the mod's records too (wild Pokemon, trainer
+/// parties, trades): a record with the removed form gets the base form.
+pub fn remove_form(bridge: &Bridge, species: usize, form: usize) -> Result<Removed, Error> {
+    let project = project_of(bridge)?;
+    let l = layout(bridge);
+    let count = l.forms.get(&species).map_or(0, Vec::len);
+    if !(FIRST_NEW..=l.last).contains(&species) || form == 0 || form > count {
+        return Err(Error::BadPath(format!(
+            "Pokemon {species} has no form {form}"
+        )));
+    }
+    // References first, read with the old form numbers.
+    let report = remap_form_refs(bridge, project, species, form)?;
     let mut plan = plan_of(bridge, project, &l);
     plan[species - FIRST_NEW].1.remove(form - 1);
     apply(bridge, project, plan, l.end())?;

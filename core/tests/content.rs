@@ -1756,3 +1756,77 @@ fn moved_forms_get_their_pokedex_lines() {
     assert_eq!(height[727 + 16], height[493]);
     assert!(!height[493].is_empty());
 }
+
+#[test]
+fn wild_forms_past_the_field_go_to_lines_and_follow_a_removal() {
+    use kenon_core::{species_add, wild_forms};
+    let Some((bridge, _dir)) = bridge() else {
+        return;
+    };
+    let grass = |bridge: &Bridge, index: usize| -> Vec<Vec<i64>> {
+        let r = tables::record(bridge, "encounters", index, 0).unwrap();
+        r.sections
+            .into_iter()
+            .find_map(|s| match s {
+                tables::Section::List { key, rows, .. } if key == "grass" => Some(rows),
+                _ => None,
+            })
+            .unwrap()
+    };
+    // A four-season table: its lines name the season.
+    let index = (0..112)
+        .find(|&i| tables::record(&bridge, "encounters", i, 0).unwrap().seasons > 1)
+        .unwrap();
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), 17);
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), 18);
+    let mut rows = grass(&bridge, index);
+    rows[0][0] = 493;
+    rows[0][1] = 18;
+    rows[1][0] = 493;
+    rows[1][1] = 40;
+    let mut edit = tables::Edit::default();
+    edit.lists.insert("grass".into(), rows);
+    tables::save(&bridge, "encounters", index, &edit).unwrap();
+    let (lines, _) = wild_forms::read(bridge.project().unwrap());
+    assert_eq!(lines.len(), 1, "only the form past 31 needs a line");
+    assert_eq!(
+        (
+            lines[0].table,
+            lines[0].slot,
+            lines[0].season,
+            lines[0].form
+        ),
+        (index, Some(1), Some(0), 40)
+    );
+    let shown = grass(&bridge, index);
+    assert_eq!((shown[0][1], shown[1][1]), (18, 40));
+    let raw = tables::record_of(
+        &bridge,
+        "encounters",
+        index,
+        &bridge.member(Member { arc: 126, index }).unwrap(),
+        0,
+    )
+    .unwrap();
+    let field = raw
+        .sections
+        .iter()
+        .find_map(|s| match s {
+            tables::Section::List { key, rows, .. } if key == "grass" => Some(rows[1][1]),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(field, 0, "past 31 the field holds form 0");
+    // Form 17 goes: 18 becomes 17, the line's 40 becomes 39.
+    species_add::remove_game_form(&bridge, 493, 17).unwrap();
+    let shown = grass(&bridge, index);
+    assert_eq!((shown[0][1], shown[1][1]), (17, 39));
+    // Back under 32: the line goes, the field holds it.
+    let mut rows = shown;
+    rows[1][1] = 2;
+    let mut edit = tables::Edit::default();
+    edit.lists.insert("grass".into(), rows);
+    tables::save(&bridge, "encounters", index, &edit).unwrap();
+    assert!(wild_forms::read(bridge.project().unwrap()).0.is_empty());
+    assert_eq!(grass(&bridge, index)[1][1], 2);
+}

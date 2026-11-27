@@ -245,7 +245,7 @@
   }
   function fixForm(row: number[], at: number) {
     const n = Math.round(Number(row[at]));
-    row[at] = Math.min(31, Math.max(0, Number.isFinite(n) ? n : 0));
+    row[at] = Math.min(255, Math.max(0, Number.isFinite(n) ? n : 0));
   }
 
   function keys(e: KeyboardEvent) {
@@ -401,7 +401,7 @@
               <input class="num" type="number" min="0" max="100" bind:value={row[max]} onchange={() => levels(row, min, max, "hi")} readonly={readOnly} aria-label="Highest level" />
             </span>
             {#if form >= 0}
-              <input class="num" type="number" min="0" max="31" bind:value={row[form]} onchange={() => fixForm(row, form)} readonly={readOnly} aria-label="Form" />
+              <input class="num" type="number" min="0" max="255" title="31: a random form" bind:value={row[form]} onchange={() => fixForm(row, form)} readonly={readOnly} aria-label="Form" />
             {/if}
           </li>
         {/each}

@@ -59,6 +59,7 @@ pub mod translations;
 pub mod type_items;
 pub mod type_pictures;
 pub mod types;
+pub mod wild_forms;
 pub mod world;
 pub mod zonemap;
 

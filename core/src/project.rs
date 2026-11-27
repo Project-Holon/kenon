@@ -283,7 +283,7 @@ impl Project {
         write_atomic(&path, text.as_bytes())
     }
 
-    fn table_path(&self, name: &str) -> PathBuf {
+    pub(crate) fn table_path(&self, name: &str) -> PathBuf {
         self.root.join("eidos/tables").join(format!("{name}.txt"))
     }
 
