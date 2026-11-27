@@ -2984,7 +2984,7 @@
     "name": "source",
     "unit": "int",
     "allowed": "0..3",
-    "meaning": "where the colour comes from: 0 = `value` as BGR555, 1 = the type numbered by the variant (Judgment), 2 = type `value`, 3 = the playing move's type. A type's colour is its `color` in types.txt"
+    "meaning": "where the colour comes from: 0 = `value` as BGR555, 1 = the type numbered by the variant (Judgment, and added Techno Blast drives from variant 17; the game's drives 1 to 4 need 2 with their type), 2 = type `value`, 3 = the playing move's type. A type's colour is its `color` in types.txt"
    },
    {
     "name": "value",
