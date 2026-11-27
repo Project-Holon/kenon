@@ -223,7 +223,9 @@ fn check_value(keys: &Value, key: &str, value: &str) -> Result<String, String> {
     let bad = || format!("{value} is not allowed for {key}");
     let value = value.trim();
     match name {
-        "stages" | "chance" | "turns" | "damage" | "power" | "accuracy" | "priority" => {
+        // Whole numbers in a [low, high] range (stages, chance, turns, form,
+        // and any later number key).
+        _ if name != "ratio" && allowed.len() == 2 && allowed.iter().all(|a| a.is_i64()) => {
             let n: i64 = value.parse().map_err(|_| bad())?;
             let (lo, hi) = (
                 allowed[0].as_i64().unwrap_or(0),

@@ -92,6 +92,10 @@
   "priority": [
    -6,
    6
+  ],
+  "form": [
+   0,
+   31
   ]
  },
  "move": {
@@ -1144,8 +1148,8 @@
     "type": null
    },
    "notes": [
-    "eidos building block: each target gets the type as a third type until it leaves the field or its type changes. Fails on a target that has the type. The line is Soak's (\"... transformed into the ... type!\"): the game has none that says a type was added.",
-    "Move record: as Soak (category 11, target 0, accuracy 100)."
+    "eidos building block: each target gets the type as a third type until it leaves the field or its type changes. Fails on a target that has the type. Line: bank 14 lines 2030 to 2032 (English, and French from Soak's \"prend le type\"; the game has no line that says a type was added in the other languages).",
+    "Move record: a copy of Soak's."
    ]
   },
   "trick_or_treat": {
@@ -1195,7 +1199,7 @@
     "ratio": 1.5
    },
    "notes": [
-    "eidos base: for five turns, grounded Pokemon are safe from other sides' moves of raised priority (the move record's priority), and their Psychic moves have more power.",
+    "eidos base: for five turns, grounded Pokemon are safe from other sides' moves of raised priority (the move record's, or an ability's: Prankster), and their Psychic moves have more power.",
     "Move record: as Gravity.",
     "Lines: bank 15 lines 407, 408; bank 14 lines 2015 to 2017 (move blocked)."
    ]
@@ -1216,21 +1220,21 @@
    },
    "notes": [
     "eidos base: the target's two stats fall, then the user switches out as after U-turn.",
-    "Move record: as Soak (category 11, target 0); the stat changes are the base's."
+    "Move record: a copy of Soak's; the stat changes are the base's."
    ]
   },
   "topsy_turvy": {
    "keys": {},
    "notes": [
     "eidos base: each target's stat stages turn the other way. Fails when none has a stage changed.",
-    "Move record: as Psych Up's category, target 0.",
+    "Move record: a copy of Soak's.",
     "Lines: bank 14 lines 2018 to 2020."
    ]
   },
   "needs_berry": {
    "keys": {},
    "notes": [
-    "eidos building block: the move fails unless the user has eaten a berry since it came in. It can still be chosen.",
+    "eidos building block: the move fails unless the user has eaten a berry since it came in. It cannot be chosen before (the AI leaves it out; choosing it shows bank 14 lines 2045 to 2047, English only: \"But it failed!\" in the other languages).",
     "Move record: the move's own."
    ]
   },
@@ -1246,7 +1250,7 @@
     "type": "fire"
    },
    "notes": [
-    "eidos base: fails unless the user has the type; after the damage the user loses it. A Pokemon of that type alone is left with none, which the battle reads as Normal.",
+    "eidos base: fails unless the user has the type; after the damage the user loses it. A Pokemon of that type alone is left with no type: every move hits it for neutral damage.",
     "Move record: Fire, special, power 130, thaws the user.",
     "Lines: bank 14 lines 2021 to 2023."
    ]
@@ -1268,7 +1272,7 @@
    },
    "notes": [
     "eidos base: the user heals as much HP as the target's Attack (with its stages), then the target's stat falls. Fails when the target's Attack is at its lowest.",
-    "Move record: as Soak (category 11, target 0)."
+    "Move record: a copy of Soak's."
    ]
   },
   "rototiller": {
@@ -1293,7 +1297,7 @@
    },
    "notes": [
     "eidos base: every Pokemon on the user's side with Plus or Minus has two stats raised. Fails when there is none.",
-    "Move record: as Quick Guard's target (the user's side), category 11."
+    "Move record: a copy of Quick Guard's."
    ]
   },
   "set_type": {
@@ -1303,6 +1307,93 @@
    "notes": [
     "eidos building block: each target becomes the type alone (Soak with a type of your choice).",
     "Move record: as Soak."
+   ]
+  },
+  "electrify": {
+   "keys": {
+    "type": "electric"
+   },
+   "notes": [
+    "eidos base: the target's moves for the rest of the turn are of the type.",
+    "Move record: as Soak.",
+    "Lines: bank 14 lines 2024 to 2026."
+   ]
+  },
+  "ion_deluge": {
+   "keys": {
+    "type": "electric",
+    "type.2": "normal"
+   },
+   "notes": [
+    "eidos base: for the rest of the turn, moves of type.2 (Normal) are of the type (Electric). Fails while it is up.",
+    "Move record: as Gravity, priority 1.",
+    "Lines: bank 15 line 409."
+   ]
+  },
+  "sticky_web": {
+   "keys": {
+    "stat": "speed",
+    "stages": -1
+   },
+   "notes": [
+    "eidos base: a web on the foes' side: each grounded Pokemon that comes in there has its stat lowered. Fails while it is up. Defog takes it off its target's side, Rapid Spin off its user's (and the moves that work like them).",
+    "Move record: as Spikes.",
+    "Lines: bank 15 lines 410 (your side), 411 (the foe's side), 412 and 413 (taken away); bank 14 lines 2027 to 2029 (caught, English only: the Speed line shows in the other languages)."
+   ]
+  },
+  "powder": {
+   "keys": {
+    "type": "fire",
+    "hp": "1/4"
+   },
+   "notes": [
+    "eidos base: for the rest of the turn, a move of the type the target uses fails and explodes, costing it an HP fraction. Grass Pokemon are not covered.",
+    "Move record: as Soak, Bug, priority 1.",
+    "Lines: bank 14 lines 2033 to 2035 (covered), bank 15 line 414 (exploded); English only."
+   ]
+  },
+  "throat_chop": {
+   "keys": {
+    "turns": 2
+   },
+   "notes": [
+    "eidos base: each target the move hits cannot use sound moves for this turn and the next: they cannot be chosen, and fail when called.",
+    "Move record: Dark, physical, power 80, contact.",
+    "Lines: bank 14 lines 2036 to 2038 (Heal Block's shape; English only, \"But it failed!\" in the others)."
+   ]
+  },
+  "laser_focus": {
+   "keys": {},
+   "notes": [
+    "eidos base: the user's moves are critical hits for the rest of the turn and the next, unless the target is safe from them (Battle Armor, Lucky Chant).",
+    "Move record: as Focus Energy.",
+    "Lines: bank 14 lines 2039 to 2041 (English only)."
+   ]
+  },
+  "stomping_tantrum": {
+   "keys": {
+    "ratio": 2.0
+   },
+   "notes": [
+    "eidos base: the power is multiplied when the user's last move failed (missed, had no effect or did nothing).",
+    "Move record: Ground, physical, power 75, contact."
+   ]
+  },
+  "spectral_thief": {
+   "keys": {},
+   "notes": [
+    "eidos base: before the damage, the user takes the target's raised stat stages for its own (up to +6), and the target's go back to neutral.",
+    "Move record: Ghost, physical, power 90, contact.",
+    "Lines: bank 14 lines 2042 to 2044 (English only)."
+   ]
+  },
+  "pollen_puff": {
+   "keys": {
+    "hp": "1/2"
+   },
+   "notes": [
+    "eidos base: aimed at an ally, the move heals it an HP fraction in place of the damage (Present's heal).",
+    "Move record: Bug, special, power 90, aimed at any other Pokemon."
    ]
   }
  },
@@ -2293,8 +2384,8 @@
     "eidos base: the holder and its side are safe from infatuation, Taunt, Torment, Disable, Heal Block and Encore."
    ],
    "work": [
-    0,
-    1
+    2,
+    3
    ]
   },
   "flower_veil": {
@@ -2305,8 +2396,8 @@
     "eidos base: Pokemon of the type on the holder's side keep their stats and get no major status from the other side; the line of Clear Body or \"It doesn't affect ...\"."
    ],
    "work": [
-    0,
-    1
+    4,
+    5
    ]
   },
   "cheek_pouch": {
@@ -2335,10 +2426,35 @@
   "symbiosis": {
    "keys": {},
    "notes": [
-    "eidos base: when an ally uses up its held item (a berry, a herb), the holder passes it its own, with Bestow's line. Not Mail, nor an item bound to a species."
+    "eidos base: when an ally uses up its held item (a berry, a herb, a gem; not one taken from it), the holder passes it its own, with Bestow's line. Not Mail, nor an item bound to a species."
+   ]
+  },
+  "parental_bond": {
+   "keys": {
+    "ratio": 0.25
+   },
+   "notes": [
+    "eidos base: the holder's damaging moves that hit once hit twice, the second hit with `ratio` of the power (1/4, Generation VII; 0.5 for Generation VI), with \"Hit 2 times!\". Not moves that hit several targets, nor Self-Destruct, Explosion, Endeavor, Fling and Final Gambit."
    ],
    "work": [
     0
+   ]
+  },
+  "stance_change": {
+   "keys": {
+    "form": 1,
+    "form.2": 0
+   },
+   "notes": [
+    "eidos base: before a damaging move the holder takes its attack form (`form`), before King's Shield (a move whose line names kings_shield) its guard form (`form.2`), with its pop-up and \"X transformed!\". It takes the guard form again when it leaves the battle. The species needs both forms (a mod's Aegislash-style species)."
+   ]
+  },
+  "grass_pelt": {
+   "keys": {
+    "ratio": 1.5
+   },
+   "notes": [
+    "eidos base: the holder's Defense is `ratio` times as high while Grassy Terrain (grassy_terrain) is up."
    ]
   }
  },

@@ -178,6 +178,7 @@
     power: "Power",
     accuracy: "Accuracy (%)",
     priority: "Priority",
+    form: "Form",
   };
   const STAT_LABEL: Record<string, string> = {
     atk: "Attack",
