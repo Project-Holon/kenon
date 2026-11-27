@@ -146,6 +146,15 @@ pub fn uses(project: &Project) -> Vec<String> {
             }
         }
     }
+    // Text in a language of its own (`<bank>.<lang>.msg`).
+    for arc in [2u16, 3] {
+        if crate::project::LANGUAGES
+            .iter()
+            .any(|l| !project.msg_banks(arc, Some(l)).is_empty())
+        {
+            out.push(format!("a/0/0/{arc} lang"));
+        }
+    }
     out.sort();
     out.dedup();
     out
@@ -289,5 +298,25 @@ mod tests {
         std::fs::remove_file(root.join("a/0/6/6/560")).unwrap();
         std::fs::write(root.join("a/0/6/6/1"), [0u8]).unwrap();
         assert_eq!(need(&project, &features).version, Version::parse("0.2.8"));
+    }
+}
+
+#[cfg(test)]
+mod lang_tests {
+    use super::*;
+
+    #[test]
+    fn a_translation_needs_the_language_feature() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = Project::create(&dir.path().join("m"), "Test", None).unwrap();
+        let lines = [(17usize, "Fée".to_string())].into_iter().collect();
+        project
+            .write_msg_lines_in(2, 199, Some("fr"), &lines)
+            .unwrap();
+        assert_eq!(project.msg_banks(2, Some("fr")), vec![199]);
+        assert!(project.msg_banks(2, None).is_empty());
+        assert_eq!(project.msg_lines_in(2, 199, Some("fr"))[&17], "Fée");
+        assert!(uses(&project).contains(&"a/0/0/2 lang".to_string()));
+        assert!(project.members(2).is_empty(), "a line file is not a member");
     }
 }

@@ -130,12 +130,49 @@ impl Project {
     /// The lines a text line file (`<bank>.msg`, eidos sdk/vfs_msg.h) sets
     /// for a bank, by index, in the display form. Empty when there is none.
     pub fn msg_lines(&self, arc: u16, bank: usize) -> BTreeMap<usize, String> {
+        self.msg_lines_in(arc, bank, None)
+    }
+
+    /// The lines a bank's file for one language sets (`<bank>.<lang>.msg`,
+    /// eidos 0.2.8: applied over `<bank>.msg` on a game in that language).
+    /// `None` is the plain file.
+    pub fn msg_lines_in(
+        &self,
+        arc: u16,
+        bank: usize,
+        lang: Option<&str>,
+    ) -> BTreeMap<usize, String> {
         let Some(dir) = self.member_dir(arc) else {
             return BTreeMap::new();
         };
-        fs::read_to_string(dir.join(format!("{bank}.msg")))
+        fs::read_to_string(dir.join(msg_name(bank, lang)))
             .map(|t| parse_lines(&t))
             .unwrap_or_default()
+    }
+
+    /// The banks of an archive with a line file for `lang` (`None`: plain).
+    pub fn msg_banks(&self, arc: u16, lang: Option<&str>) -> Vec<usize> {
+        let Some(dir) = self.member_dir(arc) else {
+            return Vec::new();
+        };
+        let suffix = match lang {
+            Some(l) => format!(".{l}.msg"),
+            None => ".msg".into(),
+        };
+        let mut out: Vec<usize> = fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .strip_suffix(&suffix)?
+                    .parse()
+                    .ok()
+            })
+            .collect();
+        out.sort_unstable();
+        out
     }
 
     /// Writes a bank's line file; no lines removes it.
@@ -145,10 +182,22 @@ impl Project {
         bank: usize,
         lines: &BTreeMap<usize, String>,
     ) -> io::Result<()> {
+        self.write_msg_lines_in(arc, bank, None, lines)
+    }
+
+    /// Writes a bank's line file for one language (`None`: the plain one);
+    /// no lines removes it.
+    pub fn write_msg_lines_in(
+        &self,
+        arc: u16,
+        bank: usize,
+        lang: Option<&str>,
+        lines: &BTreeMap<usize, String>,
+    ) -> io::Result<()> {
         let dir = self
             .member_dir(arc)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "bad archive id"))?;
-        let path = dir.join(format!("{bank}.msg"));
+        let path = dir.join(msg_name(bank, lang));
         if lines.is_empty() {
             if path.is_file() {
                 fs::remove_file(path)?;
@@ -305,6 +354,18 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Change>) {
         }
     }
 }
+
+/// A bank's line file name: `<bank>.msg`, or `<bank>.<lang>.msg`.
+fn msg_name(bank: usize, lang: Option<&str>) -> String {
+    match lang {
+        Some(l) => format!("{bank}.{l}.msg"),
+        None => format!("{bank}.msg"),
+    }
+}
+
+/// The languages a mod can translate into: the cartridges eidos runs
+/// (eidos sdk/langmap.h; Japanese and Korean do not boot).
+pub const LANGUAGES: [&str; 5] = ["en", "fr", "de", "it", "es"];
 
 /// `<bank>.msg` holds lines for a text bank; the port does not read it as a
 /// member (eidos sdk/vfs_narc.c, msg_index).
