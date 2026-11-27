@@ -169,9 +169,12 @@ pub fn add(bridge: &Bridge, name: &str, from: usize) -> Result<usize, Error> {
     Ok(id)
 }
 
+/// Arceus, whose form follows its plate's type.
+const ARCEUS: usize = 493;
+
 /// Removes a type the mod adds: later types move down one, in the chart,
 /// the names and every record that names a type (Pokemon, moves, items...);
-/// a record with the removed type gets Normal.
+/// a record with the removed type gets Normal, and Arceus's form for it goes.
 pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Error> {
     let project = project_of(bridge)?;
     let n = count(bridge);
@@ -237,6 +240,12 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
         report.updated.push("Battle effects".into());
     }
     crate::type_pictures::remove_type(project, id)?;
+    // Arceus's form for it goes; later types' forms move down with them.
+    let arceus = bridge.member(crate::bridge::Member { arc: 16, index: ARCEUS })?;
+    if arceus.get(32).is_some_and(|&n| n as usize > id) {
+        crate::species_add::remove_game_form(bridge, ARCEUS, id)?;
+        report.updated.push("Arceus's forms".into());
+    }
     bridge.invalidate();
     Ok(report)
 }

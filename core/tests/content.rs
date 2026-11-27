@@ -1199,3 +1199,26 @@ fn arceus_and_genesect_get_a_form_their_pictures_moved_to_mod_slots() {
     assert_eq!(sprite(&rec(&bridge, 649)), (716, 6, 0x06));
     assert_eq!(stored(&bridge, 4, 720 * 20), genesect_form1.0);
 }
+
+#[test]
+fn removing_a_type_removes_its_arceus_form() {
+    use kenon_core::{species_add, types};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let fairy = types::add(&bridge, "Fairy", 13).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let light = types::add(&bridge, "Light", 13).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), fairy);
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), light);
+    let bridge = reopen(bridge, &dir);
+    types::remove(&bridge, fairy).unwrap();
+    let bridge = reopen(bridge, &dir);
+    let rec = bridge.member(Member { arc: 16, index: 493 }).unwrap();
+    assert_eq!(rec[32], 18, "Light's form is now form 17");
+    types::remove(&bridge, fairy).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert!(bridge.project().unwrap().member(16, 493).is_none());
+}

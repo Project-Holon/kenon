@@ -712,6 +712,73 @@ fn remake_type_pictures(state: State<AppState>, id: usize, from: usize) -> Resul
     Ok(())
 }
 
+/// Adds "<Type> Plate" for an added type and makes it the type's plate.
+#[tauri::command]
+fn add_type_plate(state: State<AppState>, id: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let mut params = kenon_core::handlers::params("item", kenon_core::data_root::eidos_handler_params().as_deref())?;
+    if let Some(project) = bridge.project() {
+        params.add_types(&mod_type_words(project));
+    }
+    let item = kenon_core::type_items::add_plate(&bridge, id, &params).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(item)
+}
+
+/// Adds "<Type> Drive" for an added type and a Genesect form for it (a
+/// copy of the Douse Drive form to recolour).
+#[tauri::command]
+fn add_type_drive(state: State<AppState>, id: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let form = kenon_core::species_add::add_game_form(&bridge, GENESECT, 1).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    let bridge = state.need_bridge()?;
+    let item = kenon_core::type_items::add_drive(&bridge, id, form).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(item)
+}
+
+const ARCEUS: usize = 493;
+const GENESECT: usize = 649;
+
+/// How many forms a game Pokemon has in this mod (its own included).
+#[tauri::command]
+fn game_form_count(state: State<AppState>, species: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let rec = bridge
+        .member(kenon_core::bridge::Member { arc: 16, index: species })
+        .map_err(|e| e.to_string())?;
+    Ok(rec.get(32).copied().unwrap_or(1) as usize)
+}
+
+/// Adds Arceus's form for an added type: form number = the type's, made
+/// from Arceus's own colours.
+#[tauri::command]
+fn add_arceus_form(state: State<AppState>, id: usize) -> Result<usize, String> {
+    let bridge = state.need_bridge()?;
+    let count = game_form_count(state.clone(), ARCEUS)?;
+    if count != id {
+        return Err(format!("Arceus has {count} forms: add the forms of the types before this one first"));
+    }
+    let form = kenon_core::species_add::add_game_form(&bridge, ARCEUS, 0).map_err(|e| e.to_string())?;
+    reload_project(&state)?;
+    Ok(form)
+}
+
+/// Sets or clears an added type's plate (an item).
+#[tauri::command]
+fn set_type_plate(state: State<AppState>, id: usize, item: Option<usize>) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::type_items::set_plate(&bridge, id, item).map_err(|e| e.to_string())
+}
+
+/// Sets or clears an added type's drive (an item and a Genesect form).
+#[tauri::command]
+fn set_type_drive(state: State<AppState>, id: usize, drive: Option<(usize, usize)>) -> Result<(), String> {
+    let bridge = state.need_bridge()?;
+    kenon_core::type_items::set_drive(&bridge, id, drive).map_err(|e| e.to_string())
+}
+
 /// Sets an added type's colours (RRGGBB).
 #[tauri::command]
 fn set_type_colors(state: State<AppState>, id: usize, fill: String, border: String) -> Result<(), String> {
@@ -2618,6 +2685,12 @@ pub fn run() {
             set_type_chart,
             add_type,
             type_look,
+            add_type_plate,
+            add_type_drive,
+            game_form_count,
+            add_arceus_form,
+            set_type_plate,
+            set_type_drive,
             remake_type_pictures,
             set_type_colors,
             import_type_icon,
