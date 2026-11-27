@@ -888,9 +888,32 @@ fn a_new_type_joins_the_chart_and_follows_a_removal() {
         ..Default::default()
     };
     tables::save(&bridge, "species", 25, &edit).unwrap();
+
+    // Its word in types.txt, offered to `type=` keys: Growl works like
+    // Flower Shield for Fairy types.
+    use kenon_core::handlers;
+    kenon_core::type_pictures::create(&bridge, fairy, psychic, "Fairy", None).unwrap();
+    let project = bridge.project().unwrap().clone();
+    let words = kenon_core::type_pictures::key_names(&project);
+    assert_eq!(words, vec![(17, "fairy".to_string())]);
+    let types_txt = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
+    assert!(types_txt.contains("17 = name fairy icon "), "{types_txt}");
+    let mut params = handlers::params("move", None).unwrap();
+    let part = |keys: &[(&str, &str)]| handlers::Part {
+        base: handlers::NAMED_FIRST + 1,
+        keys: keys.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+    };
+    assert!(handlers::set(&project, "move", &params, 45, Some(vec![part(&[("type", "fairy")])])).is_err());
+    params.add_types(&["fairy".to_string()]);
+    handlers::set(&project, "move", &params, 45, Some(vec![part(&[("type", "fairy")])])).unwrap();
+    assert_eq!(handlers::rows(&project, "move")[&45][0].keys["type"], "fairy");
+
     types::remove(&bridge, fairy).unwrap();
     let bridge = reopen(bridge, &dir);
     assert_eq!(types::count(&bridge), 17);
+    // The key naming it goes; Growl keeps Flower Shield's own type.
+    let project = bridge.project().unwrap().clone();
+    assert!(handlers::rows(&project, "move")[&45][0].keys.is_empty());
     let rec = bridge.member(Member { arc: 16, index: 25 }).unwrap();
     assert_eq!(rec[6], 0);
     let chart = types::chart(&bridge).unwrap();
@@ -971,7 +994,7 @@ fn a_type_icon_is_spelled_with_the_games_letters() {
     // Pink: the colours change, the icon keeps its pixels.
     pics::set_colors(&bridge, fairy, "F6A5D5", "9C4A7B").unwrap();
     let text = std::fs::read_to_string(dir.path().join("m/eidos/tables/types.txt")).unwrap();
-    assert!(text.contains("17 = icon ") && text.contains("colors F6A5D5 9C4A7B"), "{text}");
+    assert!(text.contains("17 = name fairy icon ") && text.contains("colors F6A5D5 9C4A7B"), "{text}");
 }
 
 #[test]

@@ -91,6 +91,10 @@ fn scale(c: u16, k: f32) -> u16 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeLook {
+    /// The word eidos files use for the type (`type=fairy`), kept when the
+    /// type is renamed so lines that name it still work.
+    #[serde(default)]
+    pub name: Option<String>,
     pub icon: usize,
     /// RRGGBB for icon indices 1, 2, ...
     pub colors: Vec<String>,
@@ -103,13 +107,14 @@ pub struct TypeLook {
 
 fn parse(line: &str) -> Option<TypeLook> {
     let words: Vec<&str> = line.split('#').next()?.split_whitespace().collect();
-    let mut look = TypeLook { icon: 0, colors: vec![], label: None, button: vec![], hof: (HOF[0].0, HOF[0].1), color: String::new() };
+    let mut look = TypeLook { name: None, icon: 0, colors: vec![], label: None, button: vec![], hof: (HOF[0].0, HOF[0].1), color: String::new() };
     let mut i = 0;
-    let keys = ["icon", "colors", "label", "button", "hof", "color"];
+    let keys = ["name", "icon", "colors", "label", "button", "hof", "color"];
     while i < words.len() {
         let key = words[i];
         let vals: Vec<&str> = words[i + 1..].iter().take_while(|w| !keys.contains(w)).copied().collect();
         match key {
+            "name" => look.name = Some(vals.first()?.to_string()),
             "icon" => look.icon = vals.first()?.parse().ok()?,
             "colors" => look.colors = vals.iter().map(|s| s.to_string()).collect(),
             "label" => look.label = vals.first()?.parse().ok(),
@@ -124,7 +129,8 @@ fn parse(line: &str) -> Option<TypeLook> {
 }
 
 fn format(l: &TypeLook) -> String {
-    let mut s = format!("icon {} colors {}", l.icon, l.colors.join(" "));
+    let mut s = l.name.as_ref().map(|n| format!("name {n} ")).unwrap_or_default();
+    s += &format!("icon {} colors {}", l.icon, l.colors.join(" "));
     if let Some(m) = l.label {
         s += &format!(" label {m}");
     }
@@ -147,7 +153,7 @@ pub fn all(project: &Project) -> BTreeMap<usize, TypeLook> {
 fn write_all(project: &Project, rows: &BTreeMap<usize, TypeLook>) -> Result<(), Error> {
     let lines = rows.iter().map(|(t, l)| (*t, format(l))).collect();
     project
-        .write_table_lines(TABLE, &lines, "<type> = icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
+        .write_table_lines(TABLE, &lines, "<type> = name <word> icon <a/0/8/3 member> colors <RRGGBB...> label <a/1/5/9 member> button <6 RRGGBB> hof <particle> <palette> color <RRGGBB>.")
         .map_err(|e| Error::Missing(e.to_string()))
 }
 
@@ -465,7 +471,9 @@ pub fn create(bridge: &Bridge, t: usize, from: usize, name: &str, fill: Option<u
     project.write_member(ICONS, icon_m, &icon_file(bridge, &icon)?).map_err(io)?;
     project.write_member(LABELS, label_m, &label_file(bridge, &icon)?).map_err(io)?;
     let hof = if from < 17 { HOF[from] } else { rows.get(&from).map(|l| l.hof).unwrap_or(HOF[0]) };
+    let taken_names: Vec<String> = rows.iter().filter(|(k, _)| **k != t).filter_map(|(_, l)| l.name.clone()).collect();
     let look = TypeLook {
+        name: rows.get(&t).and_then(|l| l.name.clone()).or_else(|| Some(key_word(name, &taken_names))),
         icon: icon_m,
         colors: vec![hex(fill), hex(border)],
         label: Some(label_m),
@@ -479,6 +487,39 @@ pub fn create(bridge: &Bridge, t: usize, from: usize, name: &str, fill: Option<u
     write_all(project, &rows)?;
     bridge.invalidate();
     Ok(look)
+}
+
+/// The word for a type's name in eidos files: lowercase a-z, 0-9 and _,
+/// not starting with a digit, unlike the game's 17 and the mod's others.
+pub fn key_word(display: &str, taken: &[String]) -> String {
+    let mut w: String = display
+        .chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| if c.is_ascii_lowercase() || c.is_ascii_digit() { c } else { '_' })
+        .collect();
+    w = w.trim_matches('_').to_string();
+    if w.is_empty() {
+        w = "type".into();
+    }
+    if w.starts_with(|c: char| c.is_ascii_digit()) {
+        w.insert_str(0, "type_");
+    }
+    let used = |x: &str| GAME_TYPE_WORDS.contains(&x) || taken.iter().any(|t| t == x);
+    if !used(&w) {
+        return w;
+    }
+    (2..).map(|n| format!("{w}_{n}")).find(|x| !used(x)).unwrap()
+}
+
+/// The game's 17 type words in eidos files.
+pub const GAME_TYPE_WORDS: [&str; 17] = [
+    "normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel", "fire", "water", "grass",
+    "electric", "psychic", "ice", "dragon", "dark",
+];
+
+/// The added types' words, by type.
+pub fn key_names(project: &Project) -> Vec<(usize, String)> {
+    all(project).into_iter().filter_map(|(t, l)| Some((t, l.name?))).collect()
 }
 
 /// Sets an added type's colours (fill and border) and the button shades

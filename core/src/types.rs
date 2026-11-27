@@ -232,6 +232,10 @@ pub fn remove(bridge: &Bridge, id: usize) -> Result<crate::content::Removed, Err
         .map_err(|e| Error::Missing(e.to_string()))?;
     set_limit(project, (n - 1 > GAME_TYPES).then(|| n - 2))?;
     write_chart(bridge, project, &new)?;
+    let word = crate::type_pictures::all(project).get(&id).and_then(|l| l.name.clone());
+    if crate::handlers::remove_type_keys(project, word.as_deref(), id).map_err(Error::Missing)? {
+        report.updated.push("Battle effects".into());
+    }
     crate::type_pictures::remove_type(project, id)?;
     bridge.invalidate();
     Ok(report)

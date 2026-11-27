@@ -913,12 +913,21 @@ fn content_remove(
 /// The battle handler reference for a table (moves, items, abilities): the
 /// copy the last eidos run left, else the bundled one.
 #[tauri::command]
-fn handler_params(table: String) -> Result<kenon_core::handlers::Params, String> {
+fn handler_params(state: State<AppState>, table: String) -> Result<kenon_core::handlers::Params, String> {
     let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
-    kenon_core::handlers::params(
+    let mut params = kenon_core::handlers::params(
         kind,
         kenon_core::data_root::eidos_handler_params().as_deref(),
-    )
+    )?;
+    if let Some(project) = state.need_bridge().ok().and_then(|b| b.project().cloned()) {
+        params.add_types(&mod_type_words(&project));
+    }
+    Ok(params)
+}
+
+/// The mod's added types' words for `type=` keys.
+fn mod_type_words(project: &kenon_core::project::Project) -> Vec<String> {
+    kenon_core::type_pictures::key_names(project).into_iter().map(|(_, w)| w).collect()
 }
 
 /// A move's animation: the one it plays and the one it would play with no
@@ -1146,10 +1155,11 @@ fn set_handler(
     let bridge = state.need_bridge()?;
     let kind = kenon_core::handlers::kind_of(&table).ok_or("no battle handlers")?;
     let project = bridge.project().ok_or("no project is open")?;
-    let params = kenon_core::handlers::params(
+    let mut params = kenon_core::handlers::params(
         kind,
         kenon_core::data_root::eidos_handler_params().as_deref(),
     )?;
+    params.add_types(&mod_type_words(project));
     kenon_core::handlers::set(project, kind, &params, id, row)
 }
 

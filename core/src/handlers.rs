@@ -77,6 +77,20 @@ pub fn params(kind: &str, file: Option<&Path>) -> Result<Params, String> {
     })
 }
 
+impl Params {
+    /// Adds a mod's own type words to the `type` key's values (eidos lists
+    /// only the game's 17).
+    pub fn add_types(&mut self, words: &[String]) {
+        if let Some(list) = self.keys.get_mut("type").and_then(Value::as_array_mut) {
+            for w in words {
+                if !list.iter().any(|v| v.as_str() == Some(w)) {
+                    list.push(Value::String(w.clone()));
+                }
+            }
+        }
+    }
+}
+
 /// One base of a line and the numbers changed in it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Part {
@@ -313,6 +327,42 @@ pub fn set(
         Some(before) => crate::move_anims::keep_after_handler_change(project, id, before),
         None => Ok(()),
     }
+}
+
+/// After an added type is removed: `type=` keys naming it (by its word or
+/// number) go, so the base's own type applies; numbers past it move down.
+pub fn remove_type_keys(project: &Project, word: Option<&str>, id: usize) -> Result<bool, String> {
+    let mut changed = false;
+    for kind in ["move", "ability", "item"] {
+        let mut all = rows(project, kind);
+        let mut touched = false;
+        for row in all.values_mut() {
+            for part in row.iter_mut() {
+                let mut keys = BTreeMap::new();
+                for (k, v) in std::mem::take(&mut part.keys) {
+                    if k.split('.').next() != Some("type") {
+                        keys.insert(k, v);
+                        continue;
+                    }
+                    let n: Option<usize> = v.parse().ok();
+                    if Some(v.as_str()) == word || n == Some(id) {
+                        touched = true;
+                    } else if let Some(n) = n.filter(|&n| n > id) {
+                        touched = true;
+                        keys.insert(k, (n - 1).to_string());
+                    } else {
+                        keys.insert(k, v);
+                    }
+                }
+                part.keys = keys;
+            }
+        }
+        if touched {
+            write(project, kind, &all)?;
+            changed = true;
+        }
+    }
+    Ok(changed)
 }
 
 /// After an added entry is removed: its row goes and the later ids move
