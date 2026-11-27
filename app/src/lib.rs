@@ -409,6 +409,28 @@ fn import_text(path: PathBuf) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("could not read the file: {e}"))
 }
 
+/// Sets one translation (game text, the mod's name or description, a
+/// string, an interface word); an empty text removes it.
+#[tauri::command]
+fn set_translation(
+    state: State<AppState>,
+    lang: String,
+    source: String,
+    key: String,
+    text: String,
+) -> Result<(), String> {
+    let project = state
+        .open
+        .read()
+        .unwrap()
+        .project
+        .clone()
+        .ok_or("open a project first")?;
+    kenon_core::translations::set_one(&project, &lang, &source, &key, &text)
+        .map_err(|e| e.to_string())?;
+    reload_project(&state)
+}
+
 /// Every line the mod sets, with its translation in `lang`.
 #[tauri::command]
 fn translation_rows(
@@ -2966,6 +2988,7 @@ pub fn run() {
             mod_lang_lines,
             set_mod_lang_lines,
             translation_rows,
+            set_translation,
             official_names,
             import_text,
             mod_min_eidos,
