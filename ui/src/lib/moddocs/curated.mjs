@@ -90,6 +90,9 @@ export default {
     EIDOS_WORLD_: "What a world event is about (world).",
     EIDOS_AP_: "What an Archipelago event is about (ap).",
     EIDOS_MOVE_FIELD_RANK_: "The stat changes of a move (move_value).",
+    EIDOS_WEB_: "How a web request ended (web).",
+    EIDOS_GAME_HASH_: "The kinds of game hash (game_hash).",
+    EIDOS_POPUP_: "A pop-up's icon (popup).",
   },
 
   // Per event: `facts` are details v4 does not carry; `functions` are the calls
@@ -258,6 +261,31 @@ export default {
     mon_import: { what: "Reads a Pokemon from a buffer into the party, or a box when the party is full.", result: "0 on success.", tiers: ["c"] },
     panel_set: { what: "Sets one of the 16 lines of the run-status panel beside the screens.", tiers: ["c"] },
     panel_clear: { what: "Clears the panel.", tiers: ["c"] },
+    web_request: {
+      what: "Sends an HTTPS request beside the game: a GET without a body or a type, else a POST of up to 64 KB (type application/x-www-form-urlencoded when none is given). The server's certificate is checked. The answer comes on a later frame as the web event with the ticket.",
+      result: "0 with the ticket written to ticket, -1 for an address that is not https://, a body that is too large, or four requests already waiting.",
+      tiers: ["c"],
+    },
+    web_read: { what: "Copies the answer's body, or a short reason for a failed request, inside the web handler of the mod that made the request. The bytes are freed after the handlers.", result: "The whole size, or -1 outside that handler.", tiers: ["c"] },
+    time_utc: { what: "The seconds since 1970, in UTC.", tiers: ["c"] },
+    ticks_ms: { what: "A millisecond count that only goes up, for timing. It is not a date.", tiers: ["c"] },
+    game_hash: {
+      what: "Writes the RetroAchievements hash of the game in force (kind EIDOS_GAME_HASH_RA): 32 lower-case hex characters and a 0, so size must be at least 33.",
+      result: "32, or -1 for an unknown kind or when the game's files cannot be read.",
+      tiers: ["c"],
+    },
+    popup: {
+      what: "Queues a pop-up with a title and a text. The one-screen interface shows it at the top right for four seconds, then the next one. Texts are cut at 63 and 159 bytes. The two-screen layout shows no pop-ups.",
+      result: "0, or -1 when eight wait or both texts are empty.",
+      tiers: ["c"],
+    },
+    setting_show: { what: "Sets the text of one of the mod's show rows in Settings: up to 63 bytes, no line break. An empty text hides the row.", result: "0, or -1 when the mod declares no such row.", tiers: ["c"] },
+    setting_set_text: { what: "Sets one of the mod's text or secret options. Clear a password as soon as it is read: setting_set_text(\"ra.pass\", \"\").", tiers: ["c"] },
+    hardcore_allowed: {
+      what: "Says whether nothing in force changes the game but the calling mod: no other mod running and no test switch that changes the game.",
+      result: "1 when allowed, else 0 with the reason written to why.",
+      tiers: ["c"],
+    },
     timer_start: { what: "Starts the mod's timer. It counts game time, not wall time.", tiers: ["c"] },
     timer_stop: { what: "Stops the timer.", tiers: ["c"] },
     timer_ms: { what: "The timer in milliseconds.", tiers: ["c"] },
@@ -360,6 +388,8 @@ export default {
     { title: "Modes, text options and the tracker", fns: ["mode_get","mode_code","setting_text","player_name","tracker_set"] },
     { title: "World sessions", fns: ["world_create","world_owner","world_join","world_checks","world_leave","world_read","peer_position","townmap_marker_set","townmap_marker_clear"] },
     { title: "The Archipelago link", fns: ["ap_link","ap_send","ap_read"] },
+    { title: "The web and the clock", fns: ["web_request","web_read","time_utc","ticks_ms","game_hash"] },
+    { title: "Pop-ups and Settings rows", fns: ["popup","setting_show","setting_set_text","hardcore_allowed"] },
   ],
 
   actions: [
@@ -373,6 +403,7 @@ export default {
     { name: "box", syntax: "do box <mon or party position> <n>", what: "Moves a party Pokemon to box n, counted from 0. It is applied at the next field step. It fails when the box is full, and not when it would leave only eggs.", example: "do box event.mon 23" },
     { name: "withdraw", syntax: "do withdraw <box> <slot>", what: "Moves the Pokemon at a box and slot to the party. It is applied at the next field step. It fails when the party is full or the slot is empty.", example: "do withdraw 0 1" },
     { name: "gift", syntax: "do gift \"<card file>\"", what: "Puts a Wonder Card (a .pgf file of 204 bytes in the mod's folder) in the save's card album, as a Mystery Gift does; the delivery man in a Pokemon Centre then hands over its gift. The file is checked when the rule loads, so a missing or wrong file stops the rule. A save gets each card once: a card it received before is not added again, even when the player deleted it. Run it at save.load and game.new.", example: "do gift \"cards/liberty_pass.pgf\"" },
+    { name: "ask", syntax: "do ask <text> [<tag>]", what: "Asks the player a yes/no question with the game's menu. The answer comes as the event confirm.done: event.answer is 1 for yes, 0 for no, and event.tag is the tag (0 when none). A rule sees only its own mod's answers.", example: "do ask @q.trade 2" },
     { name: "give", syntax: "do give <item> <count>", what: "Puts a number of an item in the bag at once. Nothing happens when the bag cannot take it, and the rule stops for that firing.", example: "do give 17 5" },
   ],
 

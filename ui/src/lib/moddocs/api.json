@@ -1,7 +1,7 @@
 {
  "meta": {
   "generatedBy": "tools/mod-docs.mjs",
-  "eidosRevision": "fdfe88c",
+  "eidosRevision": "fa7ea81",
   "apiVersion": 7,
   "apiStatus": "open",
   "sources": [
@@ -322,7 +322,7 @@
    "name": "map.warp",
    "category": "World",
    "since": 3,
-   "where": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0",
+   "where": "EVENT_MAPCHANGE_ChangeFieldEvent 0x021841C0, its first step (the map change runs it every frame with its step; step 0 is before the old map goes)",
    "refuse": null,
    "modifyText": "destination",
    "details": null,
@@ -462,7 +462,7 @@
    "name": "trainer.spotted",
    "category": "World",
    "since": 3,
-   "where": "EVENT_TRAINER_EYE_Check 0x021AE0CC",
+   "where": "EVENT_TRAINER_EYE_Check 0x021AE0CC, when the game's own search (EVENT_TRAINER_EYE_FindTrainer) finds a trainer who sees the player; the field asks at every step",
    "refuse": "the trainer does not see the player (the function returns no event)",
    "modifyText": null,
    "details": null,
@@ -693,7 +693,7 @@
    "name": "encounter.wild",
    "category": "Encounters",
    "since": 3,
-   "where": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C",
+   "where": "the return of FIELD_ENCOUNT_CreateZoneWildMons 0x021A954C; roamers the return of FIELD_ENCOUNT_PickRoamer 0x021A957C when it picks one (every wild check asks it first)",
    "refuse": "no battle; the player keeps walking; the payload names the area, the method (grass, surf, fishing, shaking grass) and the slot",
    "modifyText": "species, level, shiny; the second Pokemon of a double; a reroll",
    "details": null,
@@ -817,7 +817,7 @@
    "name": "encounter.static",
    "category": "Encounters",
    "since": 3,
-   "where": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8",
+   "where": "EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 when a script starts the battle (FIELD_ENCOUNT_StartScriptedWild, the one caller that passes 1 as the fourth argument); the walking, fishing and Entree Forest wild battles go through the same function and fire encounter.wild only",
    "refuse": null,
    "modifyText": "species, level",
    "details": null,
@@ -1965,7 +1965,7 @@
    "name": "battle.start",
    "category": "Battle",
    "since": 3,
-   "where": "BTL_SETUP_Create 0x02013090 (arm9); the return of the setups: the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021), the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010)",
+   "where": "once per battle: the return of the first setup that builds it, the wild BTL_SETUP_SetupWild 0x0201347C (arm9), the trainer FIELD_ENCOUNT_SetupTrainerBattle 0x021AA5CC (ov021) or the scripted EVENT_BATTLE_CreateScriptedBattle 0x0216E7C8 (ov010); for a battle none of them builds, the first frame of the battle (below)",
    "refuse": null,
    "modifyText": "format, levels; the payload names the trainer ids and whether the battle is wild",
    "details": null,
@@ -4791,6 +4791,162 @@
     "party_get"
    ],
    "recipes": []
+  },
+  {
+   "name": "web",
+   "category": "Progress",
+   "since": 7,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "Every mod with a handler sees it; only the mod that made the request reads its bytes (web_read, inside the handler), so another mod never sees what a server answered it.  status is the server's HTTP status, or EIDOS_WEB_FAILED when no answer came (no connection, the certificate, a timeout, too large).",
+   "notes": [],
+   "payload": [
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the request it answers (web_request's *ticket)",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "status",
+     "type": "int32_t",
+     "meaning": "the HTTP status, or EIDOS_WEB_FAILED",
+     "writable": false,
+     "cName": "status",
+     "cType": "s32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "size",
+     "type": "uint32_t",
+     "meaning": "the bytes web_read gives: the body, or a short reason",
+     "writable": false,
+     "cName": "size",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint32_t",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u32",
+     "ruleKind": "int"
+    }
+   ],
+   "cStruct": "EidosWeb",
+   "numId": 127,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:web",
+   "when": "The answer to a web request a mod made (services table, web_request).",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "setting.button",
+   "category": "Progress",
+   "since": 7,
+   "where": "",
+   "refuse": null,
+   "modifyText": null,
+   "details": "Every mod with a handler sees it; key is the button's key, so a mod acts on its own.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "key",
+     "type": "uint8_t[64]",
+     "meaning": "the button's key, NUL-terminated",
+     "writable": false,
+     "cName": "key",
+     "cType": "u8[64]",
+     "ruleKind": "list"
+    }
+   ],
+   "cStruct": "EidosSettingButton",
+   "numId": 128,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:setting.button",
+   "when": "The player chose a button row of a mod's settings (docs/mod-services.md, \"Mod settings\").",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
+  },
+  {
+   "name": "confirm.done",
+   "category": "Progress",
+   "since": 7,
+   "where": "the player's answer to a question a mod asked with confirm_ask or a rule's ask",
+   "refuse": null,
+   "modifyText": null,
+   "details": "Every code mod with a handler sees it and knows its own by the ticket; a rule sees only its own mod's answers and knows them by the tag it gave.",
+   "notes": [],
+   "payload": [
+    {
+     "name": "ticket",
+     "type": "uint32_t",
+     "meaning": "the number confirm_ask gave",
+     "writable": false,
+     "cName": "ticket",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "tag",
+     "type": "uint32_t",
+     "meaning": "the asker's own number for the question (confirm_ask's tag, a rule's ask tag; 0 when none)",
+     "writable": false,
+     "cName": "tag",
+     "cType": "u32",
+     "ruleKind": "int"
+    },
+    {
+     "name": "answer",
+     "type": "uint8_t",
+     "meaning": "1 yes, 0 no (B is no)",
+     "writable": false,
+     "cName": "answer",
+     "cType": "u8",
+     "ruleKind": "int"
+    },
+    {
+     "name": "pad",
+     "type": "uint8_t[3]",
+     "meaning": "Padding; it holds nothing.",
+     "writable": false,
+     "cName": "pad",
+     "cType": "u8[3]",
+     "ruleKind": "list"
+    }
+   ],
+   "cStruct": "EidosConfirmDone",
+   "numId": 129,
+   "refusable": false,
+   "ruleEvent": true,
+   "id": "event:confirm.done",
+   "when": "The player answered a question a mod asked with confirm_ask (docs/mod-services.md, \"Messages\").",
+   "functions": [
+    "zone",
+    "flag",
+    "flag_set",
+    "message"
+   ],
+   "recipes": []
   }
  ],
  "enums": [
@@ -5435,6 +5591,48 @@
     {
      "name": "EIDOS_AI_MOVE",
      "value": 2
+    }
+   ]
+  },
+  {
+   "title": "How a web request ended (web).",
+   "prefix": "EIDOS_WEB_",
+   "members": [
+    {
+     "name": "EIDOS_WEB_FAILED",
+     "value": -1
+    }
+   ]
+  },
+  {
+   "title": "The kinds of game hash (game_hash).",
+   "prefix": "EIDOS_GAME_HASH_",
+   "members": [
+    {
+     "name": "EIDOS_GAME_HASH_RA",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "title": "A pop-up's icon (popup).",
+   "prefix": "EIDOS_POPUP_",
+   "members": [
+    {
+     "name": "EIDOS_POPUP_NONE",
+     "value": 0
+    },
+    {
+     "name": "EIDOS_POPUP_TROPHY",
+     "value": 1
+    },
+    {
+     "name": "EIDOS_POPUP_INFO",
+     "value": 2
+    },
+    {
+     "name": "EIDOS_POPUP_WARNING",
+     "value": 3
     }
    ]
   },
@@ -6440,6 +6638,12 @@
    "example": "do gift \"cards/liberty_pass.pgf\""
   },
   {
+   "name": "ask",
+   "syntax": "do ask <text> [<tag>]",
+   "what": "Asks the player a yes/no question with the game's menu. The answer comes as the event confirm.done: event.answer is 1 for yes, 0 for no, and event.tag is the tag (0 when none). A rule sees only its own mod's answers.",
+   "example": "do ask @q.trade 2"
+  },
+  {
    "name": "give",
    "syntax": "do give <item> <count>",
    "what": "Puts a number of an item in the bag at once. Nothing happens when the bag cannot take it, and the rule stops for that firing.",
@@ -7318,7 +7522,10 @@
     "egg.species",
     "text_input.done",
     "world",
-    "ap"
+    "ap",
+    "web",
+    "setting.button",
+    "confirm.done"
    ],
    "fromC": true,
    "since": 0
@@ -7365,7 +7572,10 @@
     "egg.species",
     "text_input.done",
     "world",
-    "ap"
+    "ap",
+    "web",
+    "setting.button",
+    "confirm.done"
    ],
    "fromC": true,
    "since": 0
@@ -7412,7 +7622,10 @@
     "egg.species",
     "text_input.done",
     "world",
-    "ap"
+    "ap",
+    "web",
+    "setting.button",
+    "confirm.done"
    ],
    "fromC": true,
    "since": 0
@@ -8063,7 +8276,7 @@
    "kind": "service",
    "name": "message",
    "cName": "eidos_message",
-   "group": "Messages",
+   "group": "Messages and questions",
    "signature": "void eidos_message(const char *text)",
    "params": [
     "const char *text"
@@ -8152,7 +8365,10 @@
     "egg.species",
     "text_input.done",
     "world",
-    "ap"
+    "ap",
+    "web",
+    "setting.button",
+    "confirm.done"
    ],
    "fromC": true,
    "since": 0
@@ -8162,13 +8378,13 @@
    "kind": "service",
    "name": "confirm",
    "cName": "eidos_confirm",
-   "group": "Messages",
+   "group": "Messages and questions",
    "signature": "int32_t eidos_confirm(const char *text)",
    "params": [
     "const char *text"
    ],
-   "what": "Asks a yes/no question in the field. In battle it answers 0 at once.",
-   "result": "1 for yes.",
+   "what": "Answers no at once. Use confirm_ask for a question the player answers.",
+   "result": "Always 0.",
    "notes": [],
    "tiers": [
     "c"
@@ -9698,6 +9914,272 @@
    "events": [],
    "fromC": true,
    "since": 0
+  },
+  {
+   "id": "fn:web_request",
+   "kind": "service",
+   "name": "web_request",
+   "cName": "eidos_web_request",
+   "group": "The web and the clock",
+   "signature": "int32_t eidos_web_request(const char *url, const void *body, uint32_t body_size, const char *content_type, uint32_t *ticket)",
+   "params": [
+    "const char *url",
+    "const void *body",
+    "uint32_t body_size",
+    "const char *content_type",
+    "uint32_t *ticket"
+   ],
+   "what": "Sends an HTTPS request beside the game: a GET without a body or a type, else a POST of up to 64 KB (type application/x-www-form-urlencoded when none is given). The server's certificate is checked. The answer comes on a later frame as the web event with the ticket.",
+   "result": "0 with the ticket written to ticket, -1 for an address that is not https://, a body that is too large, or four requests already waiting.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:web_read",
+   "kind": "service",
+   "name": "web_read",
+   "cName": "eidos_web_read",
+   "group": "The web and the clock",
+   "signature": "int32_t eidos_web_read(void *out, uint32_t size)",
+   "params": [
+    "void *out",
+    "uint32_t size"
+   ],
+   "what": "Copies the answer's body, or a short reason for a failed request, inside the web handler of the mod that made the request. The bytes are freed after the handlers.",
+   "result": "The whole size, or -1 outside that handler.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:time_utc",
+   "kind": "service",
+   "name": "time_utc",
+   "cName": "eidos_time_utc",
+   "group": "The web and the clock",
+   "signature": "int64_t eidos_time_utc(void)",
+   "params": [],
+   "what": "The seconds since 1970, in UTC.",
+   "result": null,
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:ticks_ms",
+   "kind": "service",
+   "name": "ticks_ms",
+   "cName": "eidos_ticks_ms",
+   "group": "The web and the clock",
+   "signature": "uint64_t eidos_ticks_ms(void)",
+   "params": [],
+   "what": "A millisecond count that only goes up, for timing. It is not a date.",
+   "result": null,
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:game_hash",
+   "kind": "service",
+   "name": "game_hash",
+   "cName": "eidos_game_hash",
+   "group": "The web and the clock",
+   "signature": "int32_t eidos_game_hash(uint32_t kind, char *out, uint32_t size)",
+   "params": [
+    "uint32_t kind",
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Writes the RetroAchievements hash of the game in force (kind EIDOS_GAME_HASH_RA): 32 lower-case hex characters and a 0, so size must be at least 33.",
+   "result": "32, or -1 for an unknown kind or when the game's files cannot be read.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:popup",
+   "kind": "service",
+   "name": "popup",
+   "cName": "eidos_popup",
+   "group": "Pop-ups and Settings rows",
+   "signature": "int32_t eidos_popup(const char *title, const char *text, uint32_t icon)",
+   "params": [
+    "const char *title",
+    "const char *text",
+    "uint32_t icon"
+   ],
+   "what": "Queues a pop-up with a title and a text. The one-screen interface shows it at the top right for four seconds, then the next one. Texts are cut at 63 and 159 bytes. The two-screen layout shows no pop-ups.",
+   "result": "0, or -1 when eight wait or both texts are empty.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:setting_show",
+   "kind": "service",
+   "name": "setting_show",
+   "cName": "eidos_setting_show",
+   "group": "Pop-ups and Settings rows",
+   "signature": "int32_t eidos_setting_show(const char *key, const char *text)",
+   "params": [
+    "const char *key",
+    "const char *text"
+   ],
+   "what": "Sets the text of one of the mod's show rows in Settings: up to 63 bytes, no line break. An empty text hides the row.",
+   "result": "0, or -1 when the mod declares no such row.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:setting_set_text",
+   "kind": "service",
+   "name": "setting_set_text",
+   "cName": "eidos_setting_set_text",
+   "group": "Pop-ups and Settings rows",
+   "signature": "int32_t eidos_setting_set_text(const char *key, const char *text)",
+   "params": [
+    "const char *key",
+    "const char *text"
+   ],
+   "what": "Sets one of the mod's text or secret options. Clear a password as soon as it is read: setting_set_text(\"ra.pass\", \"\").",
+   "result": null,
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:hardcore_allowed",
+   "kind": "service",
+   "name": "hardcore_allowed",
+   "cName": "eidos_hardcore_allowed",
+   "group": "Pop-ups and Settings rows",
+   "signature": "int32_t eidos_hardcore_allowed(char *why, uint32_t size)",
+   "params": [
+    "char *why",
+    "uint32_t size"
+   ],
+   "what": "Says whether nothing in force changes the game but the calling mod: no other mod running and no test switch that changes the game.",
+   "result": "1 when allowed, else 0 with the reason written to why.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:string_get",
+   "kind": "service",
+   "name": "string_get",
+   "cName": "eidos_string_get",
+   "group": "The mod's own text",
+   "signature": "int32_t eidos_string_get(const char *key, char *out, uint32_t size)",
+   "params": [
+    "const char *key",
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Copies the mod's text for a key from strings.<lang>.txt for the game's language, else strings.txt. The text is cut to size, never inside a character. {1} to {9} are places for the mod's own values.",
+   "result": "The text's whole length, or -1 when no file has the key.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:string_language",
+   "kind": "service",
+   "name": "string_language",
+   "cName": "eidos_string_language",
+   "group": "The mod's own text",
+   "signature": "int32_t eidos_string_language(char *out, uint32_t size)",
+   "params": [
+    "char *out",
+    "uint32_t size"
+   ],
+   "what": "Writes the game's language code: en, fr, de, it or es.",
+   "result": "2, or -1 when size is under 3.",
+   "notes": [],
+   "tiers": [
+    "c"
+   ],
+   "rule": null,
+   "events": [],
+   "fromC": true,
+   "since": 7
+  },
+  {
+   "id": "fn:confirm_ask",
+   "kind": "service",
+   "name": "confirm_ask",
+   "cName": "eidos_confirm_ask",
+   "group": "Messages and questions",
+   "signature": "int32_t eidos_confirm_ask(const char *text, uint32_t tag, uint32_t *ticket)",
+   "params": [
+    "const char *text",
+    "uint32_t tag",
+    "uint32_t *ticket"
+   ],
+   "what": "Asks a yes/no question with the game's menu, in the field or in battle, in its own turn. The answer comes later as a confirm.done event with the ticket and the tag. A mod sees only its own answers.",
+   "result": "0 when the question is queued (its ticket is written to ticket), -1 when the text is empty or 8 questions wait.",
+   "notes": [],
+   "tiers": [
+    "rules",
+    "c"
+   ],
+   "rule": "ask \"text\" tag",
+   "events": [],
+   "fromC": true,
+   "since": 7
   }
  ],
  "functionGroups": [
@@ -9851,10 +10333,18 @@
    ]
   },
   {
-   "title": "Messages",
+   "title": "Messages and questions",
    "fns": [
     "message",
+    "confirm_ask",
     "confirm"
+   ]
+  },
+  {
+   "title": "The mod's own text",
+   "fns": [
+    "string_get",
+    "string_language"
    ]
   },
   {
@@ -9977,6 +10467,25 @@
     "ap_link",
     "ap_send",
     "ap_read"
+   ]
+  },
+  {
+   "title": "The web and the clock",
+   "fns": [
+    "web_request",
+    "web_read",
+    "time_utc",
+    "ticks_ms",
+    "game_hash"
+   ]
+  },
+  {
+   "title": "Pop-ups and Settings rows",
+   "fns": [
+    "popup",
+    "setting_show",
+    "setting_set_text",
+    "hardcore_allowed"
    ]
   }
  ],
@@ -12825,6 +13334,17 @@
    "key": "ov093:0x021C6564",
    "events": [],
    "proto": "void (void *, void *, unsigned int, unsigned int)",
+   "aliases": [],
+   "protoFromC": true
+  },
+  {
+   "id": "hook:ov093:0x021C7E14",
+   "name": "BTL_SERVER_FLOW_CalcPredictedMoveDamage",
+   "region": "ov093",
+   "addr": "0x021C7E14",
+   "key": "ov093:0x021C7E14",
+   "events": [],
+   "proto": "unsigned short (void *, unsigned char, unsigned char, unsigned short, int, int)",
    "aliases": [],
    "protoFromC": true
   },
