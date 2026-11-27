@@ -712,7 +712,7 @@ fn game_forms(bridge: &Bridge, g: usize) -> Result<(Vec<u8>, Vec<Planned>), Erro
                 src: None,
                 data,
                 palette: Vec::new(),
-                dex: Vec::new(),
+                dex: game_form_dex(bridge, g, f),
             }
         } else {
             let slot = GAME_FORM_SLOTS + k;
@@ -721,12 +721,46 @@ fn game_forms(bridge: &Bridge, g: usize) -> Result<(Vec<u8>, Vec<Planned>), Erro
                 src: None,
                 data: read_slot(bridge, slot),
                 palette: palette_row(icon_palette(bridge, slot)),
-                dex: Vec::new(),
+                dex: game_form_dex(bridge, g, f),
             }
         };
         out.push(p);
     }
     Ok((rec, out))
+}
+
+/// A moved form's Pokedex lines (form name, height, weight; eidos lists
+/// the forms of a species at mod slots by them): the species' height and
+/// weight, and the form's name: Arceus's form f is type f, Genesect's is
+/// its drive (the game's four, then those types.txt gives).
+fn game_form_dex(bridge: &Bridge, g: usize, f: usize) -> Vec<String> {
+    let mut d = dex_lines(bridge, g);
+    let name = match g {
+        493 => crate::tables::enum_values(bridge, "type")
+            .ok()
+            .and_then(|t| t.get(f).cloned()),
+        649 => {
+            let drive = if (1..=4).contains(&f) {
+                Some(115 + f)
+            } else {
+                bridge.project().and_then(|p| {
+                    crate::type_pictures::all(p)
+                        .values()
+                        .find_map(|l| l.drive.filter(|&(_, form)| form == f).map(|(item, _)| item))
+                })
+            };
+            drive.and_then(|i| {
+                crate::tables::enum_values(bridge, "item")
+                    .ok()
+                    .and_then(|n| n.get(i).cloned())
+            })
+        }
+        _ => None,
+    };
+    if let Some(first) = d.first_mut() {
+        *first = name.unwrap_or_default();
+    }
+    d
 }
 
 /// Adds a form to a game Pokemon whose forms share its stats (Arceus for an
@@ -757,6 +791,7 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
         return Err(Error::BadPath("a Pokemon has at most 255 forms".into()));
     }
     let kind = forms[0].kind;
+    let new_form = forms.len() + 1;
     let copy = if from == 0 {
         let data = read_slot(bridge, g);
         Planned {
@@ -764,7 +799,7 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
             src: None,
             data,
             palette: palette_row(icon_palette(bridge, g)),
-            dex: Vec::new(),
+            dex: game_form_dex(bridge, g, new_form),
         }
     } else {
         let f = forms
@@ -775,7 +810,7 @@ pub fn add_game_form(bridge: &Bridge, g: usize, from: usize) -> Result<usize, Er
             src: None,
             data: f.data.clone(),
             palette: f.palette.clone(),
-            dex: Vec::new(),
+            dex: game_form_dex(bridge, g, new_form),
         }
     };
     forms.push(copy);

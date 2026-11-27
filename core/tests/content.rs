@@ -1720,3 +1720,28 @@ fn a_copied_poke_ball_becomes_a_ball_of_its_own() {
     assert_eq!(rows.keys().copied().collect::<Vec<_>>(), vec![great]);
     assert_eq!(rows[&great].ball, Some(27));
 }
+
+#[test]
+fn moved_forms_get_their_pokedex_lines() {
+    use kenon_core::{species_add, types};
+    let Some((bridge, dir)) = bridge() else {
+        return;
+    };
+    let fairy = types::add(&bridge, "Fairy", 13).unwrap();
+    let bridge = reopen(bridge, &dir);
+    assert_eq!(species_add::add_game_form(&bridge, 493, 0).unwrap(), fairy);
+    let bridge = reopen(bridge, &dir);
+    // Arceus's forms at 715..731: lines 727 on (form name, height, weight).
+    let name = catalog::text_bank(&bridge, 2, 244).unwrap();
+    let height = catalog::text_bank(&bridge, 2, 245).unwrap();
+    assert_eq!(
+        (
+            name[727].as_str(),
+            name[727 + 12].as_str(),
+            name[727 + 16].as_str()
+        ),
+        ("Fighting", "Psychic", "Fairy")
+    );
+    assert_eq!(height[727 + 16], height[493]);
+    assert!(!height[493].is_empty());
+}
