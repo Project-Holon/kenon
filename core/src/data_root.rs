@@ -117,6 +117,14 @@ pub fn eidos_handler_params() -> Option<PathBuf> {
         .filter(|f| f.is_file())
 }
 
+/// The list of the first eidos that reads each mod feature, from the
+/// eidos that ran last: `<user folder>/features.json` (crate::min_eidos).
+pub fn eidos_features() -> Option<PathBuf> {
+    eidos_user_folder()
+        .map(|dir| dir.join("features.json"))
+        .filter(|f| f.is_file())
+}
+
 fn eidos_home() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
     if cfg!(windows) {

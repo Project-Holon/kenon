@@ -274,7 +274,24 @@ fn open_project(state: State<AppState>, root: PathBuf) -> Result<Status, String>
 fn export_bw(state: State<AppState>, path: PathBuf) -> Result<(), String> {
     let project = state.open.read().unwrap().project.clone();
     let project = project.ok_or_else(|| "open a project first".to_string())?;
+    refresh_min_eidos(&project)?;
     kenon_core::package::pack(&project.root, &path).map_err(|e| e.to_string())
+}
+
+/// Writes the mod's `eidos = ` line for what it uses (crate min_eidos).
+fn refresh_min_eidos(project: &Project) -> Result<kenon_core::min_eidos::Need, String> {
+    let features = kenon_core::min_eidos::Features::load(kenon_core::data_root::eidos_features().as_deref())?;
+    kenon_core::min_eidos::refresh(project, &features)
+}
+
+/// The oldest eidos the open mod works on, and what needs it.
+#[tauri::command]
+fn mod_min_eidos(state: State<AppState>) -> Result<kenon_core::min_eidos::Need, String> {
+    let project = state.open.read().unwrap().project.clone();
+    let project = project.ok_or_else(|| "open a project first".to_string())?;
+    let need = refresh_min_eidos(&project)?;
+    reload_project(&state)?;
+    Ok(need)
 }
 
 /// Unpacks a `.bw` into `into_dir` and returns that folder, the new
@@ -1047,6 +1064,7 @@ fn test_in_game(app: tauri::AppHandle, state: State<AppState>) -> Result<(), Str
     let code = bridge.code().map(|c| c.game_code().to_string()).unwrap_or_default();
     let profile = kenon_core::preview::profile_dir(&code).ok_or("no eidos user folder")?;
     let folder = kenon_core::preview::test_folder(&project.root).ok_or("no eidos user folder")?;
+    refresh_min_eidos(project)?;
     let args = kenon_core::preview::test_args(&profile, &project.root, &folder);
     run_eidos(app, args)
 }
@@ -2561,6 +2579,7 @@ pub fn run() {
             forget_recent,
             close_project,
             export_bw,
+            mod_min_eidos,
             import_bw,
             import_patch,
             archives,

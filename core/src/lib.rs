@@ -29,6 +29,7 @@ pub mod import;
 pub mod machines;
 pub mod move_anims;
 pub mod maprender;
+pub mod min_eidos;
 pub mod nanr;
 pub mod nftr;
 pub mod nsbmd;
